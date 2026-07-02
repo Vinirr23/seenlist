@@ -1,10 +1,10 @@
 /**
  * Tipos de domínio compartilhados entre apps/web e apps/mobile.
  *
- * A modelagem de banco (Vazio de propósito — sem banco de dados
- * ainda) continua fora daqui. O que já existe (TASK-004) são os
- * tipos do resultado de busca do TMDB, porque tanto web quanto o
- * futuro mobile vão precisar do mesmo formato normalizado.
+ * São todos moldados pelo TMDB (busca, série, filme) — os tipos de
+ * linha do banco (watched_episodes, movie_status) ficam perto de
+ * onde são usados em apps/web/lib/queries, não aqui, porque são
+ * detalhes de persistência, não domínio compartilhado entre apps.
  */
 export type MediaType = "movie" | "series";
 
@@ -37,6 +37,36 @@ export interface SeasonWithEpisodes {
   seasonNumber: number;
   name: string;
   episodes: Episode[];
+}
+
+export interface WatchProvider {
+  id: number;
+  name: string;
+  logoPath: string | null;
+}
+
+export type MovieWatchStatus = "watched" | "want_to_watch" | "watching";
+
+export interface MovieDetails {
+  id: number;
+  title: string;
+  originalTitle: string;
+  overview: string;
+  backdropPath: string | null;
+  posterPath: string | null;
+  releaseDate: string | null;
+  runtimeMinutes: number | null;
+  genres: string[];
+  voteAverage: number;
+  director: string | null;
+  cast: CastMember[];
+  studios: string[];
+  country: string | null;
+  language: string | null;
+  budget: number | null;
+  revenue: number | null;
+  watchProviders: WatchProvider[];
+  similar: MediaSearchResult[];
 }
 
 export interface SeriesDetails {

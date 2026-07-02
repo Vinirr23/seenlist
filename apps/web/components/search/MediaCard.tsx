@@ -10,8 +10,10 @@ const TYPE_LABEL: Record<MediaSearchResult["mediaType"], string> = {
 };
 
 export function MediaCard({ item }: { item: MediaSearchResult }) {
-  // TASK-004: só navegação, sem implementar a tela de destino ainda.
-  const href = item.mediaType === "movie" ? `/movie/${item.id}` : `/series/${item.id}`;
+  // TASK-006 definiu a rota real de filme como /movies/[id] (plural,
+  // igual à aba). TASK-004 tinha usado /movie/[id] (singular) —
+  // corrigido aqui pra bater com a rota que de fato existe agora.
+  const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
   const posterUrl = tmdbImage(item.posterPath, "w342");
 
   return (

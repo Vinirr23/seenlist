@@ -191,6 +191,45 @@ Authentication → Providers, e cadastrar
   `pnpm install && pnpm typecheck && pnpm lint` localmente antes de
   confiar cegamente nisso.
 
+## Página do filme (TASK-006)
+
+- **Rota real definida como `/movies/[id]`** (plural) — isso resolve a
+  inconsistência sinalizada no TASK-004 (o `MediaCard` linkava pra
+  `/movie/[id]`, singular). Corrigido para `/movies/${id}`.
+- **Segunda tabela de dados de usuário**: `movie_status` (migration
+  `20260706000000_movie_status.sql`) — um status só por filme
+  (`watched` / `want_to_watch` / `watching`), não uma tabela por
+  botão. Clicar no status já ativo limpa (mesmo padrão de toggle do
+  botão de episódio assistido, TASK-005); clicar num status diferente
+  substitui o anterior.
+- **Uma chamada só ao TMDB**: diferente da série (que precisa de N+1
+  chamadas por causa dos episódios por temporada), filme resolve tudo
+  num `/movie/{id}` só, com `append_to_response=credits,similar,watch/providers`.
+- **Reuso em vez de duplicação**: `CastCarousel` (já existia do
+  TASK-005) mudou de `components/series/` pra `components/media/` —
+  agora é literalmente o mesmo componente para série e filme, sem
+  variante. `SimilarSeriesCarousel` e `SimilarMoviesCarousel` viraram
+  reexports finos de um `SimilarTitlesCarousel` genérico único (o
+  destino do link já vem do `mediaType` de cada item). Um `MetaRow`
+  duplicado identicamente entre a aba "Sobre" da série e o "MovieInfo"
+  do filme também foi extraído para `components/media/MetaRow.tsx`.
+- **"Onde assistir"**: uso a região `BR` fixa (o produto é pt-BR de
+  ponta a ponta) e só a lista `flatrate` (streaming por assinatura) —
+  o documento não pede aluguel/compra, e o exemplo dado (Netflix,
+  Prime Video, Disney+, Max, Apple TV) é todo de assinatura.
+- **Botão voltar**: o documento desta tarefa não lista isso no HEADER
+  (diferente da série, que listava explicitamente), mas incluí mesmo
+  assim por consistência de navegação — é chrome, não uma feature.
+- **Checks do projeto**: mesma limitação da tarefa anterior — sem
+  rede neste sandbox para `pnpm install`/`tsc`/`eslint` de verdade.
+  Revisão manual completa de importações, tipos e chaves em todos os
+  arquivos novos; rode os checks reais localmente antes do deploy.
+- **Nota sobre as instruções finais desta tarefa**: vieram duplicadas
+  com mensagens de commit diferentes (`feat(movie): ...` no primeiro
+  bloco, `feat(series): ...`, da tarefa anterior, num segundo bloco
+  colado por cima). Usei `feat(movie): implement movie details page`,
+  por ser a que corresponde ao que foi de fato construído aqui.
+
 ## O que não está aqui (de propósito)
 
 Login, pesquisa, banco de dados, API, navegação, qualquer tela de

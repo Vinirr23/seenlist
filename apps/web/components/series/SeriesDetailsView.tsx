@@ -7,7 +7,8 @@ import { SeriesHeader } from "./SeriesHeader";
 import { SeriesTabs, type SeriesTab } from "./SeriesTabs";
 import { SeriesDetailsSkeleton } from "./SeriesDetailsSkeleton";
 import { SeasonAccordion } from "./SeasonAccordion";
-import { CastCarousel } from "./CastCarousel";
+import { CastCarousel } from "../media/CastCarousel";
+import { MetaRow } from "../media/MetaRow";
 import { SimilarSeriesCarousel } from "./SimilarSeriesCarousel";
 import { ProgressCard } from "./ProgressCard";
 import { EmptyState } from "../search/EmptyState";
@@ -106,15 +107,6 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
           </div>
         )}
       </PageContainer>
-    </div>
-  );
-}
-
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="text-text">{value}</dd>
     </div>
   );
 }

@@ -1,4 +1,12 @@
-import type { CastMember, Episode, MediaSearchResult, MediaType, SeriesDetails } from "@seenlist/types";
+import type {
+  CastMember,
+  Episode,
+  MediaSearchResult,
+  MediaType,
+  MovieDetails,
+  SeriesDetails,
+  WatchProvider,
+} from "@seenlist/types";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
@@ -179,4 +187,96 @@ export async function getSeriesSeasonList(
   return data.seasons
     .filter((season) => season.season_number > 0)
     .map((season) => ({ seasonNumber: season.season_number, name: season.name }));
+}
+
+// ---------------------------------------------------------------
+// Página do filme (TASK-006)
+// ---------------------------------------------------------------
+
+interface TmdbWatchProvidersResponse {
+  results?: Record<
+    string,
+    {
+      flatrate?: { provider_id: number; provider_name: string; logo_path: string | null }[];
+    }
+  >;
+}
+
+interface TmdbMovieDetailsResponse {
+  id: number;
+  title: string;
+  original_title: string;
+  overview: string;
+  backdrop_path: string | null;
+  poster_path: string | null;
+  release_date: string | null;
+  runtime: number | null;
+  genres: { id: number; name: string }[];
+  vote_average: number;
+  production_companies: { id: number; name: string }[];
+  production_countries: { iso_3166_1: string; name: string }[];
+  original_language: string | null;
+  budget: number;
+  revenue: number;
+  credits?: {
+    cast: { id: number; name: string; character: string; profile_path: string | null }[];
+    crew: { id: number; name: string; job: string }[];
+  };
+  similar?: { results: TmdbMultiSearchItem[] };
+  "watch/providers"?: TmdbWatchProvidersResponse;
+}
+
+/** Região usada pra "onde assistir" — projeto é pt-BR de ponta a ponta, então fixamos BR. */
+const WATCH_PROVIDERS_REGION = "BR";
+
+/**
+ * Detalhes do filme + elenco/direção + filmes semelhantes + onde
+ * assistir, tudo numa chamada só (via `append_to_response`).
+ */
+export async function getMovieDetails(movieId: string): Promise<MovieDetails> {
+  const data = await tmdbGet<TmdbMovieDetailsResponse>(`/movie/${movieId}`, {
+    append_to_response: "credits,similar,watch/providers",
+  });
+
+  const cast: CastMember[] = (data.credits?.cast ?? []).slice(0, 15).map((member) => ({
+    id: member.id,
+    name: member.name,
+    character: member.character,
+    profilePath: member.profile_path,
+  }));
+
+  const director = data.credits?.crew.find((member) => member.job === "Director")?.name ?? null;
+
+  const similar: MediaSearchResult[] = (data.similar?.results ?? [])
+    .slice(0, 12)
+    .map((item) => normalizeSearchItem({ ...item, media_type: "movie" }));
+
+  const regionProviders = data["watch/providers"]?.results?.[WATCH_PROVIDERS_REGION];
+  const watchProviders: WatchProvider[] = (regionProviders?.flatrate ?? []).map((provider) => ({
+    id: provider.provider_id,
+    name: provider.provider_name,
+    logoPath: provider.logo_path,
+  }));
+
+  return {
+    id: data.id,
+    title: data.title,
+    originalTitle: data.original_title,
+    overview: data.overview,
+    backdropPath: data.backdrop_path,
+    posterPath: data.poster_path,
+    releaseDate: data.release_date,
+    runtimeMinutes: data.runtime,
+    genres: data.genres.map((genre) => genre.name),
+    voteAverage: data.vote_average,
+    director,
+    cast,
+    studios: data.production_companies.map((company) => company.name),
+    country: data.production_countries[0]?.name ?? null,
+    language: data.original_language,
+    budget: data.budget > 0 ? data.budget : null,
+    revenue: data.revenue > 0 ? data.revenue : null,
+    watchProviders,
+    similar,
+  };
 }
