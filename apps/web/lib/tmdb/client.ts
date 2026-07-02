@@ -280,3 +280,56 @@ export async function getMovieDetails(movieId: string): Promise<MovieDetails> {
     similar,
   };
 }
+
+// ---------------------------------------------------------------
+// Biblioteca (TASK-007) — resumos leves, só pra exibição
+// (poster/título/ano/total de episódios). O estado da Biblioteca em
+// si (o que está em cada lista, status, progresso assistido) vem só
+// do Supabase — isso aqui NUNCA decide o que aparece na Biblioteca,
+// só decora o que já veio de lá.
+// ---------------------------------------------------------------
+
+export interface MediaSummary {
+  id: number;
+  title: string;
+  year: number | null;
+  posterPath: string | null;
+  /** Só preenchido pra séries. */
+  totalEpisodes?: number;
+}
+
+interface TmdbMovieSummaryResponse {
+  id: number;
+  title: string;
+  release_date: string | null;
+  poster_path: string | null;
+}
+
+export async function getMovieSummary(movieId: number): Promise<MediaSummary> {
+  const data = await tmdbGet<TmdbMovieSummaryResponse>(`/movie/${movieId}`);
+  return {
+    id: data.id,
+    title: data.title,
+    year: data.release_date ? Number(data.release_date.slice(0, 4)) || null : null,
+    posterPath: data.poster_path,
+  };
+}
+
+interface TmdbSeriesSummaryResponse {
+  id: number;
+  name: string;
+  first_air_date: string | null;
+  poster_path: string | null;
+  number_of_episodes: number;
+}
+
+export async function getSeriesSummary(seriesId: number): Promise<MediaSummary> {
+  const data = await tmdbGet<TmdbSeriesSummaryResponse>(`/tv/${seriesId}`);
+  return {
+    id: data.id,
+    title: data.name,
+    year: data.first_air_date ? Number(data.first_air_date.slice(0, 4)) || null : null,
+    posterPath: data.poster_path,
+    totalEpisodes: data.number_of_episodes,
+  };
+}

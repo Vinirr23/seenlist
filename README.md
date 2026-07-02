@@ -230,6 +230,62 @@ Authentication → Providers, e cadastrar
   colado por cima). Usei `feat(movie): implement movie details page`,
   por ser a que corresponde ao que foi de fato construído aqui.
 
+## Biblioteca / Minha Lista (TASK-007)
+
+- **Estado 100% do Supabase, TMDB só decora.** `lib/queries/library.ts`
+  decide o que está em cada aba olhando só `movie_status`,
+  `series_status` e `watched_episodes`; o TMDB entra depois, numa
+  chamada em lote (`/api/tmdb/library-summaries`), só pra
+  poster/título/ano/total de episódios. Se essa chamada falhar, a
+  Biblioteca ainda mostra os itens (sem poster/título bonito) — nunca
+  trava por causa do TMDB.
+- **Gap real que fica registrado**: a Página da Série (TASK-005) só
+  tem o toggle de episódio assistido — nunca existiu um "status" de
+  série (assistindo/quero assistir/concluído), e esta tarefa proíbe
+  alterar aquela página. Resolvido com uma tabela nova,
+  `series_status`, **opcional**: se não existir linha lá, o status é
+  **derivado** de `watched_episodes` (tem episódio assistido e não
+  completou = Assistindo; completou = Concluído). "Quero assistir"
+  para uma série sem nenhum episódio assistido só existe se algo
+  escrever explicitamente em `series_status` — hoje nada faz isso
+  (não há botão em lugar nenhum pra isso), então essa combinação fica
+  vazia até uma tarefa futura abrir esse caminho na página da série.
+- **"Remover da lista" para série não apaga histórico.** Como o
+  status pode ser derivado de episódios assistidos, remover grava
+  `series_status = 'removed'` (um 4º valor só usado pra isso) em vez
+  de apagar `watched_episodes` — que não é desta tarefa pra mexer.
+- **Realtime de verdade**: as 3 tabelas entraram na publicação
+  `supabase_realtime` (migration `20260707000002`) e
+  `useLibraryRealtimeSync` assina mudanças via
+  `postgres_changes`, invalidando a query da Biblioteca quando
+  qualquer uma muda — cobre TASK-006 gerando uma mudança de
+  `movie_status` do lado do filme e a Biblioteca refletindo sem
+  precisar recarregar a página.
+- **Bottom Navigation trocou Explorar por Minha Lista**, exatamente
+  como pedido. Só `lib/navigation.ts` (config da barra) mudou — a
+  Pesquisa em si (`/explore`, `SearchBar`, `SearchResults`, etc.)
+  continua intocada, só perdeu o atalho na navegação. Ela ainda
+  funciona se alguém for direto pra `/explore`.
+- **Reuso**: `ProgressBar` virou um componente próprio
+  (`components/media/ProgressBar.tsx`) usado pela `LibrarySeriesCard`
+  — cheguei a refatorar o `ProgressCard` da série pra reusá-lo
+  também, mas revertive porque isso tocaria um arquivo de
+  `components/series/`, que esta tarefa proíbe alterar mesmo sendo
+  uma mudança sem efeito visual. Preferi duplicar uma barra de 6
+  linhas a arriscar violar a restrição.
+- **`created_at` novo em `movie_status`** (migration `20260707000000`,
+  aditiva) — necessário pra "Data adicionada" ser diferente de
+  "Atualizados recentemente" na ordenação. Não muda nada que a
+  Página do Filme já escreve.
+- **Confirmado por `git status`**: nenhum arquivo de
+  `components/series/`, `components/movie/`, `components/auth/`,
+  `app/(auth)/`, `app/(main)/series/`, `app/(main)/movies/`,
+  `app/(main)/profile/`, `middleware.ts` ou `lib/actions/auth.ts` foi
+  tocado nesta tarefa.
+- **Checks**: mesma limitação de rede das duas tarefas anteriores —
+  revisão manual completa (JSON, chaves, imports, generics explícitos
+  nas mutations) em vez de `tsc`/`eslint` de verdade.
+
 ## O que não está aqui (de propósito)
 
 Login, pesquisa, banco de dados, API, navegação, qualquer tela de

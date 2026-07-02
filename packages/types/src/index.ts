@@ -86,3 +86,29 @@ export interface SeriesDetails {
   similar: MediaSearchResult[];
   seasons: SeasonWithEpisodes[];
 }
+
+// ---------------------------------------------------------------
+// Biblioteca (TASK-007)
+// ---------------------------------------------------------------
+
+/** Vocabulário normalizado da Biblioteca — não é 1:1 com o enum bruto
+ * de movie_status ('watched' vira 'completed' na leitura). */
+export type LibraryStatus = "want_to_watch" | "watching" | "completed";
+
+export interface LibraryProgress {
+  watchedEpisodes: number;
+  totalEpisodes: number;
+}
+
+export interface LibraryItem {
+  mediaType: MediaType;
+  id: number;
+  status: LibraryStatus;
+  createdAt: string;
+  updatedAt: string;
+  title: string;
+  year: number | null;
+  posterPath: string | null;
+  /** Só séries. */
+  progress?: LibraryProgress;
+}
