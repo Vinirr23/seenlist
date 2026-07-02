@@ -1,0 +1,18 @@
+# Config mínima do Supabase CLI local. Sem schema/migrations nesta
+# fase (TASK-001 — "não crie banco de dados"). Ver supabase/README.md.
+project_id = "seenlist"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"

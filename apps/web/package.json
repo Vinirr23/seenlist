@@ -1,0 +1,40 @@
+{
+  "name": "@seenlist/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "15.0.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "@seenlist/ui": "workspace:*",
+    "@seenlist/types": "workspace:*",
+    "@seenlist/utils": "workspace:*",
+    "@seenlist/hooks": "workspace:*",
+    "@seenlist/config": "workspace:*",
+    "@supabase/supabase-js": "2.45.4",
+    "@supabase/ssr": "0.5.1",
+    "lucide-react": "0.454.0",
+    "@tanstack/react-query": "5.59.16"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3",
+    "@types/node": "22.7.5",
+    "@types/react": "19.0.1",
+    "@types/react-dom": "19.0.2",
+    "postcss": "8.4.47",
+    "tailwindcss": "3.4.14",
+    "autoprefixer": "10.4.20",
+    "eslint": "9.13.0",
+    "eslint-config-next": "15.0.3",
+    "@eslint/js": "9.13.0",
+    "@eslint/eslintrc": "3.1.0",
+    "typescript-eslint": "8.10.0"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "declaration": false,
+    "baseUrl": ".",
+    "paths": {
+      "@seenlist/ui": ["packages/ui/src"],
+      "@seenlist/ui/*": ["packages/ui/src/*"],
+      "@seenlist/types": ["packages/types/src"],
+      "@seenlist/types/*": ["packages/types/src/*"],
+      "@seenlist/utils": ["packages/utils/src"],
+      "@seenlist/utils/*": ["packages/utils/src/*"],
+      "@seenlist/hooks": ["packages/hooks/src"],
+      "@seenlist/hooks/*": ["packages/hooks/src/*"],
+      "@seenlist/config": ["packages/config/src"],
+      "@seenlist/config/*": ["packages/config/src/*"]
+    }
+  }
+}

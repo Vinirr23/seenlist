@@ -1,0 +1,152 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+export type AuthActionState = { error: string | null; message?: string };
+
+function siteUrl() {
+  // Preferimos a env explícita; em dev/preview sem ela configurada,
+  // caímos pro host da Vercel quando existir.
+  return process.env.NEXT_PUBLIC_SITE_URL ?? `https://${process.env.VERCEL_URL ?? "localhost:3000"}`;
+}
+
+/** Login por e-mail/senha. */
+export async function signInWithEmail(
+  _prev: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) {
+    return { error: "Preencha e-mail e senha." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    return { error: "E-mail ou senha inválidos." };
+  }
+
+  redirect("/series");
+}
+
+/** Cadastro por e-mail/senha. */
+export async function signUpWithEmail(
+  _prev: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (!email || !password) {
+    return { error: "Preencha e-mail e senha." };
+  }
+  if (password.length < 8) {
+    return { error: "A senha precisa ter pelo menos 8 caracteres." };
+  }
+  if (password !== confirmPassword) {
+    return { error: "As senhas não coincidem." };
+  }
+
+  const supabase = await createClient();
+  const { error, data } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: `${siteUrl()}/auth/callback` },
+  });
+
+  if (error) {
+    return {
+      error:
+        error.message === "User already registered"
+          ? "Este e-mail já tem cadastro."
+          : "Não foi possível criar a conta.",
+    };
+  }
+
+  // Se a confirmação de e-mail estiver habilitada no projeto Supabase,
+  // `session` vem nulo aqui — o usuário precisa confirmar antes de logar.
+  if (!data.session) {
+    return {
+      error: null,
+      message: "Cadastro criado. Confirme seu e-mail para poder entrar.",
+    };
+  }
+
+  redirect("/series");
+}
+
+/** Login com Google — pega a URL de autorização do Supabase e redireciona pra ela. */
+export async function signInWithGoogle(): Promise<void> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${siteUrl()}/auth/callback` },
+  });
+
+  if (error || !data.url) {
+    redirect("/login?error=google");
+  }
+
+  redirect(data.url);
+}
+
+/** Envia o e-mail de recuperação de senha. */
+export async function requestPasswordReset(
+  _prev: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) {
+    return { error: "Informe seu e-mail." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl()}/auth/callback?next=/forgot-password`,
+  });
+
+  // Não revelamos se o e-mail existe ou não (evita enumeração de contas) —
+  // sempre respondemos com a mesma mensagem de sucesso.
+  if (error) {
+    return { error: "Não foi possível enviar o e-mail agora. Tente de novo em instantes." };
+  }
+
+  return { error: null, message: "Se esse e-mail tiver conta, enviamos um link de recuperação." };
+}
+
+/** Define a nova senha — só funciona com uma sessão de recuperação ativa. */
+export async function updatePassword(
+  _prev: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (password.length < 8) {
+    return { error: "A senha precisa ter pelo menos 8 caracteres." };
+  }
+  if (password !== confirmPassword) {
+    return { error: "As senhas não coincidem." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { error: "Não foi possível atualizar a senha. Peça um novo link de recuperação." };
+  }
+
+  redirect("/series");
+}
+
+/** Logout. */
+export async function signOut(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login");
+}

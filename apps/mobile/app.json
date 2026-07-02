@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "SeenList",
+    "slug": "seenlist",
+    "scheme": "seenlist",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0E14",
+    "plugins": ["expo-router"],
+    "ios": {
+      "bundleIdentifier": "com.seenlist.app"
+    },
+    "android": {
+      "package": "com.seenlist.app"
+    }
+  }
+}
