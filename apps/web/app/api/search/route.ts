@@ -3,7 +3,7 @@ import { searchMovieAndSeries } from "@/lib/tmdb/client";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get("q")?.trim() ?? "";
+  const query = (searchParams.get("q")?.trim() ?? "").slice(0, 200);
 
   if (!query) {
     return NextResponse.json({ results: [] });

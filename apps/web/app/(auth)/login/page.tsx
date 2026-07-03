@@ -16,15 +16,22 @@ const REDIRECT_ERROR_MESSAGES: Record<string, string> = {
   callback: "O link expirou ou já foi usado. Tente entrar novamente.",
 };
 
-function RedirectErrorBanner() {
-  const searchParams = useSearchParams();
-  const redirectError = searchParams.get("error");
-  const message = redirectError ? REDIRECT_ERROR_MESSAGES[redirectError] : null;
-  return message ? <FormFeedback error={message} /> : null;
-}
-
-function LoginForm() {
+/**
+ * `useSearchParams` exige estar dentro de <Suspense> no App Router —
+ * por isso o conteúdo de verdade fica aqui, e `LoginPage` só embrulha
+ * isso num Suspense.
+ */
+function LoginPageContent() {
   const [state, formAction] = useActionState(signInWithEmail, initialState);
+  const searchParams = useSearchParams();
+
+  const redirectError = searchParams.get("error");
+  const redirectErrorMessage = redirectError ? REDIRECT_ERROR_MESSAGES[redirectError] : null;
+
+  // Se o usuário chegou aqui tentando abrir uma página específica
+  // (ver middleware.ts, que guarda isso em ?redirectTo=), volta pra
+  // ela depois de logar em vez de cair sempre em /series.
+  const redirectTo = searchParams.get("redirectTo") ?? "";
 
   return (
     <div className="space-y-6">
@@ -33,11 +40,9 @@ function LoginForm() {
         <p className="mt-1 text-sm text-muted">Acesse sua conta do SeenList.</p>
       </div>
 
-      <Suspense fallback={null}>
-        <RedirectErrorBanner />
-      </Suspense>
+      {redirectErrorMessage && <FormFeedback error={redirectErrorMessage} />}
 
-      <GoogleButton />
+      <GoogleButton redirectTo={redirectTo} />
 
       <div className="flex items-center gap-3 text-xs text-muted">
         <span className="h-px flex-1 bg-border" />
@@ -46,6 +51,7 @@ function LoginForm() {
       </div>
 
       <form action={formAction} className="space-y-4">
+        <input type="hidden" name="redirectTo" value={redirectTo} />
         <FormField
           id="email"
           name="email"
@@ -81,5 +87,9 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
-  return <LoginForm />;
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
+  );
 }

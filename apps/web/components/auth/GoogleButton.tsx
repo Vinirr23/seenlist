@@ -4,9 +4,10 @@ import { useFormStatus } from "react-dom";
 import { signInWithGoogle } from "@/lib/actions/auth";
 import { Button } from "@seenlist/ui";
 
-export function GoogleButton() {
+export function GoogleButton({ redirectTo }: { redirectTo?: string }) {
   return (
     <form action={signInWithGoogle}>
+      {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
       <GoogleSubmitButton />
     </form>
   );

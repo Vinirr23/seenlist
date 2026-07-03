@@ -313,6 +313,18 @@ adicionado feedback de erro/loading em pontos que ficavam silenciosos
 (3 mutations sem aviso de erro, e o erro de login com Google que
 estava sendo descartado no redirect).
 
+## Revisão de MVP (TASK-010)
+
+Relatório completo em `docs/review/MVP_REVIEW.md` (nota: 7/10 — leia
+a seção 6 pra entender o porquê). 7 bugs reais encontrados e
+corrigidos, 3 deles de segurança: policies de `UPDATE` sem
+`WITH CHECK` em `movie_status`/`series_status` (RLS incompleta),
+rotas de API redirecionando pra HTML em vez de devolver 401 quando a
+sessão expira, e `redirectTo`/`next` sem validação contra
+open-redirect. Também achado e corrigido: o login nunca respeitava
+pra onde o usuário estava tentando ir antes de cair em `/login` — o
+`redirectTo` era guardado pelo middleware mas nunca lido por ninguém.
+
 ## O que não está aqui (de propósito)
 
 Login, pesquisa, banco de dados, API, navegação, qualquer tela de

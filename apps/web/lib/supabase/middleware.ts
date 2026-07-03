@@ -15,9 +15,9 @@ const REDIRECT_IF_AUTHENTICATED_ROUTES = ["/login", "/register"];
  * Roda a cada request: renova a sessão (refresh token) e decide se a
  * rota atual precisa de autenticação. Rotas públicas: /login,
  * /register, /forgot-password e /auth/callback (troca de código por
- * sessão). Tudo o mais é privado — hoje só existe "/", mas a regra
- * vale para qualquer rota futura sem precisar tocar no middleware de
- * novo.
+ * sessão). Tudo o mais é privado por padrão (/series, /movies,
+ * /library, /profile, /explore e as rotas de detalhe) — a regra vale
+ * pra qualquer rota nova sem precisar tocar no middleware de novo.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -46,6 +46,16 @@ export async function updateSession(request: NextRequest) {
     PUBLIC_ROUTES.some((route) => pathname === route) || pathname.startsWith("/auth/callback");
 
   if (!user && !isPublicRoute) {
+    // Rotas de API: quem chama é `fetch()` do client, não o navegador
+    // navegando de verdade. Redirecionar mandaria de volta o HTML da
+    // tela de login como se fosse a resposta da API — o `.json()` de
+    // quem chamou quebraria de um jeito confuso. Uma sessão pode
+    // expirar enquanto a página já está aberta, então isso acontece
+    // de verdade, não é só teórico.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(loginUrl);

@@ -11,6 +11,22 @@ function siteUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? `https://${process.env.VERCEL_URL ?? "localhost:3000"}`;
 }
 
+/**
+ * O middleware guarda pra onde o usuário tentava ir antes de cair no
+ * login (`?redirectTo=/movies/123`), mas até esta revisão nada lia
+ * esse valor — todo login caía em "/series" na marra, mesmo vindo de
+ * um link direto pra uma página específica. Só aceita caminho interno
+ * (`/algo`) — nunca uma URL absoluta ou `//`, que seria um
+ * open-redirect (mandar o usuário autenticado pra um site de
+ * terceiros usando o próprio SeenList como isca).
+ */
+function safeRedirectPath(value: FormDataEntryValue | null): string {
+  if (typeof value === "string" && value.startsWith("/") && !value.startsWith("//")) {
+    return value;
+  }
+  return "/series";
+}
+
 /** Login por e-mail/senha. */
 export async function signInWithEmail(
   _prev: AuthActionState,
@@ -30,7 +46,7 @@ export async function signInWithEmail(
     return { error: "E-mail ou senha inválidos." };
   }
 
-  redirect("/series");
+  redirect(safeRedirectPath(formData.get("redirectTo")));
 }
 
 /** Cadastro por e-mail/senha. */
@@ -81,11 +97,12 @@ export async function signUpWithEmail(
 }
 
 /** Login com Google — pega a URL de autorização do Supabase e redireciona pra ela. */
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(formData: FormData): Promise<void> {
+  const redirectPath = safeRedirectPath(formData.get("redirectTo"));
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${siteUrl()}/auth/callback` },
+    options: { redirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(redirectPath)}` },
   });
 
   if (error || !data.url) {
