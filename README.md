@@ -297,6 +297,22 @@ e `movie-status.ts` divididos em leitura/escrita (mesmo padrão que
 `library.ts` já tinha), e duas duplicações reais de tipo/constante
 removidas. Nenhum arquivo de tela ou componente visual foi alterado.
 
+## Conectar o fluxo principal (TASK-009)
+
+Relatório completo em `docs/review/FLOW_REVIEW.md` — leia a seção
+"Conflito que precisa de decisão" primeiro. Resumo: **Estatísticas
+não existe** (nenhuma tarefa criou essa tela) e o documento proíbe
+criar funcionalidade nova, então não construí — só conectei o que já
+existia. Perfil (antes um placeholder vazio) ganhou 3 números reais
+(filmes/séries/episódios assistidos), ao vivo, reaproveitando os
+mesmos dados que a Biblioteca já busca — zero chamadas novas.
+Extraído `useRealtimeInvalidate` (evita duplicar a assinatura Realtime
+entre Biblioteca e Perfil), corrigido um caso em que série completa
+não virava "Concluído" automaticamente se tinha status manual, e
+adicionado feedback de erro/loading em pontos que ficavam silenciosos
+(3 mutations sem aviso de erro, e o erro de login com Google que
+estava sendo descartado no redirect).
+
 ## O que não está aqui (de propósito)
 
 Login, pesquisa, banco de dados, API, navegação, qualquer tela de

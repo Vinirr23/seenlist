@@ -6,6 +6,7 @@ import type { SeasonWithEpisodes } from "@seenlist/types";
 import { cn } from "@seenlist/utils";
 import { EpisodeCard } from "./EpisodeCard";
 import { EmptyState } from "../search/EmptyState";
+import { InlineError } from "../media/InlineError";
 import {
   isEpisodeWatched,
   useToggleEpisodeWatched,
@@ -54,6 +55,7 @@ export function SeasonAccordion({
 
       {open && (
         <div className="space-y-2 border-t border-border p-3">
+          <InlineError show={toggleWatched.isError} />
           {season.episodes.length === 0 ? (
             <EmptyState message="Nenhum episódio encontrado para esta temporada." />
           ) : (

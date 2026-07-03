@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { Suspense, useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import { signInWithEmail, type AuthActionState } from "@/lib/actions/auth";
 import { FormField } from "@/components/auth/FormField";
 import { SubmitButton } from "@/components/auth/SubmitButton";
@@ -10,7 +11,19 @@ import { FormFeedback } from "@/components/auth/FormFeedback";
 
 const initialState: AuthActionState = { error: null };
 
-export default function LoginPage() {
+const REDIRECT_ERROR_MESSAGES: Record<string, string> = {
+  google: "Não foi possível entrar com o Google agora. Tente de novo em instantes.",
+  callback: "O link expirou ou já foi usado. Tente entrar novamente.",
+};
+
+function RedirectErrorBanner() {
+  const searchParams = useSearchParams();
+  const redirectError = searchParams.get("error");
+  const message = redirectError ? REDIRECT_ERROR_MESSAGES[redirectError] : null;
+  return message ? <FormFeedback error={message} /> : null;
+}
+
+function LoginForm() {
   const [state, formAction] = useActionState(signInWithEmail, initialState);
 
   return (
@@ -19,6 +32,10 @@ export default function LoginPage() {
         <h1 className="text-lg font-semibold text-text">Entrar</h1>
         <p className="mt-1 text-sm text-muted">Acesse sua conta do SeenList.</p>
       </div>
+
+      <Suspense fallback={null}>
+        <RedirectErrorBanner />
+      </Suspense>
 
       <GoogleButton />
 
@@ -61,4 +78,8 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+export default function LoginPage() {
+  return <LoginForm />;
 }

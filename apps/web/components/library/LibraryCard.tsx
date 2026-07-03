@@ -7,6 +7,7 @@ import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { MEDIA_TYPE_LABEL } from "@/lib/media-labels";
 import { useMoveLibraryItem, useRemoveLibraryItem } from "@/lib/queries/library";
+import { InlineError } from "../media/InlineError";
 
 const STATUS_LABEL: Record<LibraryStatus, string> = {
   watching: "Assistindo",
@@ -43,6 +44,7 @@ export function LibraryCard({ item, children }: { item: LibraryItem; children?: 
         <p className="text-[11px] text-muted">
           Atualizado em {dateFormatter.format(new Date(item.updatedAt))}
         </p>
+        <InlineError show={move.isError || remove.isError} />
       </div>
 
       <div className="flex shrink-0 flex-col items-end justify-between gap-2">

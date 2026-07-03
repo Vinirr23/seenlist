@@ -1,10 +1,11 @@
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { createClient } from "@/lib/supabase/client";
 import type { MediaSummary } from "@/lib/tmdb/client";
+import { useRealtimeInvalidate } from "@/lib/supabase/useRealtimeInvalidate";
 
 export const LIBRARY_QUERY_KEY = ["library"] as const;
+const LIBRARY_REALTIME_TABLES = ["movie_status", "series_status", "watched_episodes"] as const;
 
 interface MovieStatusRow {
   movie_id: number;
@@ -161,11 +162,18 @@ async function fetchLibraryItems(): Promise<LibraryItem[]> {
   const seriesItems: LibraryItem[] = seriesEntries.map((entry) => {
     const summary = summaries.series[entry.seriesId];
     const totalEpisodes = summary?.totalEpisodes ?? 0;
-    const status: LibraryStatus = entry.isDerived
-      ? totalEpisodes > 0 && entry.watchedCount >= totalEpisodes
-        ? "completed"
-        : "watching"
-      : entry.status;
+    // "Ao concluir todos os episódios: mover automaticamente para
+    // Concluído" (TASK-009) — isso agora vale mesmo se havia um
+    // status explícito diferente (ex.: o usuário tinha marcado
+    // "Assistindo" manualmente e terminou a série depois). Só o
+    // status explícito "want_to_watch" faz sentido perder pra isso;
+    // documentado em docs/review/FLOW_REVIEW.md.
+    const fullyWatched = totalEpisodes > 0 && entry.watchedCount >= totalEpisodes;
+    const status: LibraryStatus = fullyWatched
+      ? "completed"
+      : entry.isDerived
+        ? "watching"
+        : entry.status;
 
     return {
       mediaType: "series",
@@ -192,44 +200,11 @@ export function useLibraryItems() {
 
 /**
  * "Atualização em tempo real sempre que o usuário alterar um status"
- * — assina mudanças nas 3 tabelas que compõem a Biblioteca e
- * invalida a query quando qualquer uma muda (em qualquer sessão/aba
- * do mesmo usuário, não só na que fez a alteração).
+ * — assina mudanças nas 3 tabelas que compõem a Biblioteca. Desde a
+ * conexão do fluxo principal (TASK-009), usa o hook genérico
+ * `useRealtimeInvalidate` (mesmo que o Perfil usa) em vez de uma
+ * assinatura Supabase própria.
  */
 export function useLibraryRealtimeSync() {
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    const supabase = createClient();
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let cancelled = false;
-
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user || cancelled) return;
-
-      channel = supabase
-        .channel(`library-sync-${user.id}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "movie_status", filter: `user_id=eq.${user.id}` },
-          () => queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEY })
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "series_status", filter: `user_id=eq.${user.id}` },
-          () => queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEY })
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "watched_episodes", filter: `user_id=eq.${user.id}` },
-          () => queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEY })
-        )
-        .subscribe();
-    });
-
-    return () => {
-      cancelled = true;
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  useRealtimeInvalidate(LIBRARY_REALTIME_TABLES, LIBRARY_QUERY_KEY);
 }

@@ -1,17 +1,36 @@
+"use client";
+
+import { useFormStatus } from "react-dom";
 import { signInWithGoogle } from "@/lib/actions/auth";
 import { Button } from "@seenlist/ui";
 
 export function GoogleButton() {
   return (
     <form action={signInWithGoogle}>
-      <Button
-        type="submit"
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-surface"
-      >
-        <GoogleIcon />
-        Continuar com Google
-      </Button>
+      <GoogleSubmitButton />
     </form>
+  );
+}
+
+/** Precisa ser um componente à parte — `useFormStatus` só funciona dentro do `<form>`, não no componente que o renderiza. */
+function GoogleSubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button
+      type="submit"
+      disabled={pending}
+      className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {pending ? (
+        "Redirecionando…"
+      ) : (
+        <>
+          <GoogleIcon />
+          Continuar com Google
+        </>
+      )}
+    </Button>
   );
 }
 
