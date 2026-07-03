@@ -5,12 +5,8 @@ import Image from "next/image";
 import { Trash2 } from "lucide-react";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { MEDIA_TYPE_LABEL } from "@/lib/media-labels";
 import { useMoveLibraryItem, useRemoveLibraryItem } from "@/lib/queries/library";
-
-const TYPE_LABEL: Record<LibraryItem["mediaType"], string> = {
-  movie: "Filme",
-  series: "Série",
-};
 
 const STATUS_LABEL: Record<LibraryStatus, string> = {
   watching: "Assistindo",
@@ -41,7 +37,7 @@ export function LibraryCard({ item, children }: { item: LibraryItem; children?: 
           {item.title}
         </Link>
         <p className="text-xs text-muted">
-          {[TYPE_LABEL[item.mediaType], item.year].filter(Boolean).join(" · ")}
+          {[MEDIA_TYPE_LABEL[item.mediaType], item.year].filter(Boolean).join(" · ")}
         </p>
         {children}
         <p className="text-[11px] text-muted">

@@ -286,6 +286,17 @@ Authentication → Providers, e cadastrar
   revisão manual completa (JSON, chaves, imports, generics explícitos
   nas mutations) em vez de `tsc`/`eslint` de verdade.
 
+## Estabilização (TASK-007A)
+
+Revisão de manutenção em toda a base, sem funcionalidade nova. Relatório
+completo em `docs/review/STABILIZATION_REPORT.md`. Resumo: extraído
+`useOptimisticMutation` (4 mutations reimplementavam o mesmo padrão
+otimista), `lib/env.ts` finalmente ligado nos 3 clientes Supabase + TMDB
+(antes cada um validava `process.env` do seu jeito), `watched-episodes.ts`
+e `movie-status.ts` divididos em leitura/escrita (mesmo padrão que
+`library.ts` já tinha), e duas duplicações reais de tipo/constante
+removidas. Nenhum arquivo de tela ou componente visual foi alterado.
+
 ## O que não está aqui (de propósito)
 
 Login, pesquisa, banco de dados, API, navegação, qualquer tela de

@@ -7,7 +7,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   try {
     const details = await getMovieDetails(id);
     return NextResponse.json(details);
-  } catch {
+  } catch (error) {
+    console.error(`[api/tmdb/movie/${id}] Falha ao carregar detalhes do filme.`, error);
     return NextResponse.json({ error: "Não foi possível carregar o filme agora." }, { status: 502 });
   }
 }

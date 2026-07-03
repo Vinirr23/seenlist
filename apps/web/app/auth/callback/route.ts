@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    console.error("[auth/callback] Falha ao trocar o código por sessão.", error);
   }
 
   return NextResponse.redirect(`${origin}/login?error=callback`);

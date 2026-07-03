@@ -7,16 +7,9 @@ import type {
   SeriesDetails,
   WatchProvider,
 } from "@seenlist/types";
+import { env } from "@/lib/env";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-
-function apiKey(): string {
-  const key = process.env.TMDB_API_KEY;
-  if (!key) {
-    throw new Error("TMDB_API_KEY não configurada.");
-  }
-  return key;
-}
 
 /**
  * Único helper de baixo nível que efetivamente chama api.themoviedb.org.
@@ -26,7 +19,7 @@ function apiKey(): string {
  */
 async function tmdbGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(`${TMDB_BASE_URL}${path}`);
-  url.searchParams.set("api_key", apiKey());
+  url.searchParams.set("api_key", env.tmdbApiKey());
   url.searchParams.set("language", "pt-BR");
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 

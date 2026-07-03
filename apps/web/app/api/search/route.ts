@@ -12,7 +12,8 @@ export async function GET(request: Request) {
   try {
     const results = await searchMovieAndSeries(query);
     return NextResponse.json({ results });
-  } catch {
+  } catch (error) {
+    console.error("[api/search] Falha ao buscar no TMDB.", error);
     return NextResponse.json({ error: "Não foi possível buscar agora." }, { status: 502 });
   }
 }

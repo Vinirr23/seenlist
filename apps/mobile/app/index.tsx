@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
+import { colors } from "@seenlist/config";
 
 export default function RootScreen() {
   return (
@@ -17,10 +18,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 32,
-    backgroundColor: "#0B0E14",
+    backgroundColor: colors.background,
   },
   text: {
-    color: "#8C93A8",
+    color: colors.muted,
     fontSize: 13,
     textAlign: "center",
   },

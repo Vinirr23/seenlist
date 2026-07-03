@@ -19,7 +19,8 @@ export async function POST(request: Request) {
 
     const response: { movies: MediaSummary[]; series: MediaSummary[] } = { movies, series };
     return NextResponse.json(response);
-  } catch {
+  } catch (error) {
+    console.error("[api/tmdb/library-summaries] Falha ao buscar resumos no TMDB.", error);
     return NextResponse.json({ error: "Não foi possível carregar os detalhes agora." }, { status: 502 });
   }
 }

@@ -3,11 +3,7 @@ import Image from "next/image";
 import { Card, Badge } from "@seenlist/ui";
 import type { MediaSearchResult } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
-
-const TYPE_LABEL: Record<MediaSearchResult["mediaType"], string> = {
-  movie: "Filme",
-  series: "Série",
-};
+import { MEDIA_TYPE_LABEL } from "@/lib/media-labels";
 
 export function MediaCard({ item }: { item: MediaSearchResult }) {
   // TASK-006 definiu a rota real de filme como /movies/[id] (plural,
@@ -31,7 +27,7 @@ export function MediaCard({ item }: { item: MediaSearchResult }) {
 
         <div className="flex min-w-0 flex-col justify-center gap-1">
           <Badge className="w-fit rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted">
-            {TYPE_LABEL[item.mediaType]}
+            {MEDIA_TYPE_LABEL[item.mediaType]}
           </Badge>
           <p className="truncate text-sm font-medium text-text">{item.title}</p>
           {item.year && <p className="text-xs text-muted">{item.year}</p>}

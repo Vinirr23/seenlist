@@ -21,7 +21,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
     const payload: SeriesDetails = { ...details, seasons };
     return NextResponse.json(payload);
-  } catch {
+  } catch (error) {
+    console.error(`[api/tmdb/series/${id}] Falha ao carregar detalhes da série.`, error);
     return NextResponse.json({ error: "Não foi possível carregar a série agora." }, { status: 502 });
   }
 }

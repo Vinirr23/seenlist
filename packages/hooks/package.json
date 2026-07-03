@@ -6,5 +6,8 @@
   "types": "src/index.ts",
   "peerDependencies": {
     "react": "*"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.59.16"
   }
 }
