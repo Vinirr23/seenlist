@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Heart } from "lucide-react";
 import type { PostComment } from "@/lib/queries/post-comments";
 import { useHasLiked, useLikeCount, useToggleLike } from "@/lib/queries/social/likes";
@@ -11,14 +12,22 @@ interface CommentNode extends PostComment {
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
+/**
+ * TASK-064 — "Responder" agora abre uma tela própria
+ * (`/explore/posts/[postId]/comment/[commentId]`) em vez de um
+ * campo inline dentro da mesma lista (o `onReply` que existia aqui
+ * antes). `postId` precisa ser passado explicitamente porque o
+ * comentário em si não carrega essa informação — vem de fora, do
+ * post que está sendo mostrado.
+ */
 export function PostCommentItem({
   comment,
+  postId,
   depth,
-  onReply,
 }: {
   comment: CommentNode;
+  postId: string;
   depth: number;
-  onReply: (parentId: string) => void;
 }) {
   const { data: hasLiked } = useHasLiked("post_comment", comment.id);
   const { data: likeCount } = useLikeCount("post_comment", comment.id);
@@ -42,14 +51,14 @@ export function PostCommentItem({
             {likeCount ?? 0}
           </button>
           {depth < 2 && (
-            <button type="button" onClick={() => onReply(comment.id)} className="text-xs text-muted">
+            <Link href={`/explore/posts/${postId}/comment/${comment.id}`} className="text-xs text-muted">
               Responder
-            </button>
+            </Link>
           )}
         </div>
       </div>
       {comment.children.map((child) => (
-        <PostCommentItem key={child.id} comment={child} depth={depth + 1} onReply={onReply} />
+        <PostCommentItem key={child.id} comment={child} postId={postId} depth={depth + 1} />
       ))}
     </div>
   );
@@ -69,4 +78,14 @@ export function buildPostCommentTree(comments: PostComment[]): CommentNode[] {
     }
   }
   return roots;
+}
+
+/** TASK-064 — acha um nó (com sua subárvore de respostas já montada) dentro de uma árvore construída por `buildPostCommentTree`, pra tela dedicada de comentário. */
+export function findCommentNode(roots: CommentNode[], commentId: string): CommentNode | null {
+  for (const node of roots) {
+    if (node.id === commentId) return node;
+    const found = findCommentNode(node.children, commentId);
+    if (found) return found;
+  }
+  return null;
 }

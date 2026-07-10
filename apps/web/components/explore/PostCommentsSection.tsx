@@ -4,24 +4,19 @@ import { useMemo, useState } from "react";
 import { usePostComments, useCreatePostComment } from "@/lib/queries/post-comments";
 import { PostCommentItem, buildPostCommentTree } from "./PostCommentItem";
 
+/** TASK-064 — o composer aqui agora é só pra comentário novo (raiz); responder a um comentário existente abre `/explore/posts/[postId]/comment/[commentId]`. */
 export function PostCommentsSection({ postId }: { postId: string }) {
   const { data: comments, isLoading } = usePostComments(postId);
   const createComment = useCreatePostComment(postId);
   const [body, setBody] = useState("");
-  const [replyTo, setReplyTo] = useState<string | null>(null);
 
   const tree = useMemo(() => buildPostCommentTree(comments ?? []), [comments]);
 
   function handleSubmit() {
     if (!body.trim()) return;
     createComment.mutate(
-      { body: body.trim(), parentCommentId: replyTo },
-      {
-        onSuccess: () => {
-          setBody("");
-          setReplyTo(null);
-        },
-      }
+      { body: body.trim(), parentCommentId: null },
+      { onSuccess: () => setBody("") }
     );
   }
 
@@ -32,18 +27,10 @@ export function PostCommentsSection({ postId }: { postId: string }) {
       ) : tree.length === 0 ? (
         <p className="py-2 text-xs text-muted">Nenhum comentário ainda.</p>
       ) : (
-        tree.map((node) => <PostCommentItem key={node.id} comment={node} depth={0} onReply={setReplyTo} />)
+        tree.map((node) => <PostCommentItem key={node.id} comment={node} postId={postId} depth={0} />)
       )}
 
       <div className="mt-2">
-        {replyTo && (
-          <div className="mb-1 flex items-center justify-between text-xs text-muted">
-            Respondendo um comentário
-            <button type="button" onClick={() => setReplyTo(null)} className="text-primary">
-              cancelar
-            </button>
-          </div>
-        )}
         <div className="flex gap-2">
           <input
             value={body}
