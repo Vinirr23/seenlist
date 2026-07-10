@@ -1,6 +1,6 @@
 @echo off
 
-start powershell -NoExit -Command "cd 'C:\Users\Vinicius\Desktop\SeenList-FINAL'; pnpm --filter @seenlist/web dev"
+start powershell -NoExit -Command "cd 'C:\Users\Vinicius\Desktop\SeenList-DEFINITIVA'; pnpm --filter @seenlist/web dev"
 
 echo Aguardando o servidor iniciar...
 

@@ -1,8 +1,9 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MovieWatchStatus } from "@seenlist/types";
 import { useOptimisticMutation } from "@seenlist/hooks";
 import { createClient } from "@/lib/supabase/client";
 import { movieStatusQueryKey } from "./movie-status-state";
+import { LIBRARY_QUERY_KEY } from "./library-state";
 
 interface SetStatusVariables {
   status: MovieWatchStatus;
@@ -16,9 +17,15 @@ interface SetStatusVariables {
  * clicar num status diferente substitui o anterior (um filme só tem
  * um status por vez). Atualiza o cache otimisticamente antes da
  * resposta do Supabase, com rollback em caso de erro.
+ *
+ * TASK-061 (correção) — mesmo bug de `useSetSeriesStatus`: o hook
+ * genérico só invalida a própria chave, nunca `LIBRARY_QUERY_KEY` —
+ * adicionar/mudar status de filme nunca atualizava Perfil/Biblioteca
+ * sozinho.
  */
 export function useSetMovieStatus(movieId: number) {
-  return useOptimisticMutation<SetStatusVariables, MovieWatchStatus | null>({
+  const queryClient = useQueryClient();
+  const mutation = useOptimisticMutation<SetStatusVariables, MovieWatchStatus | null>({
     queryKey: movieStatusQueryKey(movieId),
     mutationFn: async ({ status, currentStatus }) => {
       const supabase = createClient();
@@ -39,6 +46,19 @@ export function useSetMovieStatus(movieId: number) {
     },
     optimisticUpdate: (_current, { status, currentStatus }) => (currentStatus === status ? null : status),
   });
+
+  return {
+    ...mutation,
+    mutate: (variables: SetStatusVariables, options?: Parameters<typeof mutation.mutate>[1]) => {
+      mutation.mutate(variables, {
+        ...options,
+        onSettled: (...args) => {
+          queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEY });
+          options?.onSettled?.(...args);
+        },
+      });
+    },
+  };
 }
 
 /**

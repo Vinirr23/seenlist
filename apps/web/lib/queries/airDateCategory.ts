@@ -18,7 +18,9 @@ export interface AirDateDecision {
  * Demolidor, Dexter) ficavam presas em "Assistindo" pra sempre.
  *
  * Só decide entre os dois — quem chama decide SE essa distinção se
- * aplica (ex.: nunca chamar isso pra "paused"/"want_to_watch").
+ * aplica. TASK-061: agora também é chamada pra séries em
+ * "want_to_watch" (promoção no primeiro episódio marcado) — só
+ * "paused" continua de fora, por ser decisão explícita do usuário.
  */
 export function decideWatchingVsUpToDate(
   mainEpisodesWatched: number,

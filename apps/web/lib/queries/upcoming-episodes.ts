@@ -138,13 +138,22 @@ function formatDayLabel(dateKey: string): string {
 }
 
 /**
- * TASK-019 — aba "Em breve". TASK-023: só séries "Assistindo" entram
- * aqui — "Assistir depois" e "Concluído" ficam de fora (item 1;
- * antes o filtro incluía "Assistir depois" por engano, junto com
- * qualquer coisa que não fosse "completed"). Reaproveita
- * `useLibraryItems` (mesma query da Biblioteca/Perfil, "reutilizar
- * hooks existentes") — nenhuma tabela nova, nenhuma query nova ao
- * Supabase.
+ * TASK-019 — aba "Em breve". TASK-023: "Assistir depois" e
+ * "Concluído" ficam de fora (item 1; antes o filtro incluía
+ * "Assistir depois" por engano, junto com qualquer coisa que não
+ * fosse "completed"). Reaproveita `useLibraryItems` (mesma query da
+ * Biblioteca/Perfil, "reutilizar hooks existentes") — nenhuma tabela
+ * nova, nenhuma query nova ao Supabase.
+ *
+ * Correção (bug real, comprovado): o filtro só aceitava
+ * status === "watching", mas "Em dia" é um status PRÓPRIO
+ * (`up_to_date`, ver `LibraryTabs.tsx`), não uma variação de
+ * "watching". Como qualquer série acompanhada de perto vira
+ * "up_to_date" assim que o usuário assiste o que já saiu, a aba "Em
+ * breve" ficava vazia justamente para as séries mais ativas — só
+ * sobravam as poucas ainda atrasadas em "watching". "Em dia" e
+ * "Assistindo" são os dois estados de quem está acompanhando a
+ * série ativamente; ambos devem aparecer aqui.
  */
 export function useUpcomingEpisodes() {
   const libraryQuery = useLibraryItems();
@@ -152,7 +161,11 @@ export function useUpcomingEpisodes() {
   const seriesIds = useMemo(
     () =>
       (libraryQuery.data ?? [])
-        .filter((item) => item.mediaType === "series" && item.status === "watching")
+        .filter(
+          (item) =>
+            item.mediaType === "series" &&
+            (item.status === "watching" || item.status === "up_to_date")
+        )
         .map((item) => item.id),
     [libraryQuery.data]
   );

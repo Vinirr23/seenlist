@@ -1,7 +1,9 @@
 import type { LibraryStatus } from "@seenlist/types";
 import { useOptimisticMutation } from "@seenlist/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { seriesStatusQueryKey } from "./series-status-state";
+import { LIBRARY_QUERY_KEY } from "./library-state";
 
 interface SetStatusVariables {
   status: LibraryStatus;
@@ -15,9 +17,20 @@ interface SetStatusVariables {
  * *derivado* de `watched_episodes`, se houver algum episódio
  * assistido — não deixa a série "sem status" indevidamente); clicar
  * num status diferente substitui.
+ *
+ * TASK-061 (correção) — achado real: `useOptimisticMutation` só
+ * invalida a própria chave (`seriesStatusQueryKey`, o status de UMA
+ * série). Nunca invalidava `LIBRARY_QUERY_KEY` — então adicionar uma
+ * série (ou mudar seu status por aqui) nunca atualizava a contagem
+ * do Perfil nem a lista da Biblioteca até alguma OUTRA ação disparar
+ * essa invalidação por acaso (ex.: marcar um episódio depois). Mesmo
+ * padrão de correção já usado em `useToggleEpisodeWatched`: envolve
+ * o `mutate` retornado pra adicionar essa invalidação extra sem
+ * duplicar toda a lógica do hook genérico.
  */
 export function useSetSeriesStatus(seriesId: number) {
-  return useOptimisticMutation<SetStatusVariables, LibraryStatus | null>({
+  const queryClient = useQueryClient();
+  const mutation = useOptimisticMutation<SetStatusVariables, LibraryStatus | null>({
     queryKey: seriesStatusQueryKey(seriesId),
     mutationFn: async ({ status, currentStatus }) => {
       const supabase = createClient();
@@ -47,4 +60,17 @@ export function useSetSeriesStatus(seriesId: number) {
     },
     optimisticUpdate: (_current, { status, currentStatus }) => (currentStatus === status ? null : status),
   });
+
+  return {
+    ...mutation,
+    mutate: (variables: SetStatusVariables, options?: Parameters<typeof mutation.mutate>[1]) => {
+      mutation.mutate(variables, {
+        ...options,
+        onSettled: (...args) => {
+          queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEY });
+          options?.onSettled?.(...args);
+        },
+      });
+    },
+  };
 }

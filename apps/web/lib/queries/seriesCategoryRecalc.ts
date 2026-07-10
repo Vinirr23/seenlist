@@ -32,6 +32,24 @@ import { decideWatchingVsUpToDate } from "./airDateCategory";
  * MESMA regra de promoção da importação antes de cair pra
  * decideWatchingVsUpToDate.
  */
+/**
+ * TASK-061 (correção real, comprovada) — achado: séries adicionadas
+ * pelo botão "+" (Explorar, ou qualquer outro "adicionar à
+ * biblioteca") entram com status "want_to_watch". Esta função só
+ * verificava `currentStatus === "watching" || "up_to_date"` — uma
+ * série em "want_to_watch" que passava a ter episódios marcados
+ * NUNCA era promovida pra "watching", ficando presa em
+ * "want_to_watch" pra sempre, mesmo com 100% dos episódios
+ * assistidos (porque a checagem de "completed" só rodava DEPOIS de
+ * passar por esse guard). Isso reproduzia exatamente os dois bugs
+ * relatados: contagem de "assistindo"/stats zerada mesmo com
+ * episódios registrados, e série nunca migrando pra "Assistidas".
+ *
+ * "paused" continua de fora de propósito — é decisão explícita do
+ * usuário (pausou a série), diferente de "want_to_watch" (nunca
+ * decidiu ativamente começar). Marcar um episódio antigo numa série
+ * pausada não deveria tirá-la da pausa sozinha.
+ */
 export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: number): Promise<void> {
   const supabase = createClient();
   const {
@@ -48,7 +66,8 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   if (statusError || !statusRow) return;
 
   const currentStatus = statusRow.status as string;
-  if (currentStatus !== "watching" && currentStatus !== "up_to_date") return;
+  const eligibleForRecalc = currentStatus === "watching" || currentStatus === "up_to_date" || currentStatus === "want_to_watch";
+  if (!eligibleForRecalc) return;
 
   const { count: watchedCount } = await supabase
     .from("watched_episodes")
