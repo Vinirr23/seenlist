@@ -71,8 +71,12 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
         currentUserId={currentUser?.id}
         isMutating={isMutating}
         isHighlighted={node.id === highlightCommentId}
-        onReply={(parentId, body, containsSpoiler) => postComment.mutate({ body, parentCommentId: parentId, containsSpoiler })}
-        onEdit={(commentId, body, containsSpoiler) => editComment.mutate({ commentId, body, containsSpoiler })}
+        onReply={(parentId, body, containsSpoiler, imageUrl) =>
+          postComment.mutate({ body, parentCommentId: parentId, containsSpoiler, imageUrl })
+        }
+        onEdit={(commentId, body, containsSpoiler, imageUrl) =>
+          editComment.mutate({ commentId, body, containsSpoiler, imageUrl })
+        }
         onDelete={(commentId) => deleteComment.mutate(commentId)}
       >
         {node.children.length > 0 && node.children.map((child) => renderNode(child, depth + 1))}
@@ -84,7 +88,7 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-surface p-3">
         <CommentComposer
-          onSubmit={(body, containsSpoiler) => postComment.mutate({ body, containsSpoiler })}
+          onSubmit={(body, containsSpoiler, imageUrl) => postComment.mutate({ body, containsSpoiler, imageUrl })}
           isPending={postComment.isPending}
         />
       </div>

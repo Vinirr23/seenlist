@@ -14,8 +14,8 @@ export interface CommentItemProps {
   comment: Comment;
   depth: number;
   currentUserId: string | undefined;
-  onReply: (parentId: string, body: string, containsSpoiler: boolean) => void;
-  onEdit: (commentId: string, body: string, containsSpoiler: boolean) => void;
+  onReply: (parentId: string, body: string, containsSpoiler: boolean, imageUrl: string | null) => void;
+  onEdit: (commentId: string, body: string, containsSpoiler: boolean, imageUrl: string | null) => void;
   onDelete: (commentId: string) => void;
   isMutating: boolean;
   /** TASK-052 — vindo do deep link de notificação (?highlight=id). Rola até este comentário e destaca visualmente por alguns segundos. */
@@ -61,13 +61,14 @@ export function CommentItem({
     return (
       <div className="rounded-lg border border-border bg-surface p-3">
         <CommentComposer
-          initialBody={comment.body}
+          initialBody={comment.body ?? ""}
           initialSpoiler={comment.containsSpoiler}
+          initialImageUrl={comment.imageUrl}
           submitLabel="Salvar"
           isPending={isMutating}
           onCancel={() => setEditing(false)}
-          onSubmit={(body, containsSpoiler) => {
-            onEdit(comment.id, body, containsSpoiler);
+          onSubmit={(body, containsSpoiler, imageUrl) => {
+            onEdit(comment.id, body, containsSpoiler, imageUrl);
             setEditing(false);
           }}
         />
@@ -91,7 +92,17 @@ export function CommentItem({
           </div>
           <div className="mt-1">
             <SpoilerGate hidden={comment.containsSpoiler}>
-              <p className="text-sm text-text">{comment.body}</p>
+              <div className="space-y-2">
+                {comment.body && <p className="text-sm text-text">{comment.body}</p>}
+                {comment.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element -- imagem do usuário no Storage, sem domínio fixo configurado
+                  <img
+                    src={comment.imageUrl}
+                    alt=""
+                    className="max-h-64 rounded-lg border border-border object-cover"
+                  />
+                )}
+              </div>
             </SpoilerGate>
           </div>
           <div className="mt-1.5 flex items-center gap-3">
@@ -148,8 +159,8 @@ export function CommentItem({
             submitLabel="Responder"
             isPending={isMutating}
             onCancel={() => setReplying(false)}
-            onSubmit={(body, containsSpoiler) => {
-              onReply(comment.id, body, containsSpoiler);
+            onSubmit={(body, containsSpoiler, imageUrl) => {
+              onReply(comment.id, body, containsSpoiler, imageUrl);
               setReplying(false);
             }}
           />
