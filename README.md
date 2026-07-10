@@ -325,6 +325,47 @@ open-redirect. Também achado e corrigido: o login nunca respeitava
 pra onde o usuário estava tentando ir antes de cair em `/login` — o
 `redirectTo` era guardado pelo middleware mas nunca lido por ninguém.
 
+## Reestruturação da navegação (TASK-019)
+
+Barra inferior voltou a 4 abas (Séries, Filmes, Explorar, Perfil) —
+igual ao TV Time de verdade. "Minha Lista" deixou de ser uma aba
+própria e virou duas sub-abas *dentro* da tela Séries: "Minha Lista"
+(o que já existia — Continue assistindo/Assistindo/Assistir
+depois/Concluídas, mesmos hooks de `lib/queries/library`) e "Em
+breve" (novo — próximo episódio de cada série acompanhada, agrupado
+por data, usando `next_episode_to_air` do TMDB). A rota `/library`
+foi removida; os componentes antigos (`components/library/*`) ficaram
+no repo sem uso, não deletados, para o caso da futura aba "Filmes"
+reaproveitar o mesmo padrão.
+
+## Biblioteca de filmes completa (TASK-020)
+
+A aba Filmes ganhou a mesma estrutura que a de Séries (TASK-019):
+"Minha Lista" / "Em breve" (placeholder, como pedido). O resto do
+fluxo (pesquisar → detalhes → status → biblioteca → remover) já
+existia desde TASK-006/007/009 — não havia nada de fato faltando
+além dessa tela inicial.
+
+Pra evitar duplicar `MediaCard`/`MediaRow`/`SectionTitle`/
+`HomeEmptyState`/`HomeSkeleton`/as abas internas, movi tudo isso de
+`components/series-home/` pra `components/media/` (o local já
+estabelecido pra peças compartilhadas entre filme e série desde o
+TASK-006). Ao mover, encontrei e corrigi um bug real: o link do
+`MediaCard` estava fixo em `/series/${id}`, mesmo pra itens de
+filme — só não tinha aparecido ainda porque nada usava esse
+componente pra filme até agora.
+
+**Duas decisões deliberadas, divergindo do texto literal da
+tarefa:** mantive os 3 botões de status do filme (Assistido/Quero
+assistir/Assistindo) em vez de reduzir pra 2 como as séries — sem
+o terceiro, não sobraria nenhum jeito de marcar um filme como
+concluído (série tem o tracker de episódios pra derivar isso
+sozinho; filme não tem). E não unifiquei `movie_status`/`series_status`
+numa tabela física só — isso já é feito na camada de aplicação
+(`useLibraryItems`), unificar de verdade seria uma migration de
+banco fora do escopo de uma tarefa que pede explicitamente pra não
+mexer no banco.
+
 ## O que não está aqui (de propósito)
 
 Login, pesquisa, banco de dados, API, navegação, qualquer tela de

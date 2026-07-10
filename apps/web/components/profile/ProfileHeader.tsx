@@ -1,0 +1,87 @@
+import Link from "next/link";
+import type { CurrentUser } from "@/lib/queries/current-user";
+import { useMyProfile } from "@/lib/queries/my-profile";
+import { useFollowCounts } from "@/lib/queries/public-profile";
+import { useSocialCounts } from "@/lib/queries/social-counts";
+import { ShareProfileButton } from "@/components/social/ShareProfileButton";
+
+const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter((word) => word.length > 1)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
+/**
+ * TASK-028 — ganhou username (@handle), banner, e os 3 contadores
+ * (item 4 — "comentários" fica em 0 fixo, como a própria tarefa
+ * autoriza: "podem permanecer zerados por enquanto", já que não
+ * existe feature de comentário nenhuma ainda). Botão "Compartilhar
+ * perfil" reaproveitado do componente já usado no perfil público.
+ */
+export function ProfileHeader({ user }: { user: CurrentUser }) {
+  const { data: profile } = useMyProfile();
+  const { data: counts } = useFollowCounts(user.id);
+  const { data: socialCounts } = useSocialCounts();
+  const joinDate = joinDateFormatter.format(new Date(user.createdAt));
+
+  return (
+    <div className="mb-6">
+      {profile?.bannerUrl && (
+        <div className="-mx-4 -mt-4 mb-4 h-28 w-[calc(100%+2rem)] overflow-hidden bg-surface sm:rounded-b-lg">
+          {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
+          <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
+        </div>
+      )}
+
+      <div className="flex items-center gap-4">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface">
+          {user.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
+            <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-lg font-semibold text-muted">{initials(user.name)}</span>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <p className="truncate text-lg font-bold text-text">{user.name}</p>
+          {profile?.username && <p className="truncate text-sm text-primary">@{profile.username}</p>}
+          <p className="text-xs text-muted">Membro desde {joinDate}</p>
+        </div>
+      </div>
+
+      {profile?.bio && <p className="mt-3 text-sm text-text">{profile.bio}</p>}
+
+      <div className="mt-4 flex gap-6">
+        <Link href="/profile/following" className="transition-opacity active:opacity-70">
+          <p className="text-sm font-bold text-text">{counts?.following ?? 0}</p>
+          <p className="text-xs text-muted">Seguindo</p>
+        </Link>
+        <Link href="/profile/followers" className="transition-opacity active:opacity-70">
+          <p className="text-sm font-bold text-text">{counts?.followers ?? 0}</p>
+          <p className="text-xs text-muted">Seguidores</p>
+        </Link>
+        <Link href="/profile/comments" className="transition-opacity active:opacity-70">
+          <p className="text-sm font-bold text-text">{socialCounts?.commentsGiven ?? 0}</p>
+          <p className="text-xs text-muted">Comentários</p>
+        </Link>
+      </div>
+
+      <div className="mt-3 flex gap-2">
+        <Link
+          href="/profile/edit"
+          className="inline-flex items-center justify-center rounded-lg border border-primary bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition-transform active:scale-[0.96]"
+        >
+          Editar
+        </Link>
+        {profile?.username && <ShareProfileButton username={profile.username} />}
+      </div>
+    </div>
+  );
+}

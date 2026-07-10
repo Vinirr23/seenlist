@@ -1,0 +1,6 @@
+nb_episodes_seen,tv_show_name,user_id,tv_show_id,is_followed,is_favorited
+62,Breaking Bad,1,1001,1,0
+195,The Office (US),1,1002,1,0
+5,Archer,1,1003,1,0
+0,Friends,1,1004,1,1
+0,Smallville,1,1005,1,0

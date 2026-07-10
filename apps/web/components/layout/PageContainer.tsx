@@ -5,8 +5,17 @@ export interface PageContainerProps {
   className?: string;
 }
 
+/**
+ * TASK-014: "o layout oficial do SeenList é o mobile — o desktop só
+ * exibe isso centralizado". Abaixo de 768px, largura total (o app é
+ * mobile, então isso já é o padrão). A partir de 768px, uma coluna
+ * de ~430px centralizada — não um layout de desktop de verdade, só
+ * o mesmo app mobile com espaço vazio nas laterais.
+ */
 export function PageContainer({ children, className }: PageContainerProps) {
   return (
-    <div className={cn("mx-auto w-full max-w-2xl px-4 pb-24 pt-6", className)}>{children}</div>
+    <div className={cn("w-full px-4 pb-24 pt-6 md:mx-auto md:max-w-[430px]", className)}>
+      {children}
+    </div>
   );
 }

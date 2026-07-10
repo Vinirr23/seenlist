@@ -13,44 +13,84 @@ const STATUS_LABEL: Record<LibraryStatus, string> = {
   watching: "Assistindo",
   want_to_watch: "Quero assistir",
   completed: "Concluído",
+  up_to_date: "Em dia",
+  paused: "Pausada",
 };
 
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+});
 
-export function LibraryCard({ item, children }: { item: LibraryItem; children?: React.ReactNode }) {
+export function LibraryCard({
+  item,
+  children,
+}: {
+  item: LibraryItem;
+  children?: React.ReactNode;
+}) {
   const move = useMoveLibraryItem();
   const remove = useRemoveLibraryItem();
+
   const posterUrl = tmdbImage(item.posterPath, "w185");
-  const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
+  const href =
+    item.mediaType === "movie"
+      ? `/movies/${item.id}`
+      : `/series/${item.id}`;
 
   return (
     <div className="flex gap-3 rounded-lg border border-border bg-surface p-2">
-      <Link href={href} className="relative h-24 w-16 shrink-0 overflow-hidden rounded-md bg-background">
+      <Link
+        href={href}
+        className="relative h-24 w-16 shrink-0 overflow-hidden rounded-md bg-background"
+      >
         {posterUrl ? (
-          <Image src={posterUrl} alt={item.title} fill sizes="64px" className="object-cover" />
+          <Image
+            src={posterUrl}
+            alt={item.title}
+            fill
+            sizes="64px"
+            className="object-cover"
+          />
         ) : (
-          <div className="flex h-full items-center justify-center text-[10px] text-muted">Sem pôster</div>
+          <div className="flex h-full items-center justify-center text-[10px] text-muted">
+            Sem pôster
+          </div>
         )}
       </Link>
 
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-        <Link href={href} className="truncate text-sm font-medium text-text">
+        <Link
+          href={href}
+          className="truncate text-sm font-medium text-text"
+        >
           {item.title}
         </Link>
+
         <p className="text-xs text-muted">
-          {[MEDIA_TYPE_LABEL[item.mediaType], item.year].filter(Boolean).join(" · ")}
+          {[MEDIA_TYPE_LABEL[item.mediaType], item.year]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
+
         {children}
+
         <p className="text-[11px] text-muted">
           Atualizado em {dateFormatter.format(new Date(item.updatedAt))}
         </p>
+
         <InlineError show={move.isError || remove.isError} />
       </div>
 
       <div className="flex shrink-0 flex-col items-end justify-between gap-2">
         <button
           type="button"
-          onClick={() => remove.mutate({ mediaType: item.mediaType, id: item.id })}
+          onClick={() =>
+            remove.mutate({
+              mediaType: item.mediaType,
+              id: item.id,
+            })
+          }
           disabled={remove.isPending}
           aria-label="Remover da lista"
           className="rounded-lg p-1.5 text-muted transition-colors hover:bg-background hover:text-danger disabled:opacity-50"

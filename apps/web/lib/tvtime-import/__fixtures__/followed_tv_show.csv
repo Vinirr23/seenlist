@@ -1,0 +1,6 @@
+user_id,tv_show_id,active,diffusion,notification_type,folder_id,archived,notification_offset,created_at,updated_at,tv_show_name
+1,1001,1,original,2,,0,-60,2020-01-01 00:00:00,2020-01-01 00:00:00,Breaking Bad
+1,1002,1,original,2,,0,-60,2020-01-01 00:00:00,2020-01-01 00:00:00,The Office (US)
+1,1003,0,original,2,,0,-60,2020-01-01 00:00:00,2020-01-01 00:00:00,Archer
+1,1004,1,original,2,,0,-60,2020-01-01 00:00:00,2020-01-01 00:00:00,Friends
+1,1005,1,original,2,,0,-60,2020-01-01 00:00:00,2020-01-01 00:00:00,Smallville

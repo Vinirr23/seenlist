@@ -2,21 +2,28 @@
   "name": "@seenlist/mobile",
   "version": "0.0.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "./index.js",
   "scripts": {
     "dev": "expo start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "expo": "52.0.0",
-    "expo-router": "4.0.9",
-    "expo-status-bar": "2.0.0",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "react-native": "0.76.3",
-    "react-native-safe-area-context": "4.12.0",
-    "react-native-screens": "4.1.0",
+    "expo": "~54.0.0",
+    "expo-router": "~6.0.0",
+    "@expo/metro-runtime": "^6.1.2",
+    "expo-status-bar": "~3.0.0",
+    "expo-dev-client": "~6.0.0",
+    "expo-notifications": "~0.32.0",
+    "expo-device": "~8.0.0",
+    "expo-constants": "~18.0.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "@react-native-async-storage/async-storage": "^3.1.1",
+    "react-native-url-polyfill": "^3.0.0",
+    "react": "19.1.7",
+    "react-native": "0.81.4",
+    "react-native-safe-area-context": "~5.4.0",
+    "react-native-screens": "~4.11.0",
     "@seenlist/ui": "workspace:*",
     "@seenlist/types": "workspace:*",
     "@seenlist/utils": "workspace:*",
@@ -25,7 +32,7 @@
   },
   "devDependencies": {
     "typescript": "5.6.3",
-    "@types/react": "18.3.3",
-    "@babel/core": "7.25.2"
+    "@types/react": "19.1.9",
+    "@babel/core": "^7.25.2"
   }
 }

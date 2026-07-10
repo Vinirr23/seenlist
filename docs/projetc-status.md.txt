@@ -1,0 +1,38 @@
+# SeenList
+
+## Fase 1 — Infraestrutura
+
+✅ Concluída
+
+## Fase 2 — Core
+
+✅ Concluída
+
+## Fase 3 — Migração TV Time
+
+🟡 Em andamento
+
+- parser
+- reconstrução
+- idempotência
+- auditoria
+
+## Fase 4 — Perfil Social
+
+🟡 Em testes
+
+## Fase 5 — Beta Fechado
+
+⬜ Não iniciado
+
+## Bugs conhecidos
+
+- Importação ainda classifica incorretamente algumas séries.
+- Reconstrução do progresso precisa ser validada com mais contas.
+
+## Próximas tarefas
+
+- Finalizar importação.
+- Testar perfil público.
+- Testar listas.
+- Deploy Beta.

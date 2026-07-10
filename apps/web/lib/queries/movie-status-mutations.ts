@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import type { MovieWatchStatus } from "@seenlist/types";
 import { useOptimisticMutation } from "@seenlist/hooks";
 import { createClient } from "@/lib/supabase/client";
@@ -37,5 +38,38 @@ export function useSetMovieStatus(movieId: number) {
       }
     },
     optimisticUpdate: (_current, { status, currentStatus }) => (currentStatus === status ? null : status),
+  });
+}
+
+/**
+ * TASK-047 — "Reassistido" pra filme. Incrementa `rewatch_count` na
+ * mesma linha de `movie_status`, mantém `status="watched"` intocado
+ * — nunca cria outra linha, nunca muda o status.
+ */
+export function useIncrementMovieRewatch(movieId: number) {
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("not authenticated");
+
+      const { data: row, error: readError } = await supabase
+        .from("movie_status")
+        .select("rewatch_count")
+        .eq("user_id", user.id)
+        .eq("movie_id", movieId)
+        .maybeSingle();
+      if (readError) throw readError;
+      if (!row) throw new Error("Filme não está marcado como assistido — não dá pra reassistir.");
+
+      const { error: updateError } = await supabase
+        .from("movie_status")
+        .update({ rewatch_count: (row.rewatch_count ?? 0) + 1 })
+        .eq("user_id", user.id)
+        .eq("movie_id", movieId);
+      if (updateError) throw updateError;
+    },
   });
 }

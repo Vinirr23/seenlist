@@ -1,26 +1,32 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { MessageCircle, ChevronRight } from "lucide-react";
 import { useSeriesDetails } from "@/lib/queries/series";
-import { useWatchedEpisodes, useMostRecentWatchedEpisode } from "@/lib/queries/watched-episodes";
+import { useWatchedEpisodes } from "@/lib/queries/watched-episodes";
+import { useSeriesStatus } from "@/lib/queries/series-status";
+import { getSeriesCategoryByStatus } from "@/lib/series-categories";
 import { SeriesHeader } from "./SeriesHeader";
 import { SeriesTabs, type SeriesTab } from "./SeriesTabs";
 import { SeriesDetailsSkeleton } from "./SeriesDetailsSkeleton";
 import { SeasonAccordion } from "./SeasonAccordion";
+import { EpisodeCarousel } from "./EpisodeCarousel";
 import { CastCarousel } from "../media/CastCarousel";
 import { MetaRow } from "../media/MetaRow";
 import { SimilarSeriesCarousel } from "./SimilarSeriesCarousel";
-import { ProgressCard } from "./ProgressCard";
+import { ReviewsSection } from "../social/ReviewsSection";
 import { EmptyState } from "../search/EmptyState";
 import { PageContainer } from "../layout/PageContainer";
 
 export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
-  const [tab, setTab] = useState<SeriesTab>("sobre");
+  const [tab, setTab] = useState<SeriesTab>("episodios");
   const numericId = Number(seriesId);
 
   const { data: series, isLoading, isError } = useSeriesDetails(seriesId);
   const { data: watchedEpisodes } = useWatchedEpisodes(numericId);
-  const { data: mostRecent } = useMostRecentWatchedEpisode(numericId);
+  const { data: currentStatus } = useSeriesStatus(numericId);
+  const categoryColorClass = currentStatus ? getSeriesCategoryByStatus(currentStatus)?.barColorClass : undefined;
 
   if (isLoading) {
     return <SeriesDetailsSkeleton />;
@@ -36,15 +42,17 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
 
   const watchedCount = watchedEpisodes?.size ?? 0;
 
-  const recentEpisode = mostRecent
-    ? series.seasons
-        .find((season) => season.seasonNumber === mostRecent.seasonNumber)
-        ?.episodes.find((episode) => episode.episodeNumber === mostRecent.episodeNumber)
-    : null;
-
   return (
-    <div>
-      <SeriesHeader series={series} />
+    <div className="w-full md:mx-auto md:max-w-[430px]">
+      <SeriesHeader
+        series={series}
+        seriesId={numericId}
+        seriesTitle={series.title}
+        currentStatus={currentStatus}
+        watchedCount={watchedCount}
+        totalEpisodes={series.numberOfEpisodes}
+        colorClass={categoryColorClass}
+      />
       <SeriesTabs active={tab} onChange={setTab} />
 
       <PageContainer>
@@ -72,34 +80,49 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
               <h2 className="mb-2 text-sm font-medium text-text">Séries semelhantes</h2>
               <SimilarSeriesCarousel items={series.similar} />
             </section>
+
+            <section>
+              <h2 className="mb-2 text-sm font-medium text-text">Avaliações</h2>
+              <ReviewsSection target={{ mediaType: "series", mediaId: numericId }} />
+            </section>
+
+            <Link
+              href={`/series/${numericId}/comments`}
+              className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-sm font-medium text-text hover:border-primary/40"
+            >
+              <span className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-muted" strokeWidth={2} />
+                Comentários
+              </span>
+              <ChevronRight className="h-4 w-4 text-muted" strokeWidth={2} />
+            </Link>
           </div>
         )}
 
         {tab === "episodios" && (
           <div className="space-y-4">
-            <ProgressCard watchedCount={watchedCount} totalEpisodes={series.numberOfEpisodes} />
-
-            {recentEpisode && (
-              <div className="rounded-lg border border-border bg-surface p-3">
-                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">
-                  Continuar assistindo
-                </p>
-                <p className="text-sm text-text">
-                  T{recentEpisode.seasonNumber} · E{recentEpisode.episodeNumber} — {recentEpisode.name}
-                </p>
-              </div>
+            {series.seasons.length > 0 && (
+              <EpisodeCarousel
+                seriesId={numericId}
+                seriesSlug={seriesId}
+                category={currentStatus}
+                seasons={series.seasons}
+                colorClass={categoryColorClass}
+              />
             )}
 
             {series.seasons.length === 0 ? (
               <EmptyState message="Nenhum episódio encontrado para esta série." />
             ) : (
               <div className="space-y-3">
-                {series.seasons.map((season) => (
+                {series.seasons.map((season, index) => (
                   <SeasonAccordion
                     key={season.seasonNumber}
                     seriesId={numericId}
                     season={season}
                     watchedEpisodes={watchedEpisodes}
+                    defaultOpen={index === 0}
+                    colorClass={categoryColorClass}
                   />
                 ))}
               </div>

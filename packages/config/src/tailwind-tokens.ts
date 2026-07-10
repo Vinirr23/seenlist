@@ -1,23 +1,33 @@
 /**
- * Tokens de cor globais do SeenList — apenas tema escuro nesta fase
- * (TASK-001). Fonte única de verdade: o Tailwind config de cada app
- * importa deste arquivo em vez de redeclarar os valores, para não
- * duplicar a paleta entre apps/web e apps/mobile.
+ * Tokens de cor globais do SeenList.
  *
- * Identidade visual original, não inspirada em nenhuma plataforma
- * de streaming específica.
+ * Ajuste (Configurações — tema): os valores viraram referências a
+ * variáveis CSS (`rgb(var(--color-x) / <alpha-value>)`) em vez de
+ * hex literal. Isso é o que permite trocar entre escuro/claro em
+ * tempo real SEM tocar em nenhum componente do app — todo lugar que
+ * já usa `bg-background`, `text-text` etc. continua funcionando
+ * exatamente igual; só o que essas classes *resolvem* muda,
+ * dependendo da classe `.light`/`.dark` em `<html>` (ver
+ * `app/globals.css` pros valores reais de cada tema).
+ *
+ * Fonte única de verdade: o Tailwind config de cada app importa
+ * deste arquivo em vez de redeclarar os valores.
  */
+function cssVar(name: string): string {
+  return `rgb(var(--color-${name}) / <alpha-value>)`;
+}
+
 export const colors = {
-  background: "#0B0E14",
-  surface: "#131826",
-  primary: "#E8A33D",
-  secondary: "#4FD1C5",
-  text: "#F4F1E8",
-  muted: "#8C93A8",
-  border: "#262D40",
-  success: "#34C77B",
-  warning: "#F0B429",
-  danger: "#E8574A",
+  background: cssVar("background"),
+  surface: cssVar("surface"),
+  primary: cssVar("primary"),
+  secondary: cssVar("secondary"),
+  text: cssVar("text"),
+  muted: cssVar("muted"),
+  border: cssVar("border"),
+  success: cssVar("success"),
+  warning: cssVar("warning"),
+  danger: cssVar("danger"),
 } as const;
 
 export type ColorToken = keyof typeof colors;

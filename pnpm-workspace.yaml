@@ -1,3 +1,19 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# TASK — .npmrc não é mais lido pra essas configurações no pnpm
+# 10.33 (só auth/registry continuam vindo de lá). node-linker,
+# shamefully-hoist e strict-peer-dependencies estavam em .npmrc e
+# sendo ignorados silenciosamente — nenhum erro, só o comportamento
+# padrão do pnpm rodando por baixo, o que explicava apps/web/
+# node_modules só ter @seenlist e nenhum shim em .bin.
+nodeLinker: hoisted
+shamefullyHoist: true
+strictPeerDependencies: false
+
+overrides:
+  "react": "19.1.7"
+  "react-dom": "19.1.7"
+  "@types/react": "19.1.9"
+  "@types/react-dom": "19.1.9"

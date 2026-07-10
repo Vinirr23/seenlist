@@ -1,25 +1,53 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Star } from "lucide-react";
-import type { SeriesDetails } from "@seenlist/types";
+import { ArrowLeft, MoreHorizontal } from "lucide-react";
+import type { SeriesDetails, LibraryStatus } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { hapticTick } from "@/lib/haptics";
+import { SeriesQuickActionsSheet } from "../profile/SeriesQuickActionsSheet";
 
-export function SeriesHeader({ series }: { series: SeriesDetails }) {
+export interface SeriesHeaderProps {
+  series: SeriesDetails;
+  seriesId: number;
+  seriesTitle: string;
+  currentStatus: LibraryStatus | null | undefined;
+  /** TASK-053 — mesmos dados que o antigo ProgressCard usava; cálculo de porcentagem idêntico, só mudou onde renderiza. */
+  watchedCount?: number;
+  totalEpisodes?: number;
+  colorClass?: string;
+}
+
+/**
+ * TASK-053 (correção) — hierarquia igual ao TV Time: título e
+ * metadados ficam DENTRO do banner (sobre a própria imagem, sem
+ * cartão de pôster separado flutuando por cima), e a barra de
+ * progresso fica colada na borda inferior da imagem, abaixo do
+ * texto — nunca como um bloco à parte entre a capa e o conteúdo.
+ */
+export function SeriesHeader({
+  series,
+  seriesId,
+  seriesTitle,
+  currentStatus,
+  watchedCount,
+  totalEpisodes,
+  colorClass = "bg-primary",
+}: SeriesHeaderProps) {
   const router = useRouter();
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
   const backdropUrl = tmdbImage(series.backdropPath, "w1280");
-  const posterUrl = tmdbImage(series.posterPath, "w342");
   const year = series.firstAirDate ? series.firstAirDate.slice(0, 4) : null;
 
+  const showProgress = totalEpisodes != null && totalEpisodes > 0 && watchedCount != null;
+  const percentage = showProgress ? Math.round((watchedCount / totalEpisodes) * 100) : 0;
+
   return (
-    <div className="relative">
-      <div className="relative h-56 w-full bg-surface">
-        {backdropUrl && (
-          <Image src={backdropUrl} alt="" fill sizes="100vw" className="object-cover" priority />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/10" />
-      </div>
+    <div className="relative h-64 w-full bg-surface">
+      {backdropUrl && <Image src={backdropUrl} alt="" fill sizes="100vw" className="object-cover" priority />}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
 
       <button
         type="button"
@@ -30,27 +58,44 @@ export function SeriesHeader({ series }: { series: SeriesDetails }) {
         <ArrowLeft className="h-4 w-4" strokeWidth={2.25} />
       </button>
 
-      <div className="relative -mt-16 flex gap-4 px-4">
-        <div className="relative h-36 w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
-          {posterUrl && <Image src={posterUrl} alt={series.title} fill sizes="96px" className="object-cover" />}
-        </div>
+      <button
+        type="button"
+        onClick={() => {
+          hapticTick();
+          setShowMoreOptions(true);
+        }}
+        aria-label="Mais opções"
+        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
+      >
+        <MoreHorizontal className="h-4 w-4" strokeWidth={2.25} />
+      </button>
 
-        <div className="flex flex-1 flex-col justify-end gap-1 pb-1">
-          <h1 className="text-lg font-semibold leading-tight text-text">{series.title}</h1>
-          <p className="text-xs text-muted">
-            {[year, `${series.numberOfSeasons} temporada${series.numberOfSeasons === 1 ? "" : "s"}`]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          {series.genres.length > 0 && (
-            <p className="text-xs text-muted">{series.genres.join(", ")}</p>
-          )}
-          <div className="mt-1 flex items-center gap-1 text-xs text-primary">
-            <Star className="h-3.5 w-3.5 fill-primary" />
-            {series.voteAverage.toFixed(1)}
-          </div>
-        </div>
+      <div className={`absolute inset-x-4 ${showProgress ? "bottom-7" : "bottom-3"}`}>
+        <h1 className="text-xl font-bold leading-tight text-white drop-shadow">{series.title}</h1>
+        <p className="mt-1 text-xs text-white/80 drop-shadow">
+          {[year, `${series.numberOfSeasons} temporada${series.numberOfSeasons === 1 ? "" : "s"}`, series.genres[0]]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
       </div>
+
+      {showProgress && (
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 px-3 pb-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/40">
+            <div className={`h-full rounded-full ${colorClass} transition-all`} style={{ width: `${percentage}%` }} />
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-white drop-shadow">{percentage}%</span>
+        </div>
+      )}
+
+      {showMoreOptions && (
+        <SeriesQuickActionsSheet
+          seriesId={seriesId}
+          seriesTitle={seriesTitle}
+          currentStatus={(currentStatus ?? "want_to_watch") as LibraryStatus}
+          onClose={() => setShowMoreOptions(false)}
+        />
+      )}
     </div>
   );
 }

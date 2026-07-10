@@ -14,6 +14,34 @@ function sanitizeIds(value: unknown): number[] {
   return value.filter((id): id is number => typeof id === "number" && Number.isInteger(id) && id > 0).slice(0, MAX_IDS_PER_REQUEST);
 }
 
+/**
+ * TASK-032 (correção) — mesmo bug já corrigido antes em
+ * api/tvtime-import/season-info (TASK-027F) e
+ * api/tvtime-out-import/find-by-external-id, só que aqui ninguém
+ * tinha aplicado ainda: `Promise.all` com até 100 séries por lote
+ * significa que UMA série com problema no TMDB derruba as outras 99
+ * junto — e como `library-state.ts` usa `summary?.totalEpisodes ?? 0`
+ * quando o resumo falta, essas 99 séries nunca conseguem virar "Em
+ * dia" nem "Concluída" (ficam presas no status bruto), mesmo estando
+ * corretas. `Promise.allSettled` isola cada item: uma falha vira só
+ * uma ausência pontual, as demais completam normalmente.
+ */
+async function settleSummaries<T>(ids: number[], fetcher: (id: number) => Promise<T>, label: string): Promise<T[]> {
+  const settled = await Promise.allSettled(ids.map((id) => fetcher(id)));
+  const results: T[] = [];
+  settled.forEach((outcome, index) => {
+    if (outcome.status === "fulfilled") {
+      results.push(outcome.value);
+    } else {
+      console.error(
+        `[api/tmdb/library-summaries] Falha ao buscar resumo de ${label} ${ids[index]} — os demais não são afetados.`,
+        outcome.reason
+      );
+    }
+  });
+  return results;
+}
+
 export async function POST(request: Request) {
   let body: Partial<RequestBody>;
   try {
@@ -26,16 +54,11 @@ export async function POST(request: Request) {
   const movieIds = sanitizeIds(body.movieIds);
   const seriesIds = sanitizeIds(body.seriesIds);
 
-  try {
-    const [movies, series] = await Promise.all([
-      Promise.all(movieIds.map((id) => getMovieSummary(id))),
-      Promise.all(seriesIds.map((id) => getSeriesSummary(id))),
-    ]);
+  const [movies, series] = await Promise.all([
+    settleSummaries(movieIds, getMovieSummary, "filme"),
+    settleSummaries(seriesIds, getSeriesSummary, "série"),
+  ]);
 
-    const response: { movies: MediaSummary[]; series: MediaSummary[] } = { movies, series };
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error("[api/tmdb/library-summaries] Falha ao buscar resumos no TMDB.", error);
-    return NextResponse.json({ error: "Não foi possível carregar os detalhes agora." }, { status: 502 });
-  }
+  const response: { movies: MediaSummary[]; series: MediaSummary[] } = { movies, series };
+  return NextResponse.json(response);
 }

@@ -19,13 +19,13 @@ export function BottomNavigationItem({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5"
+      className="flex flex-1 flex-col items-center justify-center gap-1 py-3.5"
     >
       <Icon
-        className={cn("h-5 w-5", active ? "text-primary" : "text-muted")}
+        className={cn("h-6 w-6", active ? "text-text" : "text-muted")}
         strokeWidth={active ? 2.4 : 2}
       />
-      <span className={cn("text-[11px]", active ? "font-medium text-text" : "text-muted")}>
+      <span className={cn("text-[10px]", active ? "font-semibold text-text" : "text-muted")}>
         {label}
       </span>
     </Link>

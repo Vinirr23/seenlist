@@ -1,0 +1,303 @@
+# SeenList — Database Schema
+
+Última atualização: 05/07/2026
+
+---
+
+# Visão geral
+
+O SeenList utiliza Supabase Auth para autenticação e tabelas próprias para
+armazenar os dados públicos e privados dos usuários.
+
+Fluxo principal:
+
+auth.users
+    │
+    ▼
+profiles
+    │
+    ├── follows
+    ├── favorites
+    ├── lists
+    │      └── list_items
+    │
+    ├── series_status
+    │      └── watched_episodes
+    │
+    └── movie_status
+
+---
+
+# Tabelas
+
+## profiles
+
+Responsabilidade:
+
+Armazena todas as informações públicas do usuário.
+
+Principais campos:
+
+- id
+- username
+- display_name
+- avatar_url
+- banner_url
+- bio
+- language
+- profile_visibility
+- library_visibility
+- favorites_visibility
+
+Relacionamentos:
+
+auth.users (1:1)
+
+Utilizada por:
+
+- Perfil
+- Perfil público
+- Busca de usuários
+- Feed
+- Seguidores
+
+---
+
+## follows
+
+Responsabilidade:
+
+Relacionamento entre usuários.
+
+Campos:
+
+- follower_id
+- following_id
+
+---
+
+## favorites
+
+Responsabilidade:
+
+Favoritos do usuário.
+
+Pode armazenar:
+
+- série
+- filme
+
+---
+
+## lists
+
+Responsabilidade:
+
+Listas criadas pelo usuário.
+
+Exemplo:
+
+- Favoritos da infância
+- Melhores animes
+- Filmes de Natal
+
+---
+
+## list_items
+
+Responsabilidade:
+
+Itens pertencentes a uma lista.
+
+Relacionamento:
+
+lists 1:N list_items
+
+---
+
+## series_status
+
+Responsabilidade:
+
+Estado da biblioteca do usuário.
+
+Status possíveis:
+
+- watching
+- completed
+- paused
+- plan_to_watch
+
+Também armazena:
+
+- next_episode
+- next_season
+- total_watch_events
+
+---
+
+## watched_episodes
+
+Responsabilidade:
+
+Guarda episódios únicos assistidos.
+
+Não registra reassistidas.
+
+---
+
+## movie_status
+
+Responsabilidade:
+
+Biblioteca de filmes.
+
+---
+
+## tvtime_tmdb_mappings
+
+Responsabilidade:
+
+Cache global dos mapeamentos TV Time → TMDB.
+
+Não depende do usuário.
+
+---
+
+## tvtime_import_events
+
+Responsabilidade:
+
+Telemetria da importação.
+
+---
+
+## tvtime_import_snapshots
+
+Responsabilidade:
+
+Snapshots da importação.
+
+---
+
+# Buckets
+
+avatars
+
+Responsabilidade:
+
+Armazena fotos de perfil.
+
+---
+
+# Fluxo de cadastro
+
+Usuário cria conta
+
+↓
+
+auth.users
+
+↓
+
+Trigger
+
+↓
+
+profiles
+
+---
+
+# Fluxo da importação
+
+Arquivo ZIP
+
+↓
+
+Parser
+
+↓
+
+Reconstrução
+
+↓
+
+series_status
+
+↓
+
+watched_episodes
+
+↓
+
+movie_status
+
+↓
+
+favorites
+
+---
+
+# Convenções
+
+Nunca armazenar informações públicas em auth.users.
+
+Toda informação pública pertence a profiles.
+
+---
+
+Episódios únicos
+
+↓
+
+watched_episodes
+
+---
+
+Eventos de visualização
+
+↓
+
+series_status.total_watch_events
+
+---
+
+Biblioteca
+
+↓
+
+series_status
+
+movie_status
+
+---
+
+Estatísticas
+
+↓
+
+total_watch_events
+
+Nunca utilizar watched_episodes para estatísticas.
+
+
+# Regras de arquitetura
+
+1.
+Nunca criar uma tabela sem migration.
+
+2.
+Nunca alterar uma tabela diretamente pelo painel do Supabase.
+
+3.
+Toda mudança estrutural deve gerar uma migration.
+
+4.
+Toda migration deve atualizar este documento.
+
+5.
+Toda feature nova deve informar:
+
+- tabelas utilizadas
+- índices criados
+- policies alteradas

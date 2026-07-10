@@ -1,0 +1,202 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { NextEpisodeToAir } from "@/lib/tmdb/client";
+import { createClient } from "@/lib/supabase/client";
+import { useLibraryItems } from "./library";
+
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+/** TASK-051 — "episódio acabou de ser lançado" pro badge NOVO. TMDB não define isso; escolhi 7 dias como corte razoável de "recém-lançado", documentado aqui — sem constraint nenhuma no banco, só uma decisão de UI. */
+const RECENTLY_AIRED_DAYS = 7;
+
+export type UpcomingBadge = "premiere" | "novo" | "mais-recente" | null;
+
+export interface UpcomingEpisodeWithBadge extends NextEpisodeToAir {
+  badge: UpcomingBadge;
+}
+
+export interface UpcomingGroup {
+  /** yyyy-mm-dd, pra ordenar corretamente. */
+  dateKey: string;
+  /** "HOJE", "AMANHÃ" ou o nome curto do dia ("SEXTA"), já formatado. */
+  label: string;
+  episodes: UpcomingEpisodeWithBadge[];
+}
+
+async function fetchUpcoming(seriesIds: number[]): Promise<NextEpisodeToAir[]> {
+  if (seriesIds.length === 0) return [];
+
+  const response = await fetch("/api/tmdb/upcoming", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ seriesIds }),
+  });
+  if (!response.ok) throw new Error("upcoming fetch failed");
+
+  const data = (await response.json()) as { episodes: NextEpisodeToAir[] };
+  return data.episodes;
+}
+
+/**
+ * TASK-051 — pra decidir o badge NOVO ("ainda não foi assistido"),
+ * precisa saber se o episódio específico já está em
+ * `watched_episodes`. Isso não existia antes nesta tela — é consulta
+ * nova, mas necessária (não dá pra decidir sem esse dado) e mínima:
+ * só os pares (série, temporada, episódio) que já vão aparecer na
+ * lista, não a tabela inteira.
+ */
+async function fetchWatchedStatus(
+  episodes: NextEpisodeToAir[]
+): Promise<Set<string>> {
+  if (episodes.length === 0) return new Set();
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return new Set();
+
+  const orFilter = episodes
+    .map((e) => `and(series_id.eq.${e.seriesId},season_number.eq.${e.seasonNumber},episode_number.eq.${e.episodeNumber})`)
+    .join(",");
+
+  const { data, error } = await supabase
+    .from("watched_episodes")
+    .select("series_id, season_number, episode_number")
+    .eq("user_id", user.id)
+    .or(orFilter);
+
+  if (error) {
+    console.error("[upcoming-episodes] Falha ao buscar status assistido — badge NOVO fica sem efeito desta vez.", error);
+    return new Set();
+  }
+
+  return new Set(data.map((row) => `${row.series_id}-${row.season_number}-${row.episode_number}`));
+}
+
+/**
+ * TASK-051 — as 3 badges, exatamente como especificado:
+ * PREMIERE (episódio 1 de temporada > 1) tem prioridade; depois NOVO
+ * (já lançado há até 7 dias e ainda não assistido); depois MAIS
+ * RECENTE (já lançado, mas não se encaixa nas duas anteriores —
+ * ou porque já foi assistido, ou porque passou da janela de "recém-
+ * lançado"). Episódio genuinamente futuro (ainda não foi ao ar) não
+ * ganha nenhuma das três — é só "próximo", o agrupamento por dia já
+ * deixa isso claro.
+ */
+export interface BadgeableEpisode {
+  seriesId: number;
+  seasonNumber: number;
+  episodeNumber: number;
+  airDate: string;
+}
+
+/**
+ * TASK-055 — exportado pra ser reutilizado por "Continue assistindo"
+ * também (mesma regra de badge, dado diferente — próximo episódio
+ * não assistido, não o próximo a ir ao ar). Mesma função, sem
+ * duplicar a regra em dois lugares.
+ */
+export function computeBadge(episode: BadgeableEpisode, watchedKeys: Set<string>): UpcomingBadge {
+  if (episode.episodeNumber === 1 && episode.seasonNumber > 1) return "premiere";
+
+  const airDate = new Date(`${episode.airDate}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const alreadyAired = airDate.getTime() <= today.getTime();
+  if (!alreadyAired) return null;
+
+  const daysSinceAired = Math.floor((today.getTime() - airDate.getTime()) / (24 * 60 * 60 * 1000));
+  const isWatched = watchedKeys.has(`${episode.seriesId}-${episode.seasonNumber}-${episode.episodeNumber}`);
+
+  if (daysSinceAired <= RECENTLY_AIRED_DAYS && !isWatched) return "novo";
+  return "mais-recente";
+}
+
+
+const WEEKDAY_SHORT = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
+
+function startOfDay(date: Date): Date {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+/**
+ * TASK-023, item 2: "HOJE" e "AMANHÃ" nos dois primeiros dias,
+ * depois o nome curto do dia da semana ("SEXTA", não "SEXTA-FEIRA"
+ * — bate com o exemplo da tarefa).
+ */
+function formatDayLabel(dateKey: string): string {
+  // "T00:00:00" evita o fuso horário local empurrar a data pro dia anterior.
+  const target = startOfDay(new Date(`${dateKey}T00:00:00`));
+  const today = startOfDay(new Date());
+  const tomorrow = startOfDay(new Date(today.getTime() + 24 * 60 * 60 * 1000));
+
+  if (target.getTime() === today.getTime()) return "HOJE";
+  if (target.getTime() === tomorrow.getTime()) return "AMANHÃ";
+  return WEEKDAY_SHORT[target.getDay()] ?? "";
+}
+
+/**
+ * TASK-019 — aba "Em breve". TASK-023: só séries "Assistindo" entram
+ * aqui — "Assistir depois" e "Concluído" ficam de fora (item 1;
+ * antes o filtro incluía "Assistir depois" por engano, junto com
+ * qualquer coisa que não fosse "completed"). Reaproveita
+ * `useLibraryItems` (mesma query da Biblioteca/Perfil, "reutilizar
+ * hooks existentes") — nenhuma tabela nova, nenhuma query nova ao
+ * Supabase.
+ */
+export function useUpcomingEpisodes() {
+  const libraryQuery = useLibraryItems();
+
+  const seriesIds = useMemo(
+    () =>
+      (libraryQuery.data ?? [])
+        .filter((item) => item.mediaType === "series" && item.status === "watching")
+        .map((item) => item.id),
+    [libraryQuery.data]
+  );
+
+  const upcomingQuery = useQuery({
+    queryKey: ["upcoming-episodes", seriesIds.slice().sort((a, b) => a - b).join(",")],
+    queryFn: () => fetchUpcoming(seriesIds),
+    enabled: !libraryQuery.isLoading,
+    staleTime: FIVE_MINUTES_MS,
+    gcTime: FIVE_MINUTES_MS,
+  });
+
+  const watchedQuery = useQuery({
+    queryKey: ["upcoming-episodes-watched", (upcomingQuery.data ?? []).map((e) => `${e.seriesId}-${e.seasonNumber}-${e.episodeNumber}`).join(",")],
+    queryFn: () => fetchWatchedStatus(upcomingQuery.data ?? []),
+    enabled: !upcomingQuery.isLoading && (upcomingQuery.data?.length ?? 0) > 0,
+    staleTime: FIVE_MINUTES_MS,
+    gcTime: FIVE_MINUTES_MS,
+  });
+
+  const groups = useMemo<UpcomingGroup[]>(() => {
+    const episodes = upcomingQuery.data ?? [];
+    const watchedKeys = watchedQuery.data ?? new Set<string>();
+    const byDate = new Map<string, UpcomingEpisodeWithBadge[]>();
+
+    for (const episode of episodes) {
+      const withBadge: UpcomingEpisodeWithBadge = { ...episode, badge: computeBadge(episode, watchedKeys) };
+      const list = byDate.get(episode.airDate);
+      if (list) {
+        list.push(withBadge);
+      } else {
+        byDate.set(episode.airDate, [withBadge]);
+      }
+    }
+
+    return [...byDate.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dateKey, eps]) => ({ dateKey, label: formatDayLabel(dateKey), episodes: eps }));
+  }, [upcomingQuery.data, watchedQuery.data]);
+
+  return {
+    groups,
+    isLoading: libraryQuery.isLoading || upcomingQuery.isLoading,
+    isError: libraryQuery.isError || upcomingQuery.isError,
+    error: libraryQuery.error ?? upcomingQuery.error,
+  };
+}

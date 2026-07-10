@@ -43,7 +43,9 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isPublicRoute =
-    PUBLIC_ROUTES.some((route) => pathname === route) || pathname.startsWith("/auth/callback");
+    PUBLIC_ROUTES.some((route) => pathname === route) ||
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/u/"); // TASK-028: perfil público, precisa funcionar sem login
 
   if (!user && !isPublicRoute) {
     // Rotas de API: quem chama é `fetch()` do client, não o navegador

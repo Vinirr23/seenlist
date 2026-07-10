@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "7131db47-ae2c-4b9a-947a-fe57c238676e"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.vinirr.seenlist",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.vinirr.seenlist"
+    }
+  }
+}

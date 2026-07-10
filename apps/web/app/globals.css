@@ -2,6 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Ajuste (Configurações — tema): valores reais das cores, em RGB
+ * (formato exigido pelo padrão `<alpha-value>` do Tailwind — ver
+ * packages/config/src/tailwind-tokens.ts). Escuro é o padrão (：root)
+ * e continua sendo exatamente a mesma paleta original do SeenList,
+ * pixel por pixel — nada mudou visualmente pra quem não trocar de
+ * tema. `.light` é a paleta clara nova; foi escolhida pra manter o
+ * mesmo âmbar de destaque e as mesmas cores semânticas
+ * (sucesso/aviso/erro), mas ainda não passou por revisão visual de
+ * design — funciona, mas pode precisar de ajuste fino depois.
+ */
+:root,
+.dark {
+  --color-background: 11 14 20;
+  --color-surface: 19 24 38;
+  --color-primary: 232 163 61;
+  --color-secondary: 79 209 197;
+  --color-text: 244 241 232;
+  --color-muted: 140 147 168;
+  --color-border: 38 45 64;
+  --color-success: 52 199 123;
+  --color-warning: 240 180 41;
+  --color-danger: 232 87 74;
+}
+
+.light {
+  --color-background: 250 250 252;
+  --color-surface: 240 240 245;
+  --color-primary: 200 130 30;
+  --color-secondary: 20 130 122;
+  --color-text: 20 22 28;
+  --color-muted: 100 105 120;
+  --color-border: 220 222 230;
+  --color-success: 30 140 85;
+  --color-warning: 170 110 10;
+  --color-danger: 190 60 50;
+}
+
 html,
 body {
   background-color: theme("colors.background");

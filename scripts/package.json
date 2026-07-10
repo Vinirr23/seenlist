@@ -1,0 +1,20 @@
+{
+  "name": "@seenlist/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Scripts de diagnóstico/ops — não fazem parte do build do app.",
+  "scripts": {
+    "check-library": "tsx check-library.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.45.4",
+    "pg": "8.13.1",
+    "dotenv": "16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "4.19.1",
+    "typescript": "5.6.3",
+    "@types/node": "22.7.5",
+    "@types/pg": "8.11.10"
+  }
+}

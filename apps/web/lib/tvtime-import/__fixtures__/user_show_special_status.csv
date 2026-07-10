@@ -1,0 +1,2 @@
+user_id,tv_show_id,status,created_at,updated_at,tv_show_name
+1,1003,for_later,2020-01-01 00:00:00,2020-01-01 00:00:00,Archer

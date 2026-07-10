@@ -47,10 +47,14 @@ interface RemoveVariables {
 
 /**
  * Filme: apaga a linha (não tem estado derivado, então apagar é
- * seguro). Série: marca como "removed" em vez de apagar, porque
- * apagar não existiria — o progresso de episódios assistidos
- * continua em watched_episodes (não mexemos nisso aqui), então
- * "remover" só esconde da Biblioteca.
+ * seguro).
+ *
+ * Série: apaga de vez — status E progresso de episódios assistidos.
+ * Antes (TASK-007) isso só marcava "removed", preservando
+ * `watched_episodes` pra caso o usuário adicionasse a série de novo
+ * depois. Mudança explícita pedida nesta tarefa ("remover todos os
+ * status, progresso e vínculo da biblioteca") — agora é destrutivo e
+ * não tem como desfazer.
  */
 export function useRemoveLibraryItem() {
   return useOptimisticMutation<RemoveVariables, LibraryItem[]>({
@@ -66,10 +70,14 @@ export function useRemoveLibraryItem() {
         const { error } = await supabase.from("movie_status").delete().match({ movie_id: id });
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from("series_status")
-          .upsert({ user_id: user.id, series_id: id, status: "removed", updated_at: new Date().toISOString() });
-        if (error) throw error;
+        const { error: episodesError } = await supabase
+          .from("watched_episodes")
+          .delete()
+          .match({ series_id: id });
+        if (episodesError) throw episodesError;
+
+        const { error: statusError } = await supabase.from("series_status").delete().match({ series_id: id });
+        if (statusError) throw statusError;
       }
     },
     optimisticUpdate: (current, { mediaType, id }) =>

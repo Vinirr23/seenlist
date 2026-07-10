@@ -1,30 +1,41 @@
 "use client";
 
 import Image from "next/image";
-import { Check } from "lucide-react";
+import Link from "next/link";
 import type { Episode } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
-import { cn } from "@seenlist/utils";
+import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
 
 export interface EpisodeCardProps {
+  seriesId: number;
   episode: Episode;
   watched: boolean;
   onToggleWatched: () => void;
   pending?: boolean;
+  colorClass?: string;
 }
 
-export function EpisodeCard({ episode, watched, onToggleWatched, pending }: EpisodeCardProps) {
+/**
+ * TASK-030 — "ao abrir um episódio: não abrir modal, abrir uma
+ * página dedicada". A linha inteira agora é um `Link` pra
+ * `/series/[id]/season/[s]/episode/[e]` — o botão de marcar como
+ * assistido continua funcionando direto na lista (sem precisar abrir
+ * a página), via `stopPropagation` pra não disparar a navegação
+ * junto.
+ */
+export function EpisodeCard({ seriesId, episode, watched, onToggleWatched, pending, colorClass }: EpisodeCardProps) {
   const stillUrl = tmdbImage(episode.stillPath, "w300");
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-2">
+    <Link
+      href={`/series/${seriesId}/season/${episode.seasonNumber}/episode/${episode.episodeNumber}`}
+      className="flex items-center gap-3 rounded-lg border border-border bg-surface p-2 transition-colors hover:border-primary/40"
+    >
       <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-md bg-background">
         {stillUrl ? (
           <Image src={stillUrl} alt={episode.name} fill sizes="96px" className="object-cover" />
         ) : (
-          <div className="flex h-full items-center justify-center text-[10px] text-muted">
-            Sem imagem
-          </div>
+          <div className="flex h-full items-center justify-center text-[10px] text-muted">Sem imagem</div>
         )}
       </div>
 
@@ -38,21 +49,7 @@ export function EpisodeCard({ episode, watched, onToggleWatched, pending }: Epis
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onToggleWatched}
-        disabled={pending}
-        aria-pressed={watched}
-        aria-label={watched ? "Marcar como não assistido" : "Marcar como assistido"}
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-50",
-          watched
-            ? "border-primary bg-primary text-background"
-            : "border-border text-muted hover:border-primary hover:text-primary"
-        )}
-      >
-        <Check className="h-4 w-4" strokeWidth={2.5} />
-      </button>
-    </div>
+      <EpisodeWatchedButton watched={watched} onClick={onToggleWatched} disabled={pending} colorClass={colorClass} />
+    </Link>
   );
 }

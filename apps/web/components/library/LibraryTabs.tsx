@@ -5,9 +5,16 @@ const TAB_LABELS: Record<LibraryStatus, string> = {
   watching: "Assistindo",
   want_to_watch: "Quero assistir",
   completed: "Concluído",
+  up_to_date: "Em dia",
+  paused: "Pausada",
 };
 
-const TAB_ORDER: LibraryStatus[] = ["watching", "want_to_watch", "completed"];
+const TAB_ORDER: LibraryStatus[] = [
+  "watching",
+  "want_to_watch",
+  "up_to_date",
+  "completed",
+];
 
 export function LibraryTabs({
   active,
@@ -27,7 +34,9 @@ export function LibraryTabs({
           onClick={() => onChange(tab)}
           className={cn(
             "border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
-            active === tab ? "border-primary text-text" : "border-transparent text-muted"
+            active === tab
+              ? "border-primary text-text"
+              : "border-transparent text-muted"
           )}
         >
           {TAB_LABELS[tab]}

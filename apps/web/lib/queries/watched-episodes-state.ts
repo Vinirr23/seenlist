@@ -11,13 +11,27 @@ export function watchedEpisodesQueryKey(seriesId: number) {
   return ["watched-episodes", seriesId] as const;
 }
 
-/** RLS já restringe a linhas do usuário logado — não precisa filtrar por user_id aqui. */
+/**
+ * CORREÇÃO — mesma causa do erro relatado em series-status: a
+ * política de biblioteca pública permite ver watched_episodes de
+ * OUTROS usuários com perfil público/seguido. Sem filtrar por
+ * user_id aqui, esta consulta (que deveria trazer só os MEUS
+ * episódios assistidos) podia silenciosamente misturar episódios de
+ * outra pessoa no mesmo Set — sem nem gerar erro, só progresso
+ * errado. Isso é provavelmente a explicação real de "mesclou".
+ */
 async function fetchWatchedEpisodes(seriesId: number): Promise<Set<WatchedEpisodeKey>> {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return new Set();
+
   const { data, error } = await supabase
     .from("watched_episodes")
     .select("season_number, episode_number")
-    .eq("series_id", seriesId);
+    .eq("series_id", seriesId)
+    .eq("user_id", user.id);
 
   if (error) throw error;
 
@@ -48,10 +62,16 @@ async function fetchMostRecentWatchedEpisode(
   seriesId: number
 ): Promise<MostRecentWatchedEpisode | null> {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
   const { data, error } = await supabase
     .from("watched_episodes")
     .select("season_number, episode_number")
     .eq("series_id", seriesId)
+    .eq("user_id", user.id)
     .order("watched_at", { ascending: false })
     .limit(1)
     .maybeSingle();

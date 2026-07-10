@@ -14,6 +14,10 @@ export interface MediaSearchResult {
   title: string;
   year: number | null;
   posterPath: string | null;
+  /** Só usado hoje pelo importador do TV Time, como critério de desempate entre candidatos com score parecido. */
+  popularity?: number;
+  /** Título original do TMDB (original_name/original_title) — usado pelo importador do TV Time pra comparar com o nome que o TV Time guarda, que costuma ser o original, não o localizado. */
+  originalTitle?: string;
 }
 
 export interface CastMember {
@@ -92,12 +96,17 @@ export interface SeriesDetails {
 // ---------------------------------------------------------------
 
 /** Vocabulário normalizado da Biblioteca — não é 1:1 com o enum bruto
- * de movie_status ('watched' vira 'completed' na leitura). */
-export type LibraryStatus = "want_to_watch" | "watching" | "completed";
+ * de movie_status ('watched' vira 'completed' na leitura).
+ * TASK-033 — "up_to_date" ("Em dia") virou status de verdade,
+ * decidido e gravado pelo importador — deixou de ser um flag
+ * calculado na leitura (ver LibraryItem.isCaughtUp, removido). */
+export type LibraryStatus = "want_to_watch" | "watching" | "completed" | "paused" | "up_to_date";
 
 export interface LibraryProgress {
   watchedEpisodes: number;
   totalEpisodes: number;
+  /** TASK-027J — total de visualizações do TV Time (inclui reassistidas), separado de propósito de `watchedEpisodes` (episódios únicos). undefined quando a série nunca foi importada — nesse caso, estatísticas usam `watchedEpisodes` como substituto razoável (não existe conceito de reassistir fora da importação ainda). */
+  totalWatchEvents?: number;
 }
 
 export interface LibraryItem {
@@ -111,4 +120,6 @@ export interface LibraryItem {
   posterPath: string | null;
   /** Só séries. */
   progress?: LibraryProgress;
+  /** Filme: duração do filme. Série: duração média de um episódio. Minutos. */
+  runtimeMinutes?: number;
 }

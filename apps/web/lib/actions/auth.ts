@@ -76,11 +76,11 @@ export async function signUpWithEmail(
   });
 
   if (error) {
+    console.error("[signup] Falha ao criar conta", error);
+
     return {
       error:
-        error.message === "User already registered"
-          ? "Este e-mail já tem cadastro."
-          : "Não foi possível criar a conta.",
+        error.message === "User already registered" ? "Este e-mail já tem cadastro." : "Não foi possível criar a conta.",
     };
   }
 
