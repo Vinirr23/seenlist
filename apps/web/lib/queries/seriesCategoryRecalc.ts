@@ -63,9 +63,25 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     .eq("user_id", user.id)
     .eq("series_id", seriesId)
     .maybeSingle();
-  if (statusError || !statusRow) return;
+  if (statusError) return;
 
-  const currentStatus = statusRow.status as string;
+  /**
+   * TASK-062 (correção real, comprovada) — achado: série adicionada
+   * só marcando episódios (nunca passou por `useMoveLibraryItem`)
+   * nunca ganha linha em `series_status` — o "Assistindo" que
+   * aparece na tela é só o fallback derivado de
+   * `buildLibraryItemsFromRows` (`isDerived: !explicit` → status
+   * "watching"), nunca gravado. Antes, `!statusRow` cortava a função
+   * aqui mesmo — ou seja, uma série "derivada" NUNCA podia ser
+   * promovida pra "Em dia"/"Concluído", não importa quantos
+   * episódios fossem marcados (reproduzido com Frieren e a Jornada
+   * para o Além, 38/38 episódios, presa em "Assistindo"). Sem linha
+   * = trata como "watching" (o mesmo fallback que a tela já assume)
+   * e segue o fluxo normal — se a categoria mudar, o UPDATE abaixo
+   * vira um UPSERT (cria a linha que nunca existiu, com a categoria
+   * já correta).
+   */
+  const currentStatus = statusRow?.status ?? "watching";
   const eligibleForRecalc = currentStatus === "watching" || currentStatus === "up_to_date" || currentStatus === "want_to_watch";
   if (!eligibleForRecalc) return;
 
@@ -118,11 +134,20 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
 
   if (newCategory === currentStatus) return;
 
+  /**
+   * TASK-062 — `upsert` em vez de `update`: séries sem linha prévia
+   * (o caso "derivado" corrigido acima) precisam que a linha seja
+   * CRIADA agora, com a categoria já correta — um `update` sozinho
+   * não faz nada quando a linha não existe (0 rows affected, sem
+   * erro nenhum), o que reproduziria o mesmo bug de um jeito
+   * diferente (a função "decide" a categoria certa mas nunca grava).
+   */
   const { error: updateError } = await supabase
     .from("series_status")
-    .update({ status: newCategory, updated_at: new Date().toISOString() })
-    .eq("user_id", user.id)
-    .eq("series_id", seriesId);
+    .upsert(
+      { user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,series_id" }
+    );
   if (updateError) {
     console.error("[series-category-recalc] Falha ao atualizar categoria depois de marcar episódio.", updateError);
   }
