@@ -1,15 +1,12 @@
 import { env } from "@/lib/env";
 
-const FROM_ADDRESS = "SeenList <onboarding@resend.dev>";
+const FROM_ADDRESS = "SeenList <contato@seenlist.app>";
 
 /**
  * TASK-077 — envio de e-mail via API REST do Resend, sem SDK novo
  * (é uma chamada `fetch` só, não compensa uma dependência inteira
- * pra isso). `FROM_ADDRESS` usa o remetente de teste do Resend
- * (`onboarding@resend.dev`) — funciona sem configuração de domínio,
- * mas com essa cara de "teste". Quando `seenlist.app` for verificado
- * no Resend (Domains → Add Domain), troca essa constante pra algo
- * como `SeenList <contato@seenlist.app>`.
+ * pra isso). `FROM_ADDRESS` usa `seenlist.app`, verificado no
+ * Resend (Domains → seenlist.app → Verified).
  */
 export async function sendEmail({
   to,
