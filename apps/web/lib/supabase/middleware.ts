@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
-const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password"];
+const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password", "/beta"];
 // /login e /register não fazem sentido pra quem já está logado — mandamos
 // pra "/". /forgot-password fica de fora dessa lista de propósito: depois
 // de clicar no link do e-mail de recuperação, o usuário chega aqui com uma

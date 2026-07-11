@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 
@@ -38,6 +38,7 @@ export default function RootScreen() {
   const [canGoBack, setCanGoBack] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     useCallback(() => {
@@ -63,7 +64,7 @@ export default function RootScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <WebView
         ref={webViewRef}
         source={{ uri: SITE_URL }}
@@ -96,7 +97,7 @@ export default function RootScreen() {
           </Pressable>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
