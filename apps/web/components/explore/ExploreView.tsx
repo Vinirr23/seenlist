@@ -17,7 +17,7 @@ import { ExploreActivityTab } from "./ExploreActivityTab";
  */
 export function ExploreView() {
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<ExploreTab>("discover");
+  const [tab, setTab] = useState<ExploreTab>("feed");
 
   return (
     <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
