@@ -7,6 +7,7 @@ import { ArrowLeft, MoreHorizontal } from "lucide-react";
 import type { SeriesDetails, LibraryStatus } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { SeriesQuickActionsSheet } from "../profile/SeriesQuickActionsSheet";
 
 export interface SeriesHeaderProps {
@@ -26,6 +27,8 @@ export interface SeriesHeaderProps {
  * cartão de pôster separado flutuando por cima), e a barra de
  * progresso fica colada na borda inferior da imagem, abaixo do
  * texto — nunca como um bloco à parte entre a capa e o conteúdo.
+ *
+ * Tradução (5º lote).
  */
 export function SeriesHeader({
   series,
@@ -37,12 +40,17 @@ export function SeriesHeader({
   colorClass = "bg-primary",
 }: SeriesHeaderProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const backdropUrl = tmdbImage(series.backdropPath, "w1280");
   const year = series.firstAirDate ? series.firstAirDate.slice(0, 4) : null;
 
   const showProgress = totalEpisodes != null && totalEpisodes > 0 && watchedCount != null;
   const percentage = showProgress ? Math.round((watchedCount / totalEpisodes) * 100) : 0;
+  const seasonsLabel = t("series.seasonsCount", {
+    count: series.numberOfSeasons,
+    plural: series.numberOfSeasons === 1 ? "" : "s",
+  });
 
   return (
     <div className="relative h-64 w-full bg-surface">
@@ -52,7 +60,7 @@ export function SeriesHeader({
       <button
         type="button"
         onClick={() => router.back()}
-        aria-label="Voltar"
+        aria-label={t("common.back")}
         className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2.25} />
@@ -64,7 +72,7 @@ export function SeriesHeader({
           hapticTick();
           setShowMoreOptions(true);
         }}
-        aria-label="Mais opções"
+        aria-label={t("action.moreOptions")}
         className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
       >
         <MoreHorizontal className="h-4 w-4" strokeWidth={2.25} />
@@ -73,9 +81,7 @@ export function SeriesHeader({
       <div className={`absolute inset-x-4 ${showProgress ? "bottom-7" : "bottom-3"}`}>
         <h1 className="text-xl font-bold leading-tight text-white drop-shadow">{series.title}</h1>
         <p className="mt-1 text-xs text-white/80 drop-shadow">
-          {[year, `${series.numberOfSeasons} temporada${series.numberOfSeasons === 1 ? "" : "s"}`, series.genres[0]]
-            .filter(Boolean)
-            .join(" · ")}
+          {[year, seasonsLabel, series.genres[0]].filter(Boolean).join(" · ")}
         </p>
       </div>
 

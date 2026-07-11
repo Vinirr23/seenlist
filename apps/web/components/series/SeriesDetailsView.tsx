@@ -7,6 +7,7 @@ import { useSeriesDetails } from "@/lib/queries/series";
 import { useWatchedEpisodes } from "@/lib/queries/watched-episodes";
 import { useSeriesStatus } from "@/lib/queries/series-status";
 import { getSeriesCategoryByStatus } from "@/lib/series-categories";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { SeriesHeader } from "./SeriesHeader";
 import { SeriesTabs, type SeriesTab } from "./SeriesTabs";
 import { SeriesDetailsSkeleton } from "./SeriesDetailsSkeleton";
@@ -19,9 +20,11 @@ import { ReviewsSection } from "../social/ReviewsSection";
 import { EmptyState } from "../search/EmptyState";
 import { PageContainer } from "../layout/PageContainer";
 
+/** Tradução (5º lote). */
 export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
   const [tab, setTab] = useState<SeriesTab>("episodios");
   const numericId = Number(seriesId);
+  const { t } = useTranslation();
 
   const { data: series, isLoading, isError } = useSeriesDetails(seriesId);
   const { data: watchedEpisodes } = useWatchedEpisodes(numericId);
@@ -35,7 +38,7 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
   if (isError || !series) {
     return (
       <PageContainer>
-        <EmptyState message="Não foi possível carregar esta série agora. Tente de novo em instantes." />
+        <EmptyState message={t("error.loadSeries")} />
       </PageContainer>
     );
   }
@@ -58,31 +61,29 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
       <PageContainer>
         {tab === "sobre" && (
           <div className="space-y-6">
-            <p className="text-sm leading-relaxed text-text">
-              {series.overview || "Sem sinopse disponível."}
-            </p>
+            <p className="text-sm leading-relaxed text-text">{series.overview || t("series.noOverview")}</p>
 
             <dl className="grid grid-cols-2 gap-3 text-sm">
-              <MetaRow label="Status" value={series.status} />
-              <MetaRow label="Lançamento" value={series.firstAirDate ?? "—"} />
-              <MetaRow label="Temporadas" value={String(series.numberOfSeasons)} />
-              <MetaRow label="Episódios" value={String(series.numberOfEpisodes)} />
-              <MetaRow label="Emissora" value={series.networks.join(", ") || "—"} />
-              <MetaRow label="Gêneros" value={series.genres.join(", ") || "—"} />
+              <MetaRow label={t("series.status")} value={series.status} />
+              <MetaRow label={t("series.releaseDate")} value={series.firstAirDate ?? "—"} />
+              <MetaRow label={t("series.seasonsLabel")} value={String(series.numberOfSeasons)} />
+              <MetaRow label={t("series.episodesLabel")} value={String(series.numberOfEpisodes)} />
+              <MetaRow label={t("series.network")} value={series.networks.join(", ") || "—"} />
+              <MetaRow label={t("series.genres")} value={series.genres.join(", ") || "—"} />
             </dl>
 
             <section>
-              <h2 className="mb-2 text-sm font-medium text-text">Elenco principal</h2>
+              <h2 className="mb-2 text-sm font-medium text-text">{t("series.mainCast")}</h2>
               <CastCarousel cast={series.cast} />
             </section>
 
             <section>
-              <h2 className="mb-2 text-sm font-medium text-text">Séries semelhantes</h2>
+              <h2 className="mb-2 text-sm font-medium text-text">{t("series.similarSeries")}</h2>
               <SimilarSeriesCarousel items={series.similar} />
             </section>
 
             <section>
-              <h2 className="mb-2 text-sm font-medium text-text">Avaliações</h2>
+              <h2 className="mb-2 text-sm font-medium text-text">{t("reviews.title")}</h2>
               <ReviewsSection target={{ mediaType: "series", mediaId: numericId }} />
             </section>
 
@@ -92,7 +93,7 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
             >
               <span className="flex items-center gap-2">
                 <MessageCircle className="h-4 w-4 text-muted" strokeWidth={2} />
-                Comentários
+                {t("profile.comments")}
               </span>
               <ChevronRight className="h-4 w-4 text-muted" strokeWidth={2} />
             </Link>
@@ -112,7 +113,7 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
             )}
 
             {series.seasons.length === 0 ? (
-              <EmptyState message="Nenhum episódio encontrado para esta série." />
+              <EmptyState message={t("error.noEpisodes")} />
             ) : (
               <div className="space-y-3">
                 {series.seasons.map((season, index) => (
