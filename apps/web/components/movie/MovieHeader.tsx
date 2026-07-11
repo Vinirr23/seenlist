@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Star, Check } from "lucide-react";
 import type { MovieDetails } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: boolean }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const backdropUrl = tmdbImage(movie.backdropPath, "w1280");
   const posterUrl = tmdbImage(movie.posterPath, "w342");
   const year = movie.releaseDate ? movie.releaseDate.slice(0, 4) : null;
@@ -25,7 +27,7 @@ export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: 
       <button
         type="button"
         onClick={() => router.back()}
-        aria-label="Voltar"
+        aria-label={t("common.back")}
         className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2.25} />
@@ -37,7 +39,7 @@ export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: 
           {watched && (
             <div className="absolute right-1 top-1 flex items-center gap-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-background">
               <Check className="h-3 w-3" strokeWidth={3} />
-              Assistido
+              {t("action.watched")}
             </div>
           )}
         </div>

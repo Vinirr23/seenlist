@@ -1,42 +1,51 @@
+"use client";
+
 import type { MovieDetails } from "@seenlist/types";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { MetaRow } from "../media/MetaRow";
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "Inglês",
-  pt: "Português",
-  es: "Espanhol",
-  fr: "Francês",
-  ja: "Japonês",
-  ko: "Coreano",
-  de: "Alemão",
-  it: "Italiano",
-  zh: "Mandarim",
+const LANGUAGE_KEYS: Record<string, string> = {
+  en: "lang.en",
+  pt: "lang.pt",
+  es: "lang.es",
+  fr: "lang.fr",
+  ja: "lang.ja",
+  ko: "lang.ko",
+  de: "lang.de",
+  it: "lang.it",
+  zh: "lang.zh",
 };
 
-const currencyFormatter = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
-
 export function MovieInfo({ movie }: { movie: MovieDetails }) {
+  const { t, locale } = useTranslation();
+  const currencyFormatter = new Intl.NumberFormat(INTL_LOCALES[locale], {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+
   return (
     <div className="space-y-6">
-      <p className="text-sm leading-relaxed text-text">{movie.overview || "Sem sinopse disponível."}</p>
+      <p className="text-sm leading-relaxed text-text">{movie.overview || t("series.noOverview")}</p>
 
       <dl className="grid grid-cols-2 gap-3 text-sm">
-        <MetaRow label="Diretor" value={movie.director ?? "—"} />
-        <MetaRow label="Estúdios" value={movie.studios.join(", ") || "—"} />
-        <MetaRow label="País" value={movie.country ?? "—"} />
+        <MetaRow label={t("movie.director")} value={movie.director ?? "—"} />
+        <MetaRow label={t("movie.studios")} value={movie.studios.join(", ") || "—"} />
+        <MetaRow label={t("movie.country")} value={movie.country ?? "—"} />
         <MetaRow
-          label="Idioma"
-          value={movie.language ? (LANGUAGE_NAMES[movie.language] ?? movie.language) : "—"}
+          label={t("movie.language")}
+          value={
+            movie.language
+              ? LANGUAGE_KEYS[movie.language]
+                ? t(LANGUAGE_KEYS[movie.language])
+                : movie.language
+              : "—"
+          }
         />
-        {movie.budget !== null && (
-          <MetaRow label="Orçamento" value={currencyFormatter.format(movie.budget)} />
-        )}
+        {movie.budget !== null && <MetaRow label={t("movie.budget")} value={currencyFormatter.format(movie.budget)} />}
         {movie.revenue !== null && (
-          <MetaRow label="Bilheteria" value={currencyFormatter.format(movie.revenue)} />
+          <MetaRow label={t("movie.revenue")} value={currencyFormatter.format(movie.revenue)} />
         )}
       </dl>
     </div>
