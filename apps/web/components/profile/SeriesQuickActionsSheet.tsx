@@ -9,6 +9,7 @@ import { useIsFavorite, useToggleFavorite } from "@/lib/queries/favorites";
 import { useMyLists, useCreateList, useAddToList } from "@/lib/queries/lists";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface SeriesQuickActionsSheetProps {
   seriesId: number;
@@ -27,6 +28,10 @@ type SheetView = "menu" | "pick-list";
  * o menu de trocar QUALQUER status, é o conjunto específico pedido.
  * `useSetSeriesStatus`/`useRemoveLibraryItem` continuam sendo as
  * mesmas mutations de sempre, só a lista de opções mudou.
+ *
+ * Tradução (3º lote) — este era o menu "Mais opções" que ainda tinha
+ * escapado dos lotes anteriores (só os botões principais da tela de
+ * série/filme tinham sido cobertos, não este sheet).
  */
 export function SeriesQuickActionsSheet({
   seriesId,
@@ -34,6 +39,7 @@ export function SeriesQuickActionsSheet({
   currentStatus,
   onClose,
 }: SeriesQuickActionsSheetProps) {
+  const { t } = useTranslation();
   const [view, setView] = useState<SheetView>("menu");
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [newListName, setNewListName] = useState("");
@@ -61,8 +67,8 @@ export function SeriesQuickActionsSheet({
     setStatus.mutate(
       { status, currentStatus },
       {
-        onSuccess: () => toast.success(currentStatus === status ? "Série removida" : "Série adicionada"),
-        onError: () => toast.error("Erro de conexão"),
+        onSuccess: () => toast.success(currentStatus === status ? t("toast.seriesRemoved") : t("toast.seriesAdded")),
+        onError: () => toast.error(t("toast.connectionError")),
       }
     );
     onClose();
@@ -79,8 +85,8 @@ export function SeriesQuickActionsSheet({
     removeItem.mutate(
       { mediaType: "series", id: seriesId },
       {
-        onSuccess: () => toast.success("Série removida"),
-        onError: () => toast.error("Erro de conexão"),
+        onSuccess: () => toast.success(t("toast.seriesRemoved")),
+        onError: () => toast.error(t("toast.connectionError")),
       }
     );
     onClose();
@@ -118,10 +124,10 @@ export function SeriesQuickActionsSheet({
     }
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copiado");
+      toast.success(t("toast.linkCopied"));
     } catch (error) {
       console.error("[series] Falha ao copiar link da série", error);
-      toast.error("Não foi possível copiar o link.");
+      toast.error(t("toast.linkCopyError"));
     }
     onClose();
   }
@@ -133,25 +139,22 @@ export function SeriesQuickActionsSheet({
       <div className="relative w-full max-w-[430px] rounded-t-2xl border-t border-border bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         {confirmingRemove ? (
           <div className="space-y-4 text-center">
-            <p className="text-sm text-text">Remover esta série da sua biblioteca?</p>
-            <p className="text-xs text-muted">
-              Isso apaga o status e todo o progresso de episódios assistidos de &quot;{seriesTitle}&quot;. Não dá
-              pra desfazer.
-            </p>
+            <p className="text-sm text-text">{t("removeSeries.confirmTitle")}</p>
+            <p className="text-xs text-muted">{t("removeSeries.confirmMessage", { title: seriesTitle })}</p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmingRemove(false)}
                 className="flex-1 rounded-lg border border-border py-2.5 text-sm font-medium text-text"
               >
-                Cancelar
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmRemove}
                 className="flex-1 rounded-lg bg-danger py-2.5 text-sm font-semibold text-text"
               >
-                Remover
+                {t("common.remove")}
               </button>
             </div>
           </div>
@@ -161,18 +164,18 @@ export function SeriesQuickActionsSheet({
               <button
                 type="button"
                 onClick={() => setView("menu")}
-                aria-label="Voltar"
+                aria-label={t("common.back")}
                 className="rounded-lg p-1 text-muted hover:text-text"
               >
                 <ArrowLeft className="h-4 w-4" strokeWidth={2} />
               </button>
-              <p className="truncate text-xs font-medium text-muted">Adicionar &quot;{seriesTitle}&quot; a…</p>
+              <p className="truncate text-xs font-medium text-muted">{t("list.addTo", { title: seriesTitle })}</p>
             </div>
 
-            {listsLoading && <p className="px-3 py-3 text-sm text-muted">Carregando…</p>}
+            {listsLoading && <p className="px-3 py-3 text-sm text-muted">{t("common.loading")}</p>}
 
             {!listsLoading && lists && lists.length === 0 && !showNewListForm && (
-              <p className="px-3 py-2 text-sm text-muted">Você ainda não tem nenhuma lista.</p>
+              <p className="px-3 py-2 text-sm text-muted">{t("list.empty")}</p>
             )}
 
             {lists?.map((list) => (
@@ -193,7 +196,7 @@ export function SeriesQuickActionsSheet({
                   autoFocus
                   value={newListName}
                   onChange={(e) => setNewListName(e.target.value)}
-                  placeholder="Nome da lista"
+                  placeholder={t("list.namePlaceholder")}
                   maxLength={80}
                   className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
                 />
@@ -212,7 +215,7 @@ export function SeriesQuickActionsSheet({
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium text-primary hover:bg-background"
               >
                 <Plus className="h-4 w-4" strokeWidth={2} />
-                Criar nova lista
+                {t("list.createNew")}
               </button>
             )}
           </div>
@@ -226,7 +229,7 @@ export function SeriesQuickActionsSheet({
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-text hover:bg-background"
             >
               <Heart className={isFavorite ? "h-4 w-4 fill-current text-danger" : "h-4 w-4"} strokeWidth={2} />
-              {isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+              {isFavorite ? t("action.favorite.remove") : t("action.favorite.add")}
             </button>
 
             <button
@@ -235,7 +238,7 @@ export function SeriesQuickActionsSheet({
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-text hover:bg-background"
             >
               <ListPlus className="h-4 w-4" strokeWidth={2} />
-              Adicionar a lista
+              {t("action.addToList")}
             </button>
 
             <button
@@ -244,7 +247,7 @@ export function SeriesQuickActionsSheet({
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-text hover:bg-background"
             >
               <Clock className="h-4 w-4" strokeWidth={2} />
-              Assistir depois
+              {t("action.watchLater")}
             </button>
 
             <button
@@ -253,7 +256,7 @@ export function SeriesQuickActionsSheet({
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-text hover:bg-background"
             >
               <PauseCircle className="h-4 w-4" strokeWidth={2} />
-              Parar de assistir
+              {t("action.stopWatching")}
             </button>
 
             <button
@@ -262,7 +265,7 @@ export function SeriesQuickActionsSheet({
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-danger hover:bg-background"
             >
               <Trash2 className="h-4 w-4" strokeWidth={2} />
-              Remover série
+              {t("action.removeSeries")}
             </button>
 
             <button
@@ -271,7 +274,7 @@ export function SeriesQuickActionsSheet({
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-text hover:bg-background"
             >
               <Share2 className="h-4 w-4" strokeWidth={2} />
-              Compartilhar
+              {t("action.share")}
             </button>
 
             <button
@@ -280,7 +283,7 @@ export function SeriesQuickActionsSheet({
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-border py-3 text-sm font-medium text-muted"
             >
               <X className="h-4 w-4" strokeWidth={2} />
-              Cancelar
+              {t("common.cancel")}
             </button>
           </div>
         )}
