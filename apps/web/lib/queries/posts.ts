@@ -8,20 +8,26 @@ export interface Post {
   authorName: string;
   authorUsername: string;
   authorAvatarUrl: string | null;
+  /** TASK-066 — vazio quando o post é só imagem/GIF, sem legenda. */
   body: string;
+  /** TASK-066 — imagem ou GIF anexado ao post (mesma coluna serve pros dois). Nulo pra post de texto puro. */
+  imageUrl: string | null;
   createdAt: string;
 }
 
 const POSTS_LIMIT = 30;
+const POST_TYPES = ["text", "image"] as const;
 
 /**
- * TASK-059 (fase 2) — só posts type='text' por enquanto. Ordem
- * cronológica simples (created_at desc) — o algoritmo de mistura de
- * sinais é fase futura, não inventado aqui. Perfis buscados à parte
- * e unidos no cliente, mesmo padrão já usado em activity-feed.ts e
- * my-comments.ts (posts.user_id referencia auth.users, não profiles
- * diretamente — não dá pra fazer join aninhado do Supabase sem uma
- * FK declarada entre as duas tabelas).
+ * TASK-059 (fase 2) / TASK-066 (fase seguinte — post com imagem) —
+ * "text" e "image" são os dois tipos que já existem; os outros do
+ * pedido original (review/enquete/lista/...) continuam fase futura.
+ * Ordem cronológica simples (created_at desc) — o algoritmo de
+ * mistura de sinais é fase futura, não inventado aqui. Perfis
+ * buscados à parte e unidos no cliente, mesmo padrão já usado em
+ * activity-feed.ts e my-comments.ts (posts.user_id referencia
+ * auth.users, não profiles diretamente — não dá pra fazer join
+ * aninhado do Supabase sem uma FK declarada entre as duas tabelas).
  */
 export function usePosts() {
   return useQuery({
@@ -31,8 +37,8 @@ export function usePosts() {
 
       const { data: rows, error } = await supabase
         .from("posts")
-        .select("id, user_id, body, created_at")
-        .eq("type", "text")
+        .select("id, user_id, body, image_url, created_at")
+        .in("type", POST_TYPES)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(POSTS_LIMIT);
@@ -59,6 +65,7 @@ export function usePosts() {
             authorUsername: profile.username,
             authorAvatarUrl: profile.avatar_url,
             body: row.body ?? "",
+            imageUrl: row.image_url,
             createdAt: row.created_at,
           };
         })
@@ -75,7 +82,7 @@ export function usePost(postId: string) {
 
       const { data: row, error } = await supabase
         .from("posts")
-        .select("id, user_id, body, created_at")
+        .select("id, user_id, body, image_url, created_at")
         .eq("id", postId)
         .is("deleted_at", null)
         .maybeSingle();
@@ -100,6 +107,7 @@ export function usePost(postId: string) {
         authorUsername: profile.username,
         authorAvatarUrl: profile.avatar_url,
         body: row.body ?? "",
+        imageUrl: row.image_url,
         createdAt: row.created_at,
       };
     },
@@ -107,18 +115,30 @@ export function usePost(postId: string) {
   });
 }
 
-export function useCreateTextPost() {
+/**
+ * TASK-066 — substitui `useCreateTextPost`: agora cria post de texto
+ * OU de imagem, dependendo do que foi passado (`imageUrl` presente =
+ * `type: "image"`). Um post de imagem pode ter legenda (`body`) ou
+ * não — os dois são válidos, a constraint no banco já garante que
+ * pelo menos um dos dois exista.
+ */
+export function useCreatePost() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (body: string) => {
+    mutationFn: async ({ body, imageUrl }: { body: string; imageUrl?: string | null }) => {
       const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("not authenticated");
 
-      const { error } = await supabase.from("posts").insert({ user_id: user.id, type: "text", body });
+      const { error } = await supabase.from("posts").insert({
+        user_id: user.id,
+        type: imageUrl ? "image" : "text",
+        body: body.trim() ? body : null,
+        image_url: imageUrl ?? null,
+      });
       if (error) {
         console.error("[posts] Falha ao criar post", describeSupabaseError(error));
         throw error;

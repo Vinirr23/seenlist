@@ -121,7 +121,15 @@ export function PostCard({ post }: { post: Post }) {
           </div>
         )}
       </div>
-      <p className="mt-2.5 whitespace-pre-wrap text-sm text-text">{post.body}</p>
+      {post.body && <p className="mt-2.5 whitespace-pre-wrap text-sm text-text">{post.body}</p>}
+      {post.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- imagem do usuário no Storage, sem domínio fixo configurado
+        <img
+          src={post.imageUrl}
+          alt=""
+          className="mt-2.5 max-h-96 w-full rounded-lg border border-border object-cover"
+        />
+      )}
 
       <div className="mt-2.5 flex items-center gap-4">
         <button

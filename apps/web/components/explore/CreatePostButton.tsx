@@ -1,57 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
-import { useCreateTextPost } from "@/lib/queries/posts";
+import { useEffect, useRef, useState } from "react";
+import { Plus, X, Image as ImageIcon } from "lucide-react";
+import { useCreatePost } from "@/lib/queries/posts";
+import { usePostImageUpload } from "@/lib/queries/post-image-upload";
 import { hapticTick } from "@/lib/haptics";
 import { useHideBottomNav } from "@/lib/layout/bottomNavVisibility";
 
 const MAX_LENGTH = 500;
 
 /**
- * TASK-059 (fase 2) — só cria posts type="text". O composer completo
- * (imagem/GIF/poster/enquete/review/lista/spoiler, do pedido
- * original) é fase futura — construir isso tudo de uma vez arriscaria
- * qualidade, como já combinado.
+ * TASK-059 (fase 2) — criação de post. TASK-066 — segundo tipo de
+ * post: imagem/GIF, com legenda opcional (o resto do pedido original
+ * — poster/enquete/review/lista/spoiler — continua fase futura).
  *
- * BUG (Web Mobile / iOS Safari) corrigido aqui — recapitulando os 3
- * problemas que estavam misturados num só sintoma ("teclado cobre o
- * botão Postar"):
- *
- * 1. Barra de navegação por cima do modal: `useHideBottomNav(open)`
- *    remove a `<BottomNavigation>` do DOM enquanto este modal está
- *    aberto (ver bottomNavVisibility.tsx) — não dá mais pra ela
- *    aparecer por cima de nada, teclado aberto ou não.
- * 2. `100dvh` em vez de depender só de `inset-0`: o container do
- *    modal (mobile) tem `h-[100dvh]` explícito. `dvh` (dynamic
- *    viewport height) é a unidade que os navegadores atualizam de
- *    verdade quando o teclado abre/fecha — `100vh` fica "preso" no
- *    tamanho de antes do teclado abrir, empurrando conteúdo pra fora
- *    da área visível. Desktop continua com altura pelo conteúdo
- *    (`md:h-auto`), sem herdar esse comportamento — layout de
- *    desktop inalterado.
- * 3. Botão "Postar" sempre alcançável: em vez de fixar o botão com
- *    `position: fixed` (que sofre o mesmo problema do item 2 com o
- *    teclado), o modal virou uma coluna flex
- *    (header / textarea-scrollável / botão) contida dentro do
- *    `h-[100dvh]` do item 2 — o botão fica no fluxo normal, no fim
- *    dessa coluna. Quando o teclado abre e o `dvh` encolhe, a coluna
- *    inteira encolhe junto e o botão continua dentro da área visível,
- *    sem cálculo manual de altura de teclado (que não é confiável
- *    entre Safari iOS/Chrome Android). `env(safe-area-inset-bottom)`
- *    no padding inferior cobre o notch/home indicator do iPhone
- *    quando o teclado NÃO está aberto.
+ * Anexo de imagem/GIF: mesmo raciocínio do `CommentComposer`
+ * (TASK-065) — um GIF é só um arquivo `image/gif`, o mesmo seletor
+ * cobre os dois, sem precisar de busca integrada tipo Tenor/Giphy.
+ * Upload só acontece ao publicar, não ao escolher o arquivo.
  */
 export function CreatePostButton() {
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
-  const createPost = useCreateTextPost();
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const createPost = useCreatePost();
+  const { upload, pending: uploadPending, error: uploadError, clearError } = usePostImageUpload();
 
   useHideBottomNav(open);
 
   // Trava o scroll do body por trás do modal — evita o "bounce" do
-  // Safari iOS arrastar a página de fundo enquanto o modal (que já
-  // tem seu próprio scroll interno, item 3 acima) está aberto.
+  // Safari iOS arrastar a página de fundo enquanto o modal está aberto.
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
@@ -61,16 +41,52 @@ export function CreatePostButton() {
     };
   }, [open]);
 
-  function handleSubmit() {
-    if (!body.trim()) return;
-    hapticTick();
-    createPost.mutate(body.trim(), {
-      onSuccess: () => {
-        setBody("");
-        setOpen(false);
-      },
-    });
+  function resetForm() {
+    setBody("");
+    setImageFile(null);
+    setImagePreviewUrl(null);
   }
+
+  function handlePickImage() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    clearError();
+    setImageFile(file);
+    setImagePreviewUrl(URL.createObjectURL(file));
+  }
+
+  function handleRemoveImage() {
+    setImageFile(null);
+    setImagePreviewUrl(null);
+  }
+
+  async function handleSubmit() {
+    if (!body.trim() && !imageFile) return;
+    hapticTick();
+
+    let imageUrl: string | null = null;
+    if (imageFile) {
+      imageUrl = await upload(imageFile);
+      if (!imageUrl) return; // upload falhou — o erro já fica visível no modal
+    }
+
+    createPost.mutate(
+      { body: body.trim(), imageUrl },
+      {
+        onSuccess: () => {
+          resetForm();
+          setOpen(false);
+        },
+      }
+    );
+  }
+
+  const busy = createPost.isPending || uploadPending;
 
   return (
     <>
@@ -91,7 +107,15 @@ export function CreatePostButton() {
           <div className="flex h-[100dvh] w-full max-w-[430px] flex-col bg-surface md:h-auto md:max-h-[85dvh] md:rounded-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3">
               <h2 className="text-base font-bold text-text">Novo post</h2>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="text-muted">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  resetForm();
+                }}
+                aria-label="Fechar"
+                className="text-muted"
+              >
                 <X className="h-5 w-5" strokeWidth={2} />
               </button>
             </div>
@@ -108,16 +132,47 @@ export function CreatePostButton() {
               <p className="mt-1 text-right text-xs text-muted">
                 {body.length}/{MAX_LENGTH}
               </p>
+
+              {imagePreviewUrl && (
+                <div className="relative mt-2 inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), sem domínio fixo */}
+                  <img
+                    src={imagePreviewUrl}
+                    alt=""
+                    className="max-h-56 rounded-lg border border-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    aria-label="Remover imagem"
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-text"
+                  >
+                    <X className="h-3.5 w-3.5" strokeWidth={2} />
+                  </button>
+                </div>
+              )}
+
+              {uploadError && <p className="mt-2 text-xs text-danger">{uploadError}</p>}
+
+              <button
+                type="button"
+                onClick={handlePickImage}
+                className="mt-2 flex items-center gap-1.5 text-xs text-muted hover:text-text"
+              >
+                <ImageIcon className="h-4 w-4" strokeWidth={2} />
+                {imagePreviewUrl ? "Trocar imagem" : "Anexar imagem ou GIF"}
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
             </div>
 
             <div className="shrink-0 border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:border-none md:pt-0">
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={!body.trim() || createPost.isPending}
+                disabled={(!body.trim() && !imageFile) || busy}
                 className="w-full rounded-lg bg-primary py-3 text-sm font-bold text-background disabled:opacity-40"
               >
-                {createPost.isPending ? "Publicando..." : "Publicar"}
+                {uploadPending ? "Enviando imagem..." : createPost.isPending ? "Publicando..." : "Publicar"}
               </button>
             </div>
           </div>
