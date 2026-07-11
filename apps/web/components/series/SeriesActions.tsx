@@ -7,6 +7,7 @@ import { cn } from "@seenlist/utils";
 import { useSeriesStatus, useSetSeriesStatus } from "@/lib/queries/series-status";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { InlineError } from "../media/InlineError";
 import { FavoriteButton } from "../media/FavoriteButton";
 import { SeriesQuickActionsSheet } from "../profile/SeriesQuickActionsSheet";
@@ -32,11 +33,15 @@ import { SeriesQuickActionsSheet } from "../profile/SeriesQuickActionsSheet";
  * reaproveitando o mesmo sheet que já existia pro long-press nos
  * pôsteres da Biblioteca (SeriesQuickActionsSheet), não duplicando
  * um segundo menu com as mesmas opções.
+ *
+ * Tradução (2º lote) — os textos fixos daqui viraram chaves de
+ * `translations.ts`.
  */
 export function SeriesActions({ seriesId, seriesTitle }: { seriesId: number; seriesTitle: string }) {
   const { data: currentStatus, isError: readFailed } = useSeriesStatus(seriesId);
   const setStatus = useSetSeriesStatus(seriesId);
   const toast = useToast();
+  const { t } = useTranslation();
   const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   const hasActiveStatus = currentStatus != null && currentStatus !== "want_to_watch";
@@ -47,8 +52,8 @@ export function SeriesActions({ seriesId, seriesTitle }: { seriesId: number; ser
     setStatus.mutate(
       { status: "want_to_watch", currentStatus: currentStatus ?? null },
       {
-        onSuccess: () => toast.success(isInWantToWatch ? "Série removida" : "Série adicionada"),
-        onError: () => toast.error("Erro de conexão"),
+        onSuccess: () => toast.success(isInWantToWatch ? t("toast.seriesRemoved") : t("toast.seriesAdded")),
+        onError: () => toast.error(t("toast.connectionError")),
       }
     );
   }
@@ -70,13 +75,13 @@ export function SeriesActions({ seriesId, seriesTitle }: { seriesId: number; ser
             )}
           >
             <Plus className="h-4 w-4" strokeWidth={2.25} />
-            {isInWantToWatch ? "Na lista" : "Assistir depois"}
+            {isInWantToWatch ? t("action.inList") : t("action.watchLater")}
           </button>
         )}
         <FavoriteButton mediaType="series" mediaId={seriesId} />
         <button
           type="button"
-          aria-label="Mais opções"
+          aria-label={t("action.moreOptions")}
           onClick={() => {
             hapticTick();
             setShowMoreOptions(true);

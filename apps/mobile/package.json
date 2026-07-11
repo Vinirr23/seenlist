@@ -23,7 +23,7 @@
     "react": "19.1.7",
     "react-native": "0.81.4",
     "react-native-safe-area-context": "~5.4.0",
-    "react-native-screens": "~4.11.0",
+    "react-native-screens": "~4.26.0",
     "@seenlist/ui": "workspace:*",
     "@seenlist/types": "workspace:*",
     "@seenlist/utils": "workspace:*",
