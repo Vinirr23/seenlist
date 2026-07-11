@@ -7,9 +7,15 @@ import type { MediaTarget } from "./types";
 export interface Review {
   id: string;
   userId: string;
-  rating: number;
+  /** TASK-067 — nulo quando a linha existe só por causa de humor/personagem favorito/onde assistiu, sem nota ainda. */
+  rating: number | null;
   reviewText: string | null;
   containsSpoiler: boolean;
+  /** TASK-067 — reação pós-"assistido", estilo TV Time. Todos opcionais — nada disso é exigido pra salvar uma nota. */
+  mood: string | null;
+  favoriteCharacterId: number | null;
+  favoriteCharacterName: string | null;
+  watchedPlatform: string | null;
   createdAt: string;
   updatedAt: string;
   author: { username: string; displayName: string | null; avatarUrl: string | null };
@@ -49,7 +55,8 @@ export function useReviewAggregate(target: MediaTarget) {
         .select("rating")
         .eq("media_type", target.mediaType)
         .eq("media_id", target.mediaId)
-        .is("deleted_at", null);
+        .is("deleted_at", null)
+        .not("rating", "is", null);
 
       query =
         target.seasonNumber == null
@@ -85,6 +92,7 @@ export function useReviews(target: MediaTarget) {
         .select("id, user_id, rating, review_text, contains_spoiler, created_at, updated_at")
         .eq("media_type", target.mediaType)
         .eq("media_id", target.mediaId)
+        .or("rating.not.is.null,review_text.not.is.null")
         .order("created_at", { ascending: false });
 
       query =
@@ -120,9 +128,13 @@ export function useReviews(target: MediaTarget) {
       return rows.map((row) => ({
         id: row.id,
         userId: row.user_id,
-        rating: Number(row.rating),
+        rating: row.rating === null ? null : Number(row.rating),
         reviewText: row.review_text,
         containsSpoiler: row.contains_spoiler,
+        mood: null,
+        favoriteCharacterId: null,
+        favoriteCharacterName: null,
+        watchedPlatform: null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         author: profilesById.get(row.user_id) ?? { username: "usuário", displayName: null, avatarUrl: null },
@@ -144,7 +156,9 @@ export function useMyReview(target: MediaTarget) {
 
       let query = supabase
         .from("reviews")
-        .select("id, user_id, rating, review_text, contains_spoiler, created_at, updated_at")
+        .select(
+          "id, user_id, rating, review_text, contains_spoiler, mood, favorite_character_id, favorite_character_name, watched_platform, created_at, updated_at"
+        )
         .eq("user_id", user.id)
         .eq("media_type", target.mediaType)
         .eq("media_id", target.mediaId);
@@ -169,6 +183,10 @@ export function useMyReview(target: MediaTarget) {
         rating: Number(data.rating),
         reviewText: data.review_text,
         containsSpoiler: data.contains_spoiler,
+        mood: data.mood,
+        favoriteCharacterId: data.favorite_character_id,
+        favoriteCharacterName: data.favorite_character_name,
+        watchedPlatform: data.watched_platform,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
         author: { username: "", displayName: null, avatarUrl: null },
@@ -177,7 +195,21 @@ export function useMyReview(target: MediaTarget) {
   });
 }
 
-/** Upsert pela constraint única (user_id, media_type, media_id, season_number, episode_number) — "avaliação rápida" e "editar review" são a mesma operação. */
+/**
+ * Upsert pela constraint única (user_id, media_type, media_id,
+ * season_number, episode_number) — "avaliação rápida" e "editar
+ * review" são a mesma operação.
+ *
+ * TASK-067 — `mood`/`favoriteCharacterId`/`favoriteCharacterName`/
+ * `watchedPlatform` são opcionais e só entram no payload quando
+ * explicitamente passados (`!== undefined`) — cada pedacinho da
+ * experiência pós-"assistido" (onde assistiu, nota, humor,
+ * personagem favorito) chama esta mesma mutation separadamente,
+ * conforme a pessoa vai preenchendo; se todos os campos fossem
+ * sempre enviados, preencher só o "humor" apagaria a nota que já
+ * tinha sido salva antes (upsert do PostgREST só preserva colunas
+ * que o payload não menciona).
+ */
 export function useUpsertReview(target: MediaTarget) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -187,10 +219,18 @@ export function useUpsertReview(target: MediaTarget) {
       rating,
       reviewText,
       containsSpoiler,
+      mood,
+      favoriteCharacterId,
+      favoriteCharacterName,
+      watchedPlatform,
     }: {
-      rating: number;
+      rating?: number;
       reviewText?: string | null;
       containsSpoiler?: boolean;
+      mood?: string | null;
+      favoriteCharacterId?: number | null;
+      favoriteCharacterName?: string | null;
+      watchedPlatform?: string | null;
     }) => {
       const supabase = createClient();
       const {
@@ -198,30 +238,36 @@ export function useUpsertReview(target: MediaTarget) {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("not authenticated");
 
-      const { error } = await supabase.from("reviews").upsert(
-        {
-          user_id: user.id,
-          media_type: target.mediaType,
-          media_id: target.mediaId,
-          season_number: target.seasonNumber ?? null,
-          episode_number: target.episodeNumber ?? null,
-          rating,
-          review_text: reviewText ?? null,
-          contains_spoiler: containsSpoiler ?? false,
-          updated_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        { onConflict: "user_id,media_type,media_id,season_number,episode_number" }
-      );
+      const payload: Record<string, unknown> = {
+        user_id: user.id,
+        media_type: target.mediaType,
+        media_id: target.mediaId,
+        season_number: target.seasonNumber ?? null,
+        episode_number: target.episodeNumber ?? null,
+        updated_at: new Date().toISOString(),
+        deleted_at: null,
+      };
+      if (rating !== undefined) payload.rating = rating;
+      if (reviewText !== undefined) payload.review_text = reviewText;
+      if (containsSpoiler !== undefined) payload.contains_spoiler = containsSpoiler;
+      if (mood !== undefined) payload.mood = mood;
+      if (favoriteCharacterId !== undefined) payload.favorite_character_id = favoriteCharacterId;
+      if (favoriteCharacterName !== undefined) payload.favorite_character_name = favoriteCharacterName;
+      if (watchedPlatform !== undefined) payload.watched_platform = watchedPlatform;
+
+      const { error } = await supabase
+        .from("reviews")
+        .upsert(payload, { onConflict: "user_id,media_type,media_id,season_number,episode_number" });
       if (error) {
         console.error("[social/reviews] Falha ao salvar review", describeSupabaseError(error));
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: reviewsQueryKey(target) });
       queryClient.invalidateQueries({ queryKey: myReviewQueryKey(target) });
-      toast.success("Avaliação salva");
+      // TASK-067 — só mostra o toast "Avaliação salva" pra nota (rating); os outros campos têm seu próprio feedback visual (seleção destacada), um toast por toque em emoji/personagem seria barulho.
+      if (variables.rating !== undefined) toast.success("Avaliação salva");
     },
     onError: () => {
       toast.error("Não foi possível salvar a avaliação agora");

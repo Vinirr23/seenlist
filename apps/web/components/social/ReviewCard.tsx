@@ -13,7 +13,7 @@ export function ReviewCard({ review }: { review: Review }) {
           <span className="text-sm font-medium text-text">{review.author.displayName ?? review.author.username}</span>
           <span className="text-xs text-muted">{dateFormatter.format(new Date(review.createdAt))}</span>
         </div>
-        <StarRating value={review.rating} size="sm" />
+        <StarRating value={review.rating ?? 0} size="sm" />
       </div>
       {review.reviewText && (
         <SpoilerGate hidden={review.containsSpoiler}>

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Share2, Calendar, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, ChevronRight, Share2, Calendar, Eye, EyeOff, MessageCircle } from "lucide-react";
 import type { SeriesDetails } from "@seenlist/types";
 import { useSeriesDetails } from "@/lib/queries/series";
 import { useSeriesStatus } from "@/lib/queries/series-status-state";
@@ -14,8 +14,11 @@ import { useWatchedEpisodes, isEpisodeWatched } from "@/lib/queries/watched-epis
 import { useToggleEpisodeWatched } from "@/lib/queries/watched-episodes-mutations";
 import { useCommentCount } from "@/lib/queries/social/comments";
 import { useMyReview, useUpsertReview, useReviewAggregate } from "@/lib/queries/social/reviews";
-import { EpisodeRatingBottomSheet } from "../social/EpisodeRatingBottomSheet";
 import { HalfStarRating } from "../social/HalfStarRating";
+import { EpisodeStarRatingRow } from "./EpisodeStarRatingRow";
+import { EpisodeMoodPicker } from "./EpisodeMoodPicker";
+import { EpisodeFavoriteCharacterPicker } from "./EpisodeFavoriteCharacterPicker";
+import { EpisodeWatchedPlatformPicker } from "./EpisodeWatchedPlatformPicker";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
 import { useToast } from "@/lib/toast/ToastProvider";
@@ -72,6 +75,18 @@ const SWIPE_THRESHOLD_PX = 60;
  * WhereToWatchSection) — só a estrutura visual e a navegação por
  * swipe são novas. `useCommentCount` é a única consulta nova (linha
  * "Comentários N >" precisa de um número, que não existia antes).
+ *
+ * TASK-067 — experiência pós-"assistido" (referência: TV Time).
+ * Assim que o episódio é marcado como assistido, aparecem "Onde você
+ * assistiu?", a nota com estrelas rotuladas, "Como você se sentiu?"
+ * e "Quem foi seu personagem favorito?" — cada uma salva na hora que
+ * a pessoa toca (sem botão "salvar" separado), a mesma linha de
+ * `reviews` (upsert parcial, ver reviews.ts). O sheet de avaliação
+ * automático que existia antes (`EpisodeRatingBottomSheet`) saiu —
+ * essa mesma pergunta agora vive inline, sempre visível, igual à
+ * referência (não é mais um popup único na primeira vez). O botão de
+ * comentários virou uma barra flutuante fixa no rodapé, acima da
+ * barra de navegação.
  */
 export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailViewProps) {
   const router = useRouter();
@@ -93,8 +108,6 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   const { data: myRating } = useMyReview(episodeTarget);
   const { data: ratingAggregate } = useReviewAggregate(episodeTarget);
   const upsertRating = useUpsertReview(episodeTarget);
-  const [showRatingSheet, setShowRatingSheet] = useState(false);
-  const [showChangeRating, setShowChangeRating] = useState(false);
   const toast = useToast();
 
   const { previous, next } = useMemo(
@@ -113,12 +126,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
 
   function handleToggleWatched() {
     hapticTick();
-    const wasWatched = isWatched;
-    toggleWatched.mutate({ seasonNumber: season, episodeNumber: episode, watched: wasWatched });
-    // TASK-056 — só abre sozinho ao MARCAR (não ao desmarcar), e só se ainda não existe avaliação deste usuário pra este episódio.
-    if (!wasWatched && !myRating) {
-      setShowRatingSheet(true);
-    }
+    toggleWatched.mutate({ seasonNumber: season, episodeNumber: episode, watched: isWatched });
   }
 
   async function handleShare() {
@@ -199,7 +207,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   const episodeCode = `T${String(season).padStart(2, "0")} | E${String(episode).padStart(2, "0")}`;
 
   return (
-    <div className="mx-auto max-w-[430px] pb-24">
+    <div className="mx-auto max-w-[430px] pb-28">
       <div className="flex items-center gap-2 px-3 pb-2 pt-3">
         <button
           type="button"
@@ -287,9 +295,56 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
       </div>
 
       <div className="space-y-6 px-4 py-4">
-        <section>
-          <WhereToWatchSection providers={watchProviders} />
-        </section>
+        {!isWatched && (
+          <section>
+            <WhereToWatchSection providers={watchProviders} />
+          </section>
+        )}
+
+        {isWatched && (
+          <>
+            <section>
+              <h2 className="mb-2 text-sm font-medium text-text">Onde você assistiu?</h2>
+              <EpisodeWatchedPlatformPicker
+                providers={watchProviders}
+                value={myRating?.watchedPlatform ?? null}
+                onChange={(platform) => upsertRating.mutate({ watchedPlatform: platform })}
+              />
+            </section>
+
+            <section className="rounded-lg border border-border bg-surface p-3">
+              <h2 className="mb-1 text-center text-sm font-medium text-text">Avaliar este episódio</h2>
+              <EpisodeStarRatingRow
+                value={myRating?.rating ?? 0}
+                onChange={(rating) => upsertRating.mutate({ rating })}
+              />
+            </section>
+
+            <section>
+              <h2 className="mb-2 text-sm font-medium text-text">Como você se sentiu?</h2>
+              <EpisodeMoodPicker
+                value={myRating?.mood ?? null}
+                onChange={(mood) => upsertRating.mutate({ mood })}
+              />
+            </section>
+
+            {seriesDetails && seriesDetails.cast.length > 0 && (
+              <section>
+                <h2 className="mb-2 text-sm font-medium text-text">Quem foi seu personagem favorito?</h2>
+                <EpisodeFavoriteCharacterPicker
+                  cast={seriesDetails.cast}
+                  selectedId={myRating?.favoriteCharacterId ?? null}
+                  onSelect={(member) =>
+                    upsertRating.mutate({
+                      favoriteCharacterId: member?.id ?? null,
+                      favoriteCharacterName: member?.name ?? null,
+                    })
+                  }
+                />
+              </section>
+            )}
+          </>
+        )}
 
         <section className="rounded-lg border border-border bg-surface p-4">
           <h2 className="mb-3 text-sm font-semibold text-text">Informações do episódio</h2>
@@ -303,67 +358,23 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
               <p className="text-xs text-muted">
                 {ratingAggregate.count} avaliaç{ratingAggregate.count === 1 ? "ão" : "ões"}
               </p>
-              {myRating && (
-                <button
-                  type="button"
-                  onClick={() => setShowChangeRating(true)}
-                  className="mt-1.5 text-xs font-medium text-primary underline"
-                >
-                  Alterar avaliação
-                </button>
-              )}
             </div>
           ) : (
-            <div className="mb-3">
-              <p className="text-xs text-muted">Ainda sem avaliações da comunidade SeenList.</p>
-              {myRating ? (
-                <button
-                  type="button"
-                  onClick={() => setShowChangeRating(true)}
-                  className="mt-1.5 text-xs font-medium text-primary underline"
-                >
-                  Alterar avaliação
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowRatingSheet(true)}
-                  className="mt-1.5 text-xs font-medium text-primary underline"
-                >
-                  Avaliar este episódio
-                </button>
-              )}
-            </div>
+            <p className="mb-3 text-xs text-muted">Ainda sem avaliações da comunidade SeenList.</p>
           )}
           {ep.overview && <p className="text-sm leading-relaxed text-muted">{ep.overview}</p>}
         </section>
-
-        <Link
-          href={`/series/${seriesIdNum}/season/${season}/episode/${episode}/comments`}
-          className="flex items-center justify-between border-t border-border py-3 text-sm font-medium text-text"
-        >
-          <span>Comentários</span>
-          <span className="flex items-center gap-1 text-muted">
-            {commentCount}
-            <ChevronRight className="h-4 w-4" strokeWidth={2} />
-          </span>
-        </Link>
       </div>
 
-      {(showRatingSheet || showChangeRating) && (
-        <EpisodeRatingBottomSheet
-          isPending={upsertRating.isPending}
-          onSubmit={(rating) => {
-            upsertRating.mutate({ rating });
-            setShowRatingSheet(false);
-            setShowChangeRating(false);
-          }}
-          onDismiss={() => {
-            setShowRatingSheet(false);
-            setShowChangeRating(false);
-          }}
-        />
-      )}
+      {/* TASK-067 — botão de comentários flutuante, fixo acima da barra de navegação. */}
+      <Link
+        href={`/series/${seriesIdNum}/season/${season}/episode/${episode}/comments`}
+        className="fixed bottom-20 left-1/2 z-20 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-background shadow-lg"
+      >
+        <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
+        {commentCount} COMENTÁRIO{commentCount === 1 ? "" : "S"}
+        <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+      </Link>
     </div>
   );
 }
