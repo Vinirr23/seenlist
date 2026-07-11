@@ -1,16 +1,19 @@
 "use client";
 
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export type ExploreTab = "feed" | "discover" | "activity";
 
-const TABS: { key: ExploreTab; label: string }[] = [
-  { key: "feed", label: "FEED" },
-  { key: "discover", label: "DESCOBRIR" },
-  { key: "activity", label: "ATIVIDADE" },
+const TABS: { key: ExploreTab; labelKey: string }[] = [
+  { key: "feed", labelKey: "explore.tab.feed" },
+  { key: "discover", labelKey: "explore.tab.discover" },
+  { key: "activity", labelKey: "explore.tab.activity" },
 ];
 
 export function ExploreTabs({ active, onChange }: { active: ExploreTab; onChange: (tab: ExploreTab) => void }) {
+  const { t } = useTranslation();
+
   return (
     <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {TABS.map((tab) => (
@@ -23,7 +26,7 @@ export function ExploreTabs({ active, onChange }: { active: ExploreTab; onChange
             active === tab.key ? "bg-primary text-background" : "bg-surface text-muted"
           )}
         >
-          {tab.label}
+          {t(tab.labelKey)}
         </button>
       ))}
     </div>
