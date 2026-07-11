@@ -1,4 +1,4 @@
-import { Tv, Clapperboard, Compass, User, type LucideIcon } from "lucide-react";
+import { Tv, Clapperboard, Rss, Compass, User, type LucideIcon } from "lucide-react";
 
 export type Tab = {
   href: string;
@@ -14,6 +14,12 @@ export type Tab = {
  * removida — nada nela se perdeu, a lógica (hooks de
  * `lib/queries/library`) continua em uso, só a tela mudou de lugar.
  *
+ * TASK-072 — 5ª aba: "Feed", que antes era uma sub-aba dentro de
+ * Explorar. Ganhou lugar próprio na barra porque é conteúdo social
+ * (posts de outras pessoas), diferente de Explorar (buscar/descobrir
+ * títulos) — misturar os dois debaixo de "Explorar" escondia o Feed
+ * atrás de mais um toque.
+ *
  * Tradução (1º lote) — `label` guarda uma CHAVE de `translations.ts`
  * (ex.: "nav.series"), não o texto fixo em português — quem renderiza
  * (`BottomNavigation.tsx`) resolve com `t(tab.label)`.
@@ -21,6 +27,7 @@ export type Tab = {
 export const tabs: Tab[] = [
   { href: "/series", label: "nav.series", icon: Tv },
   { href: "/movies", label: "nav.movies", icon: Clapperboard },
+  { href: "/feed", label: "nav.feed", icon: Rss },
   { href: "/explore", label: "nav.explore", icon: Compass },
   { href: "/profile", label: "nav.profile", icon: User },
 ];

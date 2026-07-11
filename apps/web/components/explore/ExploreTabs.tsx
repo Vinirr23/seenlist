@@ -3,10 +3,9 @@
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-export type ExploreTab = "feed" | "discover" | "activity";
+export type ExploreTab = "discover" | "activity";
 
 const TABS: { key: ExploreTab; labelKey: string }[] = [
-  { key: "feed", labelKey: "explore.tab.feed" },
   { key: "discover", labelKey: "explore.tab.discover" },
   { key: "activity", labelKey: "explore.tab.activity" },
 ];
