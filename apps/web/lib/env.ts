@@ -30,4 +30,8 @@ export const env = {
   supabaseAnonKey: () =>
     requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
   tmdbApiKey: () => requireEnv("TMDB_API_KEY", process.env.TMDB_API_KEY),
+  /** TASK-077 — só usada no servidor (rota de API), nunca no cliente: sem prefixo NEXT_PUBLIC_ de propósito. */
+  resendApiKey: () => requireEnv("RESEND_API_KEY", process.env.RESEND_API_KEY),
+  /** TASK-077 — único e-mail autorizado a mandar convite em massa (`/admin/invite`). Comparado no servidor, nunca exposto ao cliente. */
+  adminEmail: () => requireEnv("ADMIN_EMAIL", process.env.ADMIN_EMAIL),
 };
