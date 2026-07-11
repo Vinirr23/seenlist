@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { tabs } from "@/lib/navigation";
 import { BottomNavigationItem } from "./BottomNavigationItem";
+import { useBottomNavHidden } from "@/lib/layout/bottomNavVisibility";
 
 /**
  * Fixa no rodapé. TASK-014: nada de sidebar/layout de desktop — em
@@ -14,9 +15,20 @@ import { BottomNavigationItem } from "./BottomNavigationItem";
  * navegação normal do Next.js (`next/link`), então é instantânea
  * (prefetch + client-side transition), sem precisar de lógica
  * própria de troca de tela.
+ *
+ * BUG (Web Mobile / iOS Safari) — some do DOM (não só fica invisível)
+ * enquanto um modal em tela cheia estiver aberto (`useBottomNavHidden`,
+ * ver bottomNavVisibility.tsx). `display:none`/opacidade sozinhos não
+ * bastavam: um elemento `fixed` continua ocupando sua posição de
+ * empilhamento e, em iOS Safari, pode ficar visível por cima de outro
+ * `fixed` quando o teclado abre, mesmo com z-index menor — remover do
+ * DOM é a única garantia real.
  */
 export function BottomNavigation() {
   const pathname = usePathname();
+  const hidden = useBottomNavHidden();
+
+  if (hidden) return null;
 
   return (
     <nav
