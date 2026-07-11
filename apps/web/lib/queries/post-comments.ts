@@ -18,6 +18,27 @@ function queryKey(postId: string) {
   return ["post-comments", postId] as const;
 }
 
+/** TASK-073 — contagem só (sem baixar os comentários), pro número aparecer sempre no card do Feed, igual à curtida — mesmo padrão de `useCommentCount` (comments de mídia). */
+export function usePostCommentCount(postId: string) {
+  return useQuery({
+    queryKey: [...queryKey(postId), "count"],
+    queryFn: async (): Promise<number> => {
+      const supabase = createClient();
+      const { count, error } = await supabase
+        .from("post_comments")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", postId)
+        .is("deleted_at", null);
+      if (error) {
+        console.error("[post-comments] Falha ao contar comentários", describeSupabaseError(error));
+        throw error;
+      }
+      return count ?? 0;
+    },
+    enabled: Boolean(postId),
+  });
+}
+
 /**
  * TASK-059 (fase 3) — comentários de post. Mesma estrutura em árvore
  * (parent_comment_id) que os comentários de mídia já usam

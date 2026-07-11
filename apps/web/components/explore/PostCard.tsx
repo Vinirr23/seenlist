@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Heart, MessageCircle, Bookmark, MoreHorizontal, Share2, Link2 } from "lucide-react";
 import type { Post } from "@/lib/queries/posts";
 import { useHasLiked, useLikeCount, useToggleLike } from "@/lib/queries/social/likes";
-import { usePostComments } from "@/lib/queries/post-comments";
+import { usePostCommentCount } from "@/lib/queries/post-comments";
 import { useIsSaved, useToggleSavePost } from "@/lib/queries/saved-posts";
 import { useReportPost } from "@/lib/queries/post-reports";
 import { useToast } from "@/lib/toast/ToastProvider";
@@ -28,19 +29,43 @@ function initials(name: string): string {
  * TASK-059 (fase 4) — salvar e denunciar, reaproveitando as duas
  * tabelas já preparadas na migration aprovada (saved_posts,
  * post_reports). Compartilhar/copiar link ficam pra próxima fase.
+ *
+ * TASK-073 — dois modos:
+ * - `detail=false` (padrão, usado no Feed): o card inteiro é
+ *   clicável e leva pra `/explore/posts/[id]` — a mesma tela dedicada
+ *   que já existia (`PostDetailView`), mostrando só aquele post com
+ *   os comentários abertos embaixo, rolando a tela (referência:
+ *   Twitter/X). O número de comentários agora aparece sempre, igual
+ *   à curtida — não é mais preciso abrir os comentários pra saber
+ *   quantos tem (`usePostCommentCount`, contagem leve, sem baixar os
+ *   comentários de verdade).
+ * - `detail=true` (usado só pela própria tela de detalhe): o card
+ *   não navega pra lugar nenhum (já é a página de destino) e os
+ *   comentários aparecem sempre abertos, sem precisar tocar em nada.
+ *
+ * Navegação por clique é `<div onClick>` + `stopPropagation` nos
+ * controles internos (curtir, menu "..."), não um `<Link>` em volta
+ * de tudo — evitar aninhar botões dentro de `<a>` (o "..." abre um
+ * menu com mais botões dentro, que também precisariam propagar o
+ * clique corretamente).
  */
-export function PostCard({ post }: { post: Post }) {
-  const [commentsOpen, setCommentsOpen] = useState(false);
+export function PostCard({ post, detail = false }: { post: Post; detail?: boolean }) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [reported, setReported] = useState(false);
   const { data: hasLiked } = useHasLiked("post", post.id);
   const { data: likeCount } = useLikeCount("post", post.id);
   const toggleLike = useToggleLike("post", post.id);
-  const { data: comments } = usePostComments(commentsOpen ? post.id : "");
+  const { data: commentCount } = usePostCommentCount(post.id);
   const { data: isSaved } = useIsSaved(post.id);
   const toggleSave = useToggleSavePost(post.id);
   const reportPost = useReportPost(post.id);
   const toast = useToast();
+
+  function goToDetail() {
+    if (detail) return;
+    router.push(`/explore/posts/${post.id}`);
+  }
 
   function handleReport() {
     hapticTick();
@@ -48,7 +73,8 @@ export function PostCard({ post }: { post: Post }) {
     setMenuOpen(false);
   }
 
-  async function handleShare() {
+  async function handleShare(event: React.MouseEvent) {
+    event.stopPropagation();
     hapticTick();
     const url = `${window.location.origin}/explore/posts/${post.id}`;
     if (navigator.share) {
@@ -58,12 +84,14 @@ export function PostCard({ post }: { post: Post }) {
         // usuário cancelou o menu nativo — não é erro, não precisa de toast
       }
     } else {
-      await handleCopyLink();
+      await handleCopyLink(event);
+      return;
     }
     setMenuOpen(false);
   }
 
-  async function handleCopyLink() {
+  async function handleCopyLink(event: React.MouseEvent) {
+    event.stopPropagation();
     hapticTick();
     const url = `${window.location.origin}/explore/posts/${post.id}`;
     try {
@@ -77,7 +105,10 @@ export function PostCard({ post }: { post: Post }) {
   }
 
   return (
-    <div className="relative rounded-xl border border-border bg-surface p-3">
+    <div
+      onClick={goToDetail}
+      className={cn("relative rounded-xl border border-border bg-surface p-3", !detail && "cursor-pointer")}
+    >
       <div className="flex items-center gap-2.5">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background">
           {post.authorAvatarUrl ? (
@@ -93,11 +124,22 @@ export function PostCard({ post }: { post: Post }) {
             @{post.authorUsername} · {dateFormatter.format(new Date(post.createdAt))}
           </p>
         </div>
-        <button type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="Mais opções" className="p-1 text-muted">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen((v) => !v);
+          }}
+          aria-label="Mais opções"
+          className="p-1 text-muted"
+        >
           <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
         </button>
         {menuOpen && (
-          <div className="absolute right-3 top-10 z-10 min-w-[160px] rounded-lg border border-border bg-background py-1 shadow-lg">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute right-3 top-10 z-10 min-w-[160px] rounded-lg border border-border bg-background py-1 shadow-lg"
+          >
             <button type="button" onClick={handleShare} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-text">
               <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
               Compartilhar
@@ -112,7 +154,10 @@ export function PostCard({ post }: { post: Post }) {
             </button>
             <button
               type="button"
-              onClick={handleReport}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleReport();
+              }}
               disabled={reported}
               className="block w-full px-3 py-1.5 text-left text-xs text-danger disabled:opacity-50"
             >
@@ -134,23 +179,25 @@ export function PostCard({ post }: { post: Post }) {
       <div className="mt-2.5 flex items-center gap-4">
         <button
           type="button"
-          onClick={() => toggleLike.mutate(Boolean(hasLiked))}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleLike.mutate(Boolean(hasLiked));
+          }}
           className={cn("flex items-center gap-1.5 text-xs", hasLiked ? "text-primary" : "text-muted")}
         >
           <Heart className="h-4 w-4" strokeWidth={2} fill={hasLiked ? "currentColor" : "none"} />
           {likeCount ?? 0}
         </button>
-        <button
-          type="button"
-          onClick={() => setCommentsOpen((v) => !v)}
-          className="flex items-center gap-1.5 text-xs text-muted"
-        >
+        <div className="flex items-center gap-1.5 text-xs text-muted">
           <MessageCircle className="h-4 w-4" strokeWidth={2} />
-          {commentsOpen ? (comments?.length ?? "...") : "Comentar"}
-        </button>
+          {commentCount ?? 0}
+        </div>
         <button
           type="button"
-          onClick={() => toggleSave.mutate(Boolean(isSaved))}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSave.mutate(Boolean(isSaved));
+          }}
           aria-label={isSaved ? "Remover dos salvos" : "Salvar"}
           className={cn("ml-auto flex items-center gap-1.5 text-xs", isSaved ? "text-primary" : "text-muted")}
         >
@@ -158,7 +205,11 @@ export function PostCard({ post }: { post: Post }) {
         </button>
       </div>
 
-      {commentsOpen && <PostCommentsSection postId={post.id} />}
+      {detail && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <PostCommentsSection postId={post.id} />
+        </div>
+      )}
     </div>
   );
 }
