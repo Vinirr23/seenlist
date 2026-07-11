@@ -1,12 +1,9 @@
-import { PageContainer } from "@/components/layout/PageContainer";
-import { ScreenHeader } from "@/components/layout/ScreenHeader";
 import { ProfileView } from "@/components/profile/ProfileView";
 
 export default function ProfilePage() {
   return (
-    <PageContainer>
-      <ScreenHeader title="Perfil" />
+    <div className="w-full px-4 pb-24 md:mx-auto md:max-w-[430px]">
       <ProfileView />
-    </PageContainer>
+    </div>
   );
 }

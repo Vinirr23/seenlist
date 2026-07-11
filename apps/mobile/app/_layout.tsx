@@ -1,45 +1,25 @@
-import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { supabase } from "../lib/supabase";
-import { registerForPushNotifications, removePushToken } from "../lib/pushNotifications";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-// Estrutura mínima — sem tabs, sem telas de produto. Preparado só o
-// suficiente para o Expo Router funcionar (TASK-001).
-//
-// TASK-052 (integração) — `onAuthStateChange` cobre os 3 gatilhos
-// pedidos sem precisar de nenhuma tela nova:
-//   - INITIAL_SESSION com sessão presente = sessão restaurada ao abrir o app;
-//   - SIGNED_IN = login (email/senha, Google, o que vier a existir);
-//   - SIGNED_OUT = logout.
-// O pedido de permissão de notificação só acontece DENTRO de
-// registerForPushNotifications, chamada aqui só depois de confirmar
-// que existe uma sessão real — nunca no boot do app antes de saber
-// se há usuário autenticado. Não dá pra adiar mais que isso sem uma
-// tela de produto real pra decidir "o momento certo" (ex.: depois do
-// usuário ver uma notificação relevante) — isso é decisão de produto,
-// não algo que dá pra inventar aqui.
+/**
+ * TASK-068 — o registro de push (`lib/pushNotifications.ts`,
+ * TASK-052) que existia aqui ligado a `supabase.auth.onAuthStateChange`
+ * saiu: com a "opção 1" (casca WebView carregando o site, ver
+ * `app/index.tsx`), o login acontece DENTRO do site carregado — o
+ * cliente Supabase nativo deste arquivo (`lib/supabase.ts`) nunca
+ * recebe sessão nenhuma, então esse listener nunca dispararia de
+ * verdade. Fica pra quando o app nativo de verdade for construído.
+ *
+ * `SafeAreaProvider` — necessário pro `SafeAreaView` usado em
+ * `app/index.tsx` funcionar direito (evita a WebView desenhar por
+ * baixo da barra de gestos do Android, cortando o fim das listas).
+ */
 export default function RootLayout() {
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") {
-        void removePushToken(supabase);
-        return;
-      }
-      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
-        void registerForPushNotifications(supabase);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }} />
-    </>
+    </SafeAreaProvider>
   );
 }

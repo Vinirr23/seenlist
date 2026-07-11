@@ -13,7 +13,12 @@ shamefullyHoist: true
 strictPeerDependencies: false
 
 overrides:
-  "react": "19.1.7"
-  "react-dom": "19.1.7"
+  # React Native 0.81.4 (apps/mobile) traz o "react-native-renderer"
+  # embutido fixo na versão 19.1.0 — o React precisa bater EXATAMENTE
+  # com essa versão, senão o app quebra na hora de abrir ("Incompatible
+  # React versions"). O pin era 19.1.7 (só pra web); alinhado aqui pros
+  # dois apps, já que nodeLinker: hoisted força uma cópia física só.
+  "react": "19.1.0"
+  "react-dom": "19.1.0"
   "@types/react": "19.1.9"
   "@types/react-dom": "19.1.9"

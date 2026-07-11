@@ -9,30 +9,31 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "expo": "~54.0.0",
-    "expo-router": "~6.0.0",
     "@expo/metro-runtime": "^6.1.2",
-    "expo-status-bar": "~3.0.0",
-    "expo-dev-client": "~6.0.0",
-    "expo-notifications": "~0.32.0",
-    "expo-device": "~8.0.0",
-    "expo-constants": "~18.0.0",
-    "@supabase/supabase-js": "^2.45.0",
     "@react-native-async-storage/async-storage": "^3.1.1",
-    "react-native-url-polyfill": "^3.0.0",
-    "react": "19.1.7",
+    "@seenlist/config": "workspace:*",
+    "@seenlist/hooks": "workspace:*",
+    "@seenlist/types": "workspace:*",
+    "@seenlist/ui": "workspace:*",
+    "@seenlist/utils": "workspace:*",
+    "@supabase/supabase-js": "^2.45.0",
+    "expo": "~54.0.0",
+    "expo-constants": "~18.0.0",
+    "expo-dev-client": "~6.0.0",
+    "expo-device": "~8.0.0",
+    "expo-notifications": "~0.32.0",
+    "expo-router": "~6.0.0",
+    "expo-status-bar": "~3.0.0",
+    "react": "19.1.0",
     "react-native": "0.81.4",
     "react-native-safe-area-context": "~5.4.0",
     "react-native-screens": "4.20.0",
-    "@seenlist/ui": "workspace:*",
-    "@seenlist/types": "workspace:*",
-    "@seenlist/utils": "workspace:*",
-    "@seenlist/hooks": "workspace:*",
-    "@seenlist/config": "workspace:*"
+    "react-native-url-polyfill": "^3.0.0",
+    "react-native-webview": "13.15.0"
   },
   "devDependencies": {
-    "typescript": "5.6.3",
+    "@babel/core": "^7.25.2",
     "@types/react": "19.1.9",
-    "@babel/core": "^7.25.2"
+    "typescript": "5.6.3"
   }
 }

@@ -18,7 +18,6 @@ export function SeriesHome() {
 
   return (
     <div className="w-full px-2 pb-24 pt-4 md:mx-auto md:max-w-[430px]">
-      <h1 className="mb-3 px-1 text-2xl font-bold text-text">Séries</h1>
       <HomeTabs active={tab} onChange={setTab} />
       {tab === "minha-lista" ? <MinhaListaSection /> : <EmBreveSection />}
     </div>

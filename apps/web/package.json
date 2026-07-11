@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "next": "15.5.18",
-    "react": "19.1.7",
-    "react-dom": "19.1.7",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "@seenlist/ui": "workspace:*",
     "@seenlist/types": "workspace:*",
     "@seenlist/utils": "workspace:*",

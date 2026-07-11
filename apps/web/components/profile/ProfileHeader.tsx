@@ -38,9 +38,9 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
   const joinDate = joinDateFormatter.format(new Date(user.createdAt));
 
   return (
-    <div className="mb-6">
+    <div className={profile?.bannerUrl ? "mb-6" : "mb-6 pt-4"}>
       {profile?.bannerUrl && (
-        <div className="-mx-4 -mt-4 mb-4 h-28 w-[calc(100%+2rem)] overflow-hidden bg-surface sm:rounded-b-lg">
+        <div className="-mx-4 mb-4 h-28 w-[calc(100%+2rem)] overflow-hidden bg-surface sm:rounded-b-lg">
           {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
           <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
         </div>
