@@ -34,4 +34,6 @@ export const env = {
   resendApiKey: () => requireEnv("RESEND_API_KEY", process.env.RESEND_API_KEY),
   /** TASK-077 — único e-mail autorizado a mandar convite em massa (`/admin/invite`). Comparado no servidor, nunca exposto ao cliente. */
   adminEmail: () => requireEnv("ADMIN_EMAIL", process.env.ADMIN_EMAIL),
+  /** TASK-077 (correção) — chave de serviço do Supabase, ignora RLS. Só pra consultas administrativas no servidor (ex.: listar `beta_signups`, que não tem policy de SELECT nenhuma — nem pra usuário comum, nem pro dono, de propósito). Nunca usar no cliente. */
+  supabaseServiceRoleKey: () => requireEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY),
 };

@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/resend";
 
 const MAX_EMAILS_PER_REQUEST = 200;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** TASK-077 (correção) — plano gratuito do Resend aceita ~2 envios/segundo; 600ms entre cada um fica com folga, evita erro 429 (limite excedido). */
+const DELAY_BETWEEN_SENDS_MS = 600;
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 const PLAY_STORE_TEST_LINK = "https://play.google.com/apps/internaltest/4701756967789045864";
 const SUBJECT = "SeenList — seu acesso ao teste beta chegou!";
@@ -75,15 +82,16 @@ export async function POST(request: Request) {
   const html = buildEmailHtml();
   const results: { email: string; ok: boolean; error?: string }[] = [];
 
-  for (const email of emails) {
-    const result = await sendEmail({ to: email, subject: SUBJECT, html });
-    results.push(result.ok ? { email, ok: true } : { email, ok: false, error: result.error });
+  for (let i = 0; i < emails.length; i++) {
+    const result = await sendEmail({ to: emails[i], subject: SUBJECT, html });
+    results.push(result.ok ? { email: emails[i], ok: true } : { email: emails[i], ok: false, error: result.error });
+    if (i < emails.length - 1) await delay(DELAY_BETWEEN_SENDS_MS);
   }
 
   return NextResponse.json({ results });
 }
 
-/** TASK-077 — lista quem já preencheu `/beta` (`beta_signups` só permite INSERT pela chave pública — o SELECT só é possível aqui, no servidor, via `createClient()` com a sessão de admin já verificada). */
+/** TASK-077 (correção) — lista quem já preencheu `/beta`. A sessão do usuário só confirma QUEM está pedindo (precisa ser `env.adminEmail()`); a consulta em si usa `createAdminClient()` (chave de serviço), porque `beta_signups` não tem — nem devia ter — uma policy de SELECT liberada nem pro próprio dono via RLS comum. */
 export async function GET() {
   const supabase = await createClient();
   const {
@@ -94,7 +102,8 @@ export async function GET() {
     return NextResponse.json({ error: "Não autorizado." }, { status: 403 });
   }
 
-  const { data, error } = await supabase
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("beta_signups")
     .select("email, created_at")
     .order("created_at", { ascending: true });
