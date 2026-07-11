@@ -48,8 +48,7 @@ export function SettingsPage() {
       <Section title={t("settings.section.preferences")}>
         <LanguageRow />
         <ThemeRow />
-        <SettingsRow label="Notificações" href="/profile/settings/notifications" />
-        <SettingsRow label="Assuntos do Feed" href="/profile/settings/feed-categories" last />
+        <SettingsRow label="Notificações" href="/profile/settings/notifications" last />
       </Section>
 
       <Section title={t("settings.section.account")}>
@@ -62,6 +61,7 @@ export function SettingsPage() {
       </Section>
 
       <Section title={t("settings.section.app")}>
+        <SettingsRow label="Enviar feedback" href="/profile/settings/feedback" />
         <PendingTvTimeImportsRow />
         <SettingsRow label="Migrar do TV Time" href="/import/tvtime" />
         <SettingsRow label={t("settings.about")} href="/profile/settings/about" />
