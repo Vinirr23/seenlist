@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Heart, MessageCircle, Bookmark, MoreHorizontal, Share2, Link2, Pencil, Trash2 } from "lucide-react";
 import type { Post } from "@/lib/queries/posts";
@@ -154,20 +155,26 @@ export function PostCard({ post, detail = false }: { post: Post; detail?: boolea
       className={cn("relative rounded-xl border border-border bg-surface p-3", !detail && "cursor-pointer")}
     >
       <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background">
-          {post.authorAvatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo
-            <img src={post.authorAvatarUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-xs font-semibold text-muted">{initials(post.authorName)}</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-text">{post.authorName}</p>
-          <p className="truncate text-xs text-muted">
-            @{post.authorUsername} · {dateFormatter.format(new Date(post.createdAt))}
-          </p>
-        </div>
+        <Link
+          href={`/u/${post.authorUsername}`}
+          onClick={(e) => e.stopPropagation()}
+          className="flex min-w-0 flex-1 items-center gap-2.5"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background">
+            {post.authorAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo
+              <img src={post.authorAvatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-xs font-semibold text-muted">{initials(post.authorName)}</span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-text">{post.authorName}</p>
+            <p className="truncate text-xs text-muted">
+              @{post.authorUsername} · {dateFormatter.format(new Date(post.createdAt))}
+            </p>
+          </div>
+        </Link>
         <button
           type="button"
           onClick={(e) => {
