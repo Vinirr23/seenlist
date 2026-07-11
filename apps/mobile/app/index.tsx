@@ -64,7 +64,7 @@ export default function RootScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <WebView
         ref={webViewRef}
         source={{ uri: SITE_URL }}

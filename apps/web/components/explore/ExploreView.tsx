@@ -20,7 +20,7 @@ export function ExploreView() {
   const [tab, setTab] = useState<ExploreTab>("feed");
 
   return (
-    <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
+    <div className="w-full pb-32 md:mx-auto md:max-w-[430px]">
       <div className="px-4 pt-4">
         <SearchBar onDebouncedChange={setQuery} />
       </div>

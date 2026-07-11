@@ -33,7 +33,7 @@ export function SettingsPage() {
   const { t } = useTranslation();
 
   return (
-    <div className="w-full px-4 pb-24 pt-4 md:mx-auto md:max-w-[430px]">
+    <div className="w-full px-4 pb-32 pt-4 md:mx-auto md:max-w-[430px]">
       <div className="mb-4 flex items-center gap-2">
         <Link
           href="/profile"

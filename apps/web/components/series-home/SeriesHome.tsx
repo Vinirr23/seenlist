@@ -17,7 +17,7 @@ export function SeriesHome() {
   const [tab, setTab] = useState<HomeTab>("minha-lista");
 
   return (
-    <div className="w-full px-2 pb-24 pt-4 md:mx-auto md:max-w-[430px]">
+    <div className="w-full px-2 pb-32 pt-4 md:mx-auto md:max-w-[430px]">
       <HomeTabs active={tab} onChange={setTab} />
       {tab === "minha-lista" ? <MinhaListaSection /> : <EmBreveSection />}
     </div>
