@@ -20,11 +20,6 @@ export function SearchBar({ onDebouncedChange }: SearchBarProps) {
     onDebouncedChange(debounced);
   }, [debounced, onDebouncedChange]);
 
-  // Item 9: cursor já no campo ao abrir Explorar.
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
   function handleClear() {
     // Não espera o debounce de 400ms — "ao limpar, voltar imediatamente ao estado inicial".
     setValue("");
