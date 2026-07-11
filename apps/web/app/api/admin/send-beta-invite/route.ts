@@ -82,9 +82,9 @@ export async function POST(request: Request) {
   const html = buildEmailHtml();
   const results: { email: string; ok: boolean; error?: string }[] = [];
 
-  for (let i = 0; i < emails.length; i++) {
-    const result = await sendEmail({ to: emails[i], subject: SUBJECT, html });
-    results.push(result.ok ? { email: emails[i], ok: true } : { email: emails[i], ok: false, error: result.error });
+  for (const [i, email] of emails.entries()) {
+    const result = await sendEmail({ to: email, subject: SUBJECT, html });
+    results.push(result.ok ? { email, ok: true } : { email, ok: false, error: result.error });
     if (i < emails.length - 1) await delay(DELAY_BETWEEN_SENDS_MS);
   }
 
