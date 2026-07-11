@@ -2,6 +2,7 @@
 
 import { LogOut } from "lucide-react";
 import { useCurrentUser } from "@/lib/queries/current-user";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { LogoutButton } from "@/components/layout/LogoutButton";
 import { ProfileHeader } from "./ProfileHeader";
 import { StatisticsCard } from "./StatisticsCard";
@@ -13,9 +14,12 @@ import { ProfileSectionsList } from "./ProfileSectionsList";
  * três estados abaixo cobrem `useCurrentUser`; `ProfileStatsGrid` já
  * cuida dos seus próprios estados internamente (mesmo padrão usado
  * em toda mutation/query do projeto).
+ *
+ * Tradução (4º lote) — Perfil.
  */
 export function ProfileView() {
   const { data: user, isLoading, isError } = useCurrentUser();
+  const { t } = useTranslation();
 
   if (isLoading) {
     return (
@@ -27,13 +31,11 @@ export function ProfileView() {
   }
 
   if (isError) {
-    return (
-      <p className="text-sm text-muted">Não foi possível carregar seu perfil agora. Tente de novo em instantes.</p>
-    );
+    return <p className="text-sm text-muted">{t("profile.loadError")}</p>;
   }
 
   if (!user) {
-    return <p className="text-sm text-muted">Não encontramos os dados da sua conta. Tente entrar de novo.</p>;
+    return <p className="text-sm text-muted">{t("profile.noData")}</p>;
   }
 
   return (
@@ -47,7 +49,7 @@ export function ProfileView() {
 
       <LogoutButton className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10">
         <LogOut className="h-4 w-4" strokeWidth={2} />
-        Sair
+        {t("settings.logout")}
       </LogoutButton>
     </div>
   );

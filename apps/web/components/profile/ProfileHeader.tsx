@@ -1,11 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import type { CurrentUser } from "@/lib/queries/current-user";
 import { useMyProfile } from "@/lib/queries/my-profile";
 import { useFollowCounts } from "@/lib/queries/public-profile";
 import { useSocialCounts } from "@/lib/queries/social-counts";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { ShareProfileButton } from "@/components/social/ShareProfileButton";
-
-const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 
 function initials(name: string): string {
   return name
@@ -23,11 +25,16 @@ function initials(name: string): string {
  * autoriza: "podem permanecer zerados por enquanto", já que não
  * existe feature de comentário nenhuma ainda). Botão "Compartilhar
  * perfil" reaproveitado do componente já usado no perfil público.
+ *
+ * Tradução (4º lote) — inclui o formatador de data ("Membro desde"),
+ * que antes ficava fixo em pt-BR mesmo com o idioma trocado.
  */
 export function ProfileHeader({ user }: { user: CurrentUser }) {
   const { data: profile } = useMyProfile();
   const { data: counts } = useFollowCounts(user.id);
   const { data: socialCounts } = useSocialCounts();
+  const { t, locale } = useTranslation();
+  const joinDateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { month: "long", year: "numeric" });
   const joinDate = joinDateFormatter.format(new Date(user.createdAt));
 
   return (
@@ -52,7 +59,7 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         <div className="min-w-0">
           <p className="truncate text-lg font-bold text-text">{user.name}</p>
           {profile?.username && <p className="truncate text-sm text-primary">@{profile.username}</p>}
-          <p className="text-xs text-muted">Membro desde {joinDate}</p>
+          <p className="text-xs text-muted">{t("profile.memberSince", { date: joinDate })}</p>
         </div>
       </div>
 
@@ -61,15 +68,15 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
       <div className="mt-4 flex gap-6">
         <Link href="/profile/following" className="transition-opacity active:opacity-70">
           <p className="text-sm font-bold text-text">{counts?.following ?? 0}</p>
-          <p className="text-xs text-muted">Seguindo</p>
+          <p className="text-xs text-muted">{t("profile.following")}</p>
         </Link>
         <Link href="/profile/followers" className="transition-opacity active:opacity-70">
           <p className="text-sm font-bold text-text">{counts?.followers ?? 0}</p>
-          <p className="text-xs text-muted">Seguidores</p>
+          <p className="text-xs text-muted">{t("profile.followers")}</p>
         </Link>
         <Link href="/profile/comments" className="transition-opacity active:opacity-70">
           <p className="text-sm font-bold text-text">{socialCounts?.commentsGiven ?? 0}</p>
-          <p className="text-xs text-muted">Comentários</p>
+          <p className="text-xs text-muted">{t("profile.comments")}</p>
         </Link>
       </div>
 
@@ -78,7 +85,7 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
           href="/profile/edit"
           className="inline-flex items-center justify-center rounded-lg border border-primary bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition-transform active:scale-[0.96]"
         >
-          Editar
+          {t("profile.edit")}
         </Link>
         {profile?.username && <ShareProfileButton username={profile.username} />}
       </div>

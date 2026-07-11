@@ -8,6 +8,13 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 
 export const DEFAULT_LOCALE: Locale = "pt-BR";
 
+/** Tradução (4º lote) — mapeia nosso `Locale` pro código BCP-47 que `Intl.DateTimeFormat`/`Intl.NumberFormat` esperam, pra formatação de data/número acompanhar o idioma escolhido (não só os textos fixos). */
+export const INTL_LOCALES: Record<Locale, string> = {
+  "pt-BR": "pt-BR",
+  en: "en-US",
+  es: "es-ES",
+};
+
 /**
  * Ajuste (Configurações — Idioma): cobre as telas que esta tarefa
  * pede pra deixar totalmente funcionais (Configurações, Conta,
@@ -114,6 +121,22 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.loading": "Carregando…",
     "toast.linkCopied": "Link copiado",
     "toast.linkCopyError": "Não foi possível copiar o link.",
+    "profile.memberSince": "Membro desde {date}",
+    "profile.following": "Seguindo",
+    "profile.followers": "Seguidores",
+    "profile.comments": "Comentários",
+    "profile.edit": "Editar",
+    "profile.loadError": "Não foi possível carregar seu perfil agora. Tente de novo em instantes.",
+    "profile.noData": "Não encontramos os dados da sua conta. Tente entrar de novo.",
+    "stats.title": "Estatísticas",
+    "stats.loadError": "Não foi possível carregar suas estatísticas agora.",
+    "stats.episodesWatched": "Episódios assistidos",
+    "stats.moviesWatched": "Filmes assistidos",
+    "stats.seriesTime": "Tempo vendo séries",
+    "stats.movieTime": "Tempo vendo filmes",
+    "profile.section.lists": "Minhas listas",
+    "profile.section.favoriteSeries": "Séries favoritas",
+    "profile.section.favoriteMovies": "Filmes favoritos",
   },
   en: {
     "settings.title": "Settings",
@@ -210,6 +233,22 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.loading": "Loading…",
     "toast.linkCopied": "Link copied",
     "toast.linkCopyError": "Couldn't copy the link.",
+    "profile.memberSince": "Member since {date}",
+    "profile.following": "Following",
+    "profile.followers": "Followers",
+    "profile.comments": "Comments",
+    "profile.edit": "Edit",
+    "profile.loadError": "Couldn't load your profile right now. Try again in a moment.",
+    "profile.noData": "We couldn't find your account data. Try signing in again.",
+    "stats.title": "Statistics",
+    "stats.loadError": "Couldn't load your stats right now.",
+    "stats.episodesWatched": "Episodes watched",
+    "stats.moviesWatched": "Movies watched",
+    "stats.seriesTime": "Time watching shows",
+    "stats.movieTime": "Time watching movies",
+    "profile.section.lists": "My lists",
+    "profile.section.favoriteSeries": "Favorite shows",
+    "profile.section.favoriteMovies": "Favorite movies",
   },
   es: {
     "settings.title": "Configuración",
@@ -306,5 +345,21 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.loading": "Cargando…",
     "toast.linkCopied": "Enlace copiado",
     "toast.linkCopyError": "No se pudo copiar el enlace.",
+    "profile.memberSince": "Miembro desde {date}",
+    "profile.following": "Siguiendo",
+    "profile.followers": "Seguidores",
+    "profile.comments": "Comentarios",
+    "profile.edit": "Editar",
+    "profile.loadError": "No se pudo cargar tu perfil ahora. Inténtalo de nuevo en un momento.",
+    "profile.noData": "No encontramos los datos de tu cuenta. Intenta iniciar sesión de nuevo.",
+    "stats.title": "Estadísticas",
+    "stats.loadError": "No se pudieron cargar tus estadísticas ahora.",
+    "stats.episodesWatched": "Episodios vistos",
+    "stats.moviesWatched": "Películas vistas",
+    "stats.seriesTime": "Tiempo viendo series",
+    "stats.movieTime": "Tiempo viendo películas",
+    "profile.section.lists": "Mis listas",
+    "profile.section.favoriteSeries": "Series favoritas",
+    "profile.section.favoriteMovies": "Películas favoritas",
   },
 };

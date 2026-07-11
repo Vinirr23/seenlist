@@ -4,8 +4,7 @@ import Link from "next/link";
 import { BarChart3, ChevronRight } from "lucide-react";
 import { useProfileStats } from "@/lib/queries/profile-stats";
 import { formatWatchDuration } from "@/lib/format-duration";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-054 — substitui ProfileStatsGrid (removido) e o carrossel
@@ -13,9 +12,15 @@ const numberFormatter = new Intl.NumberFormat("pt-BR");
  * agora só é usado dentro da própria tela de estatísticas). Um card
  * só, clicável, prévia de 4 números — leva pra /profile/stats. Mesmo
  * hook de sempre (useProfileStats), nenhum cálculo novo.
+ *
+ * Tradução (4º lote) — inclui o formatador de número, que segue o
+ * idioma escolhido (`INTL_LOCALES`, mesmo raciocínio de
+ * ProfileHeader).
  */
 export function StatisticsCard() {
   const { data: stats, isLoading, isError } = useProfileStats();
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(locale === "pt-BR" ? "pt-BR" : locale === "es" ? "es-ES" : "en-US");
 
   if (isLoading) {
     return <div className="mb-6 h-32 animate-pulse rounded-2xl bg-surface" />;
@@ -23,7 +28,7 @@ export function StatisticsCard() {
   if (isError || !stats) {
     return (
       <div className="mb-6 rounded-2xl border border-border bg-surface p-4">
-        <p className="text-sm text-muted">Não foi possível carregar suas estatísticas agora.</p>
+        <p className="text-sm text-muted">{t("stats.loadError")}</p>
       </div>
     );
   }
@@ -32,10 +37,10 @@ export function StatisticsCard() {
   const movieTime = formatWatchDuration(stats.movieWatchMinutes);
 
   const preview = [
-    { label: "Episódios assistidos", value: numberFormatter.format(stats.episodesWatched) },
-    { label: "Filmes assistidos", value: numberFormatter.format(stats.moviesCompleted) },
-    { label: "Tempo vendo séries", value: seriesTime.primary },
-    { label: "Tempo vendo filmes", value: movieTime.primary },
+    { label: t("stats.episodesWatched"), value: numberFormatter.format(stats.episodesWatched) },
+    { label: t("stats.moviesWatched"), value: numberFormatter.format(stats.moviesCompleted) },
+    { label: t("stats.seriesTime"), value: seriesTime.primary },
+    { label: t("stats.movieTime"), value: movieTime.primary },
   ];
 
   return (
@@ -46,7 +51,7 @@ export function StatisticsCard() {
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-primary" strokeWidth={2} />
-          <h2 className="text-sm font-semibold text-text">Estatísticas</h2>
+          <h2 className="text-sm font-semibold text-text">{t("stats.title")}</h2>
         </div>
         <ChevronRight className="h-4 w-4 text-muted" strokeWidth={2} />
       </div>
