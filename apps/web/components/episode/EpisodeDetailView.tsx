@@ -388,7 +388,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
       {/* TASK-067 — botão de comentários flutuante, fixo acima da barra de navegação. */}
       <Link
         href={`/series/${seriesIdNum}/season/${season}/episode/${episode}/comments`}
-        className="fixed bottom-20 left-1/2 z-20 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-background shadow-lg"
+        className="fixed bottom-24 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-background shadow-lg"
       >
         <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
         {commentCount} COMENTÁRIO{commentCount === 1 ? "" : "S"}

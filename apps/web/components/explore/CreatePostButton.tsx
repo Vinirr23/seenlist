@@ -97,7 +97,7 @@ export function CreatePostButton() {
           setOpen(true);
         }}
         aria-label="Criar post"
-        className="fixed bottom-20 right-4 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-background shadow-lg active:scale-95"
+        className="fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-background shadow-lg active:scale-95"
       >
         <Plus className="h-6 w-6" strokeWidth={2.5} />
       </button>
