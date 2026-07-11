@@ -337,7 +337,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
                   onSelect={(member) =>
                     upsertRating.mutate({
                       favoriteCharacterId: member?.id ?? null,
-                      favoriteCharacterName: member?.name ?? null,
+                      favoriteCharacterName: member ? member.character || member.name : null,
                     })
                   }
                 />

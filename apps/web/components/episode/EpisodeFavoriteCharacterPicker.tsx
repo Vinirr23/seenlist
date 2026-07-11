@@ -15,6 +15,17 @@ import { hapticTick } from "@/lib/haptics";
  * principal da série, que é o que aparece nas capturas de
  * referência (Rick, Morty, Jerry, Summer...).
  */
+/**
+ * TASK-067 (correção) — mostra o nome do PERSONAGEM
+ * (`member.character`), não o nome do ator/dublador
+ * (`member.name`) — a pergunta é "quem foi seu personagem
+ * favorito?", não "qual ator/dublador você prefere". A FOTO
+ * continua sendo da pessoa real (o TMDB não tem, nessa mesma
+ * consulta, uma ilustração do personagem — isso é normal em animes,
+ * onde o elenco retornado são os dubladores) — corrigir isso
+ * exigiria uma fonte de dados diferente (tipo MyAnimeList/Jikan),
+ * fora do escopo desta correção.
+ */
 export function EpisodeFavoriteCharacterPicker({
   cast,
   selectedId,
@@ -48,13 +59,13 @@ export function EpisodeFavoriteCharacterPicker({
               )}
             >
               {photoUrl ? (
-                <Image src={photoUrl} alt={member.name} fill sizes="80px" className="object-cover" />
+                <Image src={photoUrl} alt={member.character} fill sizes="80px" className="object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-[10px] text-muted">Sem foto</div>
               )}
             </div>
             <p className={cn("mt-1.5 truncate text-xs font-medium", selected ? "text-primary" : "text-text")}>
-              {member.name}
+              {member.character || member.name}
             </p>
           </button>
         );
