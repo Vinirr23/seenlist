@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Bookmark, MoreHorizontal, Share2, Link2 } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, MoreHorizontal, Share2, Link2, Pencil, Trash2 } from "lucide-react";
 import type { Post } from "@/lib/queries/posts";
+import { useCurrentUser } from "@/lib/queries/current-user";
+import { useEditPost, useDeletePost } from "@/lib/queries/posts";
 import { useHasLiked, useLikeCount, useToggleLike } from "@/lib/queries/social/likes";
 import { usePostCommentCount } from "@/lib/queries/post-comments";
 import { useIsSaved, useToggleSavePost } from "@/lib/queries/saved-posts";
@@ -53,6 +55,9 @@ export function PostCard({ post, detail = false }: { post: Post; detail?: boolea
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [reported, setReported] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editBody, setEditBody] = useState(post.body);
+  const { data: currentUser } = useCurrentUser();
   const { data: hasLiked } = useHasLiked("post", post.id);
   const { data: likeCount } = useLikeCount("post", post.id);
   const toggleLike = useToggleLike("post", post.id);
@@ -60,7 +65,10 @@ export function PostCard({ post, detail = false }: { post: Post; detail?: boolea
   const { data: isSaved } = useIsSaved(post.id);
   const toggleSave = useToggleSavePost(post.id);
   const reportPost = useReportPost(post.id);
+  const editPost = useEditPost(post.id);
+  const deletePost = useDeletePost(post.id);
   const toast = useToast();
+  const isOwner = currentUser?.id === post.userId;
 
   function goToDetail() {
     if (detail) return;
@@ -70,6 +78,42 @@ export function PostCard({ post, detail = false }: { post: Post; detail?: boolea
   function handleReport() {
     hapticTick();
     reportPost.mutate("inadequado", { onSuccess: () => setReported(true) });
+    setMenuOpen(false);
+  }
+
+  function handleStartEdit(event: React.MouseEvent) {
+    event.stopPropagation();
+    hapticTick();
+    setEditBody(post.body);
+    setEditing(true);
+    setMenuOpen(false);
+  }
+
+  function handleSaveEdit(event: React.MouseEvent) {
+    event.stopPropagation();
+    const trimmed = editBody.trim();
+    if (!trimmed) return;
+    editPost.mutate(trimmed, {
+      onSuccess: () => {
+        toast.success("Post editado");
+        setEditing(false);
+      },
+    });
+  }
+
+  function handleDelete(event: React.MouseEvent) {
+    event.stopPropagation();
+    hapticTick();
+    if (!window.confirm("Apagar este post? Não dá pra desfazer.")) {
+      setMenuOpen(false);
+      return;
+    }
+    deletePost.mutate(undefined, {
+      onSuccess: () => {
+        toast.success("Post apagado");
+        if (detail) router.push("/feed");
+      },
+    });
     setMenuOpen(false);
   }
 
@@ -152,21 +196,75 @@ export function PostCard({ post, detail = false }: { post: Post; detail?: boolea
               <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
               Copiar link
             </button>
+            {isOwner ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleStartEdit}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-text"
+                >
+                  <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-danger"
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                  Apagar
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleReport();
+                }}
+                disabled={reported}
+                className="block w-full px-3 py-1.5 text-left text-xs text-danger disabled:opacity-50"
+              >
+                {reported ? "Denunciado" : "Denunciar"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {editing ? (
+        <div onClick={(e) => e.stopPropagation()} className="mt-2.5 space-y-2">
+          <textarea
+            value={editBody}
+            onChange={(e) => setEditBody(e.target.value)}
+            rows={3}
+            maxLength={500}
+            autoFocus
+            className="w-full resize-none rounded-lg border border-border bg-background p-2.5 text-sm text-text focus:border-primary focus:outline-none"
+          />
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                handleReport();
+                setEditing(false);
               }}
-              disabled={reported}
-              className="block w-full px-3 py-1.5 text-left text-xs text-danger disabled:opacity-50"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted"
             >
-              {reported ? "Denunciado" : "Denunciar"}
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              disabled={!editBody.trim() || editPost.isPending}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-background disabled:opacity-50"
+            >
+              Salvar
             </button>
           </div>
-        )}
-      </div>
-      {post.body && <p className="mt-2.5 whitespace-pre-wrap text-sm text-text">{post.body}</p>}
+        </div>
+      ) : (
+        post.body && <p className="mt-2.5 whitespace-pre-wrap text-sm text-text">{post.body}</p>
+      )}
       {post.imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- imagem do usuário no Storage, sem domínio fixo configurado
         <img

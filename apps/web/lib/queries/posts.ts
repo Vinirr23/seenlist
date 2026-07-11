@@ -149,3 +149,46 @@ export function useCreatePost() {
     },
   });
 }
+
+/** TASK-075 — edita só o texto (a imagem, se tiver, continua a mesma; trocar a imagem de um post já publicado fica pra outra hora, fora do pedido original). RLS (`auth.uid() = user_id`) garante que só o dono edita, mesmo que o botão nunca devesse aparecer pra outra pessoa. */
+export function useEditPost(postId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (body: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("posts").update({ body }).eq("id", postId);
+      if (error) {
+        console.error("[posts] Falha ao editar post", describeSupabaseError(error));
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      queryClient.invalidateQueries({ queryKey: ["post", postId] });
+    },
+  });
+}
+
+/** TASK-075 — soft-delete (`deleted_at`), mesmo padrão de comments/reviews — o post some das telas, mas a linha continua no banco. */
+export function useDeletePost(postId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("posts")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", postId);
+      if (error) {
+        console.error("[posts] Falha ao apagar post", describeSupabaseError(error));
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      queryClient.invalidateQueries({ queryKey: ["post", postId] });
+    },
+  });
+}
