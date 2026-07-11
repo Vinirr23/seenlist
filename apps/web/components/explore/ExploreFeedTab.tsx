@@ -1,15 +1,10 @@
 "use client";
 
-import { useMyFeedCategories } from "@/lib/queries/feed-categories";
 import { usePosts } from "@/lib/queries/posts";
-import { FeedOnboarding } from "./FeedOnboarding";
 import { PostCard } from "./PostCard";
 import { CreatePostButton } from "./CreatePostButton";
 
 /**
- * TASK-059 — "enquanto o usuário não selecionar pelo menos uma
- * categoria, o Feed não será exibido".
- *
  * TASK-063 — removida a seção "Descobrir" (cards de séries/filmes em
  * alta) que existia aqui dentro: ela duplicava a aba "DESCOBRIR" ao
  * lado de "FEED" (mesma tela, mesmo conteúdo — trending do TMDB —
@@ -18,24 +13,20 @@ import { CreatePostButton } from "./CreatePostButton";
  * temporadas por item, o estado de extraInfo). O Feed agora mostra
  * só os posts de texto (usePosts/CreatePostButton), como o resto do
  * comentário original desta tarefa já descrevia como "seção própria".
+ *
+ * TASK-074 — a exigência de escolher categoria antes de ver o Feed
+ * (TASK-059, "enquanto o usuário não selecionar pelo menos uma
+ * categoria, o Feed não será exibido") saiu. `usePosts()` nunca
+ * chegou a filtrar por categoria de verdade (sempre trouxe todos os
+ * posts, em ordem cronológica) — a única coisa que essa exigência
+ * fazia era esconder o Feed inteiro atrás de uma tela de onboarding
+ * até a pessoa escolher algo. Agora entra direto, mostrando todos os
+ * posts pra todo mundo. `FeedOnboarding` ficou sem nenhum lugar que
+ * a use — não apagado, só parado, caso vire uma preferência
+ * opcional no futuro (não uma barreira de entrada).
  */
 export function ExploreFeedTab() {
-  const { data: categories, isLoading: categoriesLoading } = useMyFeedCategories();
   const { data: posts, isLoading: postsLoading } = usePosts();
-
-  if (categoriesLoading) {
-    return (
-      <div className="space-y-4 px-4 pt-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="aspect-video animate-pulse rounded-2xl bg-surface" />
-        ))}
-      </div>
-    );
-  }
-
-  if (categories && categories.length === 0) {
-    return <FeedOnboarding />;
-  }
 
   return (
     <>
