@@ -14,7 +14,10 @@ export interface CommentAuthor {
 export interface Comment {
   id: string;
   parentCommentId: string | null;
-  body: string;
+  /** TASK-065 — nulo quando o comentário é só imagem/GIF, sem legenda. */
+  body: string | null;
+  /** TASK-065 — imagem ou GIF anexado ao comentário (mesma coluna serve pros dois). Nulo quando o comentário é só texto. */
+  imageUrl: string | null;
   containsSpoiler: boolean;
   createdAt: string;
   updatedAt: string;
@@ -93,7 +96,7 @@ export function useComments(target: MediaTarget) {
       const supabase = createClient();
       let query = supabase
         .from("comments")
-        .select("id, parent_comment_id, body, contains_spoiler, created_at, updated_at, user_id")
+        .select("id, parent_comment_id, body, image_url, contains_spoiler, created_at, updated_at, user_id")
         .eq("media_type", target.mediaType)
         .eq("media_id", target.mediaId)
         .order("created_at", { ascending: true });
@@ -137,6 +140,7 @@ export function useComments(target: MediaTarget) {
         id: row.id,
         parentCommentId: row.parent_comment_id,
         body: row.body,
+        imageUrl: row.image_url,
         containsSpoiler: row.contains_spoiler,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
@@ -158,10 +162,12 @@ export function usePostComment(target: MediaTarget) {
   return useMutation({
     mutationFn: async ({
       body,
+      imageUrl,
       parentCommentId,
       containsSpoiler,
     }: {
       body: string;
+      imageUrl?: string | null;
       parentCommentId?: string | null;
       containsSpoiler?: boolean;
     }) => {
@@ -178,7 +184,8 @@ export function usePostComment(target: MediaTarget) {
         season_number: target.seasonNumber ?? null,
         episode_number: target.episodeNumber ?? null,
         parent_comment_id: parentCommentId ?? null,
-        body,
+        body: body.trim() ? body : null,
+        image_url: imageUrl ?? null,
         contains_spoiler: containsSpoiler ?? false,
       });
       if (error) {
@@ -209,16 +216,23 @@ export function useEditComment(target: MediaTarget) {
     mutationFn: async ({
       commentId,
       body,
+      imageUrl,
       containsSpoiler,
     }: {
       commentId: string;
       body: string;
+      imageUrl?: string | null;
       containsSpoiler?: boolean;
     }) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("comments")
-        .update({ body, contains_spoiler: containsSpoiler ?? false, updated_at: new Date().toISOString() })
+        .update({
+          body: body.trim() ? body : null,
+          image_url: imageUrl ?? null,
+          contains_spoiler: containsSpoiler ?? false,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", commentId);
       if (error) {
         console.error("[social/comments] Falha ao editar comentário", describeSupabaseError(error));

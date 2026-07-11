@@ -8,12 +8,20 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0E14",
     "newArchEnabled": true,
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router"
+    ],
     "ios": {
       "bundleIdentifier": "com.seenlist.app"
     },
     "android": {
       "package": "com.seenlist.app"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7131db47-ae2c-4b9a-947a-fe57c238676e"
+      }
     }
   }
 }

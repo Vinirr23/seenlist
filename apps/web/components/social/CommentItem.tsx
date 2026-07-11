@@ -63,6 +63,7 @@ export function CommentItem({
         <CommentComposer
           initialBody={comment.body ?? ""}
           initialSpoiler={comment.containsSpoiler}
+          initialImageUrl={comment.imageUrl}
           submitLabel="Salvar"
           isPending={isMutating}
           onCancel={() => setEditing(false)}
@@ -93,6 +94,14 @@ export function CommentItem({
             <SpoilerGate hidden={comment.containsSpoiler}>
               <div className="space-y-2">
                 {comment.body && <p className="text-sm text-text">{comment.body}</p>}
+                {comment.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element -- imagem do usuário no Storage, sem domínio fixo configurado
+                  <img
+                    src={comment.imageUrl}
+                    alt=""
+                    className="max-h-64 rounded-lg border border-border object-cover"
+                  />
+                )}
               </div>
             </SpoilerGate>
           </div>
