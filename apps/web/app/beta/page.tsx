@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { Fraunces, Manrope } from "next/font/google";
 import { ArrowRight, Check, Film } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -18,7 +19,7 @@ const body = Manrope({
   variable: "--font-body",
 });
 
-type FormState = "idle" | "error" | "success";
+type FormState = "idle" | "invalid" | "error" | "success";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -47,25 +48,39 @@ function FilmStrip({ className = "" }: { className?: string }) {
  * `middleware.ts` (`PUBLIC_ROUTES`), senão cairia direto na tela de
  * login pra quem ainda nem tem conta.
  *
- * SEM integração com Supabase ainda, como pedido — o formulário
- * valida o formato do e-mail no cliente e mostra sucesso/erro
- * simulado, só pra já entregar os DOIS estados visuais prontos.
- * Trocar por uma chamada de verdade depois é só substituir o corpo
- * de `handleSubmit`.
+ * TASK-069 (integração) — grava direto na tabela `beta_signups`
+ * (migration 20260811000000) com o cliente do browser + RLS
+ * (`with check (true)` só pra INSERT) — mesmo padrão que o resto do
+ * app usa pra mutations do lado do cliente, nenhuma rota de API
+ * nova. E-mail duplicado (`error.code === "23505"`, violação do
+ * `unique`) também mostra a mensagem de sucesso — quem já estava na
+ * lista não devia ver isso como um erro.
  */
 export default function BetaPage() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<FormState>("idle");
+  const [isPending, setIsPending] = useState(false);
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    const trimmed = email.trim();
 
-    if (!EMAIL_PATTERN.test(email.trim())) {
+    if (!EMAIL_PATTERN.test(trimmed)) {
+      setState("invalid");
+      return;
+    }
+
+    setIsPending(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("beta_signups").insert({ email: trimmed });
+    setIsPending(false);
+
+    if (error && error.code !== "23505") {
+      console.error("[beta] Falha ao salvar e-mail da beta", error);
       setState("error");
       return;
     }
 
-    // Placeholder: nenhuma chamada de rede acontece aqui ainda.
     setState("success");
   }
 
@@ -126,25 +141,34 @@ export default function BetaPage() {
               setEmail(e.target.value);
               if (state !== "idle") setState("idle");
             }}
-            aria-invalid={state === "error"}
+            aria-invalid={state === "invalid" || state === "error"}
             aria-describedby="beta-form-feedback"
             className="w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base text-text placeholder:text-muted/70 outline-none transition-colors focus:border-primary"
           />
 
           <button
             type="submit"
-            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-base font-bold text-background transition-transform active:scale-[0.98]"
+            disabled={isPending}
+            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-base font-bold text-background transition-transform active:scale-[0.98] disabled:opacity-60"
           >
-            Entrar na beta
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} />
+            {isPending ? "Entrando..." : "Entrar na beta"}
+            {!isPending && (
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} />
+            )}
           </button>
 
           {/* Espaço reservado pra feedback — altura fixa, pra não empurrar o layout quando a mensagem aparece. */}
           <div id="beta-form-feedback" role="status" className="min-h-[3rem] px-1 pt-1">
-            {state === "error" && (
+            {state === "invalid" && (
               <p className="flex items-start gap-2 text-sm text-danger">
                 <span aria-hidden="true">●</span>
                 Digite um e-mail válido pra gente conseguir te avisar.
+              </p>
+            )}
+            {state === "error" && (
+              <p className="flex items-start gap-2 text-sm text-danger">
+                <span aria-hidden="true">●</span>
+                Não foi possível salvar seu e-mail agora. Tente de novo em instantes.
               </p>
             )}
             {state === "success" && (
