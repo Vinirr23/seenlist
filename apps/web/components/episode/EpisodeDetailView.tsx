@@ -17,8 +17,9 @@ import { useMyReview, useUpsertReview, useReviewAggregate } from "@/lib/queries/
 import { HalfStarRating } from "../social/HalfStarRating";
 import { EpisodeStarRatingRow } from "./EpisodeStarRatingRow";
 import { EpisodeMoodPicker } from "./EpisodeMoodPicker";
-import { EpisodeFavoriteCharacterPicker } from "./EpisodeFavoriteCharacterPicker";
+import { EpisodeFavoriteCharacterPicker, type FavoriteCharacterOption } from "./EpisodeFavoriteCharacterPicker";
 import { EpisodeWatchedPlatformPicker } from "./EpisodeWatchedPlatformPicker";
+import { useAnimeCharacters } from "@/lib/queries/anime-characters";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
 import { useToast } from "@/lib/toast/ToastProvider";
@@ -114,6 +115,24 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
     () => findAdjacentEpisodes(seriesDetails?.seasons, season, episode),
     [seriesDetails?.seasons, season, episode]
   );
+
+  /**
+   * TASK-067 (personagem favorito, versão 2) — tenta o anime primeiro
+   * (ilustração de verdade via Jikan/MyAnimeList); sem correspondência,
+   * cai pro elenco do TMDB (foto do ator/dublador, como já era).
+   * `enabled: Boolean(title)` dentro do hook cuida de não disparar
+   * a busca antes de `seriesDetails` carregar.
+   */
+  const seriesYear = seriesDetails?.firstAirDate ? Number(seriesDetails.firstAirDate.slice(0, 4)) : null;
+  const { data: animeCharacters } = useAnimeCharacters(seriesDetails?.title, seriesYear);
+  const favoriteCharacterOptions: FavoriteCharacterOption[] = useMemo(() => {
+    if (animeCharacters && animeCharacters.length > 0) return animeCharacters;
+    return (seriesDetails?.cast ?? []).map((member) => ({
+      id: member.id,
+      name: member.character || member.name,
+      imageUrl: tmdbImage(member.profilePath, "w185"),
+    }));
+  }, [animeCharacters, seriesDetails?.cast]);
 
   const currentSeasonEpisodes = useMemo(() => {
     const currentSeason = seriesDetails?.seasons.find((s) => s.seasonNumber === season);
@@ -328,16 +347,16 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
               />
             </section>
 
-            {seriesDetails && seriesDetails.cast.length > 0 && (
+            {favoriteCharacterOptions.length > 0 && (
               <section>
                 <h2 className="mb-2 text-sm font-medium text-text">Quem foi seu personagem favorito?</h2>
                 <EpisodeFavoriteCharacterPicker
-                  cast={seriesDetails.cast}
+                  characters={favoriteCharacterOptions}
                   selectedId={myRating?.favoriteCharacterId ?? null}
-                  onSelect={(member) =>
+                  onSelect={(character) =>
                     upsertRating.mutate({
-                      favoriteCharacterId: member?.id ?? null,
-                      favoriteCharacterName: member ? member.character || member.name : null,
+                      favoriteCharacterId: character?.id ?? null,
+                      favoriteCharacterName: character?.name ?? null,
                     })
                   }
                 />

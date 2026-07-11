@@ -1,54 +1,52 @@
 "use client";
 
 import Image from "next/image";
-import type { CastMember } from "@seenlist/types";
-import { tmdbImage } from "@/lib/tmdb/image";
 import { cn } from "@seenlist/utils";
 import { hapticTick } from "@/lib/haptics";
 
+export interface FavoriteCharacterOption {
+  id: number;
+  name: string;
+  imageUrl: string | null;
+}
+
 /**
- * TASK-067 — "Quem foi seu personagem favorito?". Reaproveita
- * `series.cast` (já vem de `useSeriesDetails`, mesma consulta que
- * `CastCarousel` usa na aba Sobre) — sem chamada nova ao TMDB. Não
- * são os "guest stars" específicos deste episódio (o TMDB só
- * devolve isso por uma consulta separada por episódio); é o elenco
- * principal da série, que é o que aparece nas capturas de
- * referência (Rick, Morty, Jerry, Summer...).
- */
-/**
- * TASK-067 (correção) — mostra o nome do PERSONAGEM
- * (`member.character`), não o nome do ator/dublador
- * (`member.name`) — a pergunta é "quem foi seu personagem
- * favorito?", não "qual ator/dublador você prefere". A FOTO
- * continua sendo da pessoa real (o TMDB não tem, nessa mesma
- * consulta, uma ilustração do personagem — isso é normal em animes,
- * onde o elenco retornado são os dubladores) — corrigir isso
- * exigiria uma fonte de dados diferente (tipo MyAnimeList/Jikan),
- * fora do escopo desta correção.
+ * TASK-067 — "Quem foi seu personagem favorito?".
+ *
+ * Versão 2 — a lista agora pode vir de duas fontes diferentes, mas
+ * este componente não sabe (nem precisa saber) qual: quem chama
+ * (`EpisodeDetailView`) já decide isso antes e entrega uma lista no
+ * mesmo formato — `imageUrl` pronto pra usar, já resolvido pra URL
+ * completa (não é mais `profilePath` do TMDB cru).
+ * - Anime com correspondência no MyAnimeList (via Jikan,
+ *   `lib/anime/jikan.ts`): ilustração de verdade do personagem.
+ * - Sem correspondência (a maioria dos filmes/séries não-anime, ou
+ *   anime que o Jikan não achou): elenco do TMDB — nesse caso a
+ *   imagem é do ator/dublador real, não tem jeito de evitar sem
+ *   trocar de fonte de dado (é a mesma limitação de antes).
  */
 export function EpisodeFavoriteCharacterPicker({
-  cast,
+  characters,
   selectedId,
   onSelect,
 }: {
-  cast: CastMember[];
+  characters: FavoriteCharacterOption[];
   selectedId: number | null;
-  onSelect: (member: CastMember | null) => void;
+  onSelect: (character: FavoriteCharacterOption | null) => void;
 }) {
-  if (cast.length === 0) return null;
+  if (characters.length === 0) return null;
 
   return (
     <div className="flex gap-3 overflow-x-auto pb-1">
-      {cast.map((member) => {
-        const photoUrl = tmdbImage(member.profilePath, "w185");
-        const selected = selectedId === member.id;
+      {characters.map((character) => {
+        const selected = selectedId === character.id;
         return (
           <button
-            key={member.id}
+            key={character.id}
             type="button"
             onClick={() => {
               hapticTick();
-              onSelect(selected ? null : member);
+              onSelect(selected ? null : character);
             }}
             className="w-20 shrink-0 text-center"
           >
@@ -58,14 +56,14 @@ export function EpisodeFavoriteCharacterPicker({
                 selected ? "ring-primary" : "ring-transparent"
               )}
             >
-              {photoUrl ? (
-                <Image src={photoUrl} alt={member.character} fill sizes="80px" className="object-cover" />
+              {character.imageUrl ? (
+                <Image src={character.imageUrl} alt={character.name} fill sizes="80px" className="object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-[10px] text-muted">Sem foto</div>
               )}
             </div>
             <p className={cn("mt-1.5 truncate text-xs font-medium", selected ? "text-primary" : "text-text")}>
-              {member.character || member.name}
+              {character.name}
             </p>
           </button>
         );
