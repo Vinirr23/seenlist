@@ -8,6 +8,7 @@ import { FormField } from "@/components/auth/FormField";
 import { SubmitButton } from "@/components/auth/SubmitButton";
 import { GoogleButton } from "@/components/auth/GoogleButton";
 import { FormFeedback } from "@/components/auth/FormFeedback";
+import { InAppBrowserWarning } from "@/components/auth/InAppBrowserWarning";
 
 const initialState: AuthActionState = { error: null };
 
@@ -35,6 +36,7 @@ function LoginPageContent() {
 
   return (
     <div className="space-y-6">
+      <InAppBrowserWarning />
       <div>
         <h1 className="text-lg font-semibold text-text">Entrar</h1>
         <p className="mt-1 text-sm text-muted">Acesse sua conta do SeenList.</p>

@@ -45,6 +45,7 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute =
     PUBLIC_ROUTES.some((route) => pathname === route) ||
     pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/auth/mobile-bridge") || // TASK-079: recebe os tokens vindos do app nativo, antes de qualquer sessão existir nesse contexto de navegação
     pathname.startsWith("/u/"); // TASK-028: perfil público, precisa funcionar sem login
 
   if (!user && !isPublicRoute) {

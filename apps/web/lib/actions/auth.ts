@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthActionState = { error: string | null; message?: string };
@@ -96,13 +97,29 @@ export async function signUpWithEmail(
   redirect("/series");
 }
 
-/** Login com Google — pega a URL de autorização do Supabase e redireciona pra ela. */
+/**
+ * Login com Google — pega a URL de autorização do Supabase e
+ * redireciona pra ela.
+ *
+ * TASK-079 — o Google bloqueia esse login inteiro dentro de
+ * qualquer WebView genérica (erro "disallowed_useragent") —
+ * inclusive a nossa, a do app mobile (`apps/mobile/app/index.tsx`
+ * dá um User-Agent próprio, com "SeenListApp" no final, só pra essa
+ * detecção). Quando detectado, marca `&mobile=1` no callback — é o
+ * `/auth/callback` que decide o que fazer com isso (ver
+ * route.ts), não esta função.
+ */
 export async function signInWithGoogle(formData: FormData): Promise<void> {
   const redirectPath = safeRedirectPath(formData.get("redirectTo"));
+  const headersList = await headers();
+  const isMobileApp = headersList.get("user-agent")?.includes("SeenListApp") ?? false;
+
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(redirectPath)}` },
+    options: {
+      redirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(redirectPath)}${isMobileApp ? "&mobile=1" : ""}`,
+    },
   });
 
   if (error || !data.url) {

@@ -9,7 +9,8 @@
     "backgroundColor": "#0B0E14",
     "newArchEnabled": true,
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-web-browser"
     ],
     "ios": {
       "bundleIdentifier": "com.seenlist.app"
