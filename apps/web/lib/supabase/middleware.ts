@@ -63,7 +63,10 @@ export async function updateSession(request: NextRequest) {
      * propósito, não trava a tela nesse caso — só mostra sem
      * decoração nenhuma.
      */
-    pathname.startsWith("/api/tmdb/");
+    pathname.startsWith("/api/tmdb/") ||
+    // TASK-094 (app nativo — Explorar) — mesma razão do /api/tmdb/*
+    // acima: só repassa busca ao TMDB, nenhum dado de usuário.
+    pathname.startsWith("/api/search");
 
   if (!user && !isPublicRoute) {
     // Rotas de API: quem chama é `fetch()` do client, não o navegador

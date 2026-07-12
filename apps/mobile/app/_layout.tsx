@@ -1,25 +1,31 @@
-import { Stack } from "expo-router";
+import { Slot } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { colors } from "@/lib/theme";
 
 /**
- * TASK-068 — o registro de push (`lib/pushNotifications.ts`,
- * TASK-052) que existia aqui ligado a `supabase.auth.onAuthStateChange`
- * saiu: com a "opção 1" (casca WebView carregando o site, ver
- * `app/index.tsx`), o login acontece DENTRO do site carregado — o
- * cliente Supabase nativo deste arquivo (`lib/supabase.ts`) nunca
- * recebe sessão nenhuma, então esse listener nunca dispararia de
- * verdade. Fica pra quando o app nativo de verdade for construído.
+ * TASK-090 — fim da "opção 1" (casca WebView, ver histórico em
+ * SEENLIST-SESSAO-2026-07-12.md). A partir daqui o app mobile é
+ * nativo de verdade: `AuthProvider` dá a sessão do Supabase pro app
+ * inteiro, e `app/index.tsx` decide pra onde mandar o usuário
+ * (login ou abas) com base nela.
  *
- * `SafeAreaProvider` — necessário pro `SafeAreaView` usado em
- * `app/index.tsx` funcionar direito (evita a WebView desenhar por
- * baixo da barra de gestos do Android, cortando o fim das listas).
+ * `SafeAreaProvider` continua necessário — usado pelo hook
+ * `useSafeAreaInsets()` em `components/ui/Screen.tsx` (não pelo
+ * componente `SafeAreaView`, que já causou um crash SIGSEGV nesta
+ * base de código).
  */
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }} />
+      <AuthProvider>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <StatusBar style="light" />
+          <Slot />
+        </View>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
