@@ -46,7 +46,24 @@ export async function updateSession(request: NextRequest) {
     PUBLIC_ROUTES.some((route) => pathname === route) ||
     pathname.startsWith("/auth/callback") ||
     pathname.startsWith("/auth/mobile-bridge") || // TASK-079: recebe os tokens vindos do app nativo, antes de qualquer sessão existir nesse contexto de navegação
-    pathname.startsWith("/u/"); // TASK-028: perfil público, precisa funcionar sem login
+    pathname.startsWith("/u/") || // TASK-028: perfil público, precisa funcionar sem login
+    /**
+     * TASK-091 (app nativo) — nenhuma rota debaixo de /api/tmdb/*
+     * usa dado de usuário nenhum (só repassa o TMDB: filme, série,
+     * episódio, resumos da Biblioteca, busca) — mas sem essa exceção
+     * o middleware bloqueava QUALQUER chamada sem cookie de sessão
+     * com 401. Isso nunca dava problema no site (o navegador sempre
+     * manda os cookies junto, automaticamente), mas sempre acontecia
+     * vindo do app nativo: o `fetch()` nativo não tem cookie de
+     * navegador nenhum pra mandar — a sessão do app mobile vive no
+     * AsyncStorage, não em cookie. O sintoma era silencioso demais
+     * pra perceber sem olhar o log: a Biblioteca carregava normal
+     * (RLS do Supabase, chamada direta), só faltava poster/título,
+     * porque essa chamada específica voltava 401 e o código, de
+     * propósito, não trava a tela nesse caso — só mostra sem
+     * decoração nenhuma.
+     */
+    pathname.startsWith("/api/tmdb/");
 
   if (!user && !isPublicRoute) {
     // Rotas de API: quem chama é `fetch()` do client, não o navegador
