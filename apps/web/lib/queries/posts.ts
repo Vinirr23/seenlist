@@ -34,8 +34,22 @@ const POST_TYPES = ["text", "image", "review"] as const;
 const POST_COLUMNS =
   "id, user_id, type, body, image_url, media_type, media_id, media_title, media_poster_path, rating, created_at";
 
+interface PostRow {
+  id: string;
+  user_id: string;
+  type: PostType;
+  body: string | null;
+  image_url: string | null;
+  media_type: "movie" | "series" | null;
+  media_id: number | null;
+  media_title: string | null;
+  media_poster_path: string | null;
+  rating: number | string | null;
+  created_at: string;
+}
+
 function mapRow(
-  row: Record<string, any>,
+  row: PostRow,
   profile: { display_name: string | null; username: string; avatar_url: string | null }
 ): Post {
   return {
