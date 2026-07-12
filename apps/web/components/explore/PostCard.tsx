@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Bookmark, MoreHorizontal, Share2, Link2, Pencil, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, MoreHorizontal, Share2, Link2, Pencil, Trash2, Star } from "lucide-react";
 import type { Post } from "@/lib/queries/posts";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { useEditPost, useDeletePost } from "@/lib/queries/posts";
@@ -15,6 +16,7 @@ import { useToast } from "@/lib/toast/ToastProvider";
 import { PostCommentsSection } from "./PostCommentsSection";
 import { hapticTick } from "@/lib/haptics";
 import { cn } from "@seenlist/utils";
+import { tmdbImage } from "@/lib/tmdb/image";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -238,6 +240,32 @@ export function PostCard({ post, detail = false }: { post: Post; detail?: boolea
           </div>
         )}
       </div>
+      {post.type === "review" && post.mediaTitle && (
+        <Link
+          href={`/${post.mediaType === "movie" ? "movies" : "series"}/${post.mediaId}`}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-2.5 flex items-center gap-3 rounded-lg border border-border bg-background p-2.5"
+        >
+          <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded bg-surface">
+            {post.mediaPosterPath && (
+              <Image src={tmdbImage(post.mediaPosterPath, "w185") ?? ""} alt="" fill sizes="44px" className="object-cover" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-text">{post.mediaTitle}</p>
+            <div className="mt-1 flex items-center gap-0.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  className={cn("h-3.5 w-3.5", i < (post.rating ?? 0) ? "fill-primary text-primary" : "text-border")}
+                  strokeWidth={2}
+                />
+              ))}
+              <span className="ml-1 text-xs font-medium text-muted">{(post.rating ?? 0).toFixed(1)}/5</span>
+            </div>
+          </div>
+        </Link>
+      )}
       {editing ? (
         <div onClick={(e) => e.stopPropagation()} className="mt-2.5 space-y-2">
           <textarea

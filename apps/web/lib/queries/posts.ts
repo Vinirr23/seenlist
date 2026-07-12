@@ -2,32 +2,70 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 
+export type PostType = "text" | "image" | "review";
+
 export interface Post {
   id: string;
   userId: string;
   authorName: string;
   authorUsername: string;
   authorAvatarUrl: string | null;
+  type: PostType;
   /** TASK-066 — vazio quando o post é só imagem/GIF, sem legenda. */
   body: string;
   /** TASK-066 — imagem ou GIF anexado ao post (mesma coluna serve pros dois). Nulo pra post de texto puro. */
   imageUrl: string | null;
+  /**
+   * TASK-078 — "review como post": só preenchidos quando
+   * `type === "review"`. Snapshot do momento da publicação (não
+   * busca no TMDB de novo pra exibir) — ver migration
+   * 20260814000000.
+   */
+  mediaType: "movie" | "series" | null;
+  mediaId: number | null;
+  mediaTitle: string | null;
+  mediaPosterPath: string | null;
+  rating: number | null;
   createdAt: string;
 }
 
 const POSTS_LIMIT = 30;
-const POST_TYPES = ["text", "image"] as const;
+const POST_TYPES = ["text", "image", "review"] as const;
+const POST_COLUMNS =
+  "id, user_id, type, body, image_url, media_type, media_id, media_title, media_poster_path, rating, created_at";
+
+function mapRow(
+  row: Record<string, any>,
+  profile: { display_name: string | null; username: string; avatar_url: string | null }
+): Post {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    authorName: profile.display_name || profile.username,
+    authorUsername: profile.username,
+    authorAvatarUrl: profile.avatar_url,
+    type: row.type,
+    body: row.body ?? "",
+    imageUrl: row.image_url,
+    mediaType: row.media_type,
+    mediaId: row.media_id,
+    mediaTitle: row.media_title,
+    mediaPosterPath: row.media_poster_path,
+    rating: row.rating === null ? null : Number(row.rating),
+    createdAt: row.created_at,
+  };
+}
 
 /**
- * TASK-059 (fase 2) / TASK-066 (fase seguinte — post com imagem) —
- * "text" e "image" são os dois tipos que já existem; os outros do
- * pedido original (review/enquete/lista/...) continuam fase futura.
- * Ordem cronológica simples (created_at desc) — o algoritmo de
- * mistura de sinais é fase futura, não inventado aqui. Perfis
- * buscados à parte e unidos no cliente, mesmo padrão já usado em
- * activity-feed.ts e my-comments.ts (posts.user_id referencia
- * auth.users, não profiles diretamente — não dá pra fazer join
- * aninhado do Supabase sem uma FK declarada entre as duas tabelas).
+ * TASK-059 (fase 2) / TASK-066 (post com imagem) / TASK-078 (post de
+ * review) — "text", "image" e "review" são os três tipos que já
+ * existem; enquete/lista continuam fase futura. Ordem cronológica
+ * simples (created_at desc) — o algoritmo de mistura de sinais é
+ * fase futura, não inventado aqui. Perfis buscados à parte e unidos
+ * no cliente, mesmo padrão já usado em activity-feed.ts e
+ * my-comments.ts (posts.user_id referencia auth.users, não profiles
+ * diretamente — não dá pra fazer join aninhado do Supabase sem uma
+ * FK declarada entre as duas tabelas).
  */
 export function usePosts() {
   return useQuery({
@@ -37,7 +75,7 @@ export function usePosts() {
 
       const { data: rows, error } = await supabase
         .from("posts")
-        .select("id, user_id, body, image_url, created_at")
+        .select(POST_COLUMNS)
         .in("type", POST_TYPES)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
@@ -58,16 +96,7 @@ export function usePosts() {
         .map((row) => {
           const profile = profileById.get(row.user_id);
           if (!profile) return null; // perfil privado ou removido — não mostra post órfão sem autor
-          return {
-            id: row.id,
-            userId: row.user_id,
-            authorName: profile.display_name || profile.username,
-            authorUsername: profile.username,
-            authorAvatarUrl: profile.avatar_url,
-            body: row.body ?? "",
-            imageUrl: row.image_url,
-            createdAt: row.created_at,
-          };
+          return mapRow(row, profile);
         })
         .filter((post): post is Post => post !== null);
     },
@@ -82,7 +111,7 @@ export function usePost(postId: string) {
 
       const { data: row, error } = await supabase
         .from("posts")
-        .select("id, user_id, body, image_url, created_at")
+        .select(POST_COLUMNS)
         .eq("id", postId)
         .is("deleted_at", null)
         .maybeSingle();
@@ -100,33 +129,41 @@ export function usePost(postId: string) {
         .maybeSingle();
       if (!profile) return null;
 
-      return {
-        id: row.id,
-        userId: row.user_id,
-        authorName: profile.display_name || profile.username,
-        authorUsername: profile.username,
-        authorAvatarUrl: profile.avatar_url,
-        body: row.body ?? "",
-        imageUrl: row.image_url,
-        createdAt: row.created_at,
-      };
+      return mapRow(row, profile);
     },
     enabled: Boolean(postId),
   });
 }
 
+export interface ReviewPostPayload {
+  mediaType: "movie" | "series";
+  mediaId: number;
+  mediaTitle: string;
+  mediaPosterPath: string | null;
+  rating: number;
+}
+
 /**
- * TASK-066 — substitui `useCreateTextPost`: agora cria post de texto
- * OU de imagem, dependendo do que foi passado (`imageUrl` presente =
- * `type: "image"`). Um post de imagem pode ter legenda (`body`) ou
- * não — os dois são válidos, a constraint no banco já garante que
- * pelo menos um dos dois exista.
+ * TASK-066 / TASK-078 — cria post de texto, imagem OU review. O tipo
+ * sai do que foi passado: `review` presente → `type: "review"`;
+ * senão `imageUrl` presente → `type: "image"`; senão `type: "text"`.
+ * Um post de review sempre tem nota (obrigatória por definição de
+ * review) — `body` (o texto da review) continua opcional, igual nos
+ * outros tipos.
  */
 export function useCreatePost() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ body, imageUrl }: { body: string; imageUrl?: string | null }) => {
+    mutationFn: async ({
+      body,
+      imageUrl,
+      review,
+    }: {
+      body: string;
+      imageUrl?: string | null;
+      review?: ReviewPostPayload;
+    }) => {
       const supabase = createClient();
       const {
         data: { user },
@@ -135,9 +172,14 @@ export function useCreatePost() {
 
       const { error } = await supabase.from("posts").insert({
         user_id: user.id,
-        type: imageUrl ? "image" : "text",
+        type: review ? "review" : imageUrl ? "image" : "text",
         body: body.trim() ? body : null,
         image_url: imageUrl ?? null,
+        media_type: review?.mediaType ?? null,
+        media_id: review?.mediaId ?? null,
+        media_title: review?.mediaTitle ?? null,
+        media_poster_path: review?.mediaPosterPath ?? null,
+        rating: review?.rating ?? null,
       });
       if (error) {
         console.error("[posts] Falha ao criar post", describeSupabaseError(error));
@@ -150,7 +192,7 @@ export function useCreatePost() {
   });
 }
 
-/** TASK-075 — edita só o texto (a imagem, se tiver, continua a mesma; trocar a imagem de um post já publicado fica pra outra hora, fora do pedido original). RLS (`auth.uid() = user_id`) garante que só o dono edita, mesmo que o botão nunca devesse aparecer pra outra pessoa. */
+/** TASK-075 — edita só o texto (a imagem/nota/título, se tiver, continuam os mesmos; trocar isso de um post já publicado fica pra outra hora, fora do pedido original). RLS (`auth.uid() = user_id`) garante que só o dono edita, mesmo que o botão nunca devesse aparecer pra outra pessoa. */
 export function useEditPost(postId: string) {
   const queryClient = useQueryClient();
 

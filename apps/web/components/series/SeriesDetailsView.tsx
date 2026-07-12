@@ -84,7 +84,10 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
 
             <section>
               <h2 className="mb-2 text-sm font-medium text-text">{t("reviews.title")}</h2>
-              <ReviewsSection target={{ mediaType: "series", mediaId: numericId }} />
+              <ReviewsSection
+                target={{ mediaType: "series", mediaId: numericId }}
+                media={{ type: "series", title: series.title, posterPath: series.posterPath }}
+              />
             </section>
 
             <Link
