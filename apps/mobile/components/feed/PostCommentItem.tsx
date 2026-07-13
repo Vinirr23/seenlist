@@ -1,4 +1,5 @@
 import { View, Pressable, Alert, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { CommentNode } from "@/lib/postComments";
 import { LikeButton } from "./LikeButton";
@@ -8,26 +9,25 @@ import { colors, spacing } from "@/lib/theme";
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
 /**
- * TASK-102/126 — porta de `PostCommentItem.tsx`. Uma diferença
- * deliberada do web: lá, "Responder" navega pra uma tela própria
- * (`/explore/posts/[id]/comment/[commentId]`); aqui, muda o alvo do
- * composer que já está na tela (`onReply`) — mesmo recurso, sem
- * precisar de uma rota nova só pra isso.
- * TASK-126 (correção, a pedido) — ganhou "Apagar" (só dono), que
- * nunca tinha sido construído aqui (só existia pra comentário de
- * episódio).
+ * TASK-102/126/131 — porta de `PostCommentItem.tsx`. Correção
+ * (TASK-131, a pedido): "Responder" tinha ficado como um atalho
+ * inline (mudava o alvo do composer na mesma tela) — o web abre uma
+ * tela própria (`/posts/[postId]/comment/[commentId]`), igual a
+ * tocar num post abre a tela do post. Corrigido pra navegar de
+ * verdade, batendo com o web.
  */
 export function PostCommentItem({
   comment,
+  postId,
   depth,
-  onReply,
   onDelete,
 }: {
   comment: CommentNode;
+  postId: string;
   depth: number;
-  onReply: (commentId: string, authorName: string) => void;
   onDelete: (commentId: string) => Promise<void>;
 }) {
+  const router = useRouter();
   const { session } = useAuth();
   const isOwn = session?.user.id === comment.userId;
 
@@ -62,7 +62,7 @@ export function PostCommentItem({
         <View style={styles.actionsRow}>
           <LikeButton targetType="post_comment" targetId={comment.id} />
           {depth < 2 && (
-            <Pressable onPress={() => onReply(comment.id, comment.authorName)}>
+            <Pressable onPress={() => router.push(`/posts/${postId}/comment/${comment.id}`)}>
               <Text variant="muted" style={styles.replyLabel}>
                 Responder
               </Text>
@@ -77,7 +77,7 @@ export function PostCommentItem({
       </View>
 
       {comment.children.map((child) => (
-        <PostCommentItem key={child.id} comment={child} depth={depth + 1} onReply={onReply} onDelete={onDelete} />
+        <PostCommentItem key={child.id} comment={child} postId={postId} depth={depth + 1} onDelete={onDelete} />
       ))}
     </View>
   );

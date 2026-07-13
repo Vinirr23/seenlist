@@ -100,6 +100,16 @@ export interface CommentNode extends PostComment {
   children: CommentNode[];
 }
 
+/** Idêntico a findCommentNode do web — acha um nó (com sua subárvore de respostas já montada) dentro da árvore, pra tela dedicada de comentário. */
+export function findCommentNode(roots: CommentNode[], commentId: string): CommentNode | null {
+  for (const node of roots) {
+    if (node.id === commentId) return node;
+    const found = findCommentNode(node.children, commentId);
+    if (found) return found;
+  }
+  return null;
+}
+
 /** Idêntico a buildPostCommentTree do web. */
 export function buildPostCommentTree(comments: PostComment[]): CommentNode[] {
   const byId = new Map<string, CommentNode>();
