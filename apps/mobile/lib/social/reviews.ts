@@ -18,6 +18,8 @@ export interface Review {
   containsSpoiler: boolean;
   mood: string | null;
   watchedPlatform: string | null;
+  favoriteCharacterId: number | null;
+  favoriteCharacterName: string | null;
   createdAt: string;
   author: { username: string; displayName: string | null; avatarUrl: string | null };
 }
@@ -30,6 +32,8 @@ interface ReviewRow {
   contains_spoiler: boolean;
   mood: string | null;
   watched_platform: string | null;
+  favorite_character_id: number | null;
+  favorite_character_name: string | null;
   created_at: string;
 }
 
@@ -50,7 +54,7 @@ interface ProfileRow {
 export async function fetchReviews(target: ReviewTarget): Promise<Review[]> {
   let query = supabase
     .from("reviews")
-    .select("id, user_id, rating, review_text, contains_spoiler, mood, watched_platform, created_at")
+    .select("id, user_id, rating, review_text, contains_spoiler, mood, watched_platform, favorite_character_id, favorite_character_name, created_at")
     .eq("media_type", target.mediaType)
     .eq("media_id", target.mediaId)
     .is("deleted_at", null)
@@ -80,6 +84,8 @@ export async function fetchReviews(target: ReviewTarget): Promise<Review[]> {
       reviewText: row.review_text,
       containsSpoiler: row.contains_spoiler,
       mood: row.mood,
+      favoriteCharacterId: row.favorite_character_id,
+      favoriteCharacterName: row.favorite_character_name,
       watchedPlatform: row.watched_platform,
       createdAt: row.created_at,
       author: {
@@ -99,7 +105,7 @@ export async function fetchMyReview(target: ReviewTarget): Promise<Review | null
 
   let query = supabase
     .from("reviews")
-    .select("id, user_id, rating, review_text, contains_spoiler, mood, watched_platform, created_at")
+    .select("id, user_id, rating, review_text, contains_spoiler, mood, watched_platform, favorite_character_id, favorite_character_name, created_at")
     .eq("user_id", user.id)
     .eq("media_type", target.mediaType)
     .eq("media_id", target.mediaId)
@@ -118,6 +124,8 @@ export async function fetchMyReview(target: ReviewTarget): Promise<Review | null
     reviewText: row.review_text,
     containsSpoiler: row.contains_spoiler,
     mood: row.mood,
+    favoriteCharacterId: row.favorite_character_id,
+    favoriteCharacterName: row.favorite_character_name,
     watchedPlatform: row.watched_platform,
     createdAt: row.created_at,
     author: { username: "", displayName: null, avatarUrl: null },
@@ -164,7 +172,15 @@ export async function fetchReviewAggregate(target: ReviewTarget): Promise<Review
  */
 export async function upsertReview(
   target: ReviewTarget,
-  payload: { rating?: number; reviewText?: string | null; containsSpoiler?: boolean; mood?: string | null; watchedPlatform?: string | null }
+  payload: {
+    rating?: number;
+    reviewText?: string | null;
+    containsSpoiler?: boolean;
+    mood?: string | null;
+    watchedPlatform?: string | null;
+    favoriteCharacterId?: number | null;
+    favoriteCharacterName?: string | null;
+  }
 ): Promise<void> {
   const {
     data: { user },
@@ -185,6 +201,8 @@ export async function upsertReview(
   if (payload.containsSpoiler !== undefined) row.contains_spoiler = payload.containsSpoiler;
   if (payload.mood !== undefined) row.mood = payload.mood;
   if (payload.watchedPlatform !== undefined) row.watched_platform = payload.watchedPlatform;
+  if (payload.favoriteCharacterId !== undefined) row.favorite_character_id = payload.favoriteCharacterId;
+  if (payload.favoriteCharacterName !== undefined) row.favorite_character_name = payload.favoriteCharacterName;
 
   const { error } = await supabase.from("reviews").upsert(row, { onConflict: "user_id,media_type,media_id,season_number,episode_number" });
   if (error) throw error;

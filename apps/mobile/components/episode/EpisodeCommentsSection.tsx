@@ -1,109 +1,95 @@
-import { useEffect, useState, useCallback } from "react";
-import { View, Image, TextInput, Pressable, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useState } from "react";
+import { View, TextInput, Pressable, StyleSheet } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import type { MediaTarget } from "@/lib/social/mediaComments";
-import { fetchMediaComments, postMediaComment, type MediaComment } from "@/lib/social/mediaComments";
+import { useEpisodeComments, useEpisodeSpoilerProtection } from "@/lib/social/useEpisodeComments";
+import { EpisodeCommentItem } from "./EpisodeCommentItem";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((w) => w.length > 1)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
-
 /**
- * TASK-115 (episódio) — versão simplificada: lista plana, sem
- * responder (`parent_comment_id` sempre nulo). O Feed e as
- * Avaliações já têm padrões de comentário mais ricos (respostas,
- * curtidas) — replicar tudo isso aqui também inflaria bastante esta
- * leva; comentar o episódio em si já é o essencial coberto.
+ * TASK-122 (episódio, correção) — reescrito com árvore de respostas
+ * de verdade (antes era lista plana, TASK-115). Também ganhou a
+ * proteção automática contra spoiler: se você não assistiu ESTE
+ * episódio ainda, os comentários vêm ocultos por padrão (toque pra
+ * revelar cada um), além da flag manual de spoiler ao comentar.
  */
-export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
-  const router = useRouter();
-  const [comments, setComments] = useState<MediaComment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number; target: MediaTarget }) {
+  const { tree, isLoading, sending, submit, remove, edit } = useEpisodeComments(target);
+  const autoHideSpoilers = useEpisodeSpoilerProtection(seriesId, target.seasonNumber ?? 0, target.episodeNumber ?? 0);
+
   const [body, setBody] = useState("");
-  const [sending, setSending] = useState(false);
+  const [markSpoiler, setMarkSpoiler] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ id: string; authorName: string } | null>(null);
 
-  const load = useCallback(() => {
-    fetchMediaComments(target)
-      .then(setComments)
-      .catch((error) => console.error("[EpisodeCommentsSection] Falha ao buscar comentários", error))
-      .finally(() => setIsLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target.mediaType, target.mediaId, target.seasonNumber, target.episodeNumber]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function handleSend() {
+  async function handleSubmit() {
     if (!body.trim()) return;
-    setSending(true);
-    try {
-      await postMediaComment(target, body);
+    const ok = await submit(body, markSpoiler, replyTo?.id ?? null);
+    if (ok) {
       setBody("");
-      load();
-    } catch (error) {
-      console.error("[EpisodeCommentsSection] Falha ao comentar", error);
-    } finally {
-      setSending(false);
+      setMarkSpoiler(false);
+      setReplyTo(null);
     }
   }
 
   return (
     <View style={styles.wrapper}>
-      <Text variant="subtitle" style={styles.title}>
-        Comentários
-      </Text>
-
       {isLoading ? (
-        <Text variant="muted">Carregando…</Text>
-      ) : comments.length === 0 ? (
-        <Text variant="muted">Nenhum comentário ainda.</Text>
+        <Text variant="muted" style={styles.centerText}>
+          Carregando comentários...
+        </Text>
+      ) : tree.length === 0 ? (
+        <Text variant="muted" style={styles.centerText}>
+          Nenhum comentário ainda. Seja o primeiro a comentar.
+        </Text>
       ) : (
-        <View style={styles.list}>
-          {comments.map((comment) => (
-            <View key={comment.id} style={styles.commentRow}>
-              <Pressable style={styles.avatar} onPress={() => router.push(`/u/${comment.author.username}`)}>
-                {comment.author.avatarUrl ? (
-                  <Image source={{ uri: comment.author.avatarUrl }} style={styles.avatarImage} />
-                ) : (
-                  <Text style={styles.avatarInitials}>{initials(comment.author.displayName ?? comment.author.username)}</Text>
-                )}
-              </Pressable>
-              <View style={styles.commentBody}>
-                <View style={styles.commentHeader}>
-                  <Text style={styles.authorName}>{comment.author.displayName ?? comment.author.username}</Text>
-                  <Text variant="muted" style={styles.date}>
-                    {dateFormatter.format(new Date(comment.createdAt))}
-                  </Text>
-                </View>
-                {!!comment.body && <Text style={styles.commentText}>{comment.body}</Text>}
-              </View>
-            </View>
+        <View>
+          {tree.map((node) => (
+            <EpisodeCommentItem
+              key={node.id}
+              comment={node}
+              depth={0}
+              autoHideSpoilers={autoHideSpoilers}
+              onReply={(id, authorName) => setReplyTo({ id, authorName })}
+              onDelete={remove}
+              onEdit={edit}
+            />
           ))}
         </View>
       )}
 
-      <View style={styles.composerRow}>
+      <View style={styles.composerArea}>
+        {!!replyTo && (
+          <View style={styles.replyingRow}>
+            <Text variant="muted" style={styles.replyingText}>
+              Respondendo a {replyTo.authorName}
+            </Text>
+            <Pressable onPress={() => setReplyTo(null)} hitSlop={8}>
+              <Feather name="x" size={14} color={colors.muted} />
+            </Pressable>
+          </View>
+        )}
+
         <TextInput
           value={body}
           onChangeText={setBody}
           placeholder="Escreva um comentário..."
           placeholderTextColor={colors.muted}
+          multiline
           style={styles.input}
         />
-        <Pressable style={styles.sendButton} onPress={handleSend} disabled={!body.trim() || sending}>
-          <Text style={styles.sendButtonText}>Enviar</Text>
-        </Pressable>
+
+        <View style={styles.composerFooter}>
+          <Pressable style={styles.spoilerToggle} onPress={() => setMarkSpoiler((v) => !v)}>
+            <Feather name={markSpoiler ? "check-square" : "square"} size={16} color={markSpoiler ? colors.primary : colors.muted} />
+            <Text variant="muted" style={styles.spoilerLabel}>
+              Contém spoiler
+            </Text>
+          </Pressable>
+          <Pressable style={styles.sendButton} onPress={handleSubmit} disabled={!body.trim() || sending}>
+            <Text style={styles.sendButtonText}>Enviar</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -113,74 +99,52 @@ const styles = StyleSheet.create({
   wrapper: {
     gap: spacing.sm,
   },
-  title: {
-    marginBottom: spacing.xs,
+  centerText: {
+    paddingVertical: spacing.sm,
   },
-  list: {
-    gap: spacing.md,
-  },
-  commentRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-  },
-  avatarInitials: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.muted,
-  },
-  commentBody: {
-    flex: 1,
-  },
-  commentHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  authorName: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  date: {
-    fontSize: 11,
-  },
-  commentText: {
-    marginTop: 2,
-    fontSize: 13,
-    color: colors.text,
-  },
-  composerRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  input: {
-    flex: 1,
+  composerArea: {
+    marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  replyingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.background,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm - 2,
+    paddingVertical: 6,
+  },
+  replyingText: {
+    fontSize: 12,
+  },
+  input: {
+    minHeight: 60,
     fontSize: fontSize.sm,
     color: colors.text,
+    textAlignVertical: "top",
+  },
+  composerFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  spoilerToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  spoilerLabel: {
+    fontSize: 12,
   },
   sendButton: {
-    justifyContent: "center",
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
     borderRadius: radius.md,
     backgroundColor: colors.primary,
   },

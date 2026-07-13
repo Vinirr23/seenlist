@@ -12,34 +12,43 @@ export interface MediaComment {
   id: string;
   body: string | null;
   containsSpoiler: boolean;
+  parentCommentId: string | null;
   createdAt: string;
   author: { userId: string; username: string; displayName: string | null; avatarUrl: string | null };
+}
+
+export interface CommentNode extends MediaComment {
+  children: CommentNode[];
 }
 
 interface CommentRow {
   id: string;
   body: string | null;
   contains_spoiler: boolean;
+  parent_comment_id: string | null;
   created_at: string;
   user_id: string;
 }
 
+function applyTargetFilter<T extends { is: (c: string, v: null) => T; eq: (c: string, v: number) => T }>(query: T, target: MediaTarget): T {
+  let q = target.seasonNumber == null ? query.is("season_number", null) : query.eq("season_number", target.seasonNumber);
+  q = target.episodeNumber == null ? q.is("episode_number", null) : q.eq("episode_number", target.episodeNumber);
+  return q;
+}
+
 /**
- * TASK-115 (episódio) — porta SIMPLIFICADA de `social/comments.ts`:
- * lista plana, sem árvore de respostas (`parent_comment_id` sempre
- * nulo aqui) — o web suporta respostas aninhadas nesta tabela
- * também, mas isso é uma extensão pontual pra depois, não parte do
- * essencial de "comentar um episódio".
+ * TASK-122 (episódio, correção) — agora com árvore de respostas de
+ * verdade (`parent_comment_id`), porta completa de `social/comments.ts`
+ * (antes era lista plana, de propósito simplificado — TASK-115).
  */
 export async function fetchMediaComments(target: MediaTarget): Promise<MediaComment[]> {
   let query = supabase
     .from("comments")
-    .select("id, body, contains_spoiler, created_at, user_id")
+    .select("id, body, contains_spoiler, parent_comment_id, created_at, user_id")
     .eq("media_type", target.mediaType)
     .eq("media_id", target.mediaId)
     .is("deleted_at", null);
-  query = target.seasonNumber == null ? query.is("season_number", null) : query.eq("season_number", target.seasonNumber);
-  query = target.episodeNumber == null ? query.is("episode_number", null) : query.eq("episode_number", target.episodeNumber);
+  query = applyTargetFilter(query, target);
 
   const { data, error } = await query.order("created_at", { ascending: true });
   if (error) throw error;
@@ -58,6 +67,7 @@ export async function fetchMediaComments(target: MediaTarget): Promise<MediaComm
       id: row.id,
       body: row.body,
       containsSpoiler: row.contains_spoiler,
+      parentCommentId: row.parent_comment_id,
       createdAt: row.created_at,
       author: {
         userId: row.user_id,
@@ -69,7 +79,42 @@ export async function fetchMediaComments(target: MediaTarget): Promise<MediaComm
   });
 }
 
-export async function postMediaComment(target: MediaTarget, body: string, containsSpoiler = false): Promise<void> {
+/** Idêntico a buildTree do web (CommentsSection.tsx). */
+export function buildCommentTree(comments: MediaComment[]): CommentNode[] {
+  const byId = new Map<string, CommentNode>();
+  for (const comment of comments) byId.set(comment.id, { ...comment, children: [] });
+
+  const roots: CommentNode[] = [];
+  for (const comment of comments) {
+    const node = byId.get(comment.id) as CommentNode;
+    if (comment.parentCommentId && byId.has(comment.parentCommentId)) {
+      byId.get(comment.parentCommentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+export async function fetchMediaCommentCount(target: MediaTarget): Promise<number> {
+  let query = supabase
+    .from("comments")
+    .select("*", { count: "exact", head: true })
+    .eq("media_type", target.mediaType)
+    .eq("media_id", target.mediaId)
+    .is("deleted_at", null);
+  query = applyTargetFilter(query, target);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function postMediaComment(
+  target: MediaTarget,
+  body: string,
+  containsSpoiler = false,
+  parentCommentId: string | null = null
+): Promise<void> {
   const trimmed = body.trim();
   if (!trimmed) return;
 
@@ -86,6 +131,30 @@ export async function postMediaComment(target: MediaTarget, body: string, contai
     episode_number: target.episodeNumber ?? null,
     body: trimmed,
     contains_spoiler: containsSpoiler,
+    parent_comment_id: parentCommentId,
   });
   if (error) throw error;
+}
+
+export async function editMediaComment(commentId: string, body: string): Promise<void> {
+  const trimmed = body.trim();
+  if (!trimmed) return;
+  const { data, error } = await supabase.from("comments").update({ body: trimmed }).eq("id", commentId).select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Não foi possível editar — talvez este comentário não seja seu.");
+}
+
+/**
+ * TASK-123 (correção — apagar comentário) — `.select()` depois do
+ * update é o que permite saber se a política de segurança bloqueou
+ * silenciosamente (mesmo padrão já documentado em
+ * `seriesCategoryRecalc.ts`: um UPDATE que a RLS barra não dá erro
+ * nenhum, só "0 linhas afetadas" — sem pedir os dados de volta,
+ * esse "0 linhas" fica invisível, PARECE que funcionou mas não
+ * mudou nada).
+ */
+export async function deleteMediaComment(commentId: string): Promise<void> {
+  const { data, error } = await supabase.from("comments").update({ deleted_at: new Date().toISOString() }).eq("id", commentId).select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Não foi possível apagar — talvez este comentário não seja seu.");
 }
