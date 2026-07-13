@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { View, ScrollView, RefreshControl, Pressable, StyleSheet, Alert } from "react-native";
+import { View, ScrollView, RefreshControl, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
@@ -39,16 +39,14 @@ export default function SeriesHomeScreen() {
   }, [items]);
 
   function handlePressItem(item: LibraryItem) {
-    Alert.alert(item.title, "A tela de detalhes da série ainda vai ser construída — em breve.");
+    router.push(`/series/${item.id}`);
   }
 
   return (
     <Screen padded={false}>
-      <View style={styles.titleRow}>
-        <Text variant="title">Séries</Text>
+      <View style={styles.tabsRow}>
+        <HomeTabs active={tab} onChange={setTab} />
       </View>
-
-      <HomeTabs active={tab} onChange={setTab} />
 
       {tab === "minha-lista" ? (
         <ScrollView
@@ -78,8 +76,6 @@ export default function SeriesHomeScreen() {
               label='Ver todas da lista "Assistir depois"'
               onPress={() => router.push("/(tabs)/series/watchlist")}
             />
-            <ListLinkButton label="Ver séries concluídas" onPress={() => router.push("/(tabs)/series/completed")} />
-            <ListLinkButton label="Ver séries interrompidas" onPress={() => router.push("/(tabs)/series/paused")} />
           </View>
         </ScrollView>
       ) : (
@@ -110,8 +106,7 @@ function ListLinkButton({ label, onPress }: { label: string; onPress: () => void
 }
 
 const styles = StyleSheet.create({
-  titleRow: {
-    paddingHorizontal: spacing.lg,
+  tabsRow: {
     paddingTop: spacing.sm,
   },
   content: {

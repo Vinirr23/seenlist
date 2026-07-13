@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { View, ScrollView, RefreshControl, Pressable, StyleSheet, Alert } from "react-native";
+import { View, ScrollView, RefreshControl, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
@@ -27,7 +27,7 @@ export function FilteredSeriesListScreen({
   );
 
   function handlePressItem(item: LibraryItem) {
-    Alert.alert(item.title, "A tela de detalhes da série ainda vai ser construída — em breve.");
+    router.push(`/series/${item.id}`);
   }
 
   return (

@@ -1,4 +1,5 @@
-import { View, Image, Pressable, StyleSheet, Alert } from "react-native";
+import { View, Image, Pressable, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { MediaSearchResult } from "@seenlist/types";
 import { useSearchMedia } from "@/lib/useSearchMedia";
@@ -43,13 +44,19 @@ export function SearchResults({ query }: { query: string }) {
 }
 
 function ResultCard({ item }: { item: MediaSearchResult }) {
+  const router = useRouter();
   const posterUrl = tmdbImageUrl(item.posterPath, "w342");
 
+  function handlePress() {
+    if (item.mediaType === "series") {
+      router.push(`/series/${item.id}`);
+      return;
+    }
+    router.push(`/movies/${item.id}`);
+  }
+
   return (
-    <Pressable
-      style={styles.card}
-      onPress={() => Alert.alert(item.title, "A tela de detalhes ainda vai ser construída — em breve.")}
-    >
+    <Pressable style={styles.card} onPress={handlePress}>
       <View style={styles.posterWrapper}>
         {posterUrl ? (
           <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />

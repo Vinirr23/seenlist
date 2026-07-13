@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { View, ScrollView, RefreshControl, StyleSheet, Alert } from "react-native";
+import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { Screen, Text } from "@/components/ui";
@@ -8,86 +9,53 @@ import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
 import { colors, spacing } from "@/lib/theme";
 
-interface Category {
-  label: string;
-  items: LibraryItem[];
-  emptyMessage: string;
-  showAction?: boolean;
-}
-
 /**
- * TASK-092 — porta de `movies-home/MoviesHome.tsx` +
- * `MinhaListaSection.tsx` do web. Mais simples que Séries: filme não
- * tem temporada/episódio, só 3 status lado a lado na mesma tela
- * (Assistindo, Assistir depois, Concluídos) — no web isso também não
- * tem telas dedicadas separadas, então aqui também não precisou.
- *
- * "Em breve" já é só um placeholder NO PRÓPRIO WEB (`EmBreveSection.tsx`
- * de filmes — filme não tem "próximo episódio" recorrente como série
- * tem) — a versão nativa bate 100% com o web aqui, não é uma
- * simplificação, é a mesma decisão de produto já tomada antes.
+ * TASK-099 (correção — pedido do usuário) — tirei a categoria
+ * "Assistindo" daqui. Diferente do web (que mantém as 3 categorias
+ * lado a lado), a decisão pra este app é que filme não tem estado
+ * "assistindo" que faça sentido mostrar como lista — só série tem
+ * episódios/progresso pra acompanhar aos poucos. Filme é "quero
+ * assistir" ou já foi assistido (o que muda o status pra "completed"
+ * automaticamente, some daqui). Também removi o título "Filmes" no
+ * topo — a barra de abas embaixo já diz em qual tela você está.
  */
 export default function MoviesScreen() {
+  const router = useRouter();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
 
-  const movies = useMemo(() => (items ?? []).filter((item) => item.mediaType === "movie"), [items]);
-  const watching = useMemo(
-    () => movies.filter((item) => item.status === "watching").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    [movies]
+  const wantToWatch = useMemo(
+    () => (items ?? []).filter((item) => item.mediaType === "movie" && item.status === "want_to_watch"),
+    [items]
   );
-  const wantToWatch = useMemo(() => movies.filter((item) => item.status === "want_to_watch"), [movies]);
-  const completed = useMemo(() => movies.filter((item) => item.status === "completed"), [movies]);
 
   function handlePressItem(item: LibraryItem) {
-    Alert.alert(item.title, "A tela de detalhes do filme ainda vai ser construída — em breve.");
+    router.push(`/movies/${item.id}`);
   }
-
-  const categories: Category[] = [
-    {
-      label: "Assistindo",
-      items: watching,
-      emptyMessage: "Você ainda não adicionou nenhum filme.",
-      showAction: true,
-    },
-    { label: "Assistir depois", items: wantToWatch, emptyMessage: "Sua lista está vazia." },
-    { label: "Concluídos", items: completed, emptyMessage: "Nenhum filme concluído ainda." },
-  ];
 
   return (
     <Screen padded={false}>
-      <View style={styles.titleRow}>
-        <Text variant="title">Filmes</Text>
+      <View style={styles.tabsRow}>
+        <HomeTabs active={tab} onChange={setTab} />
       </View>
-
-      <HomeTabs active={tab} onChange={setTab} />
 
       {tab === "minha-lista" ? (
         <ScrollView
           contentContainerStyle={styles.content}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
+          <Text variant="subtitle" style={styles.sectionTitle}>
+            Assistir depois
+          </Text>
+
           {isError ? (
             <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />
           ) : isLoading ? (
             <Text variant="muted">Carregando…</Text>
+          ) : wantToWatch.length === 0 ? (
+            <EmptyShelf message="Sua lista está vazia." actionLabel="Explorar filmes" actionHref="/(tabs)/explore" />
           ) : (
-            categories.map((category) => (
-              <View key={category.label} style={styles.section}>
-                <Text variant="subtitle" style={styles.sectionTitle}>
-                  {category.label}
-                </Text>
-                {category.items.length === 0 ? (
-                  <EmptyShelf
-                    message={category.emptyMessage}
-                    actionLabel={category.showAction ? "Explorar filmes" : undefined}
-                    actionHref={category.showAction ? "/(tabs)/explore" : undefined}
-                  />
-                ) : (
-                  <PosterGrid items={category.items} onPressItem={handlePressItem} />
-                )}
-              </View>
-            ))
+            <PosterGrid items={wantToWatch} onPressItem={handlePressItem} />
           )}
         </ScrollView>
       ) : (
@@ -102,16 +70,12 @@ export default function MoviesScreen() {
 }
 
 const styles = StyleSheet.create({
-  titleRow: {
-    paddingHorizontal: spacing.lg,
+  tabsRow: {
     paddingTop: spacing.sm,
   },
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
-  },
-  section: {
-    marginBottom: spacing.lg,
   },
   sectionTitle: {
     marginBottom: spacing.sm,

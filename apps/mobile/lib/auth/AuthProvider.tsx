@@ -3,6 +3,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { registerForPushNotifications, removePushToken } from "@/lib/pushNotifications";
 
 export type AuthResult = { error: string | null; message?: string };
 
@@ -77,6 +78,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  /**
+   * TASK-114 (Notificações) — "chamar isto assim que existir uma
+   * tela pós-login" (comentário original em pushNotifications.ts,
+   * de uma sessão anterior a esta) — é exatamente isso que já
+   * temos agora. Depende de `session?.user.id`, não de `session`
+   * inteiro: o objeto de sessão muda a cada renovação de token,
+   * mas o registro de push só precisa acontecer de novo quando o
+   * USUÁRIO muda (login/logout), não a cada refresh silencioso.
+   */
+  useEffect(() => {
+    if (!session?.user.id) return;
+    registerForPushNotifications(supabase).catch((error) => {
+      console.warn("[AuthProvider] Falha ao registrar push notifications", error);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -155,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
 
       async signOut() {
+        await removePushToken(supabase);
         await supabase.auth.signOut();
       },
     }),

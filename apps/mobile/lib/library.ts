@@ -23,7 +23,7 @@ interface WatchedEpisodeRow {
   watched_at: string;
 }
 
-interface MediaSummary {
+export interface MediaSummary {
   id: number;
   title: string;
   year: number | null;
@@ -84,7 +84,7 @@ async function fetchOneLibrarySummariesPage(movieIds: number[], seriesIds: numbe
   }
 }
 
-async function fetchDisplaySummaries(
+export async function fetchDisplaySummaries(
   movieIds: number[],
   seriesIds: number[]
 ): Promise<{ movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }> {
@@ -206,23 +206,31 @@ function buildLibraryItemsFromRows(
 }
 
 /**
- * O ESTADO da Biblioteca vem inteiramente das 3 tabelas do usuário
- * logado (RLS já filtra por conta própria); o TMDB só decora depois
- * com poster/título — mesma ordem de responsabilidades do web.
+ * O ESTADO da Biblioteca vem inteiramente das 3 tabelas (RLS filtra
+ * por conta própria quando `userId` não é passado; quando é, o
+ * chamador É o visitante olhando a biblioteca de outra pessoa — a
+ * RLS de visibilidade pública decide o que aparece, não este código;
+ * ver `fetchPublicLibraryItems` em `lib/publicProfile.ts`); o TMDB só
+ * decora depois com poster/título — mesma ordem de responsabilidades
+ * do web.
  */
-export async function fetchLibraryItems(): Promise<LibraryItem[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+export async function fetchLibraryItems(userId?: string): Promise<LibraryItem[]> {
+  let targetUserId = userId;
+  if (!targetUserId) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return [];
+    targetUserId = user.id;
+  }
 
   const [movieResult, seriesResult, episodeResult] = await Promise.all([
-    supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", user.id),
+    supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", targetUserId),
     supabase
       .from("series_status")
       .select("series_id, status, created_at, updated_at, total_watch_events")
-      .eq("user_id", user.id),
-    supabase.from("watched_episodes").select("series_id, watched_at").eq("is_special", false).eq("user_id", user.id),
+      .eq("user_id", targetUserId),
+    supabase.from("watched_episodes").select("series_id, watched_at").eq("is_special", false).eq("user_id", targetUserId),
   ]);
 
   if (movieResult.error) throw movieResult.error;
@@ -250,6 +258,6 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
 }
 
 /** URL de pôster do TMDB — mesma função do web (lib/tmdb/image.ts), só copiada. */
-export function tmdbImageUrl(path: string | null, size: "w185" | "w342" = "w342"): string | null {
+export function tmdbImageUrl(path: string | null, size: "w185" | "w342" | "w780" = "w342"): string | null {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 }

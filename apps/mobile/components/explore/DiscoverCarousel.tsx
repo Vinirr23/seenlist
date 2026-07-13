@@ -1,4 +1,5 @@
-import { ScrollView, View, Image, Pressable, StyleSheet, Alert } from "react-native";
+import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { DiscoverItem } from "@/lib/discover";
 import { tmdbImageUrl } from "@/lib/library";
@@ -40,13 +41,19 @@ export function DiscoverCarousel({
 }
 
 function DiscoverCard({ item }: { item: DiscoverItem }) {
+  const router = useRouter();
   const posterUrl = tmdbImageUrl(item.posterPath, "w342");
 
+  function handlePress() {
+    if (item.mediaType === "series") {
+      router.push(`/series/${item.id}`);
+      return;
+    }
+    router.push(`/movies/${item.id}`);
+  }
+
   return (
-    <Pressable
-      style={styles.card}
-      onPress={() => Alert.alert(item.title, "A tela de detalhes ainda vai ser construída — em breve.")}
-    >
+    <Pressable style={styles.card} onPress={handlePress}>
       <View style={styles.posterWrapper}>
         {posterUrl ? (
           <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />

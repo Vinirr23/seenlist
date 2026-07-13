@@ -10,7 +10,14 @@
     "newArchEnabled": true,
     "plugins": [
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O SeenList precisa acessar suas fotos pra você escolher uma foto de perfil ou banner.",
+          "cameraPermission": false
+        }
+      ]
     ],
     "ios": {
       "bundleIdentifier": "com.seenlist.app"

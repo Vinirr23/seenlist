@@ -4,7 +4,9 @@ import { Screen, Text } from "@/components/ui";
 import { SearchBar } from "@/components/explore/SearchBar";
 import { SearchResults } from "@/components/explore/SearchResults";
 import { DiscoverCarousel } from "@/components/explore/DiscoverCarousel";
+import { ActivityFeedRow } from "@/components/explore/ActivityFeedRow";
 import { useDiscoverList } from "@/lib/useDiscoverList";
+import { useActivityFeed } from "@/lib/useActivityFeed";
 import { colors, spacing, radius } from "@/lib/theme";
 
 type ExploreTab = "discover" | "activity";
@@ -16,11 +18,9 @@ type ExploreTab = "discover" | "activity";
  * fundação); Descobrir traz os mesmos carrosséis de tendências do
  * TMDB que o web mostra.
  *
- * Fora do escopo desta leva, de propósito: a aba "Atividade" (feed
- * de quem você segue) — depende de dados sociais (follows) que fazem
- * mais sentido construir junto com a aba Feed, não separado aqui.
- * "Adicionar à Biblioteca" direto no card também fica pra quando a
- * tela de detalhes existir — colocar a mutação sem essa tela por
+ * Fora do escopo desta leva, de propósito: "Adicionar à Biblioteca"
+ * direto no card fica pra quando a tela de detalhes existir —
+ * colocar a mutação sem essa tela por
  * perto duplicaria lógica sem um lugar certo pra ela morar.
  */
 export default function ExploreScreen() {
@@ -57,15 +57,51 @@ export default function ExploreScreen() {
               <DiscoverCarousel title="Em breve" items={onTheAir.items} isLoading={onTheAir.isLoading} />
             </ScrollView>
           ) : (
-            <View style={styles.emptyActivity}>
-              <Text variant="muted" style={styles.emptyActivityText}>
-                A atividade de quem você segue vai aparecer aqui. Essa parte ainda não foi construída nativamente.
-              </Text>
-            </View>
+            <ActivityTabContent />
           )}
         </>
       )}
     </Screen>
+  );
+}
+
+function ActivityTabContent() {
+  const { items, isLoading, isError } = useActivityFeed();
+
+  if (isLoading) {
+    return (
+      <View style={styles.emptyActivity}>
+        <Text variant="muted" style={styles.emptyActivityText}>
+          Carregando…
+        </Text>
+      </View>
+    );
+  }
+  if (isError) {
+    return (
+      <View style={styles.emptyActivity}>
+        <Text variant="muted" style={styles.emptyActivityText}>
+          Não foi possível carregar as atividades agora.
+        </Text>
+      </View>
+    );
+  }
+  if (!items || items.length === 0) {
+    return (
+      <View style={styles.emptyActivity}>
+        <Text variant="muted" style={styles.emptyActivityText}>
+          Nenhuma atividade recente.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView>
+      {items.map((item) => (
+        <ActivityFeedRow key={item.id} item={item} />
+      ))}
+    </ScrollView>
   );
 }
 
