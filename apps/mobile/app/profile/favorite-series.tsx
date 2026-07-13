@@ -15,7 +15,7 @@ import { colors, spacing } from "@/lib/theme";
 export default function FavoriteSeriesScreen() {
   const router = useRouter();
   const { session } = useAuth();
-  const { items } = usePublicFavorites(session?.user.id ?? "");
+  const { items, isLoading } = usePublicFavorites(session?.user.id ?? "");
   const { viewMode, setViewMode } = useViewModePreference("profile-favorite-series");
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -38,7 +38,9 @@ export default function FavoriteSeriesScreen() {
           <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
         </View>
 
-        {series.length === 0 ? (
+        {isLoading ? (
+          <Text variant="muted">Carregando…</Text>
+        ) : series.length === 0 ? (
           <Text variant="muted">Você ainda não favoritou nenhuma série.</Text>
         ) : viewMode === "grid" ? (
           <PosterGrid items={series} onPressItem={handlePress} />

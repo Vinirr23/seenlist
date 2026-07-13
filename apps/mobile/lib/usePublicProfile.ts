@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import type { LibraryItem } from "@seenlist/types";
 import {
   fetchFollowCounts,
@@ -94,26 +95,38 @@ function usePublicItems(fetcher: (userId: string) => Promise<LibraryItem[]>, use
   const [items, setItems] = useState<LibraryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const hasLoadedOnce = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
+  const load = useCallback(() => {
+    if (!hasLoadedOnce.current) setIsLoading(true);
     setIsError(false);
-    fetcher(userId)
+    return fetcher(userId)
       .then((data) => {
-        if (!cancelled) setItems(data);
+        setItems(data);
+        hasLoadedOnce.current = true;
       })
       .catch((error) => {
         console.error("[usePublicItems] Falha ao buscar itens públicos", error);
-        if (!cancelled) setIsError(true);
+        setIsError(true);
       })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        setIsLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  /** TASK-125 (correção) — mesmo motivo de useLibraryItems.ts: recarrega sozinho ao voltar pra esta tela. */
+  useFocusEffect(
+    useCallback(() => {
+      if (hasLoadedOnce.current) load();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId])
+  );
 
   return { items, isLoading, isError };
 }

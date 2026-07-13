@@ -4,12 +4,18 @@ import { supabase } from "@/lib/supabase";
 const MAX_POST_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB — mesmo limite do web (GIFs animados costumam ser bem maiores que fotos comuns)
 
 /**
- * TASK-111 (seletor de imagem) — primeira vez que o app nativo pede
- * uma permissão de verdade ao sistema (galeria de fotos). Pede
+ * TASK-111/127 (seletor de imagem) — primeira vez que o app nativo
+ * pede uma permissão de verdade ao sistema (galeria de fotos). Pede
  * explicitamente ANTES de abrir o seletor (em vez de deixar o
  * seletor pedir sozinho) — mesma recomendação oficial do Expo desde
  * o SDK 54, evita o usuário ficar surpreso com um diálogo do sistema
  * no meio do fluxo.
+ *
+ * Correção (TASK-127): tinha `quality: 0.85` — essa opção só faz
+ * sentido pra JPEG; num GIF, o seletor recomprime o arquivo e perde
+ * a animação (vira imagem estática). Removido — sem `quality`, o
+ * arquivo original (JPEG, PNG ou GIF) é usado como veio, sem
+ * recompressão nenhuma.
  */
 export async function pickImageFromLibrary(): Promise<{ uri: string; mimeType: string } | null> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -17,7 +23,6 @@ export async function pickImageFromLibrary(): Promise<{ uri: string; mimeType: s
 
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
-    quality: 0.85,
   });
   if (result.canceled || result.assets.length === 0) return null;
 

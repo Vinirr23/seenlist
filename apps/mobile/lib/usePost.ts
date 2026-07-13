@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Post } from "./posts";
 import { fetchPost } from "./posts";
-import { buildPostCommentTree, createPostComment, fetchPostComments, type CommentNode } from "./postComments";
+import { buildPostCommentTree, createPostComment, deletePostComment, fetchPostComments, type CommentNode } from "./postComments";
 
 export function usePost(postId: string) {
   const [post, setPost] = useState<Post | null>(null);
@@ -67,5 +67,13 @@ export function usePostComments(postId: string) {
     [postId, load]
   );
 
-  return { tree, isLoading, sending, submit };
+  const remove = useCallback(
+    async (commentId: string) => {
+      await deletePostComment(commentId);
+      await load();
+    },
+    [load]
+  );
+
+  return { tree, isLoading, sending, submit, remove };
 }

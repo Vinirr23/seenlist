@@ -15,7 +15,7 @@ import { colors, spacing } from "@/lib/theme";
 export default function FavoriteMoviesScreen() {
   const router = useRouter();
   const { session } = useAuth();
-  const { items } = usePublicFavorites(session?.user.id ?? "");
+  const { items, isLoading } = usePublicFavorites(session?.user.id ?? "");
   const { viewMode, setViewMode } = useViewModePreference("profile-favorite-movies");
 
   const movies = useMemo(() => (items ?? []).filter((item) => item.mediaType === "movie"), [items]);
@@ -38,7 +38,9 @@ export default function FavoriteMoviesScreen() {
           <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
         </View>
 
-        {movies.length === 0 ? (
+        {isLoading ? (
+          <Text variant="muted">Carregando…</Text>
+        ) : movies.length === 0 ? (
           <Text variant="muted">Você ainda não favoritou nenhum filme.</Text>
         ) : viewMode === "grid" ? (
           <PosterGrid items={movies} onPressItem={handlePress} />

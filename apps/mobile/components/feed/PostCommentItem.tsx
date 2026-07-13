@@ -1,4 +1,5 @@
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, Alert, StyleSheet } from "react-native";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import type { CommentNode } from "@/lib/postComments";
 import { LikeButton } from "./LikeButton";
 import { Text } from "@/components/ui";
@@ -7,22 +8,47 @@ import { colors, spacing } from "@/lib/theme";
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
 /**
- * TASK-102 (comentários) — porta de `PostCommentItem.tsx`. Uma
- * diferença deliberada do web: lá, "Responder" navega pra uma tela
- * própria (`/explore/posts/[id]/comment/[commentId]`); aqui, muda o
- * alvo do composer que já está na tela (`onReply`) — mesmo recurso
- * (responder gera um comentário-filho, mostrado recuado), sem
+ * TASK-102/126 — porta de `PostCommentItem.tsx`. Uma diferença
+ * deliberada do web: lá, "Responder" navega pra uma tela própria
+ * (`/explore/posts/[id]/comment/[commentId]`); aqui, muda o alvo do
+ * composer que já está na tela (`onReply`) — mesmo recurso, sem
  * precisar de uma rota nova só pra isso.
+ * TASK-126 (correção, a pedido) — ganhou "Apagar" (só dono), que
+ * nunca tinha sido construído aqui (só existia pra comentário de
+ * episódio).
  */
 export function PostCommentItem({
   comment,
   depth,
   onReply,
+  onDelete,
 }: {
   comment: CommentNode;
   depth: number;
   onReply: (commentId: string, authorName: string) => void;
+  onDelete: (commentId: string) => Promise<void>;
 }) {
+  const { session } = useAuth();
+  const isOwn = session?.user.id === comment.userId;
+
+  function handleDelete() {
+    Alert.alert("Apagar este comentário?", "Não dá pra desfazer.", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Apagar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await onDelete(comment.id);
+          } catch (error) {
+            console.error("[PostCommentItem] Falha ao apagar comentário", error);
+            Alert.alert("Não foi possível apagar", error instanceof Error ? error.message : "Tente de novo em instantes.");
+          }
+        },
+      },
+    ]);
+  }
+
   return (
     <View style={depth > 0 ? styles.nested : undefined}>
       <View style={styles.row}>
@@ -42,11 +68,16 @@ export function PostCommentItem({
               </Text>
             </Pressable>
           )}
+          {isOwn && (
+            <Pressable onPress={handleDelete}>
+              <Text style={styles.deleteLabel}>Apagar</Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
       {comment.children.map((child) => (
-        <PostCommentItem key={child.id} comment={child} depth={depth + 1} onReply={onReply} />
+        <PostCommentItem key={child.id} comment={child} depth={depth + 1} onReply={onReply} onDelete={onDelete} />
       ))}
     </View>
   );
@@ -88,5 +119,9 @@ const styles = StyleSheet.create({
   },
   replyLabel: {
     fontSize: 12,
+  },
+  deleteLabel: {
+    fontSize: 12,
+    color: colors.danger,
   },
 });

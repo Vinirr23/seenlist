@@ -7,7 +7,7 @@ import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 export function PostCommentsSection({ postId }: { postId: string }) {
-  const { tree, isLoading, sending, submit } = usePostComments(postId);
+  const { tree, isLoading, sending, submit, remove } = usePostComments(postId);
   const [body, setBody] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; authorName: string } | null>(null);
 
@@ -33,7 +33,7 @@ export function PostCommentsSection({ postId }: { postId: string }) {
       ) : (
         <View>
           {tree.map((node) => (
-            <PostCommentItem key={node.id} comment={node} depth={0} onReply={(id, authorName) => setReplyTo({ id, authorName })} />
+            <PostCommentItem key={node.id} comment={node} depth={0} onReply={(id, authorName) => setReplyTo({ id, authorName })} onDelete={remove} />
           ))}
         </View>
       )}

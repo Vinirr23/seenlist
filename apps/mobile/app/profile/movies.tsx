@@ -13,7 +13,7 @@ import { colors, spacing } from "@/lib/theme";
 /** TASK-116 (correção — Perfil) — porta de ProfileMoviesSection.tsx: só filmes "Assistido", sem categorias, sem barra de cor. */
 export default function ProfileMoviesScreen() {
   const router = useRouter();
-  const { items } = useLibraryItems();
+  const { items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-movies");
 
   const watchedMovies = useMemo(() => (items ?? []).filter((item) => item.mediaType === "movie" && item.status === "completed"), [items]);
@@ -36,7 +36,9 @@ export default function ProfileMoviesScreen() {
           <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
         </View>
 
-        {watchedMovies.length === 0 ? (
+        {isLoading ? (
+          <Text variant="muted">Carregando…</Text>
+        ) : watchedMovies.length === 0 ? (
           <Text variant="muted">Você ainda não assistiu nenhum filme.</Text>
         ) : viewMode === "grid" ? (
           <PosterGrid items={watchedMovies} onPressItem={handlePress} />

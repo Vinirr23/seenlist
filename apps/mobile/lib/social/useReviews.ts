@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { deleteReview, fetchMyReview, fetchReviews, upsertReview, type Review, type ReviewTarget } from "./reviews";
 
 export function useReviews(target: ReviewTarget) {
@@ -6,13 +7,15 @@ export function useReviews(target: ReviewTarget) {
   const [myReview, setMyReview] = useState<Review | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const hasLoadedOnce = useRef(false);
 
   const load = useCallback(async () => {
-    setIsLoading(true);
+    if (!hasLoadedOnce.current) setIsLoading(true);
     try {
       const [all, mine] = await Promise.all([fetchReviews(target), fetchMyReview(target)]);
       setReviews(all);
       setMyReview(mine);
+      hasLoadedOnce.current = true;
     } catch (error) {
       console.error("[useReviews] Falha ao buscar avaliações", error);
     } finally {
@@ -23,6 +26,14 @@ export function useReviews(target: ReviewTarget) {
   useEffect(() => {
     load();
   }, [load]);
+
+  /** TASK-125 (correção) — recarrega sozinho ao voltar pra esta tela, mesmo motivo de useLibraryItems.ts. */
+  useFocusEffect(
+    useCallback(() => {
+      if (hasLoadedOnce.current) load();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [target.mediaType, target.mediaId])
+  );
 
   const submit = useCallback(
     async (rating: number, reviewText: string | null, containsSpoiler: boolean) => {

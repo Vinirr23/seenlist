@@ -84,6 +84,18 @@ export async function createPostComment(postId: string, body: string, parentComm
   if (error) throw error;
 }
 
+/**
+ * TASK-126 (correção — apagar comentário do Feed) — nunca tinha sido
+ * construído (só existia pra comentário de episódio). `.select()`
+ * depois do update detecta bloqueio silencioso de RLS (mesmo padrão
+ * já usado em `mediaComments.ts`).
+ */
+export async function deletePostComment(commentId: string): Promise<void> {
+  const { data, error } = await supabase.from("post_comments").update({ deleted_at: new Date().toISOString() }).eq("id", commentId).select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Não foi possível apagar — talvez este comentário não seja seu.");
+}
+
 export interface CommentNode extends PostComment {
   children: CommentNode[];
 }

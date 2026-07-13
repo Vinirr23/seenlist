@@ -20,7 +20,7 @@ import { colors, spacing } from "@/lib/theme";
  */
 export default function ProfileSeriesScreen() {
   const router = useRouter();
-  const { items } = useLibraryItems();
+  const { items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-series");
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -47,7 +47,9 @@ export default function ProfileSeriesScreen() {
           <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
         </View>
 
-        {nonEmptyCategories.length === 0 ? (
+        {isLoading ? (
+          <Text variant="muted">Carregando…</Text>
+        ) : nonEmptyCategories.length === 0 ? (
           <Text variant="muted">Você ainda não tem nenhuma série na sua biblioteca.</Text>
         ) : (
           <View style={styles.categoryList}>
