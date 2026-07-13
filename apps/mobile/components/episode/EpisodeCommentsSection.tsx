@@ -14,6 +14,13 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  * episódio ainda, os comentários vêm ocultos por padrão (toque pra
  * revelar cada um), além da flag manual de spoiler ao comentar.
  */
+/**
+ * TASK-122/129 (episódio, correção) — árvore de respostas de verdade
+ * (TASK-115 era lista plana) + proteção automática contra spoiler.
+ * Correção (TASK-129, a pedido): o composer estava depois da lista;
+ * no web ele vem PRIMEIRO, num card próprio, antes de qualquer
+ * comentário.
+ */
 export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number; target: MediaTarget }) {
   const { tree, isLoading, sending, submit, remove, edit } = useEpisodeComments(target);
   const autoHideSpoilers = useEpisodeSpoilerProtection(seriesId, target.seasonNumber ?? 0, target.episodeNumber ?? 0);
@@ -34,30 +41,6 @@ export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number;
 
   return (
     <View style={styles.wrapper}>
-      {isLoading ? (
-        <Text variant="muted" style={styles.centerText}>
-          Carregando comentários...
-        </Text>
-      ) : tree.length === 0 ? (
-        <Text variant="muted" style={styles.centerText}>
-          Nenhum comentário ainda. Seja o primeiro a comentar.
-        </Text>
-      ) : (
-        <View>
-          {tree.map((node) => (
-            <EpisodeCommentItem
-              key={node.id}
-              comment={node}
-              depth={0}
-              autoHideSpoilers={autoHideSpoilers}
-              onReply={(id, authorName) => setReplyTo({ id, authorName })}
-              onDelete={remove}
-              onEdit={edit}
-            />
-          ))}
-        </View>
-      )}
-
       <View style={styles.composerArea}>
         {!!replyTo && (
           <View style={styles.replyingRow}>
@@ -91,6 +74,30 @@ export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number;
           </Pressable>
         </View>
       </View>
+
+      {isLoading ? (
+        <Text variant="muted" style={styles.centerText}>
+          Carregando comentários...
+        </Text>
+      ) : tree.length === 0 ? (
+        <Text variant="muted" style={styles.centerText}>
+          Nenhum comentário ainda. Seja o primeiro a comentar.
+        </Text>
+      ) : (
+        <View>
+          {tree.map((node) => (
+            <EpisodeCommentItem
+              key={node.id}
+              comment={node}
+              depth={0}
+              autoHideSpoilers={autoHideSpoilers}
+              onReply={(id, authorName) => setReplyTo({ id, authorName })}
+              onDelete={remove}
+              onEdit={edit}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -103,7 +110,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   composerArea: {
-    marginTop: spacing.sm,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
