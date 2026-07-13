@@ -90,7 +90,7 @@ function ActivityTabContent() {
     return (
       <View style={styles.emptyActivity}>
         <Text variant="muted" style={styles.emptyActivityText}>
-          Nenhuma atividade recente.
+          Nenhuma atividade recente de quem você segue. Que tal seguir mais gente?
         </Text>
       </View>
     );

@@ -80,7 +80,6 @@ export default function SettingsScreen() {
           <>
             <SectionLabel label="Conta" />
             <View style={styles.card}>
-              <SettingsRow label="Editar perfil" onPress={() => router.push("/settings/edit-profile")} />
               <SettingsRow label="E-mail" value={profile.email ?? "—"} />
               <View style={styles.uidRow}>
                 <Text variant="label">ID da conta</Text>

@@ -17,27 +17,34 @@ const ACTIVITY_WINDOW_DAYS = 7;
 const LIMIT_PER_SOURCE = 15;
 
 /**
- * TASK-109 (Atividade) — porta de `activity-feed.ts`. Feed GLOBAL de
- * atividade pública (não é "só quem eu sigo" — nome da aba engana um
- * pouco; o próprio web funciona assim). Deriva de tabelas que já
- * existiam (`series_status`/`movie_status`/`reviews`/`watched_episodes`)
- * — nenhuma tabela de "activity" nova. Só perfis públicos aparecem
- * (a RLS de `profiles` já filtra isso no join).
- *
- * Limitação honesta herdada do web: não existe histórico de
- * transição de status — a ação é inferida do status ATUAL +
- * `updated_at` recente, não de um evento discreto registrado.
+ * TASK-118 (correção — Atividade) — antes era um feed GLOBAL de
+ * atividade pública; a pedido, agora filtra só quem o usuário
+ * SEGUE (reaproveita a tabela `follows`, já usada pelo resto do
+ * sistema social — nenhuma tabela nova). Isso diverge do web de
+ * propósito, por pedido explícito — o próprio web mostra atividade
+ * global nesta mesma tela.
  */
 export async function fetchActivityFeed(): Promise<ActivityItem[]> {
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
+  if (!viewer) return [];
+
+  const { data: followRows, error: followError } = await supabase.from("follows").select("following_id").eq("follower_id", viewer.id);
+  if (followError) throw followError;
+
+  const followedIds = (followRows ?? []).map((r) => r.following_id);
+  if (followedIds.length === 0) return [];
+
   const since = new Date();
   since.setDate(since.getDate() - ACTIVITY_WINDOW_DAYS);
   const sinceIso = since.toISOString();
 
   const [seriesStatusRows, movieStatusRows, reviewRows, episodeRows] = await Promise.all([
-    supabase.from("series_status").select("user_id, series_id, status, updated_at").gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
-    supabase.from("movie_status").select("user_id, movie_id, status, updated_at").gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
-    supabase.from("reviews").select("user_id, media_type, media_id, rating, created_at").is("deleted_at", null).gte("created_at", sinceIso).order("created_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
-    supabase.from("watched_episodes").select("user_id, series_id, watched_at").gte("watched_at", sinceIso).order("watched_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
+    supabase.from("series_status").select("user_id, series_id, status, updated_at").in("user_id", followedIds).gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
+    supabase.from("movie_status").select("user_id, movie_id, status, updated_at").in("user_id", followedIds).gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
+    supabase.from("reviews").select("user_id, media_type, media_id, rating, created_at").in("user_id", followedIds).is("deleted_at", null).gte("created_at", sinceIso).order("created_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
+    supabase.from("watched_episodes").select("user_id, series_id, watched_at").in("user_id", followedIds).gte("watched_at", sinceIso).order("watched_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
   ]);
 
   const userIds = new Set<string>();

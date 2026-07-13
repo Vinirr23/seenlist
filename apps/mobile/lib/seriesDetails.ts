@@ -42,6 +42,22 @@ export async function fetchWatchedEpisodes(seriesId: number): Promise<Set<Watche
  * quando o status atual é "watching"/"up_to_date"/"want_to_watch" —
  * nunca mexe numa série "paused" (decisão explícita do usuário).
  */
+/**
+ * TASK-121 (correção — categoria presa em "Assistindo") — porta de
+ * `airDateCategory.ts`. A versão anterior comparava contra o TOTAL
+ * de episódios anunciados pelo TMDB (incluindo episódios FUTUROS,
+ * ainda sem ir ao ar) — uma série com temporada em andamento (ex.:
+ * A Casa do Dragão T3, com episódios de agosto/2026 já anunciados)
+ * nunca conseguia sair de "Assistindo", mesmo assistindo tudo que já
+ * tinha sido exibido. A comparação certa é só contra o que JÁ FOI AO
+ * AR até hoje (`airDate <= hoje`).
+ */
+function decideWatchingVsUpToDate(mainEpisodesWatched: number, liveEpisodes: { airDate: string | null }[]): LibraryStatus {
+  const today = new Date().toISOString().slice(0, 10);
+  const airedByNow = liveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today);
+  return mainEpisodesWatched < airedByNow.length ? "watching" : "up_to_date";
+}
+
 export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: number): Promise<void> {
   const {
     data: { user },
@@ -101,10 +117,7 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
 
   const watched = watchedCount ?? 0;
   const allEpisodesWatched = watched >= liveEpisodes.length;
-  // Web decide "watching" vs "up_to_date" com uma janela de tolerância baseada
-  // em data de exibição (decideWatchingVsUpToDate) — versão simplificada aqui:
-  // "em dia" quando já assistiu tudo que já foi ao ar, sem essa janela fina.
-  const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : allEpisodesWatched ? "up_to_date" : "watching";
+  const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
 
   if (newCategory === currentStatus) return;
 

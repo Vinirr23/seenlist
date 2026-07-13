@@ -1,4 +1,4 @@
-import { View, Image, StyleSheet, Pressable, Dimensions } from "react-native";
+import { View, Image, StyleSheet, Pressable, useWindowDimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
@@ -7,42 +7,60 @@ import { Text } from "@/components/ui";
 
 const COLUMNS = 3;
 const GAP = spacing.sm;
-// Largura de cada pôster: (largura da tela - padding lateral da Screen - os gaps entre colunas) / 3.
-const CARD_WIDTH = (Dimensions.get("window").width - spacing.lg * 2 - GAP * (COLUMNS - 1)) / COLUMNS;
 
 export interface PosterGridProps {
   items: LibraryItem[];
   onPressItem?: (item: LibraryItem) => void;
+  /** TASK-116 — cor da barra inferior (categoria do Perfil). Quando presente, substitui a barra de progresso — o web nunca mostra as duas juntas. */
+  barColor?: string;
 }
 
 /**
- * TASK-091 (Séries nativa) — equivalente nativo do `PosterGrid.tsx`
- * do web (grade de 3 colunas, pôster 2:3, barra de progresso na base
- * quando a série tem episódios). Toque no pôster ainda não abre uma
- * tela de detalhes — essa tela é o próximo passo natural depois da
- * fundação, não faz parte desta leva; por isso `onPressItem` é
- * opcional e as telas que usam isto mostram um aviso simples por
- * enquanto.
+ * TASK-091/116/120 — equivalente nativo do `PosterGrid.tsx` do web.
+ * Duas variantes, igual ao web: com barra de PROGRESSO (Séries/
+ * Filmes, abas principais) ou com barra de COR fixa por categoria
+ * (Perfil → Séries/Filmes/Favoritos) — nunca as duas ao mesmo tempo.
+ *
+ * Correção (TASK-120): a largura do pôster era calculada UMA VEZ, no
+ * carregamento do módulo (`Dimensions.get("window")` fora de
+ * qualquer componente) — no Android, isso às vezes roda antes da
+ * ponte nativa terminar de informar o tamanho real da tela, dando um
+ * valor errado e congelado (aparecia como 2 colunas espremidas em
+ * vez de 3). `useWindowDimensions()` dentro do componente resolve
+ * isso: recalcula a cada render, com o valor certo.
  */
-export function PosterGrid({ items, onPressItem }: PosterGridProps) {
+export function PosterGrid({ items, onPressItem, barColor }: PosterGridProps) {
+  const { width } = useWindowDimensions();
+  const cardWidth = (width - spacing.lg * 2 - GAP * (COLUMNS - 1)) / COLUMNS;
+
   return (
     <View style={styles.grid}>
       {items.map((item) => (
-        <PosterGridItem key={`${item.mediaType}-${item.id}`} item={item} onPress={onPressItem} />
+        <PosterGridItem key={`${item.mediaType}-${item.id}`} item={item} onPress={onPressItem} barColor={barColor} cardWidth={cardWidth} />
       ))}
     </View>
   );
 }
 
-function PosterGridItem({ item, onPress }: { item: LibraryItem; onPress?: (item: LibraryItem) => void }) {
+function PosterGridItem({
+  item,
+  onPress,
+  barColor,
+  cardWidth,
+}: {
+  item: LibraryItem;
+  onPress?: (item: LibraryItem) => void;
+  barColor?: string;
+  cardWidth: number;
+}) {
   const posterUrl = tmdbImageUrl(item.posterPath, "w342");
   const progressPercent =
-    item.progress && item.progress.totalEpisodes > 0
+    !barColor && item.progress && item.progress.totalEpisodes > 0
       ? Math.round((item.progress.watchedEpisodes / item.progress.totalEpisodes) * 100)
       : null;
 
   return (
-    <Pressable style={styles.card} onPress={() => onPress?.(item)}>
+    <Pressable style={[styles.card, { width: cardWidth }]} onPress={() => onPress?.(item)}>
       <View style={styles.posterWrapper}>
         {posterUrl ? (
           <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
@@ -56,6 +74,7 @@ function PosterGridItem({ item, onPress }: { item: LibraryItem; onPress?: (item:
             <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
           </View>
         )}
+        {!!barColor && <View style={[styles.progressTrack, { height: 5, backgroundColor: barColor }]} />}
       </View>
       <Text numberOfLines={1} style={styles.title}>
         {item.title}
@@ -71,9 +90,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: GAP,
   },
-  card: {
-    width: CARD_WIDTH,
-  },
+  card: {},
   posterWrapper: {
     width: "100%",
     aspectRatio: 2 / 3,

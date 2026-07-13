@@ -3,8 +3,11 @@ import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
+import { useViewModePreference } from "@/lib/useViewModePreference";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
+import { MediaListRow } from "@/components/media/MediaListRow";
+import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
 import { colors, spacing } from "@/lib/theme";
@@ -23,6 +26,7 @@ export default function MoviesScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
+  const { viewMode, setViewMode } = useViewModePreference("movies-library");
 
   const wantToWatch = useMemo(
     () => (items ?? []).filter((item) => item.mediaType === "movie" && item.status === "want_to_watch"),
@@ -44,9 +48,10 @@ export default function MoviesScreen() {
           contentContainerStyle={styles.content}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
-          <Text variant="subtitle" style={styles.sectionTitle}>
-            Assistir depois
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Text variant="subtitle">Assistir depois</Text>
+            <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+          </View>
 
           {isError ? (
             <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />
@@ -54,8 +59,14 @@ export default function MoviesScreen() {
             <Text variant="muted">Carregando…</Text>
           ) : wantToWatch.length === 0 ? (
             <EmptyShelf message="Sua lista está vazia." actionLabel="Explorar filmes" actionHref="/(tabs)/explore" />
-          ) : (
+          ) : viewMode === "grid" ? (
             <PosterGrid items={wantToWatch} onPressItem={handlePressItem} />
+          ) : (
+            <View style={styles.listRows}>
+              {wantToWatch.map((item) => (
+                <MediaListRow key={item.id} item={item} onPress={handlePressItem} secondaryText={item.year ? String(item.year) : ""} />
+              ))}
+            </View>
           )}
         </ScrollView>
       ) : (
@@ -77,8 +88,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  sectionTitle: {
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: spacing.sm,
+  },
+  listRows: {
+    gap: spacing.sm,
   },
   emBreve: {
     flex: 1,

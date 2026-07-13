@@ -8,16 +8,20 @@ export interface ProfileStats {
   episodesWatched: number;
   seriesWatchMinutes: number;
   movieWatchMinutes: number;
+  seriesWatching: number;
+  seriesUpToDate: number;
+  seriesPaused: number;
+  seriesWantToWatch: number;
+  episodesRemaining: number;
 }
 
 /**
- * TASK-108 (Estatísticas) — porta fiel de `computeProfileStats` do
- * web (só os 7 campos que o `StatsCarousel` realmente usa — o tipo
- * completo do web tem mais alguns, calculados mas não exibidos no
- * carrossel; omiti os que nenhuma tela nativa usa ainda). Função
- * pura, sem chamada nenhuma ao Supabase/TMDB — os dados já vêm de
- * `fetchLibraryItems`/`fetchPublicLibraryItems`, que o app já busca
- * de qualquer forma pras abas Séries/Filmes e pro Perfil Público.
+ * TASK-108/117 (Estatísticas) — porta fiel de `computeProfileStats`
+ * do web. Correção (TASK-117): faltavam `seriesWatching`,
+ * `seriesUpToDate`, `seriesPaused`, `seriesWantToWatch` e
+ * `episodesRemaining` — eu tinha portado só os 7 campos que o
+ * carrossel simples usa, sem checar o tipo completo real; a tela de
+ * Estatísticas de verdade (com abas) precisa desses 5 a mais.
  */
 export function computeProfileStats(items: LibraryItem[]): ProfileStats {
   let moviesInLibrary = 0;
@@ -27,6 +31,11 @@ export function computeProfileStats(items: LibraryItem[]): ProfileStats {
   let episodesWatched = 0;
   let seriesWatchMinutes = 0;
   let movieWatchMinutes = 0;
+  let seriesWatching = 0;
+  let seriesUpToDate = 0;
+  let seriesPaused = 0;
+  let seriesWantToWatch = 0;
+  let episodesRemaining = 0;
 
   for (const item of items) {
     if (item.mediaType === "movie") {
@@ -40,11 +49,33 @@ export function computeProfileStats(items: LibraryItem[]): ProfileStats {
       const watchEvents = item.progress?.totalWatchEvents ?? item.progress?.watchedEpisodes ?? 0;
       episodesWatched += watchEvents;
       seriesWatchMinutes += watchEvents * (item.runtimeMinutes ?? 0);
+
       if (item.status === "completed") seriesCompleted += 1;
+      if (item.status === "watching") seriesWatching += 1;
+      if (item.status === "up_to_date") seriesUpToDate += 1;
+      if (item.status === "paused") seriesPaused += 1;
+      if (item.status === "want_to_watch") seriesWantToWatch += 1;
+
+      if (["watching", "up_to_date", "paused"].includes(item.status) && item.progress) {
+        episodesRemaining += Math.max(0, item.progress.totalEpisodes - item.progress.watchedEpisodes);
+      }
     }
   }
 
-  return { moviesInLibrary, seriesInLibrary, moviesCompleted, seriesCompleted, episodesWatched, seriesWatchMinutes, movieWatchMinutes };
+  return {
+    moviesInLibrary,
+    seriesInLibrary,
+    moviesCompleted,
+    seriesCompleted,
+    episodesWatched,
+    seriesWatchMinutes,
+    movieWatchMinutes,
+    seriesWatching,
+    seriesUpToDate,
+    seriesPaused,
+    seriesWantToWatch,
+    episodesRemaining,
+  };
 }
 
 export interface FormattedDuration {
