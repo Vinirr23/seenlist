@@ -28,10 +28,21 @@ export interface PosterGridProps {
  * valor errado e congelado (aparecia como 2 colunas espremidas em
  * vez de 3). `useWindowDimensions()` dentro do componente resolve
  * isso: recalcula a cada render, com o valor certo.
+ *
+ * Correção (TASK-139): mesmo com a largura certa, a divisão por 3
+ * quase sempre dá um número quebrado (ex.: 105.333...). Aparelhos
+ * diferentes arredondam esse tipo de fração de jeitos ligeiramente
+ * diferentes na hora de desenhar na tela — em alguns, a soma de "3
+ * pôsteres + 2 espaços" podia passar por uma margem mínima da
+ * largura disponível, empurrando o 3º pôster pra fileira de baixo
+ * sozinho (2 colunas visíveis, não 3) — só nesses aparelhos
+ * específicos, nunca em outros. `Math.floor()` arredonda pra baixo
+ * SEMPRE, garantindo que a soma nunca ultrapassa o espaço
+ * disponível, em nenhum aparelho.
  */
 export function PosterGrid({ items, onPressItem, barColor }: PosterGridProps) {
   const { width } = useWindowDimensions();
-  const cardWidth = (width - spacing.lg * 2 - GAP * (COLUMNS - 1)) / COLUMNS;
+  const cardWidth = Math.floor((width - spacing.lg * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
 
   return (
     <View style={styles.grid}>
