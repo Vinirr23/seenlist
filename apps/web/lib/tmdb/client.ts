@@ -487,6 +487,8 @@ export interface MediaSummary {
    * que já busca o resto do resumo — nenhuma chamada nova ao TMDB.
    */
   runtimeMinutes?: number;
+  /** Só preenchido pra filme (TASK-148, app nativo). Formato TMDB (YYYY-MM-DD). */
+  releaseDate?: string | null;
 }
 
 interface TmdbMovieSummaryResponse {
@@ -505,6 +507,7 @@ export async function getMovieSummary(movieId: number): Promise<MediaSummary> {
     year: data.release_date ? Number(data.release_date.slice(0, 4)) || null : null,
     posterPath: data.poster_path,
     runtimeMinutes: data.runtime ?? undefined,
+    releaseDate: data.release_date ?? null,
   };
 }
 
