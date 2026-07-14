@@ -21,6 +21,16 @@ export interface CommentNode extends MediaComment {
   children: CommentNode[];
 }
 
+/** Idêntico a findCommentNode do web (só que aqui é usado por decisão explícita sua, não porque o web faz isso pra comentário de mídia — o web só usa essa tela dedicada pro Feed). */
+export function findCommentNode(roots: CommentNode[], commentId: string): CommentNode | null {
+  for (const node of roots) {
+    if (node.id === commentId) return node;
+    const found = findCommentNode(node.children, commentId);
+    if (found) return found;
+  }
+  return null;
+}
+
 interface CommentRow {
   id: string;
   body: string | null;

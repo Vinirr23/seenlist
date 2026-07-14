@@ -10,25 +10,27 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
 /**
- * TASK-122/123/129 — porta de `CommentItem.tsx`. Correção (TASK-129,
- * a pedido): tinha ficado igual visualmente em todos os níveis (só
- * recuo) — no web, só o comentário de NÍVEL 0 vira um card (borda +
- * fundo + padding); as respostas (nível 1/2) ficam recuadas DENTRO
- * dessa mesma caixa, sem card próprio — não é uma tela separada, é
- * só um agrupamento visual mesmo.
+ * TASK-122/123/129/132 — porta de `CommentItem.tsx`, com uma
+ * divergência do web PEDIDA EXPLICITAMENTE (TASK-132): no próprio
+ * web, "Responder" aqui é um campo embutido (sem navegar) — só o
+ * Feed navega pra tela própria. A pedido, esta versão navega
+ * também, ficando igual ao Feed nos dois lugares. Só o comentário de
+ * nível 0 vira card (borda + fundo); as respostas ficam recuadas
+ * dentro da mesma caixa.
  */
 export function EpisodeCommentItem({
   comment,
   depth,
   autoHideSpoilers,
-  onReply,
+  commentsBaseHref,
   onDelete,
   onEdit,
 }: {
   comment: CommentNode;
   depth: number;
   autoHideSpoilers: boolean;
-  onReply: (commentId: string, authorName: string) => void;
+  /** Caminho da tela de comentários deste episódio, ex.: `/episodes/1399/1/1` — usado pra montar o link de "Responder" (`${commentsBaseHref}/comment/${comment.id}`). */
+  commentsBaseHref: string;
   onDelete: (commentId: string) => Promise<void>;
   onEdit: (commentId: string, body: string) => Promise<void>;
 }) {
@@ -106,7 +108,7 @@ export function EpisodeCommentItem({
 
           <View style={styles.actionsRow}>
             {depth < 2 && (
-              <Pressable onPress={() => onReply(comment.id, displayName)}>
+              <Pressable onPress={() => router.push(`${commentsBaseHref}/comment/${comment.id}`)}>
                 <Text variant="muted" style={styles.actionLabel}>
                   Responder
                 </Text>
@@ -136,7 +138,7 @@ export function EpisodeCommentItem({
               comment={child}
               depth={depth + 1}
               autoHideSpoilers={autoHideSpoilers}
-              onReply={onReply}
+              commentsBaseHref={commentsBaseHref}
               onDelete={onDelete}
               onEdit={onEdit}
             />
@@ -148,7 +150,6 @@ export function EpisodeCommentItem({
 }
 
 const styles = StyleSheet.create({
-  /** Só o comentário de nível 0 vira card — borda + fundo + padding, igual ao web. */
   card: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -157,7 +158,6 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     marginBottom: spacing.md,
   },
-  /** Respostas (nível 1+): sem card próprio, só recuo + linha vertical à esquerda — tudo dentro da mesma caixa do pai. */
   nested: {
     marginTop: spacing.sm,
   },

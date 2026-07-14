@@ -8,51 +8,34 @@ import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
- * TASK-122 (episódio, correção) — reescrito com árvore de respostas
- * de verdade (antes era lista plana, TASK-115). Também ganhou a
- * proteção automática contra spoiler: se você não assistiu ESTE
- * episódio ainda, os comentários vêm ocultos por padrão (toque pra
- * revelar cada um), além da flag manual de spoiler ao comentar.
- */
-/**
- * TASK-122/129 (episódio, correção) — árvore de respostas de verdade
- * (TASK-115 era lista plana) + proteção automática contra spoiler.
- * Correção (TASK-129, a pedido): o composer estava depois da lista;
- * no web ele vem PRIMEIRO, num card próprio, antes de qualquer
- * comentário.
+ * TASK-122/129/132 (episódio, correção) — árvore de respostas de
+ * verdade + proteção automática contra spoiler + composer no topo.
+ * Correção (TASK-132, a pedido — diverge do web de propósito): não
+ * troca mais o alvo do composer pra responder — só comenta na raiz
+ * mesmo; responder a um comentário específico agora abre uma tela
+ * própria (ver `commentsBaseHref` + `EpisodeCommentItem.tsx`), igual
+ * ao Feed.
  */
 export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number; target: MediaTarget }) {
   const { tree, isLoading, sending, submit, remove, edit } = useEpisodeComments(target);
   const autoHideSpoilers = useEpisodeSpoilerProtection(seriesId, target.seasonNumber ?? 0, target.episodeNumber ?? 0);
+  const commentsBaseHref = `/episodes/${target.mediaId}/${target.seasonNumber}/${target.episodeNumber}`;
 
   const [body, setBody] = useState("");
   const [markSpoiler, setMarkSpoiler] = useState(false);
-  const [replyTo, setReplyTo] = useState<{ id: string; authorName: string } | null>(null);
 
   async function handleSubmit() {
     if (!body.trim()) return;
-    const ok = await submit(body, markSpoiler, replyTo?.id ?? null);
+    const ok = await submit(body, markSpoiler, null);
     if (ok) {
       setBody("");
       setMarkSpoiler(false);
-      setReplyTo(null);
     }
   }
 
   return (
     <View style={styles.wrapper}>
       <View style={styles.composerArea}>
-        {!!replyTo && (
-          <View style={styles.replyingRow}>
-            <Text variant="muted" style={styles.replyingText}>
-              Respondendo a {replyTo.authorName}
-            </Text>
-            <Pressable onPress={() => setReplyTo(null)} hitSlop={8}>
-              <Feather name="x" size={14} color={colors.muted} />
-            </Pressable>
-          </View>
-        )}
-
         <TextInput
           value={body}
           onChangeText={setBody}
@@ -91,7 +74,7 @@ export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number;
               comment={node}
               depth={0}
               autoHideSpoilers={autoHideSpoilers}
-              onReply={(id, authorName) => setReplyTo({ id, authorName })}
+              commentsBaseHref={commentsBaseHref}
               onDelete={remove}
               onEdit={edit}
             />
@@ -117,18 +100,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.sm,
     gap: spacing.xs,
-  },
-  replyingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.background,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-  },
-  replyingText: {
-    fontSize: 12,
   },
   input: {
     minHeight: 60,
