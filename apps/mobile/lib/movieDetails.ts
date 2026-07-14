@@ -1,5 +1,5 @@
 import type { MovieDetails, MovieWatchStatus } from "@seenlist/types";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 const SITE_URL = "https://seenlist.app";
 
@@ -14,7 +14,7 @@ export async function fetchMovieDetails(movieId: string): Promise<MovieDetails> 
 export async function fetchMovieStatus(movieId: number): Promise<MovieWatchStatus | null> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return null;
 
   const { data, error } = await supabase.from("movie_status").select("status").eq("movie_id", movieId).eq("user_id", user.id).maybeSingle();
@@ -26,7 +26,7 @@ export async function fetchMovieStatus(movieId: number): Promise<MovieWatchStatu
 export async function setMovieStatus(movieId: number, status: MovieWatchStatus, currentStatus: MovieWatchStatus | null): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   if (currentStatus === status) {

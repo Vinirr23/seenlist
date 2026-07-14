@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export type ProfileVisibility = "public" | "followers" | "private";
 
@@ -23,7 +23,7 @@ interface ProfileRow {
 export async function fetchMyProfileSettings(): Promise<MyProfileSettings | null> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return null;
 
   const { data, error } = await supabase
@@ -52,7 +52,7 @@ export async function updateVisibility(
 ): Promise<{ error: string | null }> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return { error: "Sessão expirada. Entre novamente." };
 
   const columnByField: Record<typeof field, string> = {
@@ -96,7 +96,7 @@ export type FeedbackType = "bug" | "suggestion" | "other";
 export async function sendFeedback(type: FeedbackType, message: string): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const { error } = await supabase.from("user_feedback").insert({ user_id: user.id, type, message });

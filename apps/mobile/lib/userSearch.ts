@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import type { FollowListUser } from "./followList";
 
 const SUGGESTIONS_LIMIT = 20;
@@ -14,7 +14,7 @@ const SUGGESTIONS_LIMIT = 20;
 export async function fetchUserSearch(query: string): Promise<FollowListUser[]> {
   const {
     data: { user: viewer },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
 
   let profilesQuery = supabase.from("profiles").select("user_id, username, display_name, avatar_url").order("created_at", { ascending: false }).limit(SUGGESTIONS_LIMIT);
 

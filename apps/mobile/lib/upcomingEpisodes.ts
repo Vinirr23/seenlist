@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { fetchLibraryItems } from "@/lib/library";
 
 const SITE_URL = "https://seenlist.app";
@@ -43,7 +43,7 @@ async function fetchWatchedStatus(episodes: NextEpisodeToAir[]): Promise<Set<str
   if (episodes.length === 0) return new Set();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return new Set();
 
   const orFilter = episodes

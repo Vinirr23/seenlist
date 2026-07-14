@@ -32,3 +32,24 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false, // não se aplica a app nativo, evita warning
   },
 });
+
+/**
+ * TASK-135 (correção — "sessão sumindo" ao abrir o app) — substituto
+ * de `supabase.auth.getUser()`, com o MESMO formato de retorno
+ * (`{ data: { user }, error }`) — troca direta em qualquer lugar que
+ * já chamava `supabase.auth.getUser()`, sem precisar mudar mais nada
+ * ao redor da chamada.
+ *
+ * Causa raiz confirmada por log real (não suposição): `getUser()`
+ * valida a sessão contra o servidor e pode falhar com
+ * "AuthSessionMissingError" se rodar antes do cliente Supabase
+ * terminar de carregar a sessão salva na memória — mesmo a sessão
+ * existindo de verdade (visto no log: `getSession()` achava a
+ * sessão, `getUser()` não achava a MESMA sessão, milissegundos
+ * depois). `getSession()` lê do armazenamento local, sem essa
+ * corrida — por isso esta função usa `getSession()` por baixo.
+ */
+export async function getCurrentAuthUser() {
+  const { data, error } = await supabase.auth.getSession();
+  return { data: { user: data.session?.user ?? null }, error };
+}

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { fetchDisplaySummaries } from "@/lib/library";
 
 export interface ActivityItem {
@@ -27,7 +27,7 @@ const LIMIT_PER_SOURCE = 15;
 export async function fetchActivityFeed(): Promise<ActivityItem[]> {
   const {
     data: { user: viewer },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!viewer) return [];
 
   const { data: followRows, error: followError } = await supabase.from("follows").select("following_id").eq("follower_id", viewer.id);

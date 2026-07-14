@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export interface UserList {
   id: string;
@@ -20,7 +20,7 @@ export async function createList(name: string): Promise<void> {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const { error } = await supabase.from("lists").insert({ user_id: user.id, name: trimmed });

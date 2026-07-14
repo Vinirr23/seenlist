@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export type PostType = "text" | "image" | "review";
 
@@ -135,7 +135,7 @@ export async function createReviewPost(
 ): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const { error } = await supabase.from("posts").insert({
@@ -158,7 +158,7 @@ export async function createTextPost(body: string, imageUrl: string | null = nul
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const { error } = await supabase.from("posts").insert({

@@ -1,5 +1,5 @@
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 const SITE_URL = "https://seenlist.app";
 
@@ -219,7 +219,7 @@ export async function fetchLibraryItems(userId?: string): Promise<LibraryItem[]>
   if (!targetUserId) {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getCurrentAuthUser();
     if (!user) return [];
     targetUserId = user.id;
   }

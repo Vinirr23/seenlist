@@ -1,5 +1,5 @@
 import type { SeriesDetails, LibraryStatus } from "@seenlist/types";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 const SITE_URL = "https://seenlist.app";
 
@@ -20,7 +20,7 @@ export function episodeKey(seasonNumber: number, episodeNumber: number): Watched
 export async function fetchWatchedEpisodes(seriesId: number): Promise<Set<WatchedEpisodeKey>> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return new Set();
 
   const { data, error } = await supabase
@@ -61,7 +61,7 @@ function decideWatchingVsUpToDate(mainEpisodesWatched: number, liveEpisodes: { a
 export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: number): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return;
 
   const { data: statusRow, error: statusError } = await supabase
@@ -141,7 +141,7 @@ export async function toggleEpisodeWatched(
 ): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   if (currentlyWatched) {
@@ -173,7 +173,7 @@ export async function markEpisodesWatched(seriesId: number, episodes: { seasonNu
   if (episodes.length === 0) return;
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const rows = episodes.map((e) => ({
@@ -209,7 +209,7 @@ export async function unmarkSeasonWatched(seriesId: number, seasonNumber: number
 export async function incrementEpisodeRewatch(seriesId: number, seasonNumber: number, episodeNumber: number): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const { data: episodeRow, error: readError } = await supabase
@@ -253,7 +253,7 @@ export async function incrementEpisodeRewatch(seriesId: number, seasonNumber: nu
 export async function isEpisodeWatched(seriesId: number, seasonNumber: number, episodeNumber: number): Promise<boolean> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return false;
 
   const { data, error } = await supabase
@@ -271,7 +271,7 @@ export async function isEpisodeWatched(seriesId: number, seasonNumber: number, e
 export async function fetchIsFavorite(seriesId: number): Promise<boolean> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return false;
 
   const { data, error } = await supabase
@@ -289,7 +289,7 @@ export async function fetchIsFavorite(seriesId: number): Promise<boolean> {
 export async function toggleFavorite(seriesId: number, currentlyFavorite: boolean): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   if (currentlyFavorite) {
@@ -305,7 +305,7 @@ export async function toggleFavorite(seriesId: number, currentlyFavorite: boolea
 export async function removeSeriesFromLibrary(seriesId: number): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const { error: episodesError } = await supabase.from("watched_episodes").delete().match({ series_id: seriesId, user_id: user.id });
@@ -393,7 +393,7 @@ export function resolveCarouselEpisodes(
 export async function fetchSeriesStatus(seriesId: number): Promise<LibraryStatus | null> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return null;
 
   const { data, error } = await supabase
@@ -412,7 +412,7 @@ export async function fetchSeriesStatus(seriesId: number): Promise<LibraryStatus
 export async function setSeriesStatus(seriesId: number, status: LibraryStatus, currentStatus: LibraryStatus | null): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   if (currentStatus === status) {

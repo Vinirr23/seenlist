@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { fetchDisplaySummaries } from "@/lib/library";
 
 export interface MyComment {
@@ -23,7 +23,7 @@ export interface MyComment {
 export async function fetchMyComments(): Promise<MyComment[]> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return [];
 
   const { data, error } = await supabase

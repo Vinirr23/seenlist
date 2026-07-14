@@ -1,5 +1,5 @@
 import type { LibraryItem } from "@seenlist/types";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { fetchDisplaySummaries, fetchLibraryItems, type MediaSummary } from "@/lib/library";
 
 export type ProfileVisibility = "public" | "followers" | "private";
@@ -62,7 +62,7 @@ export async function fetchFollowCounts(userId: string): Promise<{ followers: nu
 export async function fetchFollowStatus(targetUserId: string): Promise<boolean> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return false;
 
   const { data, error } = await supabase
@@ -79,7 +79,7 @@ export async function fetchFollowStatus(targetUserId: string): Promise<boolean> 
 export async function toggleFollow(targetUserId: string, currentlyFollowing: boolean): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   if (currentlyFollowing) {

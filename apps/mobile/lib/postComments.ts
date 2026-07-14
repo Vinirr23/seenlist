@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export interface PostComment {
   id: string;
@@ -75,7 +75,7 @@ export async function createPostComment(postId: string, body: string, parentComm
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const { error } = await supabase

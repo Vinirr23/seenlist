@@ -61,9 +61,11 @@ export async function registerForPushNotifications(supabase: SupabaseClient): Pr
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
   const { data: token } = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
 
+  /** TASK-135 — getSession() em vez de getUser() (mesmo motivo documentado em lib/supabase.ts: getUser() pode falhar com sessão ausente numa corrida logo na abertura do app, mesmo a sessão existindo de verdade). */
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user) {
     console.warn("[push] Sem usuário autenticado — token obtido mas não registrado.");
     return null;

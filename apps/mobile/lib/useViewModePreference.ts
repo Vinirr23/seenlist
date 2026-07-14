@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export type ViewMode = "grid" | "list";
 
@@ -29,7 +29,7 @@ export function useViewModePreference(scope: string) {
         setViewModeState(stored);
         return;
       }
-      supabase.auth.getUser().then(({ data }) => {
+      getCurrentAuthUser().then(({ data }) => {
         if (cancelled) return;
         const saved = data.user?.user_metadata?.[metadataKey];
         if (isViewMode(saved)) setViewModeState(saved);

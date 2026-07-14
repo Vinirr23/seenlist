@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export interface FollowListUser {
   userId: string;
@@ -21,7 +21,7 @@ export type FollowDirection = "following" | "followers";
 export async function fetchFollowList(userId: string, direction: FollowDirection, search: string): Promise<FollowListUser[]> {
   const {
     data: { user: viewer },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
 
   const relationColumn = direction === "following" ? "follower_id" : "following_id";
   const otherColumn = direction === "following" ? "following_id" : "follower_id";

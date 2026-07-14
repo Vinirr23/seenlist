@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export interface EditableProfile {
   name: string;
@@ -20,7 +20,7 @@ export interface EditableProfile {
 export async function fetchEditableProfile(): Promise<EditableProfile | null> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return null;
 
   const metadataName = (user.user_metadata?.full_name ?? user.user_metadata?.name) as string | undefined;
@@ -62,7 +62,7 @@ export async function saveEditableProfile(input: {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return { error: "Sessão expirada. Entre novamente." };
 
   const { error: authError } = await supabase.auth.updateUser({ data: { full_name: trimmedName } });

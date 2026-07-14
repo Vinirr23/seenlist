@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export type LikeTargetType = "post" | "post_comment" | "comment" | "review" | "list";
 
@@ -18,7 +18,7 @@ export async function fetchLikeCount(targetType: LikeTargetType, targetId: strin
 export async function fetchHasLiked(targetType: LikeTargetType, targetId: string): Promise<boolean> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return false;
 
   const { data, error } = await supabase
@@ -38,7 +38,7 @@ export async function fetchHasLiked(targetType: LikeTargetType, targetId: string
 export async function toggleLike(targetType: LikeTargetType, targetId: string, currentlyLiked: boolean): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   if (currentlyLiked) {

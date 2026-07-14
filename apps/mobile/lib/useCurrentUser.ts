@@ -1,22 +1,25 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchCurrentUser, type CurrentUser } from "./currentUser";
 import { fetchProfileSectionCounts, type ProfileSectionCounts } from "./profileSectionCounts";
 import { fetchSocialCounts, type SocialCounts } from "./socialCounts";
 
 export function useCurrentUser() {
+  const { session } = useAuth();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
-    fetchCurrentUser()
+    if (!session?.user) return;
+    fetchCurrentUser(session.user)
       .then(setUser)
       .catch((error) => {
         console.error("[useCurrentUser] Falha ao buscar usuário", error);
         setIsError(true);
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [session?.user]);
 
   return { user, isLoading, isError };
 }

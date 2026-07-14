@@ -1,7 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { decode as base64ToArrayBuffer } from "base64-arraybuffer";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 const MAX_POST_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB — mesmo limite do web (GIFs animados costumam ser bem maiores que fotos comuns)
 
@@ -65,7 +65,7 @@ function extensionFromMimeType(mimeType: string): string {
 export async function uploadAvatar(uri: string, mimeType: string): Promise<{ url: string | null; error: string | null }> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
 
   try {
@@ -96,7 +96,7 @@ export async function uploadAvatar(uri: string, mimeType: string): Promise<{ url
 export async function uploadBanner(uri: string, mimeType: string): Promise<{ url: string | null; error: string | null }> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
 
   try {
@@ -126,7 +126,7 @@ export async function uploadPostImage(uri: string, mimeType: string): Promise<{ 
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
 
   try {
@@ -155,7 +155,7 @@ export async function uploadCommentImage(uri: string, mimeType: string): Promise
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
 
   try {

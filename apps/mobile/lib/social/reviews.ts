@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export type ReviewMediaType = "movie" | "series";
 
@@ -100,7 +100,7 @@ export async function fetchReviews(target: ReviewTarget): Promise<Review[]> {
 export async function fetchMyReview(target: ReviewTarget): Promise<Review | null> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return null;
 
   let query = supabase
@@ -184,7 +184,7 @@ export async function upsertReview(
 ): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const row: Record<string, unknown> = {

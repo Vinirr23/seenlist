@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export interface NotificationPreferences {
   episodeNew: boolean;
@@ -34,7 +34,7 @@ const COLUMN_BY_FIELD: Record<keyof NotificationPreferences, string> = {
 export async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const { data, error } = await supabase
@@ -57,7 +57,7 @@ export async function fetchNotificationPreferences(): Promise<NotificationPrefer
 export async function updateNotificationPreference(field: keyof NotificationPreferences, value: boolean): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   const { error } = await supabase

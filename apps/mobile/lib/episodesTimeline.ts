@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export interface WeekBucket {
   weekStart: string;
@@ -24,7 +24,7 @@ function mondayOf(date: Date): string {
 export async function fetchEpisodesTimeline(): Promise<EpisodesTimeline> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return { weeks: [], averagePerWeek: 0, biggestBingeDay: null };
 
   const since = new Date();

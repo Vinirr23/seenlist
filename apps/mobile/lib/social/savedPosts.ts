@@ -1,9 +1,9 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
 export async function fetchIsSaved(postId: string): Promise<boolean> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) return false;
 
   const { data, error } = await supabase.from("saved_posts").select("post_id").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
@@ -14,7 +14,7 @@ export async function fetchIsSaved(postId: string): Promise<boolean> {
 export async function toggleSavePost(postId: string, currentlySaved: boolean): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
   if (currentlySaved) {
