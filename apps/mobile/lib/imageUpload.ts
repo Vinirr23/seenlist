@@ -128,3 +128,32 @@ export async function uploadPostImage(uri: string, mimeType: string): Promise<{ 
     return { url: null, error: "Não foi possível enviar a imagem agora." };
   }
 }
+
+/** Idêntico a useCommentImageUpload do web (bucket "comment-images" dedicado, TASK-065/133). */
+export async function uploadCommentImage(uri: string, mimeType: string): Promise<{ url: string | null; error: string | null }> {
+  if (!mimeType.startsWith("image/")) {
+    return { url: null, error: "Só é possível anexar imagens ou GIFs." };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
+
+  try {
+    const blob = await uriToBlob(uri);
+    if (blob.size > MAX_POST_IMAGE_BYTES) {
+      return { url: null, error: "Arquivo muito grande (máximo 8MB)." };
+    }
+
+    const path = `${user.id}/${Date.now()}.${extensionFromMimeType(mimeType)}`;
+    const { error: uploadError } = await supabase.storage.from("comment-images").upload(path, blob, { upsert: false, contentType: mimeType });
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage.from("comment-images").getPublicUrl(path);
+    return { url: urlData.publicUrl, error: null };
+  } catch (error) {
+    console.error('[imageUpload] Falha ao enviar imagem do comentário — confira se o bucket "comment-images" existe no Supabase Storage.', error);
+    return { url: null, error: "Não foi possível enviar a imagem agora." };
+  }
+}

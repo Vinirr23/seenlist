@@ -75,10 +75,10 @@ export function useEpisodeComments(target: MediaTarget) {
   }, [load]);
 
   const submit = useCallback(
-    async (body: string, containsSpoiler: boolean, parentCommentId: string | null) => {
+    async (body: string, containsSpoiler: boolean, parentCommentId: string | null, imageUrl: string | null = null) => {
       setSending(true);
       try {
-        await postMediaComment(target, body, containsSpoiler, parentCommentId);
+        await postMediaComment(target, body, containsSpoiler, parentCommentId, imageUrl);
         await load();
         return true;
       } catch (error) {

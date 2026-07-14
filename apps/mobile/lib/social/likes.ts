@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 
-export type LikeTargetType = "post" | "post_comment" | "review" | "list";
+export type LikeTargetType = "post" | "post_comment" | "comment" | "review" | "list";
 
 export async function fetchLikeCount(targetType: LikeTargetType, targetId: string): Promise<number> {
   const { count, error } = await supabase

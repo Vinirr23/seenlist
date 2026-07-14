@@ -1,22 +1,33 @@
 import { useState } from "react";
-import { View, TextInput, Pressable, Alert, StyleSheet } from "react-native";
+import { View, Image, TextInput, Pressable, Alert, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { CommentNode } from "@/lib/social/mediaComments";
 import { SpoilerGate } from "@/components/reviews/SpoilerGate";
+import { LikeButton } from "@/components/feed/LikeButton";
 import { Text, Button } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter((w) => w.length > 1)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
 /**
- * TASK-122/123/129/132 — porta de `CommentItem.tsx`, com uma
- * divergência do web PEDIDA EXPLICITAMENTE (TASK-132): no próprio
- * web, "Responder" aqui é um campo embutido (sem navegar) — só o
- * Feed navega pra tela própria. A pedido, esta versão navega
- * também, ficando igual ao Feed nos dois lugares. Só o comentário de
- * nível 0 vira card (borda + fundo); as respostas ficam recuadas
- * dentro da mesma caixa.
+ * TASK-122/123/129/132/133 — porta de `CommentItem.tsx`, com
+ * divergências do web PEDIDAS EXPLICITAMENTE: "Responder" navega
+ * (TASK-132); avatar de verdade, curtir com contagem e anexar
+ * imagem/GIF (TASK-133) — o web não tem nenhuma das três aqui (só
+ * nome em texto, sem curtir, sem imagem no comentário de mídia,
+ * mesmo a coluna `image_url` existindo — nunca foi usada no
+ * CommentItem do web, só no comentário de Feed).
  */
 export function EpisodeCommentItem({
   comment,
@@ -29,7 +40,6 @@ export function EpisodeCommentItem({
   comment: CommentNode;
   depth: number;
   autoHideSpoilers: boolean;
-  /** Caminho da tela de comentários deste episódio, ex.: `/episodes/1399/1/1` — usado pra montar o link de "Responder" (`${commentsBaseHref}/comment/${comment.id}`). */
   commentsBaseHref: string;
   onDelete: (commentId: string) => Promise<void>;
   onEdit: (commentId: string, body: string) => Promise<void>;
@@ -94,7 +104,14 @@ export function EpisodeCommentItem({
       ) : (
         <View style={styles.row}>
           <View style={styles.headerRow}>
-            <Pressable onPress={() => router.push(`/u/${comment.author.username}`)}>
+            <Pressable style={styles.authorRow} onPress={() => router.push(`/u/${comment.author.username}`)}>
+              <View style={styles.avatar}>
+                {comment.author.avatarUrl ? (
+                  <Image source={{ uri: comment.author.avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarInitials}>{initials(displayName)}</Text>
+                )}
+              </View>
               <Text style={styles.authorName}>{displayName}</Text>
             </Pressable>
             <Text variant="muted" style={styles.date}>
@@ -103,10 +120,14 @@ export function EpisodeCommentItem({
           </View>
 
           <SpoilerGate hidden={comment.containsSpoiler || autoHideSpoilers}>
-            {!!comment.body && <Text style={styles.body}>{comment.body}</Text>}
+            <View>
+              {!!comment.body && <Text style={styles.body}>{comment.body}</Text>}
+              {!!comment.imageUrl && <Image source={{ uri: comment.imageUrl }} style={styles.commentImage} resizeMode="cover" />}
+            </View>
           </SpoilerGate>
 
           <View style={styles.actionsRow}>
+            <LikeButton targetType="comment" targetId={comment.id} />
             {depth < 2 && (
               <Pressable onPress={() => router.push(`${commentsBaseHref}/comment/${comment.id}`)}>
                 <Text variant="muted" style={styles.actionLabel}>
@@ -149,6 +170,8 @@ export function EpisodeCommentItem({
   );
 }
 
+const AVATAR_SIZE = 28;
+
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
@@ -177,6 +200,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  authorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    flexShrink: 1,
+  },
+  avatar: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarInitials: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.muted,
+  },
   authorName: {
     fontSize: 12,
     fontWeight: "700",
@@ -189,6 +236,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 13,
     color: colors.text,
+  },
+  commentImage: {
+    marginTop: spacing.sm,
+    width: "100%",
+    height: 220,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
   },
   actionsRow: {
     flexDirection: "row",

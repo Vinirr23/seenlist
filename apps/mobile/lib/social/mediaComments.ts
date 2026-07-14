@@ -11,6 +11,7 @@ export interface MediaTarget {
 export interface MediaComment {
   id: string;
   body: string | null;
+  imageUrl: string | null;
   containsSpoiler: boolean;
   parentCommentId: string | null;
   createdAt: string;
@@ -34,6 +35,7 @@ export function findCommentNode(roots: CommentNode[], commentId: string): Commen
 interface CommentRow {
   id: string;
   body: string | null;
+  image_url: string | null;
   contains_spoiler: boolean;
   parent_comment_id: string | null;
   created_at: string;
@@ -54,7 +56,7 @@ function applyTargetFilter<T extends { is: (c: string, v: null) => T; eq: (c: st
 export async function fetchMediaComments(target: MediaTarget): Promise<MediaComment[]> {
   let query = supabase
     .from("comments")
-    .select("id, body, contains_spoiler, parent_comment_id, created_at, user_id")
+    .select("id, body, image_url, contains_spoiler, parent_comment_id, created_at, user_id")
     .eq("media_type", target.mediaType)
     .eq("media_id", target.mediaId)
     .is("deleted_at", null);
@@ -76,6 +78,7 @@ export async function fetchMediaComments(target: MediaTarget): Promise<MediaComm
     return {
       id: row.id,
       body: row.body,
+      imageUrl: row.image_url,
       containsSpoiler: row.contains_spoiler,
       parentCommentId: row.parent_comment_id,
       createdAt: row.created_at,
@@ -123,10 +126,11 @@ export async function postMediaComment(
   target: MediaTarget,
   body: string,
   containsSpoiler = false,
-  parentCommentId: string | null = null
+  parentCommentId: string | null = null,
+  imageUrl: string | null = null
 ): Promise<void> {
   const trimmed = body.trim();
-  if (!trimmed) return;
+  if (!trimmed && !imageUrl) return;
 
   const {
     data: { user },
@@ -139,7 +143,8 @@ export async function postMediaComment(
     media_id: target.mediaId,
     season_number: target.seasonNumber ?? null,
     episode_number: target.episodeNumber ?? null,
-    body: trimmed,
+    body: trimmed || null,
+    image_url: imageUrl,
     contains_spoiler: containsSpoiler,
     parent_comment_id: parentCommentId,
   });
