@@ -31,11 +31,43 @@ export interface MediaSummary {
   totalEpisodes?: number;
   ended?: boolean;
   runtimeMinutes?: number;
+  /** Só filme (TASK-148). A API já devolve isso — só não estava sendo lido do lado nativo. */
+  releaseDate?: string | null;
 }
 
 interface LibrarySummariesResponse {
   movies: MediaSummary[];
   series: MediaSummary[];
+}
+
+const WATCHED_EPISODES_PAGE_SIZE = 1000; // limite padrão de linhas por consulta do Supabase/PostgREST — sem paginação, contas com muito histórico assistido vinham com contagem cortada.
+
+/**
+ * TASK-144 (correção — "0/24 episódios" mesmo já tendo assistido
+ * vários) — mesma causa raiz já encontrada e corrigida em
+ * `recalculateUpToDateSeriesCategories` (seriesDetails.ts): buscar
+ * TODOS os episódios assistidos do usuário numa consulta só, sem
+ * paginação, esbarra no limite padrão de 1000 linhas do Supabase pra
+ * contas com muito histórico — episódios "depois" desse limite na
+ * resposta simplesmente não vinham, contando como 0 pras séries
+ * afetadas.
+ */
+async function fetchAllWatchedEpisodeRows(userId: string): Promise<WatchedEpisodeRow[]> {
+  const rows: WatchedEpisodeRow[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("watched_episodes")
+      .select("series_id, watched_at")
+      .eq("is_special", false)
+      .eq("user_id", userId)
+      .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
+    if (error) throw error;
+    rows.push(...((data ?? []) as WatchedEpisodeRow[]));
+    if (!data || data.length < WATCHED_EPISODES_PAGE_SIZE) break;
+    from += WATCHED_EPISODES_PAGE_SIZE;
+  }
+  return rows;
 }
 
 function toLibraryStatus(movieStatus: MovieStatusRow["status"]): LibraryStatus {
@@ -176,6 +208,7 @@ function buildLibraryItemsFromRows(
       year: summary?.year ?? null,
       posterPath: summary?.posterPath ?? null,
       runtimeMinutes: summary?.runtimeMinutes,
+      releaseDate: summary?.releaseDate ?? null,
     };
   });
 
@@ -224,22 +257,20 @@ export async function fetchLibraryItems(userId?: string): Promise<LibraryItem[]>
     targetUserId = user.id;
   }
 
-  const [movieResult, seriesResult, episodeResult] = await Promise.all([
+  const [movieResult, seriesResult, episodeRows] = await Promise.all([
     supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", targetUserId),
     supabase
       .from("series_status")
       .select("series_id, status, created_at, updated_at, total_watch_events")
       .eq("user_id", targetUserId),
-    supabase.from("watched_episodes").select("series_id, watched_at").eq("is_special", false).eq("user_id", targetUserId),
+    fetchAllWatchedEpisodeRows(targetUserId),
   ]);
 
   if (movieResult.error) throw movieResult.error;
   if (seriesResult.error) throw seriesResult.error;
-  if (episodeResult.error) throw episodeResult.error;
 
   const movieRows = (movieResult.data ?? []) as MovieStatusRow[];
   const seriesRows = (seriesResult.data ?? []) as SeriesStatusRow[];
-  const episodeRows = (episodeResult.data ?? []) as WatchedEpisodeRow[];
 
   const validSeriesIds = new Set<number>([
     ...seriesRows.filter((row) => row.status !== "removed").map((row) => row.series_id),

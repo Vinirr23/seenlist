@@ -58,6 +58,205 @@ function decideWatchingVsUpToDate(mainEpisodesWatched: number, liveEpisodes: { a
   return mainEpisodesWatched < airedByNow.length ? "watching" : "up_to_date";
 }
 
+/**
+ * TASK-143 (a pedido — série "Em dia" não volta sozinha pra
+ * "Assistindo" quando sai episódio novo) — antes, a categoria só era
+ * recalculada em resposta a marcar/desmarcar um episódio; passar o
+ * tempo e um episódio novo ir ao ar não disparava nada sozinho (nem
+ * no web isso existe hoje — decisão nova, só pro nativo, confirmada
+ * com o usuário).
+ *
+ * Chamada toda vez que a aba Séries ganha foco (ver
+ * `app/(tabs)/series/index.tsx`). Em LOTE — nunca uma chamada de TMDB
+ * por série: busca todas as séries "Em dia" de uma vez, os episódios
+ * de todas elas numa chamada só (a rota já aceita lista), e grava as
+ * mudanças num único upsert. Só series "Em dia" entram aqui —
+ * "Assistindo" já aparece na home de qualquer jeito, "Pausada"/
+ * "Assistir depois" continuam de fora de propósito (mesma regra do
+ * recálculo individual, decisão explícita do usuário).
+ */
+const TMDB_EPISODES_CHUNK_SIZE = 20; // a rota /api/tmdb/series-episodes-at-export trunca silenciosamente acima de 20 ids por chamada — precisa dividir.
+const WATCHED_EPISODES_PAGE_SIZE = 1000; // limite padrão de linhas por consulta do Supabase/PostgREST — sem paginação, contagens em lote de usuários com muito histórico vinham incompletas.
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+/**
+ * TASK-143 (correção — várias séries "Em dia" viraram "Assistindo" à
+ * toa) — causa real encontrada: a busca de episódios no TMDB
+ * (`series-episodes-at-export`) trunca silenciosamente acima de 20
+ * séries por chamada (limite da própria rota, `MAX_IDS_PER_REQUEST`);
+ * E a contagem de episódios assistidos, buscando TODAS as séries "Em
+ * dia" de uma vez sem paginação, podia esbarrar no limite padrão de
+ * 1000 linhas por consulta do Supabase — series que apareciam DEPOIS
+ * desse limite na resposta ficavam com contagem ZERADA, parecendo
+ * "nunca comecei a assistir" e virando "Assistindo" à toa, mesmo
+ * 100% em dia de verdade.
+ */
+async function fetchWatchedEpisodeCountsBySeriesId(userId: string, seriesIds: number[]): Promise<Map<number, number>> {
+  const counts = new Map<number, number>();
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("watched_episodes")
+      .select("series_id")
+      .eq("user_id", userId)
+      .eq("is_special", false)
+      .in("series_id", seriesIds)
+      .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      counts.set(row.series_id, (counts.get(row.series_id) ?? 0) + 1);
+    }
+    if (!data || data.length < WATCHED_EPISODES_PAGE_SIZE) break;
+    from += WATCHED_EPISODES_PAGE_SIZE;
+  }
+  return counts;
+}
+
+export async function fetchLiveEpisodesBySeriesId(seriesIds: number[]): Promise<Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>> {
+  const result = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>();
+  for (const idsChunk of chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE)) {
+    const response = await fetch(`${SITE_URL}/api/tmdb/series-episodes-at-export`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seriesIds: idsChunk }),
+    });
+    if (!response.ok) continue;
+    const data = (await response.json()) as {
+      series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] }[];
+    };
+    for (const s of data.series) result.set(s.id, s.episodes);
+  }
+  return result;
+}
+
+async function fetchEndedBySeriesId(seriesIds: number[]): Promise<Map<number, boolean>> {
+  const result = new Map<number, boolean>();
+  for (const idsChunk of chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE)) {
+    const response = await fetch(`${SITE_URL}/api/tmdb/library-summaries`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ movieIds: [], seriesIds: idsChunk }),
+    });
+    if (!response.ok) continue;
+    const data = (await response.json()) as { series: { id: number; ended: boolean }[] };
+    for (const s of data.series) result.set(s.id, s.ended);
+  }
+  return result;
+}
+
+export async function recalculateUpToDateSeriesCategories(): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return;
+
+  const { data: statusRows, error: statusError } = await supabase
+    .from("series_status")
+    .select("series_id")
+    .eq("user_id", user.id)
+    .eq("status", "up_to_date");
+  if (statusError || !statusRows || statusRows.length === 0) return;
+
+  const seriesIds = statusRows.map((row) => row.series_id);
+
+  let watchedCountBySeriesId: Map<number, number>;
+  let episodesBySeriesId: Map<number, { airDate: string | null }[]>;
+  let endedBySeriesId: Map<number, boolean>;
+  try {
+    [watchedCountBySeriesId, episodesBySeriesId, endedBySeriesId] = await Promise.all([
+      fetchWatchedEpisodeCountsBySeriesId(user.id, seriesIds),
+      fetchLiveEpisodesBySeriesId(seriesIds),
+      fetchEndedBySeriesId(seriesIds),
+    ]);
+  } catch (error) {
+    console.error("[recalculateUpToDateSeriesCategories] Falha ao buscar dados em lote — categorias não recalculadas desta vez.", error);
+    return;
+  }
+
+  const updates: { user_id: string; series_id: number; status: LibraryStatus; updated_at: string }[] = [];
+  for (const seriesId of seriesIds) {
+    const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
+    if (liveEpisodes.length === 0) continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
+
+    const watched = watchedCountBySeriesId.get(seriesId) ?? 0;
+    const ended = endedBySeriesId.get(seriesId) ?? false;
+    const allEpisodesWatched = watched >= liveEpisodes.length;
+    const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
+
+    if (newCategory !== "up_to_date") {
+      updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
+    }
+  }
+
+  if (updates.length === 0) return;
+
+  const { error: upsertError } = await supabase.from("series_status").upsert(updates, { onConflict: "user_id,series_id" });
+  if (upsertError) {
+    console.error("[recalculateUpToDateSeriesCategories] Falha ao gravar categorias recalculadas", upsertError);
+  }
+}
+
+/**
+ * TASK-143 (reparo, uso único) — desfaz o estrago do bug acima: séries
+ * que foram incorretamente movidas de "Em dia" pra "Assistindo" (por
+ * causa da contagem zerada) continuam erradas no banco até serem
+ * reavaliadas — o recálculo automático só olha séries "Em dia", então
+ * nunca mais tocaria nelas sozinho, já que agora estão como
+ * "watching". Esta função reavalia TODAS as séries "watching" (com
+ * pelo menos 1 episódio assistido) usando a lógica já corrigida
+ * (paginada, sem o limite de 20/1000) — quem realmente está em dia
+ * volta pra "up_to_date"/"completed"; quem está mesmo atrasada fica
+ * como está. Chamar uma vez só (ver instruções de teste).
+ */
+export async function repairWatchingSeriesCategories(): Promise<{ corrigidas: number; total: number }> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return { corrigidas: 0, total: 0 };
+
+  const { data: statusRows, error: statusError } = await supabase
+    .from("series_status")
+    .select("series_id")
+    .eq("user_id", user.id)
+    .eq("status", "watching");
+  if (statusError || !statusRows || statusRows.length === 0) return { corrigidas: 0, total: 0 };
+
+  const seriesIds = statusRows.map((row) => row.series_id);
+
+  const [watchedCountBySeriesId, episodesBySeriesId, endedBySeriesId] = await Promise.all([
+    fetchWatchedEpisodeCountsBySeriesId(user.id, seriesIds),
+    fetchLiveEpisodesBySeriesId(seriesIds),
+    fetchEndedBySeriesId(seriesIds),
+  ]);
+
+  const updates: { user_id: string; series_id: number; status: LibraryStatus; updated_at: string }[] = [];
+  for (const seriesId of seriesIds) {
+    const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
+    if (liveEpisodes.length === 0) continue;
+
+    const watched = watchedCountBySeriesId.get(seriesId) ?? 0;
+    const ended = endedBySeriesId.get(seriesId) ?? false;
+    const allEpisodesWatched = watched >= liveEpisodes.length;
+    const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
+
+    if (newCategory !== "watching") {
+      updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
+    }
+  }
+
+  if (updates.length > 0) {
+    const { error } = await supabase.from("series_status").upsert(updates, { onConflict: "user_id,series_id" });
+    if (error) console.error("[repairWatchingSeriesCategories] Falha ao gravar correções", error);
+  }
+
+  return { corrigidas: updates.length, total: seriesIds.length };
+}
+
 export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: number): Promise<void> {
   const {
     data: { user },
@@ -74,6 +273,10 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
 
   const currentStatus = statusRow?.status ?? "watching";
   const eligible = currentStatus === "watching" || currentStatus === "up_to_date" || currentStatus === "want_to_watch";
+
+  // TASK-141 (diagnóstico temporário — série não aparece em Assistindo) — remover depois de descobrir a causa.
+  console.log("[recalcularCategoria DIAGNÓSTICO] início", { seriesId, statusRowEncontrada: !!statusRow, currentStatus, eligible });
+
   if (!eligible) return;
 
   const { count: watchedCount } = await supabase
@@ -113,11 +316,24 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     return;
   }
 
-  if (liveEpisodes.length === 0) return;
+  if (liveEpisodes.length === 0) {
+    console.log("[recalcularCategoria DIAGNÓSTICO] SAINDO — TMDB não devolveu episódios pra esta série", { seriesId });
+    return;
+  }
 
   const watched = watchedCount ?? 0;
   const allEpisodesWatched = watched >= liveEpisodes.length;
   const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
+
+  console.log("[recalcularCategoria DIAGNÓSTICO] resultado", {
+    seriesId,
+    watched,
+    totalEpisodiosNoTmdb: liveEpisodes.length,
+    ended,
+    currentStatus,
+    newCategory,
+    vaiGravar: newCategory !== currentStatus,
+  });
 
   if (newCategory === currentStatus) return;
 

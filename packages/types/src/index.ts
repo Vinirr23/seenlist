@@ -118,6 +118,8 @@ export interface LibraryItem {
   title: string;
   year: number | null;
   posterPath: string | null;
+  /** Só filme. Formato TMDB (YYYY-MM-DD). Usado pra separar "Assistir depois" já lançado de "Em breve" (TASK-148). */
+  releaseDate?: string | null;
   /** Só séries. */
   progress?: LibraryProgress;
   /** Filme: duração do filme. Série: duração média de um episódio. Minutos. */

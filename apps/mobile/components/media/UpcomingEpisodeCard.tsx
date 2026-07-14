@@ -11,6 +11,7 @@ const BADGE_CONFIG: Record<Exclude<UpcomingBadge, null>, { label: string; backgr
   premiere: { label: "PREMIERE", background: "#FFFFFF", text: "#000000" },
   novo: { label: "NOVO", background: colors.primary, text: colors.background },
   "mais-recente": { label: "MAIS RECENTE", background: "#FFFFFF", text: "#000000" },
+  "em-breve": { label: "EM BREVE", background: colors.secondary, text: colors.background },
 };
 
 function isGenericEpisodeName(name: string, episodeNumber: number): boolean {
@@ -53,10 +54,19 @@ export function UpcomingEpisodeCard({ episode }: { episode: UpcomingEpisodeWithB
         )}
       </View>
 
-      {!!network && (
-        <Text variant="muted" style={styles.network}>
-          {network}
-        </Text>
+      {episode.daysUntil >= 7 ? (
+        <View style={styles.daysBlock}>
+          <Text style={styles.daysNumber}>{episode.daysUntil}</Text>
+          <Text variant="muted" style={styles.daysLabel}>
+            DIAS
+          </Text>
+        </View>
+      ) : (
+        !!network && (
+          <Text variant="muted" style={styles.network}>
+            {network}
+          </Text>
+        )
       )}
     </Pressable>
   );
@@ -118,5 +128,20 @@ const styles = StyleSheet.create({
   network: {
     alignSelf: "center",
     fontSize: 11,
+  },
+  daysBlock: {
+    alignSelf: "center",
+    alignItems: "center",
+  },
+  daysNumber: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: colors.text,
+    lineHeight: 22,
+  },
+  daysLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
 });

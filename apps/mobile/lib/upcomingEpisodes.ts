@@ -15,10 +15,12 @@ export interface NextEpisodeToAir {
   networks: string[];
 }
 
-export type UpcomingBadge = "premiere" | "novo" | "mais-recente" | null;
+export type UpcomingBadge = "premiere" | "novo" | "mais-recente" | "em-breve" | null;
 
 export interface UpcomingEpisodeWithBadge extends NextEpisodeToAir {
   badge: UpcomingBadge;
+  /** TASK-147 — dias a partir de hoje (0 = hoje, 1 = amanhã...). Usado pro selo "N DIAS" no grupo "DEPOIS", pra não confundir "esta quinta" com "quinta que vem". */
+  daysUntil: number;
 }
 
 export interface UpcomingGroup {
@@ -65,7 +67,12 @@ interface BadgeableEpisode {
   airDate: string;
 }
 
-/** Idêntico a computeBadge do web. */
+/**
+ * TASK-146 (a pedido — diverge do web de propósito) — web nunca
+ * mostra selo em episódio que ainda não foi ao ar (só "premiere",
+ * que não depende de data). A pedido, episódio futuro que não é
+ * premiere agora ganha "em-breve" em vez de ficar sem selo nenhum.
+ */
 export function computeBadge(episode: BadgeableEpisode, watchedKeys: Set<string>): UpcomingBadge {
   if (episode.episodeNumber === 1 && episode.seasonNumber > 1) return "premiere";
 
@@ -73,7 +80,7 @@ export function computeBadge(episode: BadgeableEpisode, watchedKeys: Set<string>
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const alreadyAired = airDate.getTime() <= today.getTime();
-  if (!alreadyAired) return null;
+  if (!alreadyAired) return "em-breve";
 
   const daysSinceAired = Math.floor((today.getTime() - airDate.getTime()) / (24 * 60 * 60 * 1000));
   const isWatched = watchedKeys.has(`${episode.seriesId}-${episode.seasonNumber}-${episode.episodeNumber}`);
@@ -82,6 +89,7 @@ export function computeBadge(episode: BadgeableEpisode, watchedKeys: Set<string>
 }
 
 const WEEKDAY_SHORT = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
+const AMBIGUOUS_AFTER_DAYS = 6; // a partir do 7º dia, "quinta" fica ambíguo (podia ser essa semana ou a que vem) — vira o grupo "DEPOIS" com contagem de dias.
 
 function startOfDay(date: Date): Date {
   const copy = new Date(date);
@@ -89,13 +97,26 @@ function startOfDay(date: Date): Date {
   return copy;
 }
 
-function formatDayLabel(dateKey: string): string {
-  const target = startOfDay(new Date(`${dateKey}T00:00:00`));
-  const today = startOfDay(new Date());
-  const tomorrow = startOfDay(new Date(today.getTime() + 24 * 60 * 60 * 1000));
-  if (target.getTime() === today.getTime()) return "HOJE";
-  if (target.getTime() === tomorrow.getTime()) return "AMANHÃ";
-  return WEEKDAY_SHORT[target.getDay()] ?? "";
+function daysBetween(target: Date, today: Date): number {
+  return Math.round((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/**
+ * TASK-147 (a pedido — diferenciar "esta quinta" de "quinta que
+ * vem") — diverge do web de propósito: o web só usa nome do dia da
+ * semana, sem limite, então "QUINTA" tanto pode ser daqui a 2 dias
+ * quanto daqui a 9. A partir do 7º dia, group vira "DEPOIS" — cada
+ * card individual mostra "N DIAS" (ver `UpcomingEpisodeCard.tsx`),
+ * sem ambiguidade nenhuma.
+ */
+function formatDayLabel(daysUntil: number, dateKey: string): string {
+  if (daysUntil === 0) return "HOJE";
+  if (daysUntil === 1) return "AMANHÃ";
+  if (daysUntil <= AMBIGUOUS_AFTER_DAYS) {
+    const target = startOfDay(new Date(`${dateKey}T00:00:00`));
+    return WEEKDAY_SHORT[target.getDay()] ?? "";
+  }
+  return "DEPOIS";
 }
 
 /**
@@ -110,16 +131,26 @@ export async function fetchUpcomingGroups(): Promise<UpcomingGroup[]> {
 
   const episodes = await fetchUpcoming(seriesIds);
   const watchedKeys = await fetchWatchedStatus(episodes);
+  const today = startOfDay(new Date());
 
-  const byDate = new Map<string, UpcomingEpisodeWithBadge[]>();
+  const byGroupKey = new Map<string, { label: string; episodes: UpcomingEpisodeWithBadge[] }>();
   for (const episode of episodes) {
-    const withBadge: UpcomingEpisodeWithBadge = { ...episode, badge: computeBadge(episode, watchedKeys) };
-    const list = byDate.get(episode.airDate);
-    if (list) list.push(withBadge);
-    else byDate.set(episode.airDate, [withBadge]);
+    const target = startOfDay(new Date(`${episode.airDate}T00:00:00`));
+    const daysUntil = daysBetween(target, today);
+    const label = formatDayLabel(daysUntil, episode.airDate);
+    const groupKey = label === "DEPOIS" ? "depois" : episode.airDate; // "DEPOIS" é um grupo só, catch-all; os outros continuam um grupo por dia.
+
+    const withBadge: UpcomingEpisodeWithBadge = { ...episode, badge: computeBadge(episode, watchedKeys), daysUntil };
+    const group = byGroupKey.get(groupKey);
+    if (group) group.episodes.push(withBadge);
+    else byGroupKey.set(groupKey, { label, episodes: [withBadge] });
   }
 
-  return [...byDate.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dateKey, eps]) => ({ dateKey, label: formatDayLabel(dateKey), episodes: eps }));
+  return [...byGroupKey.entries()]
+    .sort(([a], [b]) => {
+      if (a === "depois") return 1; // "DEPOIS" sempre por último
+      if (b === "depois") return -1;
+      return a.localeCompare(b);
+    })
+    .map(([dateKey, group]) => ({ dateKey, label: group.label, episodes: group.episodes.sort((a, b) => a.daysUntil - b.daysUntil) }));
 }

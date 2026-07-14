@@ -1,14 +1,17 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, ScrollView, RefreshControl, Pressable, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useUpcomingEpisodes } from "@/lib/useUpcomingEpisodes";
 import { useViewModePreference } from "@/lib/useViewModePreference";
+import { recalculateUpToDateSeriesCategories } from "@/lib/seriesDetails";
+import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
+import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { UpcomingEpisodeCard } from "@/components/media/UpcomingEpisodeCard";
@@ -37,12 +40,46 @@ export default function SeriesHomeScreen() {
   const upcoming = useUpcomingEpisodes();
   const { viewMode, setViewMode } = useViewModePreference("series-library");
 
+  /**
+   * TASK-143 — toda vez que a aba Séries ganha foco, recalcula sozinho
+   * se alguma série "Em dia" ganhou episódio novo desde a última vez
+   * (sem precisar marcar nada manualmente) — depois busca a
+   * biblioteca de novo, pra já refletir na hora se alguma mudou pra
+   * "Assistindo".
+   */
+  useFocusEffect(
+    useCallback(() => {
+      recalculateUpToDateSeriesCategories()
+        .then(() => refetch())
+        .catch((error) => console.error("[SeriesHomeScreen] Falha ao recalcular categorias em foco", error));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
+
   const continueWatching = useMemo(() => {
     return (items ?? [])
       .filter((item) => item.mediaType === "series" && item.status === "watching")
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .slice(0, CONTINUE_LIMIT);
   }, [items]);
+
+  /**
+   * TASK-145 (a pedido) — só busca o "próximo episódio pendente" de
+   * cada série quando o modo é LISTA (é onde esse card aparece) — no
+   * modo grade, ninguém vê essa informação, buscar seria trabalho à
+   * toa.
+   */
+  const [nextEpisodes, setNextEpisodes] = useState<Map<number, NextEpisodeToWatch>>(new Map());
+
+  const loadNextEpisodes = useCallback(() => {
+    if (viewMode !== "list" || continueWatching.length === 0) return;
+    fetchNextEpisodesToWatch(continueWatching.map((item) => item.id))
+      .then(setNextEpisodes)
+      .catch((error) => console.error("[SeriesHomeScreen] Falha ao buscar próximos episódios", error));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, continueWatching.map((i) => i.id).join(",")]);
+
+  useEffect(loadNextEpisodes, [loadNextEpisodes]);
 
   function handlePressItem(item: LibraryItem) {
     router.push(`/series/${item.id}`);
@@ -78,18 +115,31 @@ export default function SeriesHomeScreen() {
             <PosterGrid items={continueWatching} onPressItem={handlePressItem} />
           ) : (
             <View style={styles.listRows}>
-              {continueWatching.map((item) => (
-                <MediaListRow
-                  key={item.id}
-                  item={item}
-                  onPress={handlePressItem}
-                  secondaryText={
-                    item.progress && item.progress.totalEpisodes > 0
-                      ? `${item.progress.watchedEpisodes}/${item.progress.totalEpisodes} episódios`
-                      : ""
-                  }
-                />
-              ))}
+              {continueWatching.map((item) => {
+                const nextEpisode = nextEpisodes.get(item.id);
+                return nextEpisode ? (
+                  <ContinueWatchingListRow
+                    key={item.id}
+                    item={item}
+                    nextEpisode={nextEpisode}
+                    onMarkedWatched={() => {
+                      refetch();
+                      loadNextEpisodes();
+                    }}
+                  />
+                ) : (
+                  <MediaListRow
+                    key={item.id}
+                    item={item}
+                    onPress={handlePressItem}
+                    secondaryText={
+                      item.progress && item.progress.totalEpisodes > 0
+                        ? `${item.progress.watchedEpisodes}/${item.progress.totalEpisodes} episódios`
+                        : ""
+                    }
+                  />
+                );
+              })}
             </View>
           )}
 

@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { DiscoverItem } from "@/lib/discover";
 import { tmdbImageUrl } from "@/lib/library";
+import { AddToLibraryButton } from "./AddToLibraryButton";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -62,6 +63,7 @@ function DiscoverCard({ item }: { item: DiscoverItem }) {
             <Feather name="film" size={20} color={colors.muted} />
           </View>
         )}
+        <AddToLibraryButton mediaType={item.mediaType} mediaId={item.id} />
       </View>
       <Text numberOfLines={1} style={styles.cardTitle}>
         {item.title}
@@ -86,6 +88,7 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
   },
   posterWrapper: {
+    position: "relative",
     width: CARD_WIDTH,
     aspectRatio: 2 / 3,
     borderRadius: radius.md,
