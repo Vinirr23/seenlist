@@ -1,4 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { decode as base64ToArrayBuffer } from "base64-arraybuffer";
 import { supabase } from "@/lib/supabase";
 
 const MAX_POST_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB — mesmo limite do web (GIFs animados costumam ser bem maiores que fotos comuns)
@@ -30,10 +32,26 @@ export async function pickImageFromLibrary(): Promise<{ uri: string; mimeType: s
   return { uri: asset.uri, mimeType: asset.mimeType ?? "image/jpeg" };
 }
 
-/** RN não tem o `File` da web — um `fetch(uri).blob()` local (`file://...`) é o jeito padrão de virar Blob pro upload no Supabase Storage. */
-async function uriToBlob(uri: string): Promise<Blob> {
-  const response = await fetch(uri);
-  return response.blob();
+/**
+ * TASK-134 (correção — "Network request failed" ao enviar imagem) —
+ * a versão anterior usava `fetch(uri).blob()` pra transformar o
+ * arquivo local (`file://...`) em algo que o Supabase Storage aceita.
+ * Esse é um problema conhecido e bem documentado do React Native:
+ * `fetch`/`Blob` pra URIs locais é instável, principalmente no
+ * Android — falha com "TypeError: Network request failed" mesmo com
+ * o arquivo existindo e a internet funcionando (reproduzido nos
+ * testes: funcionava com foto pequena e falhava direto com outras).
+ *
+ * A correção é a recomendada oficialmente pela documentação do
+ * Supabase pra React Native: ler o arquivo em base64
+ * (`expo-file-system`, módulo que já vem embutido no Expo, sem
+ * precisar de build novo) e converter pra `ArrayBuffer`
+ * (`base64-arraybuffer`, pacote 100% JavaScript, também sem precisar
+ * de build novo) — nunca passa por `fetch`/`Blob`.
+ */
+async function uriToArrayBuffer(uri: string): Promise<ArrayBuffer> {
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  return base64ToArrayBuffer(base64);
 }
 
 function extensionFromMimeType(mimeType: string): string {
@@ -51,10 +69,10 @@ export async function uploadAvatar(uri: string, mimeType: string): Promise<{ url
   if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
 
   try {
-    const blob = await uriToBlob(uri);
+    const arrayBuffer = await uriToArrayBuffer(uri);
     const path = `${user.id}/avatar-${Date.now()}.${extensionFromMimeType(mimeType)}`;
 
-    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, blob, { upsert: true, contentType: mimeType });
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, arrayBuffer, { upsert: true, contentType: mimeType });
     if (uploadError) throw uploadError;
 
     const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
@@ -82,10 +100,10 @@ export async function uploadBanner(uri: string, mimeType: string): Promise<{ url
   if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
 
   try {
-    const blob = await uriToBlob(uri);
+    const arrayBuffer = await uriToArrayBuffer(uri);
     const path = `${user.id}/banner-${Date.now()}.${extensionFromMimeType(mimeType)}`;
 
-    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, blob, { upsert: true, contentType: mimeType });
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, arrayBuffer, { upsert: true, contentType: mimeType });
     if (uploadError) throw uploadError;
 
     const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
@@ -112,13 +130,13 @@ export async function uploadPostImage(uri: string, mimeType: string): Promise<{ 
   if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
 
   try {
-    const blob = await uriToBlob(uri);
-    if (blob.size > MAX_POST_IMAGE_BYTES) {
+    const arrayBuffer = await uriToArrayBuffer(uri);
+    if (arrayBuffer.byteLength > MAX_POST_IMAGE_BYTES) {
       return { url: null, error: "Arquivo muito grande (máximo 8MB)." };
     }
 
     const path = `${user.id}/${Date.now()}.${extensionFromMimeType(mimeType)}`;
-    const { error: uploadError } = await supabase.storage.from("post-images").upload(path, blob, { upsert: false, contentType: mimeType });
+    const { error: uploadError } = await supabase.storage.from("post-images").upload(path, arrayBuffer, { upsert: false, contentType: mimeType });
     if (uploadError) throw uploadError;
 
     const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(path);
@@ -141,13 +159,13 @@ export async function uploadCommentImage(uri: string, mimeType: string): Promise
   if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
 
   try {
-    const blob = await uriToBlob(uri);
-    if (blob.size > MAX_POST_IMAGE_BYTES) {
+    const arrayBuffer = await uriToArrayBuffer(uri);
+    if (arrayBuffer.byteLength > MAX_POST_IMAGE_BYTES) {
       return { url: null, error: "Arquivo muito grande (máximo 8MB)." };
     }
 
     const path = `${user.id}/${Date.now()}.${extensionFromMimeType(mimeType)}`;
-    const { error: uploadError } = await supabase.storage.from("comment-images").upload(path, blob, { upsert: false, contentType: mimeType });
+    const { error: uploadError } = await supabase.storage.from("comment-images").upload(path, arrayBuffer, { upsert: false, contentType: mimeType });
     if (uploadError) throw uploadError;
 
     const { data: urlData } = supabase.storage.from("comment-images").getPublicUrl(path);
