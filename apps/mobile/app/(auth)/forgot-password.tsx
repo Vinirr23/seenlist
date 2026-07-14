@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet } from "react-native";
 import { Link } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { Screen, Text, Input, Button } from "@/components/ui";
@@ -44,45 +44,56 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <Screen bottomInset>
-      <View style={styles.content}>
-        <View>
-          <Text variant="title">Esqueceu a senha?</Text>
-          <Text variant="muted" style={styles.subtitle}>
-            Enviamos um link de recuperação pro seu e-mail.
-          </Text>
-        </View>
+    <Screen bottomInset padded={false}>
+      {/* TASK-138 (correção — teclado cobrindo o campo) — mesmo motivo documentado em login.tsx. */}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.content}>
+            <View>
+              <Text variant="title">Esqueceu a senha?</Text>
+              <Text variant="muted" style={styles.subtitle}>
+                Enviamos um link de recuperação pro seu e-mail.
+              </Text>
+            </View>
 
-        <View style={styles.form}>
-          <Input
-            label="E-mail"
-            placeholder="voce@exemplo.com"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            value={email}
-            onChangeText={setEmail}
-            editable={!loading}
-          />
-          {!!error && <Text variant="error">{error}</Text>}
-          {!!message && <Text variant="muted">{message}</Text>}
-          <Button onPress={handleRequestReset} loading={loading}>
-            Enviar link
-          </Button>
-        </View>
+            <View style={styles.form}>
+              <Input
+                label="E-mail"
+                placeholder="voce@exemplo.com"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                value={email}
+                onChangeText={setEmail}
+                editable={!loading}
+              />
+              {!!error && <Text variant="error">{error}</Text>}
+              {!!message && <Text variant="muted">{message}</Text>}
+              <Button onPress={handleRequestReset} loading={loading}>
+                Enviar link
+              </Button>
+            </View>
 
-        <Link href="/(auth)/login" style={styles.link}>
-          Voltar pro login
-        </Link>
-      </View>
+            <Link href="/(auth)/login" style={styles.link}>
+              Voltar pro login
+            </Link>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
+  flex: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  content: {
     gap: spacing.lg,
   },
   subtitle: {
