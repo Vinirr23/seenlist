@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, Image, StyleSheet } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Screen, Text, Input, Button } from "@/components/ui";
-import { colors, spacing } from "@/lib/theme";
+import { colors, radius, spacing } from "@/lib/theme";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -44,6 +44,13 @@ export default function LoginScreen() {
   return (
     <Screen bottomInset>
       <View style={styles.content}>
+        <View style={styles.brand}>
+          <Image source={require("@/assets/images/logo.png")} style={styles.logo} />
+          <Text variant="title" style={styles.brandName}>
+            SeenList
+          </Text>
+        </View>
+
         <View>
           <Text variant="title">Entrar</Text>
           <Text variant="muted" style={styles.subtitle}>
@@ -105,6 +112,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     gap: spacing.lg,
+  },
+  brand: {
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.lg,
+  },
+  brandName: {
+    marginTop: spacing.sm,
   },
   subtitle: {
     marginTop: spacing.xs,
