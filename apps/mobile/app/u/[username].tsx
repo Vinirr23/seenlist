@@ -39,7 +39,7 @@ export default function PublicProfileScreen() {
   const { profile, isLoading, isError } = usePublicProfile(username);
   const counts = useFollowCounts(profile?.userId ?? null);
   const publicStats = usePublicProfileStats(profile?.userId ?? null);
-  const follow = useFollow(profile?.userId ?? "");
+  const follow = useFollow(profile?.userId ?? null);
 
   if (isLoading) {
     return (

@@ -56,12 +56,22 @@ export function useFollowCounts(userId: string | null) {
   return counts;
 }
 
-export function useFollow(targetUserId: string) {
+/**
+ * TASK-137 (correção — erro de UUID vazio) — antes aceitava só
+ * `string`, e quem chamava passava `profile?.userId ?? ""` enquanto
+ * o perfil ainda não tinha carregado. Isso disparava a busca com
+ * `targetUserId = ""` — Postgres rejeita com "invalid input syntax
+ * for type uuid" (a coluna é do tipo uuid, string vazia não é um
+ * uuid válido). Agora aceita `string | null` e só busca quando tem
+ * um id de verdade — mesmo padrão já usado por `useFollowCounts`.
+ */
+export function useFollow(targetUserId: string | null) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!targetUserId) return;
     let cancelled = false;
     fetchFollowStatus(targetUserId).then((value) => {
       if (!cancelled) {
@@ -75,6 +85,7 @@ export function useFollow(targetUserId: string) {
   }, [targetUserId]);
 
   const toggle = useCallback(async () => {
+    if (!targetUserId) return;
     const previous = isFollowing;
     setBusy(true);
     setIsFollowing(!previous); // otimista

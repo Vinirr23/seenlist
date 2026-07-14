@@ -3,18 +3,10 @@ import { View, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import type { LibraryItem } from "@seenlist/types";
 import { usePublicLibraryItems } from "@/lib/usePublicProfile";
+import { SERIES_CATEGORIES } from "@/lib/seriesCategories";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { Text } from "@/components/ui";
 import { spacing } from "@/lib/theme";
-
-/** Mesma ordem e mesmos rótulos de SERIES_CATEGORIES (lib/series-categories.ts) do web. */
-const SERIES_CATEGORIES: { label: string; filter: (item: LibraryItem) => boolean }[] = [
-  { label: "Assistindo", filter: (i) => i.status === "watching" },
-  { label: "Em dia", filter: (i) => i.status === "up_to_date" },
-  { label: "Assistir depois", filter: (i) => i.status === "want_to_watch" },
-  { label: "Interrompidas", filter: (i) => i.status === "paused" },
-  { label: "Assistidas", filter: (i) => i.status === "completed" },
-];
 
 export function PublicLibrarySection({ userId }: { userId: string }) {
   const { items, isLoading, isError } = usePublicLibraryItems(userId);
@@ -64,7 +56,7 @@ export function PublicLibrarySection({ userId }: { userId: string }) {
                 <Text variant="subtitle" style={styles.categoryTitle}>
                   {category.label}
                 </Text>
-                <PosterGrid items={category.items} onPressItem={handlePress} />
+                <PosterGrid items={category.items} onPressItem={handlePress} barColor={category.barColor} />
               </View>
             ))}
           </View>
