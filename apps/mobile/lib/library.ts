@@ -52,20 +52,45 @@ const WATCHED_EPISODES_PAGE_SIZE = 1000; // limite padrão de linhas por consult
  * resposta simplesmente não vinham, contando como 0 pras séries
  * afetadas.
  */
+/**
+ * TASK-144/149 (correção — "0/24 episódios" + lentidão de ~15s pra
+ * carregar) — a correção original buscava página por página, cada
+ * uma esperando a anterior terminar (`while` sequencial com `await`
+ * dentro) — pra contas com muito histórico assistido, isso virava
+ * várias idas e voltas ao banco, uma atrás da outra, somando o tempo
+ * de rede de cada uma. Agora busca a CONTAGEM primeiro (uma consulta
+ * rápida, sem trazer linha nenhuma) e dispara todas as páginas
+ * necessárias AO MESMO TEMPO (`Promise.all`) — o tempo de rede das
+ * páginas se sobrepõe, em vez de somar.
+ */
 async function fetchAllWatchedEpisodeRows(userId: string): Promise<WatchedEpisodeRow[]> {
+  const { count, error: countError } = await supabase
+    .from("watched_episodes")
+    .select("series_id", { count: "exact", head: true })
+    .eq("is_special", false)
+    .eq("user_id", userId);
+  if (countError) throw countError;
+
+  const total = count ?? 0;
+  if (total === 0) return [];
+
+  const pageCount = Math.ceil(total / WATCHED_EPISODES_PAGE_SIZE);
+  const pages = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) => {
+      const from = index * WATCHED_EPISODES_PAGE_SIZE;
+      return supabase
+        .from("watched_episodes")
+        .select("series_id, watched_at")
+        .eq("is_special", false)
+        .eq("user_id", userId)
+        .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
+    })
+  );
+
   const rows: WatchedEpisodeRow[] = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from("watched_episodes")
-      .select("series_id, watched_at")
-      .eq("is_special", false)
-      .eq("user_id", userId)
-      .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
-    if (error) throw error;
-    rows.push(...((data ?? []) as WatchedEpisodeRow[]));
-    if (!data || data.length < WATCHED_EPISODES_PAGE_SIZE) break;
-    from += WATCHED_EPISODES_PAGE_SIZE;
+  for (const page of pages) {
+    if (page.error) throw page.error;
+    rows.push(...((page.data ?? []) as WatchedEpisodeRow[]));
   }
   return rows;
 }

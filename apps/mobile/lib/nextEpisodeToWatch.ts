@@ -16,26 +16,43 @@ export interface NextEpisodeToWatch {
 }
 
 /** Mesma paginação já usada em fetchLibraryItems/recalculateUpToDateSeriesCategories — evita o limite padrão de 1000 linhas cortar o resultado. */
+/** Mesma paginação paralela já usada em fetchLibraryItems/recalculateUpToDateSeriesCategories (TASK-149 — busca a contagem primeiro, depois todas as páginas ao mesmo tempo, em vez de uma de cada vez). */
 async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: number[]): Promise<Map<number, Set<string>>> {
   const bySeriesId = new Map<number, Set<string>>();
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from("watched_episodes")
-      .select("series_id, season_number, episode_number")
-      .eq("user_id", userId)
-      .eq("is_special", false)
-      .in("series_id", seriesIds)
-      .range(from, from + WATCHED_KEYS_PAGE_SIZE - 1);
-    if (error) throw error;
-    for (const row of data ?? []) {
+
+  const { count, error: countError } = await supabase
+    .from("watched_episodes")
+    .select("series_id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_special", false)
+    .in("series_id", seriesIds);
+  if (countError) throw countError;
+
+  const total = count ?? 0;
+  if (total === 0) return bySeriesId;
+
+  const pageCount = Math.ceil(total / WATCHED_KEYS_PAGE_SIZE);
+  const pages = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) => {
+      const from = index * WATCHED_KEYS_PAGE_SIZE;
+      return supabase
+        .from("watched_episodes")
+        .select("series_id, season_number, episode_number")
+        .eq("user_id", userId)
+        .eq("is_special", false)
+        .in("series_id", seriesIds)
+        .range(from, from + WATCHED_KEYS_PAGE_SIZE - 1);
+    })
+  );
+
+  for (const page of pages) {
+    if (page.error) throw page.error;
+    for (const row of page.data ?? []) {
       const key = `${row.season_number}-${row.episode_number}`;
       const set = bySeriesId.get(row.series_id);
       if (set) set.add(key);
       else bySeriesId.set(row.series_id, new Set([key]));
     }
-    if (!data || data.length < WATCHED_KEYS_PAGE_SIZE) break;
-    from += WATCHED_KEYS_PAGE_SIZE;
   }
   return bySeriesId;
 }

@@ -98,33 +98,56 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  */
 async function fetchWatchedEpisodeCountsBySeriesId(userId: string, seriesIds: number[]): Promise<Map<number, number>> {
   const counts = new Map<number, number>();
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from("watched_episodes")
-      .select("series_id")
-      .eq("user_id", userId)
-      .eq("is_special", false)
-      .in("series_id", seriesIds)
-      .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
-    if (error) throw error;
-    for (const row of data ?? []) {
+
+  const { count, error: countError } = await supabase
+    .from("watched_episodes")
+    .select("series_id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_special", false)
+    .in("series_id", seriesIds);
+  if (countError) throw countError;
+
+  const total = count ?? 0;
+  if (total === 0) return counts;
+
+  const pageCount = Math.ceil(total / WATCHED_EPISODES_PAGE_SIZE);
+  const pages = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) => {
+      const from = index * WATCHED_EPISODES_PAGE_SIZE;
+      return supabase
+        .from("watched_episodes")
+        .select("series_id")
+        .eq("user_id", userId)
+        .eq("is_special", false)
+        .in("series_id", seriesIds)
+        .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
+    })
+  );
+
+  for (const page of pages) {
+    if (page.error) throw page.error;
+    for (const row of page.data ?? []) {
       counts.set(row.series_id, (counts.get(row.series_id) ?? 0) + 1);
     }
-    if (!data || data.length < WATCHED_EPISODES_PAGE_SIZE) break;
-    from += WATCHED_EPISODES_PAGE_SIZE;
   }
   return counts;
 }
 
 export async function fetchLiveEpisodesBySeriesId(seriesIds: number[]): Promise<Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>> {
   const result = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>();
-  for (const idsChunk of chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE)) {
-    const response = await fetch(`${SITE_URL}/api/tmdb/series-episodes-at-export`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ seriesIds: idsChunk }),
-    });
+  const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
+
+  const responses = await Promise.all(
+    chunks.map((idsChunk) =>
+      fetch(`${SITE_URL}/api/tmdb/series-episodes-at-export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seriesIds: idsChunk }),
+      })
+    )
+  );
+
+  for (const response of responses) {
     if (!response.ok) continue;
     const data = (await response.json()) as {
       series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] }[];
@@ -136,12 +159,19 @@ export async function fetchLiveEpisodesBySeriesId(seriesIds: number[]): Promise<
 
 async function fetchEndedBySeriesId(seriesIds: number[]): Promise<Map<number, boolean>> {
   const result = new Map<number, boolean>();
-  for (const idsChunk of chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE)) {
-    const response = await fetch(`${SITE_URL}/api/tmdb/library-summaries`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ movieIds: [], seriesIds: idsChunk }),
-    });
+  const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
+
+  const responses = await Promise.all(
+    chunks.map((idsChunk) =>
+      fetch(`${SITE_URL}/api/tmdb/library-summaries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ movieIds: [], seriesIds: idsChunk }),
+      })
+    )
+  );
+
+  for (const response of responses) {
     if (!response.ok) continue;
     const data = (await response.json()) as { series: { id: number; ended: boolean }[] };
     for (const s of data.series) result.set(s.id, s.ended);
