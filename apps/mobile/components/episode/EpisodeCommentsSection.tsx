@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Image, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, StyleSheet } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { MediaTarget, CommentNode } from "@/lib/social/mediaComments";
 import { useEpisodeComments, useEpisodeSpoilerProtection } from "@/lib/social/useEpisodeComments";
@@ -98,7 +99,7 @@ export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number;
 
         {imageUri ? (
           <View style={styles.imagePreviewWrapper}>
-            <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
+            <ExpoImage source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" autoplay />
             <Pressable
               style={styles.removeImageButton}
               onPress={() => {

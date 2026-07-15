@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Image, Modal, TextInput, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Modal, TextInput, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { createTextPost } from "@/lib/posts";
 import { pickImageFromLibrary, uploadPostImage } from "@/lib/imageUpload";
@@ -109,7 +110,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 
             {imageUri ? (
               <View style={styles.imagePreviewWrapper}>
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
+                <ExpoImage source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" autoplay />
                 <Pressable
                   style={styles.removeImageButton}
                   onPress={() => {

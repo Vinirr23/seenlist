@@ -6,6 +6,7 @@ import type { CommentNode } from "@/lib/social/mediaComments";
 import { SpoilerGate } from "@/components/reviews/SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
 import { Text, Button } from "@/components/ui";
+import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -125,7 +126,7 @@ export function EpisodeCommentItem({
           <SpoilerGate hidden={comment.containsSpoiler || autoHideSpoilers}>
             <View>
               {!!comment.body && <Text style={styles.body}>{comment.body}</Text>}
-              {!!comment.imageUrl && <Image source={{ uri: comment.imageUrl }} style={styles.commentImage} resizeMode="cover" />}
+              {!!comment.imageUrl && <AdaptiveImage uri={comment.imageUrl} maxHeight={320} />}
             </View>
           </SpoilerGate>
 
@@ -240,13 +241,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 13,
     color: colors.text,
-  },
-  commentImage: {
-    marginTop: spacing.sm,
-    width: "100%",
-    height: 220,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
   },
   actionsRow: {
     flexDirection: "row",

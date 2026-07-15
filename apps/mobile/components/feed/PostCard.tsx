@@ -13,6 +13,7 @@ import { LikeButton } from "./LikeButton";
 import { CommentCount } from "./CommentCount";
 import { SaveButton } from "./SaveButton";
 import { PostCommentsSection } from "./PostCommentsSection";
+import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -216,7 +217,7 @@ export function PostCard({
         !!currentBody && <Text style={styles.body}>{currentBody}</Text>
       )}
 
-      {!!post.imageUrl && <Image source={{ uri: post.imageUrl }} style={styles.postImage} resizeMode="cover" />}
+      {!!post.imageUrl && <AdaptiveImage uri={post.imageUrl} />}
 
       <View style={styles.footer}>
         <LikeButton targetType="post" targetId={post.id} initial={likeInfo} />
@@ -370,13 +371,6 @@ const styles = StyleSheet.create({
   },
   editSaveButton: {
     minWidth: 100,
-  },
-  postImage: {
-    marginTop: spacing.sm,
-    width: "100%",
-    height: 220,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
   },
   footer: {
     flexDirection: "row",

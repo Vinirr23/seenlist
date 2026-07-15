@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View, Image, TextInput, Pressable, Alert, StyleSheet } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -11,6 +12,7 @@ import { LikeButton } from "@/components/feed/LikeButton";
 import { SpoilerGate } from "@/components/reviews/SpoilerGate";
 import { Screen, Text, Button } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
+import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -220,7 +222,7 @@ export default function EpisodeCommentDetailScreen() {
                   <SpoilerGate hidden={comment.containsSpoiler || autoHideSpoilers}>
                     <View>
                       {!!comment.body && <Text style={styles.body}>{comment.body}</Text>}
-                      {!!comment.imageUrl && <Image source={{ uri: comment.imageUrl }} style={styles.commentImage} resizeMode="cover" />}
+                      {!!comment.imageUrl && <AdaptiveImage uri={comment.imageUrl} maxHeight={320} />}
                     </View>
                   </SpoilerGate>
                   <View style={styles.ownActionsRow}>
@@ -279,7 +281,7 @@ export default function EpisodeCommentDetailScreen() {
 
               {imageUri ? (
                 <View style={styles.imagePreviewWrapper}>
-                  <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
+                  <ExpoImage source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" autoplay />
                   <Pressable
                     style={styles.removeImageButton}
                     onPress={() => {
@@ -387,13 +389,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontSize: fontSize.sm,
     color: colors.text,
-  },
-  commentImage: {
-    marginTop: spacing.sm,
-    width: "100%",
-    height: 220,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
   },
   ownActionsRow: {
     flexDirection: "row",
