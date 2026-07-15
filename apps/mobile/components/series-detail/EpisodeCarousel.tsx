@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -22,6 +23,35 @@ export function EpisodeCarousel({
   onToggleEpisode: (seasonNumber: number, episodeNumber: number) => void;
 }) {
   const items = resolveCarouselEpisodes(category, seasons, watched);
+  const scrollRef = useRef<ScrollView>(null);
+  const lastAutoScrolledSeriesId = useRef<number | null>(null);
+
+  /**
+   * TASK-157/158 (correção — não rolava ao trocar de série) — ao
+   * abrir a tela, a lista horizontal de episódios já abre
+   * posicionada no primeiro episódio ainda não marcado como
+   * assistido, em vez de sempre começar do episódio 1.
+   *
+   * Correção: a versão anterior usava um "já rolei uma vez" GLOBAL
+   * (`useRef(false)`) — mas o Expo Router não remonta esse
+   * componente ao navegar de uma série pra outra (só troca os
+   * parâmetros da rota), então essa variável ficava travada em
+   * `true` desde a primeira série aberta na sessão, e nunca mais
+   * rolava sozinha pras próximas. Agora guarda o ID da última série
+   * que já rolou — só pula a rolagem se for A MESMA série de novo
+   * (ex.: reabrir a tela sem trocar), não qualquer série.
+   */
+  useEffect(() => {
+    if (lastAutoScrolledSeriesId.current === seriesId || items.length === 0) return;
+    const firstUnwatchedIndex = items.findIndex(({ seasonNumber, episode }) => !watched.has(episodeKey(seasonNumber, episode.episodeNumber)));
+    if (firstUnwatchedIndex > 0) {
+      const offsetX = firstUnwatchedIndex * (CARD_WIDTH + spacing.sm);
+      scrollRef.current?.scrollTo({ x: offsetX, animated: false });
+    }
+    lastAutoScrolledSeriesId.current = seriesId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seriesId, items.length]);
+
   if (items.length === 0) return null;
 
   return (
@@ -29,7 +59,7 @@ export function EpisodeCarousel({
       <Text variant="subtitle" style={styles.title}>
         Episódios
       </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+      <ScrollView ref={scrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {items.map(({ seasonNumber, episode }) => (
           <EpisodeCarouselCard
             key={`${seasonNumber}-${episode.episodeNumber}`}
