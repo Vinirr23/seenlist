@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { Screen, Text } from "@/components/ui";
+import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { SearchBar } from "@/components/explore/SearchBar";
 import { SearchResults } from "@/components/explore/SearchResults";
 import { DiscoverCarousel } from "@/components/explore/DiscoverCarousel";
@@ -71,9 +72,7 @@ function ActivityTabContent() {
   if (isLoading) {
     return (
       <View style={styles.emptyActivity}>
-        <Text variant="muted" style={styles.emptyActivityText}>
-          Carregando…
-        </Text>
+        <PostCardSkeleton />
       </View>
     );
   }

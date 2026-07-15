@@ -6,6 +6,7 @@ import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "./PosterGrid";
+import { LibraryGridSkeleton } from "./LibraryGridSkeleton";
 import { EmptyShelf } from "./EmptyShelf";
 import { colors, spacing } from "@/lib/theme";
 
@@ -46,7 +47,7 @@ export function FilteredSeriesListScreen({
         {isError ? (
           <EmptyShelf message="Não foi possível carregar sua lista agora. Tente de novo em instantes." />
         ) : isLoading ? (
-          <Text variant="muted">Carregando…</Text>
+          <LibraryGridSkeleton />
         ) : filtered.length === 0 ? (
           <EmptyShelf message={emptyMessage} actionLabel="Explorar séries" actionHref="/(tabs)/explore" />
         ) : (

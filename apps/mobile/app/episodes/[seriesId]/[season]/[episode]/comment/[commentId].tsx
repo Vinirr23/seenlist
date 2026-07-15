@@ -10,6 +10,7 @@ import { EpisodeCommentItem } from "@/components/episode/EpisodeCommentItem";
 import { LikeButton } from "@/components/feed/LikeButton";
 import { SpoilerGate } from "@/components/reviews/SpoilerGate";
 import { Screen, Text, Button } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -177,7 +178,7 @@ export default function EpisodeCommentDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {isLoading ? (
-          <Text variant="muted">Carregando…</Text>
+          <AvatarRowSkeleton count={1} />
         ) : !comment ? (
           <Text variant="muted" style={styles.centerText}>
             Este comentário não existe mais.

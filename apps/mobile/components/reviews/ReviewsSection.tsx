@@ -4,6 +4,7 @@ import type { ReviewTarget } from "@/lib/social/reviews";
 import { useReviews } from "@/lib/social/useReviews";
 import { createReviewPost } from "@/lib/posts";
 import { Text } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { ReviewComposer } from "./ReviewComposer";
 import { ReviewCard } from "./ReviewCard";
 import { colors, spacing } from "@/lib/theme";
@@ -69,9 +70,7 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
       )}
 
       {isLoading ? (
-        <Text variant="muted" style={styles.centerText}>
-          Carregando avaliações...
-        </Text>
+        <AvatarRowSkeleton count={3} />
       ) : othersReviews.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
           Nenhuma outra avaliação ainda.

@@ -39,21 +39,22 @@ const CONTINUE_LIMIT = 8;
 export default function SeriesHomeScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
-  const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
+  const { items, isLoading, isError, refreshing, refetch, refetchSilently } = useLibraryItems();
   const upcoming = useUpcomingEpisodes();
   const { viewMode, setViewMode } = useViewModePreference("series-library");
 
   /**
-   * TASK-143 — toda vez que a aba Séries ganha foco, recalcula sozinho
-   * se alguma série "Em dia" ganhou episódio novo desde a última vez
-   * (sem precisar marcar nada manualmente) — depois busca a
-   * biblioteca de novo, pra já refletir na hora se alguma mudou pra
-   * "Assistindo".
+   * TASK-143/151 — toda vez que a aba Séries ganha foco, recalcula
+   * sozinho se alguma série "Em dia" ganhou episódio novo desde a
+   * última vez (sem precisar marcar nada manualmente) — depois busca
+   * a biblioteca de novo, EM SILÊNCIO (`refetchSilently`, não
+   * `refetch`) — usar `refetch` aqui ativava sem querer o spinner de
+   * "puxar pra atualizar", mesmo sem ninguém ter puxado nada.
    */
   useFocusEffect(
     useCallback(() => {
       recalculateUpToDateSeriesCategories()
-        .then(() => refetch())
+        .then(() => refetchSilently())
         .catch((error) => console.error("[SeriesHomeScreen] Falha ao recalcular categorias em foco", error));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -130,7 +131,7 @@ export default function SeriesHomeScreen() {
                     item={item}
                     nextEpisode={nextEpisode}
                     onMarkedWatched={() => {
-                      refetch();
+                      refetchSilently();
                       loadNextEpisodes();
                     }}
                   />

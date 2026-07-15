@@ -3,6 +3,7 @@ import { View, TextInput, Pressable, StyleSheet } from "react-native";
 import { usePostComments } from "@/lib/usePost";
 import { PostCommentItem } from "./PostCommentItem";
 import { Text } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
@@ -24,9 +25,7 @@ export function PostCommentsSection({ postId }: { postId: string }) {
   return (
     <View style={styles.wrapper}>
       {isLoading ? (
-        <Text variant="muted" style={styles.centerText}>
-          Carregando comentários...
-        </Text>
+        <AvatarRowSkeleton count={3} />
       ) : tree.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
           Nenhum comentário ainda.

@@ -11,6 +11,7 @@ import { useEpisodeCommentCount } from "@/lib/social/useEpisodeComments";
 import { getAnimeCharacters } from "@/lib/animeCharacters";
 import { tmdbImageUrl } from "@/lib/library";
 import { Screen, Text } from "@/components/ui";
+import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { EpisodeWatchedButton } from "@/components/series-detail/EpisodeWatchedButton";
 import { EpisodeStarRatingRow } from "@/components/episode/EpisodeStarRatingRow";
 import { EpisodeMoodPicker } from "@/components/episode/EpisodeMoodPicker";
@@ -239,7 +240,7 @@ export default function EpisodeDetailScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <Text variant="muted">Carregando…</Text>
+        <MediaDetailSkeleton />
       </Screen>
     );
   }

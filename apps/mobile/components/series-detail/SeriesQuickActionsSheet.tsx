@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import type { LibraryStatus } from "@seenlist/types";
 import { useMyLists } from "@/lib/useMyLists";
 import { addToList as addSeriesToList } from "@/lib/lists";
-import { Text } from "@/components/ui";
+import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
 
 export interface SeriesQuickActionsSheetProps {
@@ -98,9 +98,10 @@ export function SeriesQuickActionsSheet({
               </View>
 
               {listsLoading && (
-                <Text variant="muted" style={styles.loadingLists}>
-                  Carregando…
-                </Text>
+                <View style={styles.loadingListsSkeleton}>
+                  <Skeleton width="100%" height={16} />
+                  <Skeleton width="80%" height={16} />
+                </View>
               )}
 
               {!listsLoading && lists && lists.length === 0 && !showNewListForm && (
@@ -218,6 +219,11 @@ const styles = StyleSheet.create({
   loadingLists: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
+  },
+  loadingListsSkeleton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   newListForm: {
     flexDirection: "row",

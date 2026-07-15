@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { usePost } from "@/lib/usePost";
 import { Screen, Text } from "@/components/ui";
+import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { PostCard } from "@/components/feed/PostCard";
 import { colors, spacing } from "@/lib/theme";
 
@@ -29,7 +30,7 @@ export default function PostDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {isLoading ? (
-          <Text variant="muted">Carregando…</Text>
+          <PostCardSkeleton count={1} />
         ) : isError ? (
           <Text variant="muted">Não foi possível carregar este post.</Text>
         ) : !post ? (

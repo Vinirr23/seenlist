@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchMyComments, deleteMyComment, type MyComment } from "@/lib/myComments";
 import { tmdbImageUrl } from "@/lib/library";
 import { Screen, Text } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
@@ -74,7 +75,7 @@ export default function MyCommentsScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {isLoading ? (
-          <Text variant="muted">Carregando…</Text>
+          <AvatarRowSkeleton />
         ) : isError ? (
           <Text variant="muted">Não foi possível carregar seus comentários agora.</Text>
         ) : !comments || comments.length === 0 ? (

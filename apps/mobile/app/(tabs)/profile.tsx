@@ -6,6 +6,7 @@ import { useCurrentUser, useProfileSectionCounts, useSocialCounts } from "@/lib/
 import { useFollowCounts } from "@/lib/usePublicProfile";
 import { fetchEditableProfile } from "@/lib/editProfile";
 import { Screen, Text } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
 import { ProfileSectionRow } from "@/components/profile/ProfileSectionRow";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
@@ -60,7 +61,7 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <Screen>
-        <Text variant="muted">Carregando…</Text>
+        <AvatarRowSkeleton count={1} />
       </Screen>
     );
   }

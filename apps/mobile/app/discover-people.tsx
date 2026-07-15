@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useUserSearch } from "@/lib/useUserSearch";
 import { Screen, Text } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowListRow } from "@/components/profile/FollowListRow";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -47,9 +48,7 @@ export default function DiscoverPeopleScreen() {
       )}
 
       {isLoading ? (
-        <Text variant="muted" style={styles.centerText}>
-          Carregando…
-        </Text>
+        <AvatarRowSkeleton />
       ) : isError ? (
         <Text variant="muted" style={styles.centerText}>
           Não foi possível carregar agora.

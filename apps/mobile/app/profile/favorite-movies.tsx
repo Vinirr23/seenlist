@@ -9,6 +9,8 @@ import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
+import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
+import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
 
 /** TASK-116 (correção — Perfil) — porta de FavoriteMoviesPageView.tsx. */
@@ -39,7 +41,7 @@ export default function FavoriteMoviesScreen() {
         </View>
 
         {isLoading ? (
-          <Text variant="muted">Carregando…</Text>
+          viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
         ) : movies.length === 0 ? (
           <Text variant="muted">Você ainda não favoritou nenhum filme.</Text>
         ) : viewMode === "grid" ? (

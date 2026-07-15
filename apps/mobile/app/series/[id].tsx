@@ -3,6 +3,7 @@ import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSeriesDetails, useWatchedEpisodes, useSeriesStatus, useIsFavorite, removeSeries } from "@/lib/useSeriesDetails";
 import { Screen, Text } from "@/components/ui";
+import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { SeriesHeader } from "@/components/series-detail/SeriesHeader";
 import { SeriesQuickActionsSheet } from "@/components/series-detail/SeriesQuickActionsSheet";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
@@ -42,7 +43,7 @@ export default function SeriesDetailScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <Text variant="muted">Carregando…</Text>
+        <MediaDetailSkeleton />
       </Screen>
     );
   }

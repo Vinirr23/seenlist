@@ -9,6 +9,8 @@ export interface UseLibraryItemsResult {
   isError: boolean;
   refreshing: boolean;
   refetch: () => Promise<void>;
+  /** TASK-151 (correção — spinner de "puxar pra atualizar" aparecendo sozinho) — igual a `refetch`, mas nunca ativa `refreshing`. Pra atualizações automáticas em segundo plano (ex.: depois do recálculo de categoria ao focar a aba) que não devem mostrar o círculo giratório do puxar-pra-atualizar. */
+  refetchSilently: () => Promise<void>;
 }
 
 /**
@@ -60,5 +62,5 @@ export function useLibraryItems(): UseLibraryItemsResult {
     }, [])
   );
 
-  return { items, isLoading, isError, refreshing, refetch: () => load(true) };
+  return { items, isLoading, isError, refreshing, refetch: () => load(true), refetchSilently: () => load(false) };
 }

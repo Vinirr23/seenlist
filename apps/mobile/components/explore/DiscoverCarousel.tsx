@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { DiscoverItem } from "@/lib/discover";
+import { fetchLibraryStatusesFor } from "@/lib/discover";
 import { tmdbImageUrl } from "@/lib/library";
 import { AddToLibraryButton } from "./AddToLibraryButton";
 import { Text } from "@/components/ui";
@@ -18,6 +20,22 @@ export function DiscoverCarousel({
   items: DiscoverItem[];
   isLoading: boolean;
 }) {
+  /**
+   * TASK-152 — busca o status de TODOS os itens visíveis de uma vez
+   * (2 consultas no total, não uma por pôster) assim que a lista
+   * chega — cada `AddToLibraryButton` já nasce sabendo se precisa
+   * mostrar "+" ou "check", sem atraso individual.
+   */
+  const [statuses, setStatuses] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    fetchLibraryStatusesFor(items.map((item) => ({ mediaType: item.mediaType, id: item.id })))
+      .then(setStatuses)
+      .catch((error) => console.error("[DiscoverCarousel] Falha ao buscar status em lote", error));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((i) => `${i.mediaType}-${i.id}`).join(",")]);
+
   return (
     <View style={styles.section}>
       <Text variant="subtitle" style={styles.title}>
@@ -33,7 +51,7 @@ export function DiscoverCarousel({
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
           {items.map((item) => (
-            <DiscoverCard key={`${item.mediaType}-${item.id}`} item={item} />
+            <DiscoverCard key={`${item.mediaType}-${item.id}`} item={item} status={statuses.get(`${item.mediaType}-${item.id}`) ?? null} />
           ))}
         </ScrollView>
       )}
@@ -41,7 +59,7 @@ export function DiscoverCarousel({
   );
 }
 
-function DiscoverCard({ item }: { item: DiscoverItem }) {
+function DiscoverCard({ item, status }: { item: DiscoverItem; status: string | null }) {
   const router = useRouter();
   const posterUrl = tmdbImageUrl(item.posterPath, "w342");
 
@@ -63,7 +81,7 @@ function DiscoverCard({ item }: { item: DiscoverItem }) {
             <Feather name="film" size={20} color={colors.muted} />
           </View>
         )}
-        <AddToLibraryButton mediaType={item.mediaType} mediaId={item.id} />
+        <AddToLibraryButton mediaType={item.mediaType} mediaId={item.id} initialStatus={status} />
       </View>
       <Text numberOfLines={1} style={styles.cardTitle}>
         {item.title}

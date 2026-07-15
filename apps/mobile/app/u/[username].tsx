@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePublicProfile, useFollowCounts, useFollow } from "@/lib/usePublicProfile";
 import { usePublicProfileStats } from "@/lib/useProfileStats";
 import { Screen, Text } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowButton } from "@/components/profile/FollowButton";
 import { StatsCarousel } from "@/components/profile/StatsCarousel";
 import { PublicFavoritesSection } from "@/components/profile/PublicFavoritesSection";
@@ -44,7 +45,7 @@ export default function PublicProfileScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <Text variant="muted">Carregando…</Text>
+        <AvatarRowSkeleton count={1} />
       </Screen>
     );
   }

@@ -7,6 +7,7 @@ import { findCommentNode } from "@/lib/postComments";
 import { PostCommentItem } from "@/components/feed/PostCommentItem";
 import { LikeButton } from "@/components/feed/LikeButton";
 import { Screen, Text } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -44,7 +45,7 @@ export default function PostCommentDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {isLoading ? (
-          <Text variant="muted">Carregando…</Text>
+          <AvatarRowSkeleton count={1} />
         ) : !comment ? (
           <Text variant="muted" style={styles.centerText}>
             Este comentário não existe mais.

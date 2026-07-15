@@ -1,34 +1,35 @@
 import { useEffect, useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { fetchSeriesStatus, setSeriesStatus } from "@/lib/seriesDetails";
-import { fetchMovieStatus, setMovieStatus } from "@/lib/movieDetails";
+import { setSeriesStatus } from "@/lib/seriesDetails";
+import { setMovieStatus } from "@/lib/movieDetails";
 import { colors, radius } from "@/lib/theme";
 
 /**
- * TASK-142 (Explorar, a pedido) — porta de `AddToLibraryButton.tsx`.
+ * TASK-142/152 (Explorar, a pedido) — porta de `AddToLibraryButton.tsx`.
  * "Adicionar" aqui é só marcar como "Assistir depois" — a mesma ação
- * que qualquer outro "+" do app já faz. Não tinha sido portado na
- * leva original do Explorar (só o carrossel e a navegação foram).
+ * que qualquer outro "+" do app já faz.
+ *
+ * Correção (TASK-152 — atraso, aparecia depois do pôster): não busca
+ * mais o próprio status sozinho — recebe `initialStatus` já pronto de
+ * quem chama (`DiscoverCarousel.tsx`, buscando todos de uma vez só).
+ * Renderiza na mesma hora que o pôster, sem esperar rede nenhuma.
  */
-export function AddToLibraryButton({ mediaType, mediaId }: { mediaType: "movie" | "series"; mediaId: number }) {
-  const [status, setStatus] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export function AddToLibraryButton({
+  mediaType,
+  mediaId,
+  initialStatus,
+}: {
+  mediaType: "movie" | "series";
+  mediaId: number;
+  initialStatus: string | null;
+}) {
+  const [status, setStatus] = useState<string | null>(initialStatus);
   const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    const fetcher = mediaType === "series" ? fetchSeriesStatus(mediaId) : fetchMovieStatus(mediaId);
-    fetcher.then((value) => {
-      if (!cancelled) {
-        setStatus(value);
-        setIsLoading(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [mediaType, mediaId]);
+    setStatus(initialStatus);
+  }, [initialStatus]);
 
   const isAdded = status != null;
 
@@ -48,8 +49,6 @@ export function AddToLibraryButton({ mediaType, mediaId }: { mediaType: "movie" 
       setIsPending(false);
     }
   }
-
-  if (isLoading) return null;
 
   return (
     <Pressable style={styles.button} onPress={handlePress} disabled={isPending} hitSlop={6}>

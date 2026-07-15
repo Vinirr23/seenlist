@@ -8,6 +8,8 @@ import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
+import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
+import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
 import { colors, spacing } from "@/lib/theme";
@@ -92,7 +94,7 @@ export default function MoviesScreen() {
           {isError ? (
             <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />
           ) : isLoading ? (
-            <Text variant="muted">Carregando…</Text>
+            viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
           ) : wantToWatch.length === 0 ? (
             <EmptyShelf message="Sua lista está vazia." actionLabel="Explorar filmes" actionHref="/(tabs)/explore" />
           ) : viewMode === "grid" ? (
@@ -118,7 +120,7 @@ export default function MoviesScreen() {
           {isError ? (
             <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />
           ) : isLoading ? (
-            <Text variant="muted">Carregando…</Text>
+            viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
           ) : upcoming.length === 0 ? (
             <EmptyShelf message="Nenhum filme da sua lista 'Assistir depois' tem estreia futura conhecida." />
           ) : viewMode === "grid" ? (

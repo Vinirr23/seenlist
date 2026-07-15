@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useFollowList } from "@/lib/useFollowList";
 import type { FollowDirection } from "@/lib/followList";
 import { Screen, Text } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowListRow } from "@/components/profile/FollowListRow";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -60,9 +61,7 @@ export default function FollowListScreen() {
       </View>
 
       {isLoading ? (
-        <Text variant="muted" style={styles.centerText}>
-          Carregando…
-        </Text>
+        <AvatarRowSkeleton />
       ) : isError ? (
         <Text variant="muted" style={styles.centerText}>
           Não foi possível carregar agora.

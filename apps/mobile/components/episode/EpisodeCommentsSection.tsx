@@ -6,6 +6,7 @@ import { useEpisodeComments, useEpisodeSpoilerProtection } from "@/lib/social/us
 import { pickImageFromLibrary, uploadCommentImage } from "@/lib/imageUpload";
 import { EpisodeCommentItem } from "./EpisodeCommentItem";
 import { Text } from "@/components/ui";
+import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
@@ -111,9 +112,7 @@ export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number;
       </View>
 
       {isLoading ? (
-        <Text variant="muted" style={styles.centerText}>
-          Carregando comentários...
-        </Text>
+        <AvatarRowSkeleton count={3} />
       ) : tree.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
           Nenhum comentário ainda. Seja o primeiro a comentar.

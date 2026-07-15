@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useProfileStats } from "@/lib/useProfileStats";
 import { formatWatchDuration } from "@/lib/profileStats";
-import { Text } from "@/components/ui";
+import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
@@ -20,7 +20,21 @@ export function StatisticsCard() {
   const { stats, isLoading, isError } = useProfileStats();
 
   if (isLoading) {
-    return <View style={styles.skeleton} />;
+    return (
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <Skeleton width={120} height={16} />
+        </View>
+        <View style={styles.grid}>
+          {[0, 1, 2, 3].map((index) => (
+            <View key={index} style={styles.gridItem}>
+              <Skeleton width={50} height={fontSize.lg} />
+              <Skeleton width={90} height={11} style={styles.skeletonLabel} />
+            </View>
+          ))}
+        </View>
+      </View>
+    );
   }
   if (isError || !stats) {
     return (
@@ -64,10 +78,8 @@ export function StatisticsCard() {
 }
 
 const styles = StyleSheet.create({
-  skeleton: {
-    height: 128,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
+  skeletonLabel: {
+    marginTop: 4,
   },
   card: {
     borderWidth: 1,

@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useNotificationPreferences } from "@/lib/useNotificationPreferences";
 import type { NotificationPreferences } from "@/lib/notificationPreferences";
-import { Screen, Text } from "@/components/ui";
+import { Screen, Text, Skeleton } from "@/components/ui";
 import { ToggleRow } from "@/components/settings/ToggleRow";
 import { colors, radius, spacing } from "@/lib/theme";
 
@@ -37,7 +37,14 @@ export default function NotificationSettingsScreen() {
 
       <View style={styles.content}>
         {isLoading ? (
-          <Text variant="muted">Carregando…</Text>
+          <View style={styles.card}>
+            {[0, 1, 2, 3].map((index) => (
+              <View key={index} style={styles.skeletonRow}>
+                <Skeleton width="55%" height={14} />
+                <Skeleton width={40} height={22} borderRadius={11} />
+              </View>
+            ))}
+          </View>
         ) : (
           <View style={styles.card}>
             {ITEMS.map((item, index) => (
@@ -75,5 +82,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     overflow: "hidden",
+  },
+  skeletonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
 });

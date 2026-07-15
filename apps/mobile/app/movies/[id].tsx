@@ -2,6 +2,7 @@ import { ScrollView, View, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useMovieDetails, useMovieStatus } from "@/lib/useMovieDetails";
 import { Screen, Text } from "@/components/ui";
+import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { MovieHeader } from "@/components/movie-detail/MovieHeader";
 import { MovieActions } from "@/components/movie-detail/MovieActions";
 import { StreamingProviders } from "@/components/movie-detail/StreamingProviders";
@@ -31,7 +32,7 @@ export default function MovieDetailScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <Text variant="muted">Carregando…</Text>
+        <MediaDetailSkeleton />
       </Screen>
     );
   }

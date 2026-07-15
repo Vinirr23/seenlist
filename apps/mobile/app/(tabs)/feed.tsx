@@ -1,5 +1,6 @@
 import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { Screen, Text } from "@/components/ui";
+import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { usePosts } from "@/lib/usePosts";
 import { PostCard } from "@/components/feed/PostCard";
 import { CreatePostButton } from "@/components/feed/CreatePostButton";
@@ -25,9 +26,7 @@ export default function FeedScreen() {
             Não foi possível carregar o Feed agora. Tente de novo em instantes.
           </Text>
         ) : isLoading ? (
-          <Text variant="muted" style={styles.centerText}>
-            Carregando…
-          </Text>
+          <PostCardSkeleton />
         ) : !posts || posts.length === 0 ? (
           <Text variant="muted" style={styles.centerText}>
             Ninguém publicou nada ainda. Seja o primeiro — toque no botão + aqui embaixo.
