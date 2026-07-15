@@ -43,7 +43,14 @@ export async function fetchActivityFeed(): Promise<ActivityItem[]> {
   const [seriesStatusRows, movieStatusRows, reviewRows, episodeRows] = await Promise.all([
     supabase.from("series_status").select("user_id, series_id, status, updated_at").in("user_id", followedIds).gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
     supabase.from("movie_status").select("user_id, movie_id, status, updated_at").in("user_id", followedIds).gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
-    supabase.from("reviews").select("user_id, media_type, media_id, rating, created_at").in("user_id", followedIds).is("deleted_at", null).gte("created_at", sinceIso).order("created_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
+    supabase
+      .from("reviews")
+      .select("id, user_id, media_type, media_id, rating, created_at")
+      .in("user_id", followedIds)
+      .is("deleted_at", null)
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(LIMIT_PER_SOURCE),
     supabase
       .from("watched_episodes")
       .select("user_id, series_id, season_number, episode_number, watched_at")
@@ -109,7 +116,7 @@ export async function fetchActivityFeed(): Promise<ActivityItem[]> {
     const summary = row.media_type === "movie" ? summaries.movies[row.media_id] : summaries.series[row.media_id];
     if (!profile || !summary) continue;
     items.push({
-      id: `review-${row.user_id}-${row.media_type}-${row.media_id}`,
+      id: `review-${row.id}`,
       userName: profile.display_name || profile.username,
       userAvatarUrl: profile.avatar_url,
       action: `avaliou com ${Number(row.rating).toFixed(1)} estrelas`,
