@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -24,31 +24,51 @@ export function EpisodeCarousel({
 }) {
   const items = resolveCarouselEpisodes(category, seasons, watched);
   const scrollRef = useRef<ScrollView>(null);
-  const lastAutoScrolledSeriesId = useRef<number | null>(null);
+  const renderedSeriesId = useRef<number | null>(null);
+  const hasUserScrolled = useRef(false);
+
+  // Ao trocar de série, reseta o controle de "usuário já mexeu na lista manualmente".
+  if (renderedSeriesId.current !== seriesId) {
+    renderedSeriesId.current = seriesId;
+    hasUserScrolled.current = false;
+  }
 
   /**
-   * TASK-157/158/159 (correção — instável, funcionava ora sim ora
-   * não) — ao abrir a tela, a lista horizontal de episódios já abre
+   * TASK-157/158/159/160/161 (correção definitiva — instável) — ao
+   * abrir a tela, a lista horizontal de episódios já abre
    * posicionada no primeiro episódio ainda não marcado como
    * assistido, em vez de sempre começar do episódio 1.
    *
-   * Correção (TASK-159): a versão com `useEffect` rolava a lista
-   * ANTES dela terminar de calcular o próprio tamanho de verdade em
-   * alguns casos — uma corrida de tempo entre o efeito rodar e o
-   * layout nativo terminar, que varia de aparelho pra aparelho (por
-   * isso "às vezes funcionava"). Agora usa `onContentSizeChange` do
-   * próprio `ScrollView` — só dispara quando a lista JÁ SABE seu
-   * tamanho real, sem depender de tempo nenhum.
+   * Causa raiz de verdade, confirmada com dado real do banco
+   * (TASK-161): `onContentSizeChange` só dispara quando o TAMANHO da
+   * lista muda — e o tamanho não depende de quais episódios estão
+   * marcados como assistidos, só de quantos episódios existem. Se os
+   * dados de "assistido" (`watched`, que vem de uma busca separada,
+   * assíncrona) ainda não tinham chegado no instante em que a lista
+   * terminou de desenhar, a tentativa de rolagem via
+   * `onContentSizeChange` calculava a posição com `watched` ainda
+   * VAZIO — e como o tamanho da lista não muda depois que os dados
+   * de verdade chegam, nunca disparava de novo.
+   *
+   * Agora: a mesma função de tentativa (`attemptScroll`) é chamada
+   * tanto quando o LAYOUT fica pronto (`onContentSizeChange`) quanto
+   * toda vez que `watched` muda de verdade (novo resultado da busca)
+   * — cobre os dois lados da corrida, não importa qual dos dois
+   * chega primeiro.
    */
-  function handleContentSizeChange() {
-    if (lastAutoScrolledSeriesId.current === seriesId || items.length === 0) return;
+  function attemptScroll() {
+    if (hasUserScrolled.current || items.length === 0) return;
     const firstUnwatchedIndex = items.findIndex(({ seasonNumber, episode }) => !watched.has(episodeKey(seasonNumber, episode.episodeNumber)));
     if (firstUnwatchedIndex > 0) {
       const offsetX = firstUnwatchedIndex * (CARD_WIDTH + spacing.sm);
       scrollRef.current?.scrollTo({ x: offsetX, animated: false });
     }
-    lastAutoScrolledSeriesId.current = seriesId;
   }
+
+  useEffect(() => {
+    attemptScroll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seriesId, watched]);
 
   if (items.length === 0) return null;
 
@@ -62,7 +82,10 @@ export function EpisodeCarousel({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
-        onContentSizeChange={handleContentSizeChange}
+        onContentSizeChange={attemptScroll}
+        onScrollBeginDrag={() => {
+          hasUserScrolled.current = true;
+        }}
       >
         {items.map(({ seasonNumber, episode }) => (
           <EpisodeCarouselCard
