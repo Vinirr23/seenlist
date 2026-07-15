@@ -1,19 +1,47 @@
+import { useEffect, useState } from "react";
 import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { Screen, Text } from "@/components/ui";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { usePosts } from "@/lib/usePosts";
 import { PostCard } from "@/components/feed/PostCard";
 import { CreatePostButton } from "@/components/feed/CreatePostButton";
+import { fetchLikeInfoFor, fetchCommentCountsFor } from "@/lib/social/likes";
+import { fetchSavedStatusesFor } from "@/lib/social/savedPosts";
 import { colors, spacing } from "@/lib/theme";
 
 /**
- * TASK-095 — primeira versão do Feed nativo: lista de posts reais do
- * Supabase, curtida de verdade, contagem de comentários real. Tocar
- * num post mostra "em breve" (a tela de post com comentários abertos
- * ainda não existe). Publicar só aceita texto por enquanto.
+ * TASK-095/153 — primeira versão do Feed nativo: lista de posts
+ * reais do Supabase, curtida de verdade, contagem de comentários
+ * real.
+ *
+ * Correção (TASK-153 — Feed lento): antes, cada `PostCard`
+ * (curtir/salvar/contagem de comentário) buscava seus próprios dados
+ * sozinho — com vários posts na tela, viravam dezenas de consultas
+ * soltas. Agora busca tudo dos posts visíveis de uma vez (3
+ * consultas no total, não 4 por post) assim que a lista chega, e
+ * repassa pronto pra cada `PostCard`.
  */
 export default function FeedScreen() {
   const { posts, isLoading, isError, refreshing, refetch } = usePosts();
+
+  const [likeInfoByPostId, setLikeInfoByPostId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+  const [commentCountByPostId, setCommentCountByPostId] = useState<Map<string, number>>(new Map());
+  const [interactionsLoaded, setInteractionsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!posts || posts.length === 0) return;
+    const postIds = posts.map((p) => p.id);
+    Promise.all([fetchLikeInfoFor("post", postIds), fetchSavedStatusesFor(postIds), fetchCommentCountsFor(postIds)])
+      .then(([likeInfo, saved, commentCounts]) => {
+        setLikeInfoByPostId(likeInfo);
+        setSavedPostIds(saved);
+        setCommentCountByPostId(commentCounts);
+        setInteractionsLoaded(true);
+      })
+      .catch((error) => console.error("[FeedScreen] Falha ao buscar interações em lote", error));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts?.map((p) => p.id).join(",")]);
 
   return (
     <Screen padded={false}>
@@ -34,7 +62,14 @@ export default function FeedScreen() {
         ) : (
           <View style={styles.list}>
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} onDeleted={refetch} />
+              <PostCard
+                key={post.id}
+                post={post}
+                onDeleted={refetch}
+                likeInfo={likeInfoByPostId.get(post.id)}
+                isSaved={interactionsLoaded ? savedPostIds.has(post.id) : undefined}
+                commentCount={commentCountByPostId.get(post.id)}
+              />
             ))}
           </View>
         )}

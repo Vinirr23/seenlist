@@ -9,7 +9,7 @@ import { colors, radius, spacing } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
-export function ReviewCard({ review }: { review: Review }) {
+export function ReviewCard({ review, initial }: { review: Review; initial?: { count: number; hasLiked: boolean } }) {
   const router = useRouter();
 
   return (
@@ -30,7 +30,7 @@ export function ReviewCard({ review }: { review: Review }) {
         </SpoilerGate>
       )}
 
-      <LikeButton targetType="review" targetId={review.id} />
+      <LikeButton targetType="review" targetId={review.id} initial={initial} />
     </View>
   );
 }

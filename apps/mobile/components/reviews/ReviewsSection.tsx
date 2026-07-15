@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import type { ReviewTarget } from "@/lib/social/reviews";
 import { useReviews } from "@/lib/social/useReviews";
 import { createReviewPost } from "@/lib/posts";
+import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { ReviewComposer } from "./ReviewComposer";
@@ -25,6 +26,19 @@ export interface ReviewsSectionProps {
 export function ReviewsSection({ target, media }: ReviewsSectionProps) {
   const { othersReviews, myReview, isLoading, saving, submit, remove } = useReviews(target);
   const [postError, setPostError] = useState<string | null>(null);
+
+  /** TASK-153 — busca a curtida de TODAS as avaliações visíveis de uma vez, não uma por uma. */
+  const [likeInfoByReviewId, setLikeInfoByReviewId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
+  useEffect(() => {
+    if (othersReviews.length === 0) return;
+    fetchLikeInfoFor(
+      "review",
+      othersReviews.map((r) => r.id)
+    )
+      .then(setLikeInfoByReviewId)
+      .catch((error) => console.error("[ReviewsSection] Falha ao buscar curtidas em lote", error));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [othersReviews.map((r) => r.id).join(",")]);
 
   async function handleSubmit(rating: number, reviewText: string | null, containsSpoiler: boolean, shareToFeed: boolean) {
     setPostError(null);
@@ -78,7 +92,7 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
       ) : (
         <View style={styles.list}>
           {othersReviews.map((review) => (
-            <ReviewCard key={review.id} review={review} />
+            <ReviewCard key={review.id} review={review} initial={likeInfoByReviewId.get(review.id)} />
           ))}
         </View>
       )}

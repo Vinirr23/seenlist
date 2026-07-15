@@ -4,11 +4,21 @@ import { Feather } from "@expo/vector-icons";
 import { fetchIsSaved, toggleSavePost } from "@/lib/social/savedPosts";
 import { colors } from "@/lib/theme";
 
-export function SaveButton({ postId }: { postId: string }) {
-  const [isSaved, setIsSaved] = useState(false);
+export function SaveButton({ postId, initial }: { postId: string; initial?: boolean }) {
+  const [isSaved, setIsSaved] = useState(initial ?? false);
   const [busy, setBusy] = useState(false);
+  const [hasOwnValue, setHasOwnValue] = useState(initial !== undefined);
 
   useEffect(() => {
+    if (initial !== undefined && !hasOwnValue) {
+      setIsSaved(initial);
+      setHasOwnValue(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
+
+  useEffect(() => {
+    if (initial !== undefined) return; // já veio pronto — não busca de novo
     let cancelled = false;
     fetchIsSaved(postId).then((value) => {
       if (!cancelled) setIsSaved(value);
@@ -16,6 +26,7 @@ export function SaveButton({ postId }: { postId: string }) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
   async function handlePress() {

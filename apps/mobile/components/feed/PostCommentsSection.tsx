@@ -1,10 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, TextInput, Pressable, StyleSheet } from "react-native";
 import { usePostComments } from "@/lib/usePost";
+import type { CommentNode } from "@/lib/postComments";
+import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { PostCommentItem } from "./PostCommentItem";
 import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+
+/** TASK-153 — achata a árvore inteira numa lista simples de ids, pra buscar curtida de todo mundo de uma vez. */
+function flattenCommentIds(nodes: CommentNode[]): string[] {
+  const ids: string[] = [];
+  for (const node of nodes) {
+    ids.push(node.id);
+    if (node.children.length > 0) ids.push(...flattenCommentIds(node.children));
+  }
+  return ids;
+}
 
 /**
  * TASK-102/131 — porta de `PostCommentsSection.tsx`. Correção
@@ -15,6 +27,17 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 export function PostCommentsSection({ postId }: { postId: string }) {
   const { tree, isLoading, sending, submit, remove } = usePostComments(postId);
   const [body, setBody] = useState("");
+
+  /** TASK-153 — busca a curtida de TODOS os comentários (em qualquer nível) de uma vez, não um por um. */
+  const [likeInfoByCommentId, setLikeInfoByCommentId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
+  useEffect(() => {
+    const ids = flattenCommentIds(tree);
+    if (ids.length === 0) return;
+    fetchLikeInfoFor("post_comment", ids)
+      .then(setLikeInfoByCommentId)
+      .catch((error) => console.error("[PostCommentsSection] Falha ao buscar curtidas em lote", error));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flattenCommentIds(tree).join(",")]);
 
   async function handleSubmit() {
     if (!body.trim()) return;
@@ -33,7 +56,7 @@ export function PostCommentsSection({ postId }: { postId: string }) {
       ) : (
         <View>
           {tree.map((node) => (
-            <PostCommentItem key={node.id} comment={node} postId={postId} depth={0} onDelete={remove} />
+            <PostCommentItem key={node.id} comment={node} postId={postId} depth={0} onDelete={remove} likeInfoByCommentId={likeInfoByCommentId} />
           ))}
         </View>
       )}

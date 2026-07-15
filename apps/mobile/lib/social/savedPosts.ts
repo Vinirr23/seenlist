@@ -1,5 +1,21 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
+/** TASK-153 — mesma ideia do fetchLikeInfoFor: 1 consulta pra todos os posts visíveis, não uma por post. */
+export async function fetchSavedStatusesFor(postIds: string[]): Promise<Set<string>> {
+  const result = new Set<string>();
+  if (postIds.length === 0) return result;
+
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return result;
+
+  const { data, error } = await supabase.from("saved_posts").select("post_id").eq("user_id", user.id).in("post_id", postIds);
+  if (error) throw error;
+  for (const row of data ?? []) result.add(row.post_id);
+  return result;
+}
+
 export async function fetchIsSaved(postId: string): Promise<boolean> {
   const {
     data: { user },

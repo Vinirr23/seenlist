@@ -5,12 +5,30 @@ import { fetchHasLiked, fetchLikeCount, toggleLike, type LikeTargetType } from "
 import { Text } from "@/components/ui";
 import { colors, spacing } from "@/lib/theme";
 
-export function LikeButton({ targetType, targetId }: { targetType: LikeTargetType; targetId: string }) {
-  const [count, setCount] = useState<number | null>(null);
-  const [hasLiked, setHasLiked] = useState(false);
+export function LikeButton({
+  targetType,
+  targetId,
+  initial,
+}: {
+  targetType: LikeTargetType;
+  targetId: string;
+  /** TASK-153 — quando quem chama já buscou isso em lote (ex.: Feed), passa pronto aqui e o componente não busca sozinho. */
+  initial?: { count: number; hasLiked: boolean };
+}) {
+  const [count, setCount] = useState<number | null>(initial?.count ?? null);
+  const [hasLiked, setHasLiked] = useState(initial?.hasLiked ?? false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (initial && count === null) {
+      setCount(initial.count);
+      setHasLiked(initial.hasLiked);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
+
+  useEffect(() => {
+    if (initial) return; // já veio pronto — não busca de novo
     let cancelled = false;
     Promise.all([fetchLikeCount(targetType, targetId), fetchHasLiked(targetType, targetId)]).then(([c, liked]) => {
       if (!cancelled) {
@@ -21,6 +39,7 @@ export function LikeButton({ targetType, targetId }: { targetType: LikeTargetTyp
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetType, targetId]);
 
   async function handlePress() {

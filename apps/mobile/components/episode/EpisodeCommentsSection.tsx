@@ -1,13 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Image, TextInput, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import type { MediaTarget } from "@/lib/social/mediaComments";
+import type { MediaTarget, CommentNode } from "@/lib/social/mediaComments";
 import { useEpisodeComments, useEpisodeSpoilerProtection } from "@/lib/social/useEpisodeComments";
 import { pickImageFromLibrary, uploadCommentImage } from "@/lib/imageUpload";
+import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { EpisodeCommentItem } from "./EpisodeCommentItem";
 import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+
+/** TASK-153 — achata a árvore inteira (comentário + respostas, em qualquer nível) numa lista simples de ids, pra buscar curtida de todo mundo de uma vez. */
+function flattenCommentIds(nodes: CommentNode[]): string[] {
+  const ids: string[] = [];
+  for (const node of nodes) {
+    ids.push(node.id);
+    if (node.children.length > 0) ids.push(...flattenCommentIds(node.children));
+  }
+  return ids;
+}
 
 /**
  * TASK-122/129/132/133 (episódio, correção) — árvore de respostas +
@@ -19,6 +30,17 @@ export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number;
   const { tree, isLoading, sending, submit, remove, edit } = useEpisodeComments(target);
   const autoHideSpoilers = useEpisodeSpoilerProtection(seriesId, target.seasonNumber ?? 0, target.episodeNumber ?? 0);
   const commentsBaseHref = `/episodes/${target.mediaId}/${target.seasonNumber}/${target.episodeNumber}`;
+
+  /** TASK-153 — busca a curtida de TODOS os comentários (em qualquer nível da árvore) de uma vez, não um por um. */
+  const [likeInfoByCommentId, setLikeInfoByCommentId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
+  useEffect(() => {
+    const ids = flattenCommentIds(tree);
+    if (ids.length === 0) return;
+    fetchLikeInfoFor("comment", ids)
+      .then(setLikeInfoByCommentId)
+      .catch((error) => console.error("[EpisodeCommentsSection] Falha ao buscar curtidas em lote", error));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flattenCommentIds(tree).join(",")]);
 
   const [body, setBody] = useState("");
   const [markSpoiler, setMarkSpoiler] = useState(false);
@@ -128,6 +150,7 @@ export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number;
               commentsBaseHref={commentsBaseHref}
               onDelete={remove}
               onEdit={edit}
+              likeInfoByCommentId={likeInfoByCommentId}
             />
           ))}
         </View>

@@ -36,6 +36,7 @@ export function EpisodeCommentItem({
   commentsBaseHref,
   onDelete,
   onEdit,
+  likeInfoByCommentId,
 }: {
   comment: CommentNode;
   depth: number;
@@ -43,6 +44,8 @@ export function EpisodeCommentItem({
   commentsBaseHref: string;
   onDelete: (commentId: string) => Promise<void>;
   onEdit: (commentId: string, body: string) => Promise<void>;
+  /** TASK-153 — curtidas de todos os comentários já buscadas em lote por quem chama, evita 1 busca por comentário. */
+  likeInfoByCommentId?: Map<string, { count: number; hasLiked: boolean }>;
 }) {
   const router = useRouter();
   const { session } = useAuth();
@@ -127,7 +130,7 @@ export function EpisodeCommentItem({
           </SpoilerGate>
 
           <View style={styles.actionsRow}>
-            <LikeButton targetType="comment" targetId={comment.id} />
+            <LikeButton targetType="comment" targetId={comment.id} initial={likeInfoByCommentId?.get(comment.id)} />
             {depth < 2 && (
               <Pressable onPress={() => router.push(`${commentsBaseHref}/comment/${comment.id}`)}>
                 <Text variant="muted" style={styles.actionLabel}>
@@ -162,6 +165,7 @@ export function EpisodeCommentItem({
               commentsBaseHref={commentsBaseHref}
               onDelete={onDelete}
               onEdit={onEdit}
+              likeInfoByCommentId={likeInfoByCommentId}
             />
           ))}
         </View>

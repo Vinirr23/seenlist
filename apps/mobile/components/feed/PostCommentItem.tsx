@@ -21,11 +21,14 @@ export function PostCommentItem({
   postId,
   depth,
   onDelete,
+  likeInfoByCommentId,
 }: {
   comment: CommentNode;
   postId: string;
   depth: number;
   onDelete: (commentId: string) => Promise<void>;
+  /** TASK-153 — curtidas de todos os comentários já buscadas em lote por quem chama, evita 1 busca por comentário. */
+  likeInfoByCommentId?: Map<string, { count: number; hasLiked: boolean }>;
 }) {
   const router = useRouter();
   const { session } = useAuth();
@@ -60,7 +63,7 @@ export function PostCommentItem({
         </View>
         <Text style={styles.body}>{comment.body}</Text>
         <View style={styles.actionsRow}>
-          <LikeButton targetType="post_comment" targetId={comment.id} />
+          <LikeButton targetType="post_comment" targetId={comment.id} initial={likeInfoByCommentId?.get(comment.id)} />
           {depth < 2 && (
             <Pressable onPress={() => router.push(`/posts/${postId}/comment/${comment.id}`)}>
               <Text variant="muted" style={styles.replyLabel}>
@@ -77,7 +80,7 @@ export function PostCommentItem({
       </View>
 
       {comment.children.map((child) => (
-        <PostCommentItem key={child.id} comment={child} postId={postId} depth={depth + 1} onDelete={onDelete} />
+        <PostCommentItem key={child.id} comment={child} postId={postId} depth={depth + 1} onDelete={onDelete} likeInfoByCommentId={likeInfoByCommentId} />
       ))}
     </View>
   );

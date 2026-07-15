@@ -5,10 +5,16 @@ import { fetchPostCommentCount } from "@/lib/social/likes";
 import { Text } from "@/components/ui";
 import { colors, spacing } from "@/lib/theme";
 
-export function CommentCount({ postId }: { postId: string }) {
-  const [count, setCount] = useState<number | null>(null);
+export function CommentCount({ postId, initial }: { postId: string; initial?: number }) {
+  const [count, setCount] = useState<number | null>(initial ?? null);
 
   useEffect(() => {
+    if (initial !== undefined && count === null) setCount(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
+
+  useEffect(() => {
+    if (initial !== undefined) return; // já veio pronto — não busca de novo
     let cancelled = false;
     fetchPostCommentCount(postId).then((c) => {
       if (!cancelled) setCount(c);
@@ -16,6 +22,7 @@ export function CommentCount({ postId }: { postId: string }) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
   return (

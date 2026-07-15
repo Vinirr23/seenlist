@@ -40,7 +40,22 @@ function initials(name: string): string {
  * de apagar (Feed recarrega a lista; a tela de detalhe do post volta
  * pro Feed, já que o post que ela mostrava deixou de existir).
  */
-export function PostCard({ post, detail = false, onDeleted }: { post: Post; detail?: boolean; onDeleted?: () => void }) {
+export function PostCard({
+  post,
+  detail = false,
+  onDeleted,
+  likeInfo,
+  isSaved,
+  commentCount,
+}: {
+  post: Post;
+  detail?: boolean;
+  onDeleted?: () => void;
+  /** TASK-153 — quando quem chama já buscou isso em lote (Feed), passa pronto aqui. */
+  likeInfo?: { count: number; hasLiked: boolean };
+  isSaved?: boolean;
+  commentCount?: number;
+}) {
   const router = useRouter();
   const { session } = useAuth();
   const posterUrl = post.mediaPosterPath ? tmdbImageUrl(post.mediaPosterPath, "w185") : null;
@@ -204,9 +219,9 @@ export function PostCard({ post, detail = false, onDeleted }: { post: Post; deta
       {!!post.imageUrl && <Image source={{ uri: post.imageUrl }} style={styles.postImage} resizeMode="cover" />}
 
       <View style={styles.footer}>
-        <LikeButton targetType="post" targetId={post.id} />
-        <CommentCount postId={post.id} />
-        <SaveButton postId={post.id} />
+        <LikeButton targetType="post" targetId={post.id} initial={likeInfo} />
+        <CommentCount postId={post.id} initial={commentCount} />
+        <SaveButton postId={post.id} initial={isSaved} />
       </View>
 
       {detail && <PostCommentsSection postId={post.id} />}
