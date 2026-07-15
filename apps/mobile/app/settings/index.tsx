@@ -4,7 +4,6 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyProfileSettings, type MyProfileSettings, type ProfileVisibility } from "@/lib/settings";
-import { repairWatchingSeriesCategories } from "@/lib/seriesDetails";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Screen, Text } from "@/components/ui";
 import { SettingsRow } from "@/components/settings/SettingsRow";
@@ -39,25 +38,6 @@ export default function SettingsScreen() {
   const { signOut } = useAuth();
   const [profile, setProfile] = useState<MyProfileSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [repairing, setRepairing] = useState(false);
-
-  async function handleRepairCategories() {
-    setRepairing(true);
-    try {
-      const result = await repairWatchingSeriesCategories();
-      Alert.alert(
-        "Reparo concluído",
-        result.total === 0
-          ? "Você não tem nenhuma série em 'Assistindo' pra conferir."
-          : `Conferidas ${result.total} séries em "Assistindo". ${result.corrigidas} voltaram pra "Em dia"/"Assistidas" (estavam erradas pelo bug de contagem).`
-      );
-    } catch (error) {
-      console.error("[SettingsScreen] Falha ao reparar categorias", error);
-      Alert.alert("Não foi possível reparar agora", "Tente de novo em instantes.");
-    } finally {
-      setRepairing(false);
-    }
-  }
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
@@ -144,15 +124,6 @@ export default function SettingsScreen() {
           <SettingsRow label="Sobre" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/profile/settings/about`)} />
           <SettingsRow label="Política de privacidade" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/profile/settings/privacy`)} />
           <SettingsRow label="Termos de uso" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/profile/settings/terms`)} last />
-        </View>
-
-        <SectionLabel label="Manutenção (temporário)" />
-        <View style={styles.card}>
-          <SettingsRow
-            label={repairing ? "Reparando…" : "Reparar categorias de séries"}
-            onPress={repairing ? undefined : handleRepairCategories}
-            last
-          />
         </View>
 
         <SectionLabel label="Zona de risco" />
