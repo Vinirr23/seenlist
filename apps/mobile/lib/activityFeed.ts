@@ -44,7 +44,13 @@ export async function fetchActivityFeed(): Promise<ActivityItem[]> {
     supabase.from("series_status").select("user_id, series_id, status, updated_at").in("user_id", followedIds).gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
     supabase.from("movie_status").select("user_id, movie_id, status, updated_at").in("user_id", followedIds).gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
     supabase.from("reviews").select("user_id, media_type, media_id, rating, created_at").in("user_id", followedIds).is("deleted_at", null).gte("created_at", sinceIso).order("created_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
-    supabase.from("watched_episodes").select("user_id, series_id, watched_at").in("user_id", followedIds).gte("watched_at", sinceIso).order("watched_at", { ascending: false }).limit(LIMIT_PER_SOURCE),
+    supabase
+      .from("watched_episodes")
+      .select("user_id, series_id, season_number, episode_number, watched_at")
+      .in("user_id", followedIds)
+      .gte("watched_at", sinceIso)
+      .order("watched_at", { ascending: false })
+      .limit(LIMIT_PER_SOURCE),
   ]);
 
   const userIds = new Set<string>();
@@ -120,7 +126,7 @@ export async function fetchActivityFeed(): Promise<ActivityItem[]> {
     const summary = summaries.series[row.series_id];
     if (!profile || !summary) continue;
     items.push({
-      id: `episode-${row.user_id}-${row.series_id}-${row.watched_at}`,
+      id: `episode-${row.user_id}-${row.series_id}-${row.season_number}-${row.episode_number}-${row.watched_at}`,
       userName: profile.display_name || profile.username,
       userAvatarUrl: profile.avatar_url,
       action: "marcou um episódio como assistido",
