@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
+import { FlatList, View, Image, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryStatus, SeriesDetails } from "@seenlist/types";
@@ -8,6 +8,8 @@ import { episodeKey, resolveCarouselEpisodes, type EpisodeRef, type WatchedEpiso
 import { Text } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+
+type CarouselItem = EpisodeRef;
 
 export function EpisodeCarousel({
   seriesId,
@@ -23,7 +25,7 @@ export function EpisodeCarousel({
   onToggleEpisode: (seasonNumber: number, episodeNumber: number) => void;
 }) {
   const items = resolveCarouselEpisodes(category, seasons, watched);
-  const scrollRef = useRef<ScrollView>(null);
+  const listRef = useRef<FlatList<CarouselItem>>(null);
   const renderedSeriesId = useRef<number | null>(null);
   const hasUserScrolled = useRef(false);
 
@@ -60,8 +62,7 @@ export function EpisodeCarousel({
     if (hasUserScrolled.current || items.length === 0) return;
     const firstUnwatchedIndex = items.findIndex(({ seasonNumber, episode }) => !watched.has(episodeKey(seasonNumber, episode.episodeNumber)));
     if (firstUnwatchedIndex > 0) {
-      const offsetX = firstUnwatchedIndex * (CARD_WIDTH + spacing.sm);
-      scrollRef.current?.scrollTo({ x: offsetX, animated: false });
+      listRef.current?.scrollToOffset({ offset: firstUnwatchedIndex * (CARD_WIDTH + GAP), animated: false });
     }
   }
 
@@ -77,27 +78,43 @@ export function EpisodeCarousel({
       <Text variant="subtitle" style={styles.title}>
         Episódios
       </Text>
-      <ScrollView
-        ref={scrollRef}
+      {/**
+       * TASK-162 (a pedido — desempenho em séries com muitos
+       * episódios) — antes usava `ScrollView` + `.map()`, que desenha
+       * TODOS os cards de uma vez, não importa quantos episódios a
+       * série tenha (testado com uma série de 89 episódios — 89 cards
+       * montados na memória de uma vez só, mesmo só uns 3-4
+       * aparecendo na tela). `FlatList` só desenha o que está perto
+       * da área visível (virtualização) — `getItemLayout` (todo card
+       * tem a mesma largura) permite calcular a posição de rolagem
+       * automática sem precisar medir nada, então a correção de
+       * abrir já no episódio certo continua funcionando igual.
+       */}
+      <FlatList
+        ref={listRef}
+        data={items}
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyExtractor={({ seasonNumber, episode }) => `${seasonNumber}-${episode.episodeNumber}`}
         contentContainerStyle={styles.row}
+        getItemLayout={(_, index) => ({ length: CARD_WIDTH + GAP, offset: (CARD_WIDTH + GAP) * index, index })}
+        initialNumToRender={6}
+        windowSize={5}
+        maxToRenderPerBatch={8}
         onContentSizeChange={attemptScroll}
         onScrollBeginDrag={() => {
           hasUserScrolled.current = true;
         }}
-      >
-        {items.map(({ seasonNumber, episode }) => (
+        renderItem={({ item: { seasonNumber, episode } }) => (
           <EpisodeCarouselCard
-            key={`${seasonNumber}-${episode.episodeNumber}`}
             seriesId={seriesId}
             seasonNumber={seasonNumber}
             episode={episode}
             isWatched={watched.has(episodeKey(seasonNumber, episode.episodeNumber))}
             onToggle={() => onToggleEpisode(seasonNumber, episode.episodeNumber)}
           />
-        ))}
-      </ScrollView>
+        )}
+      />
     </View>
   );
 }
@@ -143,6 +160,7 @@ function EpisodeCarouselCard({
 }
 
 const CARD_WIDTH = 144;
+const GAP = spacing.sm;
 
 const styles = StyleSheet.create({
   section: {
@@ -152,7 +170,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   row: {
-    gap: spacing.sm,
+    gap: GAP,
   },
   card: {
     width: CARD_WIDTH,
