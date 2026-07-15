@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useViewModePreference } from "@/lib/useViewModePreference";
+import { todayLocalKey } from "@/lib/localDate";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
@@ -54,7 +55,7 @@ export default function MoviesScreen() {
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("movies-library");
 
-  const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayKey = useMemo(() => todayLocalKey(), []);
 
   const allWantToWatch = useMemo(
     () => (items ?? []).filter((item) => item.mediaType === "movie" && item.status === "want_to_watch"),

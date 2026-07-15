@@ -1,5 +1,6 @@
 import type { SeriesDetails, LibraryStatus } from "@seenlist/types";
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
+import { todayLocalKey } from "@/lib/localDate";
 
 const SITE_URL = "https://seenlist.app";
 
@@ -53,7 +54,7 @@ export async function fetchWatchedEpisodes(seriesId: number): Promise<Set<Watche
  * AR até hoje (`airDate <= hoje`).
  */
 function decideWatchingVsUpToDate(mainEpisodesWatched: number, liveEpisodes: { airDate: string | null }[]): LibraryStatus {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalKey();
   const airedByNow = liveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today);
   return mainEpisodesWatched < airedByNow.length ? "watching" : "up_to_date";
 }

@@ -1,4 +1,5 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
+import { localDateKeyFrom } from "@/lib/localDate";
 
 export interface WeekBucket {
   weekStart: string;
@@ -17,7 +18,7 @@ function mondayOf(date: Date): string {
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
-  return d.toISOString().slice(0, 10);
+  return localDateKeyFrom(d);
 }
 
 /** Idêntico a episodes-timeline.ts do web — dado real (watched_episodes.watched_at), agregado por semana/dia, escopado nos últimos 90 dias. */
@@ -38,7 +39,7 @@ export async function fetchEpisodesTimeline(): Promise<EpisodesTimeline> {
 
   for (const row of data ?? []) {
     const date = new Date(row.watched_at);
-    const day = date.toISOString().slice(0, 10);
+    const day = localDateKeyFrom(date);
     byDay.set(day, (byDay.get(day) ?? 0) + 1);
     const week = mondayOf(date);
     byWeek.set(week, (byWeek.get(week) ?? 0) + 1);

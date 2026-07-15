@@ -1,5 +1,6 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { fetchLibraryItems } from "@/lib/library";
+import { todayLocalKey } from "@/lib/localDate";
 
 const SITE_URL = "https://seenlist.app";
 const RECENTLY_AIRED_DAYS = 7;
@@ -76,13 +77,13 @@ interface BadgeableEpisode {
 export function computeBadge(episode: BadgeableEpisode, watchedKeys: Set<string>): UpcomingBadge {
   if (episode.episodeNumber === 1 && episode.seasonNumber > 1) return "premiere";
 
-  const airDate = new Date(`${episode.airDate}T00:00:00`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const alreadyAired = airDate.getTime() <= today.getTime();
+  const today = todayLocalKey();
+  const alreadyAired = episode.airDate <= today;
   if (!alreadyAired) return "em-breve";
 
-  const daysSinceAired = Math.floor((today.getTime() - airDate.getTime()) / (24 * 60 * 60 * 1000));
+  const airDate = new Date(`${episode.airDate}T00:00:00`);
+  const todayMidnight = new Date(`${today}T00:00:00`);
+  const daysSinceAired = Math.floor((todayMidnight.getTime() - airDate.getTime()) / (24 * 60 * 60 * 1000));
   const isWatched = watchedKeys.has(`${episode.seriesId}-${episode.seasonNumber}-${episode.episodeNumber}`);
   if (daysSinceAired <= RECENTLY_AIRED_DAYS && !isWatched) return "novo";
   return "mais-recente";

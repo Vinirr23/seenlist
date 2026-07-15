@@ -1,6 +1,7 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { fetchLiveEpisodesBySeriesId } from "@/lib/seriesDetails";
 import { computeBadge, type UpcomingBadge } from "@/lib/upcomingEpisodes";
+import { todayLocalKey } from "@/lib/localDate";
 
 const SITE_URL = "https://seenlist.app";
 const WATCHED_KEYS_PAGE_SIZE = 1000;
@@ -91,7 +92,7 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[]): Promise<Map
     fetchWatchedEpisodeKeysBySeriesId(user.id, seriesIds),
   ]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalKey();
   const pendingBySeriesId = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string }[]>();
 
   for (const seriesId of seriesIds) {
