@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -27,21 +27,20 @@ export function EpisodeCarousel({
   const lastAutoScrolledSeriesId = useRef<number | null>(null);
 
   /**
-   * TASK-157/158 (correção — não rolava ao trocar de série) — ao
-   * abrir a tela, a lista horizontal de episódios já abre
+   * TASK-157/158/159 (correção — instável, funcionava ora sim ora
+   * não) — ao abrir a tela, a lista horizontal de episódios já abre
    * posicionada no primeiro episódio ainda não marcado como
    * assistido, em vez de sempre começar do episódio 1.
    *
-   * Correção: a versão anterior usava um "já rolei uma vez" GLOBAL
-   * (`useRef(false)`) — mas o Expo Router não remonta esse
-   * componente ao navegar de uma série pra outra (só troca os
-   * parâmetros da rota), então essa variável ficava travada em
-   * `true` desde a primeira série aberta na sessão, e nunca mais
-   * rolava sozinha pras próximas. Agora guarda o ID da última série
-   * que já rolou — só pula a rolagem se for A MESMA série de novo
-   * (ex.: reabrir a tela sem trocar), não qualquer série.
+   * Correção (TASK-159): a versão com `useEffect` rolava a lista
+   * ANTES dela terminar de calcular o próprio tamanho de verdade em
+   * alguns casos — uma corrida de tempo entre o efeito rodar e o
+   * layout nativo terminar, que varia de aparelho pra aparelho (por
+   * isso "às vezes funcionava"). Agora usa `onContentSizeChange` do
+   * próprio `ScrollView` — só dispara quando a lista JÁ SABE seu
+   * tamanho real, sem depender de tempo nenhum.
    */
-  useEffect(() => {
+  function handleContentSizeChange() {
     if (lastAutoScrolledSeriesId.current === seriesId || items.length === 0) return;
     const firstUnwatchedIndex = items.findIndex(({ seasonNumber, episode }) => !watched.has(episodeKey(seasonNumber, episode.episodeNumber)));
     if (firstUnwatchedIndex > 0) {
@@ -49,8 +48,7 @@ export function EpisodeCarousel({
       scrollRef.current?.scrollTo({ x: offsetX, animated: false });
     }
     lastAutoScrolledSeriesId.current = seriesId;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seriesId, items.length]);
+  }
 
   if (items.length === 0) return null;
 
@@ -59,7 +57,13 @@ export function EpisodeCarousel({
       <Text variant="subtitle" style={styles.title}>
         Episódios
       </Text>
-      <ScrollView ref={scrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}
+        onContentSizeChange={handleContentSizeChange}
+      >
         {items.map(({ seasonNumber, episode }) => (
           <EpisodeCarouselCard
             key={`${seasonNumber}-${episode.episodeNumber}`}
