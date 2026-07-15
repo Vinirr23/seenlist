@@ -15,6 +15,9 @@ import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingList
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { UpcomingEpisodeCard } from "@/components/media/UpcomingEpisodeCard";
+import { UpcomingEpisodeCardSkeleton } from "@/components/media/UpcomingEpisodeCardSkeleton";
+import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
+import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
 import { colors, spacing, radius } from "@/lib/theme";
 
@@ -104,7 +107,11 @@ export default function SeriesHomeScreen() {
           {isError ? (
             <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />
           ) : isLoading ? (
-            <Text variant="muted">Carregando…</Text>
+            viewMode === "grid" ? (
+              <LibraryGridSkeleton />
+            ) : (
+              <LibraryListSkeleton />
+            )
           ) : continueWatching.length === 0 ? (
             <EmptyShelf
               message="Você ainda não está acompanhando nenhuma série."
@@ -153,7 +160,7 @@ export default function SeriesHomeScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {upcoming.isLoading ? (
-            <Text variant="muted">Carregando…</Text>
+            <UpcomingEpisodeCardSkeleton />
           ) : upcoming.isError ? (
             <EmptyShelf message="Não foi possível carregar os próximos episódios agora. Tente de novo em instantes." />
           ) : upcoming.groups.length === 0 ? (
