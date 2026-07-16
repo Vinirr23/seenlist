@@ -186,7 +186,7 @@ export function MigrateFromTvTimeButton() {
           href="https://www.youtube.com/shorts/pZll79vgfMU"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-4 inline-block text-xs text-primary underline"
+          className="mt-4 inline-flex items-center justify-center rounded-lg bg-danger px-4 py-2.5 text-sm font-semibold text-background"
         >
           Assistir tutorial em vídeo
         </a>
