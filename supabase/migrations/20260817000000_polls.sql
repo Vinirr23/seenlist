@@ -1,13 +1,35 @@
 -- =====================================================================
 -- TASK-163 — enquete (poll) como tipo de post, mobile-only por ora.
 --
+-- CORREÇÃO (mesmo dia, achado real via consulta direta no banco, não
+-- suposição): `poll_options`/`poll_votes` já existiam em produção
+-- ANTES desta migration — igual já aconteceu com `posts`/
+-- `post_reports` (ver SEENLIST-HANDOFF.md, causa raiz é o Cowork
+-- rodando em paralelo na mesma pasta em sessão anterior). O `create
+-- table if not exists` abaixo não criou nada nesta instância — só
+-- documenta o formato certo pra quem partir de um Supabase novo do
+-- zero. Coluna real da opção é `label`, não `option_text` (código já
+-- ajustado pra `label`). `poll_votes` já tinha `primary key (post_id,
+-- user_id)` (sem coluna `id` própria) em vez de `id` + `unique` — o
+-- efeito prático é o mesmo (voto definitivo garantido no banco), só
+-- ajustei aqui pra bater com o que já existe de verdade.
+--
+-- Também já existiam (não criadas por esta migration, não mexidas):
+-- uma policy extra em `poll_options` ("autor do post gerencia as
+-- opções", ALL) dando ao dono poder de editar/apagar a própria
+-- opção — diverge um pouco da ideia original de "opção imutável",
+-- mas inofensivo (não tem UI que use isso ainda); e uma policy de
+-- SELECT duplicada em `poll_votes` ("votos são públicos (contagem)")
+-- — redundante com a de baixo, sem efeito prático (policies permissivas
+-- se somam por OR), não removida por não ser desta tarefa.
+--
 -- Decisões confirmadas com o usuário antes de escrever isto:
 --   - Voto é DEFINITIVO (sem trocar depois de votar) — por isso
 --     `poll_votes` não ganha policy de UPDATE nem DELETE, só INSERT.
---     A constraint `unique (post_id, user_id)` garante isso no banco
---     também, não só na UI (segunda tentativa de voto quebra por
---     violação de unicidade — mesmo tratamento de "já denunciei antes"
---     em post_reports).
+--     A chave primária composta `(post_id, user_id)` garante isso no
+--     banco também, não só na UI (segunda tentativa de voto quebra
+--     por violação de chave primária, mesmo tratamento de "já
+--     denunciei antes" em post_reports).
 --   - Resultado (%) só aparece pra quem já votou — isso é decisão de
 --     UI/client (o app só busca/mostra `poll_votes` depois que o
 --     usuário votou), não dá pra fazer valer via RLS sem esconder a
@@ -57,9 +79,8 @@ alter table public.posts add constraint posts_type_check check (type in ('text',
 create table if not exists public.poll_options (
   id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.posts (id) on delete cascade,
-  option_text text not null,
-  position integer not null default 0,
-  created_at timestamptz not null default now()
+  label text not null,
+  position integer not null default 0
 );
 
 create index if not exists poll_options_post_idx on public.poll_options (post_id);
@@ -83,12 +104,11 @@ create policy "usuário cria opções apenas no próprio post"
 -- poll_votes — um voto por pessoa por enquete, definitivo (só INSERT).
 -- =====================================================================
 create table if not exists public.poll_votes (
-  id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.posts (id) on delete cascade,
   option_id uuid not null references public.poll_options (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
   created_at timestamptz not null default now(),
-  unique (post_id, user_id)
+  primary key (post_id, user_id)
 );
 
 create index if not exists poll_votes_post_idx on public.poll_votes (post_id);
@@ -108,6 +128,6 @@ create policy "usuário vota apenas em nome próprio"
   with check (auth.uid() = user_id);
 
 comment on table public.poll_votes is
-  'Voto definitivo por design (TASK-163): sem policy de UPDATE/DELETE. A constraint unique(post_id, user_id) barra segunda tentativa de voto no banco, não só na UI.';
+  'Voto definitivo por design (TASK-163): sem policy de UPDATE/DELETE. A chave primária composta (post_id, user_id) barra segunda tentativa de voto no banco, não só na UI.';
 
 notify pgrst, 'reload schema';

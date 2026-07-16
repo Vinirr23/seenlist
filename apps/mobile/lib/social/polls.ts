@@ -16,7 +16,7 @@ export interface PollData {
 interface PollOptionRow {
   id: string;
   post_id: string;
-  option_text: string;
+  label: string;
   position: number;
 }
 
@@ -36,7 +36,7 @@ function buildPollData(postId: string, optionRows: PollOptionRow[], voteRows: Po
   const votedOptionId = currentUserId ? (votesForPost.find((v) => v.user_id === currentUserId)?.option_id ?? null) : null;
 
   return {
-    options: optionsForPost.map((o) => ({ id: o.id, text: o.option_text, voteCount: countByOption.get(o.id) ?? 0 })),
+    options: optionsForPost.map((o) => ({ id: o.id, text: o.label, voteCount: countByOption.get(o.id) ?? 0 })),
     totalVotes: votesForPost.length,
     votedOptionId,
   };
@@ -52,7 +52,7 @@ export async function fetchPollDataFor(postIds: string[]): Promise<Map<string, P
   } = await getCurrentAuthUser();
 
   const [optionsRes, votesRes] = await Promise.all([
-    supabase.from("poll_options").select("id, post_id, option_text, position").in("post_id", postIds),
+    supabase.from("poll_options").select("id, post_id, label, position").in("post_id", postIds),
     supabase.from("poll_votes").select("post_id, option_id, user_id").in("post_id", postIds),
   ]);
   if (optionsRes.error) throw optionsRes.error;
@@ -104,9 +104,9 @@ export async function createPollPost(question: string, optionTexts: string[]): P
   if (postError) throw postError;
 
   const { error: optionsError } = await supabase.from("poll_options").insert(
-    trimmedOptions.map((option_text, index) => ({
+    trimmedOptions.map((label, index) => ({
       post_id: (post as { id: string }).id,
-      option_text,
+      label,
       position: index,
     }))
   );
