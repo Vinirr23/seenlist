@@ -99,6 +99,7 @@ export function useComments(target: MediaTarget) {
         .select("id, parent_comment_id, body, image_url, contains_spoiler, created_at, updated_at, user_id")
         .eq("media_type", target.mediaType)
         .eq("media_id", target.mediaId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: true });
 
       query =
