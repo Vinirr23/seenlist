@@ -14,6 +14,8 @@ import { CommentCount } from "./CommentCount";
 import { SaveButton } from "./SaveButton";
 import { PostCommentsSection } from "./PostCommentsSection";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
+import { PollBlock } from "./PollBlock";
+import type { PollData } from "@/lib/social/polls";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -48,6 +50,7 @@ export function PostCard({
   likeInfo,
   isSaved,
   commentCount,
+  pollInfo,
 }: {
   post: Post;
   detail?: boolean;
@@ -56,6 +59,8 @@ export function PostCard({
   likeInfo?: { count: number; hasLiked: boolean };
   isSaved?: boolean;
   commentCount?: number;
+  /** TASK-163 — mesmo padrão de likeInfo/isSaved/commentCount: Feed busca em lote e passa pronto. */
+  pollInfo?: PollData;
 }) {
   const router = useRouter();
   const { session } = useAuth();
@@ -218,6 +223,8 @@ export function PostCard({
       )}
 
       {!!post.imageUrl && <AdaptiveImage uri={post.imageUrl} />}
+
+      {post.type === "poll" && <PollBlock postId={post.id} initial={pollInfo} />}
 
       <View style={styles.footer}>
         <LikeButton targetType="post" targetId={post.id} initial={likeInfo} />

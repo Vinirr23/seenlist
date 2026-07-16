@@ -3,11 +3,14 @@ import { View, Modal, TextInput, Pressable, StyleSheet, Alert, KeyboardAvoidingV
 import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { createTextPost } from "@/lib/posts";
+import { createPollPost } from "@/lib/social/polls";
 import { pickImageFromLibrary, uploadPostImage } from "@/lib/imageUpload";
 import { Text, Button } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const MAX_LENGTH = 500;
+const MAX_POLL_OPTIONS = 4;
+const MIN_POLL_OPTIONS = 2;
 
 /**
  * TASK-111 (seletor de imagem) — ganhou o anexo de imagem/GIF que
@@ -15,26 +18,51 @@ const MAX_LENGTH = 500;
  * ao publicar (não ao escolher o arquivo), mesma ordem do web. Post
  * de review continua de fora — depende da tela de Avaliações, que já
  * tem seu próprio fluxo de publicar (`ReviewsSection`), não esta.
+ *
+ * TASK-163 (enquete, mobile-only) — mesmo composer ganhou um segundo
+ * modo. Enquete usa o campo principal como pergunta (sem anexo de
+ * imagem — não faz sentido misturar os dois no primeiro momento) e
+ * ganha campos extras pras opções (mínimo 2, máximo 4). Voto é
+ * definitivo e resultado só aparece pra quem já votou — regras vivem
+ * no service (`lib/social/polls.ts`) e no `PollBlock`, não aqui.
  */
 export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"post" | "poll">("post");
   const [body, setBody] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const [posting, setPosting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   function resetForm() {
+    setMode("post");
     setBody("");
     setImageUri(null);
     setImageMimeType(null);
     setUploadError(null);
+    setPollQuestion("");
+    setPollOptions(["", ""]);
   }
 
   function handleOpen() {
     resetForm();
     setOpen(true);
+  }
+
+  function handlePollOptionChange(index: number, value: string) {
+    setPollOptions((prev) => prev.map((opt, i) => (i === index ? value : opt)));
+  }
+
+  function handleAddPollOption() {
+    setPollOptions((prev) => (prev.length >= MAX_POLL_OPTIONS ? prev : [...prev, ""]));
+  }
+
+  function handleRemovePollOption(index: number) {
+    setPollOptions((prev) => (prev.length <= MIN_POLL_OPTIONS ? prev : prev.filter((_, i) => i !== index)));
   }
 
   async function handlePickImage() {
@@ -46,6 +74,21 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
   }
 
   async function handlePublish() {
+    if (mode === "poll") {
+      setPosting(true);
+      try {
+        await createPollPost(pollQuestion, pollOptions);
+        setOpen(false);
+        onCreated();
+      } catch (error) {
+        console.error("[CreatePostButton] Falha ao publicar enquete", error);
+        Alert.alert("Não foi possível publicar", "Confira a pergunta e pelo menos 2 opções, e tente de novo.");
+      } finally {
+        setPosting(false);
+      }
+      return;
+    }
+
     if (!body.trim() && !imageUri) return;
     setUploadError(null);
 
@@ -75,6 +118,9 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
   }
 
   const busy = posting || uploadingImage;
+  const pollFilledOptionsCount = pollOptions.filter((o) => o.trim().length > 0).length;
+  const canPublishPoll = pollQuestion.trim().length > 0 && pollFilledOptionsCount >= MIN_POLL_OPTIONS;
+  const canPublish = mode === "poll" ? canPublishPoll : !!body.trim() || !!imageUri;
 
   return (
     <>
@@ -90,49 +136,110 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
               <Pressable onPress={() => setOpen(false)} hitSlop={8}>
                 <Text variant="muted">Cancelar</Text>
               </Pressable>
-              <Text variant="subtitle">Novo post</Text>
+              <Text variant="subtitle">{mode === "poll" ? "Nova enquete" : "Novo post"}</Text>
               <View style={{ width: 60 }} />
             </View>
 
-            <TextInput
-              style={styles.textArea}
-              value={body}
-              onChangeText={setBody}
-              placeholder="O que você está pensando?"
-              placeholderTextColor={colors.muted}
-              multiline
-              maxLength={MAX_LENGTH}
-              autoFocus
-            />
-            <Text variant="muted" style={styles.counter}>
-              {body.length}/{MAX_LENGTH}
-            </Text>
+            <View style={styles.modeToggle}>
+              <Pressable style={[styles.modeButton, mode === "post" && styles.modeButtonActive]} onPress={() => setMode("post")}>
+                <Feather name="edit-3" size={14} color={mode === "post" ? colors.background : colors.muted} />
+                <Text style={[styles.modeButtonText, mode === "post" && styles.modeButtonTextActive]}>Post</Text>
+              </Pressable>
+              <Pressable style={[styles.modeButton, mode === "poll" && styles.modeButtonActive]} onPress={() => setMode("poll")}>
+                <Feather name="bar-chart-2" size={14} color={mode === "poll" ? colors.background : colors.muted} />
+                <Text style={[styles.modeButtonText, mode === "poll" && styles.modeButtonTextActive]}>Enquete</Text>
+              </Pressable>
+            </View>
 
-            {imageUri ? (
-              <View style={styles.imagePreviewWrapper}>
-                <ExpoImage source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" autoplay />
-                <Pressable
-                  style={styles.removeImageButton}
-                  onPress={() => {
-                    setImageUri(null);
-                    setImageMimeType(null);
-                  }}
-                >
-                  <Feather name="x" size={14} color={colors.text} />
+            {mode === "poll" ? (
+              <>
+                <TextInput
+                  style={styles.textAreaSmall}
+                  value={pollQuestion}
+                  onChangeText={setPollQuestion}
+                  placeholder="Qual é a pergunta?"
+                  placeholderTextColor={colors.muted}
+                  multiline
+                  maxLength={140}
+                  autoFocus
+                />
+
+                <View style={styles.pollOptionsList}>
+                  {pollOptions.map((option, index) => (
+                    <View key={index} style={styles.pollOptionRow}>
+                      <TextInput
+                        style={styles.pollOptionInput}
+                        value={option}
+                        onChangeText={(value) => handlePollOptionChange(index, value)}
+                        placeholder={`Opção ${index + 1}`}
+                        placeholderTextColor={colors.muted}
+                        maxLength={60}
+                      />
+                      {pollOptions.length > MIN_POLL_OPTIONS && (
+                        <Pressable hitSlop={8} onPress={() => handleRemovePollOption(index)}>
+                          <Feather name="x" size={16} color={colors.muted} />
+                        </Pressable>
+                      )}
+                    </View>
+                  ))}
+                </View>
+
+                {pollOptions.length < MAX_POLL_OPTIONS && (
+                  <Pressable style={styles.attachButton} onPress={handleAddPollOption}>
+                    <Feather name="plus" size={16} color={colors.muted} />
+                    <Text variant="muted" style={styles.attachButtonText}>
+                      Adicionar opção
+                    </Text>
+                  </Pressable>
+                )}
+
+                <Text variant="muted" style={styles.pollHint}>
+                  Voto é definitivo e o resultado só aparece depois de votar.
+                </Text>
+              </>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.textArea}
+                  value={body}
+                  onChangeText={setBody}
+                  placeholder="O que você está pensando?"
+                  placeholderTextColor={colors.muted}
+                  multiline
+                  maxLength={MAX_LENGTH}
+                  autoFocus
+                />
+                <Text variant="muted" style={styles.counter}>
+                  {body.length}/{MAX_LENGTH}
+                </Text>
+
+                {imageUri ? (
+                  <View style={styles.imagePreviewWrapper}>
+                    <ExpoImage source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" autoplay />
+                    <Pressable
+                      style={styles.removeImageButton}
+                      onPress={() => {
+                        setImageUri(null);
+                        setImageMimeType(null);
+                      }}
+                    >
+                      <Feather name="x" size={14} color={colors.text} />
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                {!!uploadError && <Text variant="error">{uploadError}</Text>}
+
+                <Pressable style={styles.attachButton} onPress={handlePickImage} disabled={busy}>
+                  <Feather name="image" size={16} color={colors.muted} />
+                  <Text variant="muted" style={styles.attachButtonText}>
+                    {imageUri ? "Trocar imagem" : "Anexar imagem ou GIF"}
+                  </Text>
                 </Pressable>
-              </View>
-            ) : null}
+              </>
+            )}
 
-            {!!uploadError && <Text variant="error">{uploadError}</Text>}
-
-            <Pressable style={styles.attachButton} onPress={handlePickImage} disabled={busy}>
-              <Feather name="image" size={16} color={colors.muted} />
-              <Text variant="muted" style={styles.attachButtonText}>
-                {imageUri ? "Trocar imagem" : "Anexar imagem ou GIF"}
-              </Text>
-            </Pressable>
-
-            <Button onPress={handlePublish} loading={busy} disabled={!body.trim() && !imageUri}>
+            <Button onPress={handlePublish} loading={busy} disabled={!canPublish}>
               {uploadingImage ? "Enviando imagem..." : "Publicar"}
             </Button>
           </View>
@@ -176,6 +283,68 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: spacing.sm,
+  },
+  modeToggle: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  modeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modeButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  modeButtonText: {
+    fontSize: fontSize.xs,
+    fontWeight: "600",
+    color: colors.muted,
+  },
+  modeButtonTextActive: {
+    color: colors.background,
+  },
+  textAreaSmall: {
+    minHeight: 60,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    fontSize: fontSize.sm,
+    color: colors.text,
+    textAlignVertical: "top",
+  },
+  pollOptionsList: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  pollOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  pollOptionInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  pollHint: {
+    fontSize: 11,
+    marginTop: spacing.xs,
   },
   textArea: {
     minHeight: 120,

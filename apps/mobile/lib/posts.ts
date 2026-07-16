@@ -1,6 +1,6 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
-export type PostType = "text" | "image" | "review";
+export type PostType = "text" | "image" | "review" | "poll";
 
 export interface Post {
   id: string;
@@ -20,7 +20,7 @@ export interface Post {
 }
 
 const POSTS_LIMIT = 30;
-const POST_TYPES = ["text", "image", "review"] as const;
+const POST_TYPES = ["text", "image", "review", "poll"] as const;
 const POST_COLUMNS = "id, user_id, type, body, image_url, media_type, media_id, media_title, media_poster_path, rating, created_at";
 
 interface PostRow {

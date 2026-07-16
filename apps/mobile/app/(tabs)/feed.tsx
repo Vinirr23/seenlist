@@ -7,6 +7,7 @@ import { PostCard } from "@/components/feed/PostCard";
 import { CreatePostButton } from "@/components/feed/CreatePostButton";
 import { fetchLikeInfoFor, fetchCommentCountsFor } from "@/lib/social/likes";
 import { fetchSavedStatusesFor } from "@/lib/social/savedPosts";
+import { fetchPollDataFor, type PollData } from "@/lib/social/polls";
 import { colors, spacing } from "@/lib/theme";
 
 /**
@@ -27,16 +28,18 @@ export default function FeedScreen() {
   const [likeInfoByPostId, setLikeInfoByPostId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
   const [commentCountByPostId, setCommentCountByPostId] = useState<Map<string, number>>(new Map());
+  const [pollDataByPostId, setPollDataByPostId] = useState<Map<string, PollData>>(new Map());
   const [interactionsLoaded, setInteractionsLoaded] = useState(false);
 
   useEffect(() => {
     if (!posts || posts.length === 0) return;
     const postIds = posts.map((p) => p.id);
-    Promise.all([fetchLikeInfoFor("post", postIds), fetchSavedStatusesFor(postIds), fetchCommentCountsFor(postIds)])
-      .then(([likeInfo, saved, commentCounts]) => {
+    Promise.all([fetchLikeInfoFor("post", postIds), fetchSavedStatusesFor(postIds), fetchCommentCountsFor(postIds), fetchPollDataFor(postIds)])
+      .then(([likeInfo, saved, commentCounts, pollData]) => {
         setLikeInfoByPostId(likeInfo);
         setSavedPostIds(saved);
         setCommentCountByPostId(commentCounts);
+        setPollDataByPostId(pollData);
         setInteractionsLoaded(true);
       })
       .catch((error) => console.error("[FeedScreen] Falha ao buscar interações em lote", error));
@@ -69,6 +72,7 @@ export default function FeedScreen() {
                 likeInfo={likeInfoByPostId.get(post.id)}
                 isSaved={interactionsLoaded ? savedPostIds.has(post.id) : undefined}
                 commentCount={commentCountByPostId.get(post.id)}
+                pollInfo={pollDataByPostId.get(post.id)}
               />
             ))}
           </View>
