@@ -2,7 +2,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 
-export type PostType = "text" | "image" | "review";
+export type PostType = "text" | "image" | "review" | "poll";
 
 export interface Post {
   id: string;
@@ -30,7 +30,7 @@ export interface Post {
 }
 
 const POSTS_LIMIT = 30;
-const POST_TYPES = ["text", "image", "review"] as const;
+const POST_TYPES = ["text", "image", "review", "poll"] as const;
 const POST_COLUMNS =
   "id, user_id, type, body, image_url, media_type, media_id, media_title, media_poster_path, rating, created_at";
 
@@ -72,14 +72,15 @@ function mapRow(
 
 /**
  * TASK-059 (fase 2) / TASK-066 (post com imagem) / TASK-078 (post de
- * review) — "text", "image" e "review" são os três tipos que já
- * existem; enquete/lista continuam fase futura. Ordem cronológica
- * simples (created_at desc) — o algoritmo de mistura de sinais é
- * fase futura, não inventado aqui. Perfis buscados à parte e unidos
- * no cliente, mesmo padrão já usado em activity-feed.ts e
- * my-comments.ts (posts.user_id referencia auth.users, não profiles
- * diretamente — não dá pra fazer join aninhado do Supabase sem uma
- * FK declarada entre as duas tabelas).
+ * review) / TASK-163 (enquete, só leitura/voto no web — criação
+ * continua exclusiva do mobile) — "text", "image", "review" e "poll"
+ * são os quatro tipos que já existem; lista continua fase futura.
+ * Ordem cronológica simples (created_at desc) — o algoritmo de
+ * mistura de sinais é fase futura, não inventado aqui. Perfis
+ * buscados à parte e unidos no cliente, mesmo padrão já usado em
+ * activity-feed.ts e my-comments.ts (posts.user_id referencia
+ * auth.users, não profiles diretamente — não dá pra fazer join
+ * aninhado do Supabase sem uma FK declarada entre as duas tabelas).
  */
 export function usePosts() {
   return useQuery({

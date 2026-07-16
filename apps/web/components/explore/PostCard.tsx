@@ -14,6 +14,7 @@ import { useIsSaved, useToggleSavePost } from "@/lib/queries/saved-posts";
 import { useReportPost } from "@/lib/queries/post-reports";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { PostCommentsSection } from "./PostCommentsSection";
+import { PollBlock } from "./PollBlock";
 import { hapticTick } from "@/lib/haptics";
 import { cn } from "@seenlist/utils";
 import { tmdbImage } from "@/lib/tmdb/image";
@@ -307,6 +308,12 @@ export function PostCard({ post, detail = false }: { post: Post; detail?: boolea
           alt=""
           className="mt-2.5 max-h-96 w-full rounded-lg border border-border object-cover"
         />
+      )}
+
+      {post.type === "poll" && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <PollBlock postId={post.id} />
+        </div>
       )}
 
       <div className="mt-2.5 flex items-center gap-4">
