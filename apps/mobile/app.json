@@ -18,6 +18,14 @@
           "photosPermission": "O SeenList precisa acessar suas fotos pra você escolher uma foto de perfil ou banner.",
           "cameraPermission": false
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-logo.png",
+          "imageWidth": 200,
+          "backgroundColor": "#0B0E14"
+        }
       ]
     ],
     "ios": {
