@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import type { FollowListUser } from "./follow-list";
 
@@ -23,7 +23,7 @@ export function useUserSearch(query: string) {
       const supabase = createClient();
       const {
         data: { user: viewer },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
 
       let profilesQuery = supabase
         .from("profiles")

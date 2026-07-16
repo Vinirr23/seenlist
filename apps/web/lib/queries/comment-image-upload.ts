@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024; // 8MB — GIFs animados costumam ser bem maiores que fotos comuns.
 
@@ -33,7 +33,7 @@ export function useCommentImageUpload() {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const extension = file.name.split(".").pop() ?? (file.type === "image/gif" ? "gif" : "jpg");

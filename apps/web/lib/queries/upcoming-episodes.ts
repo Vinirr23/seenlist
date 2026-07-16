@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { NextEpisodeToAir } from "@/lib/tmdb/client";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { useLibraryItems } from "./library";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
@@ -52,7 +52,7 @@ async function fetchWatchedStatus(
   const supabase = createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser(supabase);
   if (!user) return new Set();
 
   const orFilter = episodes

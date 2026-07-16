@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { fetchDisplaySummaries } from "./library-state";
 
@@ -46,7 +46,7 @@ export function useMyComments() {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const { data, error } = await supabase

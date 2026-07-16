@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 
 export type FeedbackType = "bug" | "suggestion" | "other";
@@ -11,7 +11,7 @@ export function useSendFeedback() {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const { error } = await supabase.from("user_feedback").insert({ user_id: user.id, type, message });

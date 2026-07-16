@@ -3,6 +3,9 @@
 import { usePosts } from "@/lib/queries/posts";
 import { PostCard } from "./PostCard";
 import { CreatePostButton } from "./CreatePostButton";
+import { useLikeInfoBatch } from "@/lib/queries/social/likes";
+import { useSavedStatusesBatch } from "@/lib/queries/saved-posts";
+import { useCommentCountsBatch } from "@/lib/queries/post-comments";
 
 /**
  * TASK-063 — removida a seção "Descobrir" (cards de séries/filmes em
@@ -24,9 +27,19 @@ import { CreatePostButton } from "./CreatePostButton";
  * posts pra todo mundo. `FeedOnboarding` ficou sem nenhum lugar que
  * a use — não apagado, só parado, caso vire uma preferência
  * opcional no futuro (não uma barreira de entrada).
+ *
+ * AUDITORIA — curtida/salvo/contagem de comentário de todos os posts
+ * visíveis agora são buscados em lote (3 consultas no total, não até
+ * 4 por post) assim que a lista chega, e repassados prontos pra cada
+ * `PostCard` — mesmo padrão já usado no Feed mobile (TASK-153).
  */
 export function ExploreFeedTab() {
   const { data: posts, isLoading: postsLoading } = usePosts();
+  const postIds = posts?.map((p) => p.id) ?? [];
+
+  const { data: likeInfoByPostId } = useLikeInfoBatch("post", postIds);
+  const { data: savedPostIds } = useSavedStatusesBatch(postIds);
+  const { data: commentCountByPostId } = useCommentCountsBatch(postIds);
 
   return (
     <>
@@ -40,7 +53,13 @@ export function ExploreFeedTab() {
         ) : posts && posts.length > 0 ? (
           <div className="space-y-3">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+              <PostCard
+                key={post.id}
+                post={post}
+                likeInfo={likeInfoByPostId?.get(post.id)}
+                isSaved={savedPostIds?.has(post.id)}
+                commentCount={commentCountByPostId?.get(post.id)}
+              />
             ))}
           </div>
         ) : (

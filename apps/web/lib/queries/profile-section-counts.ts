@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
+import { fetchAllWatchedEpisodeRows } from "./library-state";
 
 export interface ProfileSectionCounts {
   lists: number;
@@ -27,23 +28,20 @@ export interface ProfileSectionCounts {
  * que o Supabase resolve num `SELECT` só).
  */
 async function countDistinctSeries(supabase: ReturnType<typeof createClient>, userId: string): Promise<number> {
-  const [statusResult, episodesResult] = await Promise.all([
+  const [statusResult, episodeRows] = await Promise.all([
     supabase.from("series_status").select("series_id, status").eq("user_id", userId),
-    supabase.from("watched_episodes").select("series_id").eq("user_id", userId).eq("is_special", false),
+    fetchAllWatchedEpisodeRows(supabase, userId),
   ]);
 
   if (statusResult.error) {
     console.error(`[profile-section-counts] Falha ao contar "series" (series_status)`, describeSupabaseError(statusResult.error));
-  }
-  if (episodesResult.error) {
-    console.error(`[profile-section-counts] Falha ao contar "series" (watched_episodes)`, describeSupabaseError(episodesResult.error));
   }
 
   const ids = new Set<number>();
   for (const row of statusResult.data ?? []) {
     if (row.status !== "removed") ids.add(row.series_id);
   }
-  for (const row of episodesResult.data ?? []) {
+  for (const row of episodeRows) {
     ids.add(row.series_id);
   }
   for (const row of statusResult.data ?? []) {

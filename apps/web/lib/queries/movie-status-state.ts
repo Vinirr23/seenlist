@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { MovieWatchStatus } from "@seenlist/types";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 
 export function movieStatusQueryKey(movieId: number) {
   return ["movie-status", movieId] as const;
@@ -11,7 +11,7 @@ async function fetchMovieStatus(movieId: number): Promise<MovieWatchStatus | nul
   const supabase = createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser(supabase);
   if (!user) return null;
 
   const { data, error } = await supabase

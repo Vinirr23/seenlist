@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
-import { buildLibraryItemsFromRows, fetchDisplaySummaries } from "./library-state";
+import { buildLibraryItemsFromRows, fetchDisplaySummaries, fetchAllWatchedEpisodeRows } from "./library-state";
 
 interface MovieStatusRow {
   movie_id: number;
@@ -16,10 +16,6 @@ interface SeriesStatusRow {
   created_at: string;
   updated_at: string;
   total_watch_events: number | null;
-}
-interface WatchedEpisodeRow {
-  series_id: number;
-  watched_at: string;
 }
 
 /**
@@ -44,10 +40,10 @@ export function usePublicLibraryItems(userId: string | null) {
       if (!userId) return [];
       const supabase = createClient();
 
-      const [movieResult, seriesResult, episodeResult] = await Promise.all([
+      const [movieResult, seriesResult, episodeRows] = await Promise.all([
         supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", userId),
         supabase.from("series_status").select("series_id, status, created_at, updated_at, total_watch_events").eq("user_id", userId),
-        supabase.from("watched_episodes").select("series_id, watched_at").eq("user_id", userId).eq("is_special", false),
+        fetchAllWatchedEpisodeRows(supabase, userId),
       ]);
 
       if (movieResult.error) {
@@ -58,14 +54,9 @@ export function usePublicLibraryItems(userId: string | null) {
         console.error("[public-library] Falha ao buscar series_status", describeSupabaseError(seriesResult.error));
         throw seriesResult.error;
       }
-      if (episodeResult.error) {
-        console.error("[public-library] Falha ao buscar watched_episodes", describeSupabaseError(episodeResult.error));
-        throw episodeResult.error;
-      }
 
       const movieRows = (movieResult.data ?? []) as MovieStatusRow[];
       const seriesRows = (seriesResult.data ?? []) as SeriesStatusRow[];
-      const episodeRows = (episodeResult.data ?? []) as WatchedEpisodeRow[];
 
       const validSeriesIds = new Set<number>([
         ...seriesRows.filter((row) => row.status !== "removed").map((row) => row.series_id),

@@ -1,7 +1,7 @@
 import type { LibraryStatus } from "@seenlist/types";
 import { useOptimisticMutation } from "@seenlist/hooks";
 import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { seriesStatusQueryKey } from "./series-status-state";
 import { LIBRARY_QUERY_KEY } from "./library-state";
 
@@ -36,7 +36,7 @@ export function useSetSeriesStatus(seriesId: number) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       if (currentStatus === status) {

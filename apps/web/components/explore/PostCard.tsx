@@ -55,18 +55,31 @@ function initials(name: string): string {
  * menu com mais botões dentro, que também precisariam propagar o
  * clique corretamente).
  */
-export function PostCard({ post, detail = false }: { post: Post; detail?: boolean }) {
+export function PostCard({
+  post,
+  detail = false,
+  likeInfo,
+  isSaved: isSavedInitial,
+  commentCount: commentCountInitial,
+}: {
+  post: Post;
+  detail?: boolean;
+  /** AUDITORIA — quando quem chama já buscou isso em lote (Feed), passa pronto aqui, mesmo padrão do PostCard mobile (TASK-153). */
+  likeInfo?: { count: number; hasLiked: boolean };
+  isSaved?: boolean;
+  commentCount?: number;
+}) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [reported, setReported] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editBody, setEditBody] = useState(post.body);
   const { data: currentUser } = useCurrentUser();
-  const { data: hasLiked } = useHasLiked("post", post.id);
-  const { data: likeCount } = useLikeCount("post", post.id);
+  const { data: hasLiked } = useHasLiked("post", post.id, likeInfo?.hasLiked);
+  const { data: likeCount } = useLikeCount("post", post.id, likeInfo?.count);
   const toggleLike = useToggleLike("post", post.id);
-  const { data: commentCount } = usePostCommentCount(post.id);
-  const { data: isSaved } = useIsSaved(post.id);
+  const { data: commentCount } = usePostCommentCount(post.id, commentCountInitial);
+  const { data: isSaved } = useIsSaved(post.id, isSavedInitial);
   const toggleSave = useToggleSavePost(post.id);
   const reportPost = useReportPost(post.id);
   const editPost = useEditPost(post.id);

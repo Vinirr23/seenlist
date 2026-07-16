@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LibraryItem, MediaType } from "@seenlist/types";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
@@ -83,7 +83,7 @@ export function useIsFavorite(mediaType: MediaType, mediaId: number) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) return false;
 
       const { data, error } = await supabase
@@ -112,7 +112,7 @@ export function useToggleFavorite(mediaType: MediaType, mediaId: number) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       if (currentlyFavorite) {

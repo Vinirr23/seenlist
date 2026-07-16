@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 
 function followStatusKey(targetUserId: string) {
@@ -14,7 +14,7 @@ export function useFollowStatus(targetUserId: string | null) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) return false;
 
       const { data, error } = await supabase
@@ -46,7 +46,7 @@ export function useToggleFollow(targetUserId: string) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) return { error: "Entre para seguir outros usuários." };
 
       if (currentlyFollowing) {

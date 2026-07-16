@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 
 export interface CurrentUser {
   id: string;
@@ -23,7 +23,7 @@ export interface CurrentUser {
  */
 async function fetchCurrentUser(): Promise<CurrentUser | null> {
   const supabase = createClient();
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await getCurrentAuthUser(supabase);
   if (error) throw error;
 
   const user = data.user;

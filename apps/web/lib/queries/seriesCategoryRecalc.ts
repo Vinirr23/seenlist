@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { decideWatchingVsUpToDate } from "./airDateCategory";
 
 /**
@@ -54,7 +54,7 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   const supabase = createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser(supabase);
   if (!user) return;
 
   const { data: statusRow, error: statusError } = await supabase

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import type { UserProfile, ProfileVisibility } from "./social-types";
 
@@ -48,7 +48,7 @@ async function fetchMyProfile(): Promise<UserProfile | null> {
   const supabase = createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser(supabase);
   if (!user) return null;
 
   const response = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
@@ -86,7 +86,7 @@ export function useUpdateMyProfile() {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) return { error: "Sessão expirada. Entre novamente." };
 
       const payload: Record<string, unknown> = {};

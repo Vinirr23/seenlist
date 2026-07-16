@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 
 export interface PostComment {
@@ -18,10 +18,11 @@ function queryKey(postId: string) {
   return ["post-comments", postId] as const;
 }
 
-/** TASK-073 — contagem só (sem baixar os comentários), pro número aparecer sempre no card do Feed, igual à curtida — mesmo padrão de `useCommentCount` (comments de mídia). */
-export function usePostCommentCount(postId: string) {
+/** TASK-073 — contagem só (sem baixar os comentários), pro número aparecer sempre no card do Feed, igual à curtida — mesmo padrão de `useCommentCount` (comments de mídia). `initial`: mesma ideia de `useLikeCount` — quando o Feed já buscou em lote, não busca de novo. */
+export function usePostCommentCount(postId: string, initial?: number) {
   return useQuery({
     queryKey: [...queryKey(postId), "count"],
+    initialData: initial,
     queryFn: async (): Promise<number> => {
       const supabase = createClient();
       const { count, error } = await supabase
@@ -36,6 +37,29 @@ export function usePostCommentCount(postId: string) {
       return count ?? 0;
     },
     enabled: Boolean(postId),
+  });
+}
+
+/** AUDITORIA — mesma ideia de `useLikeInfoBatch`: 1 consulta pra contar comentários de todos os posts visíveis, não uma por post. `count("exact", head: true)` não serve aqui porque precisamos do total POR post, não um total geral — busca só `post_id` de cada comentário não apagado e conta em memória (leve: nenhum outro campo baixado). */
+export function useCommentCountsBatch(postIds: string[]) {
+  return useQuery({
+    queryKey: ["post-comment-counts-batch", postIds.slice().sort().join(",")] as const,
+    queryFn: async (): Promise<Map<string, number>> => {
+      const result = new Map<string, number>();
+      if (postIds.length === 0) return result;
+
+      const supabase = createClient();
+      const { data, error } = await supabase.from("post_comments").select("post_id").in("post_id", postIds).is("deleted_at", null);
+      if (error) {
+        console.error("[post-comments] Falha ao contar comentários em lote", describeSupabaseError(error));
+        throw error;
+      }
+      for (const row of data ?? []) {
+        result.set(row.post_id, (result.get(row.post_id) ?? 0) + 1);
+      }
+      return result;
+    },
+    enabled: postIds.length > 0,
   });
 }
 
@@ -101,7 +125,7 @@ export function useCreatePostComment(postId: string) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const { error } = await supabase

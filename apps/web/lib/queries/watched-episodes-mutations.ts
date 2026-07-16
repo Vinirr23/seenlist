@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useOptimisticMutation } from "@seenlist/hooks";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { episodeKey, watchedEpisodesQueryKey, type WatchedEpisodeKey } from "./watched-episodes-state";
 import { LIBRARY_QUERY_KEY } from "./library-state";
 import { recalculateSeriesCategoryAfterEpisodeChange } from "./seriesCategoryRecalc";
@@ -30,7 +30,7 @@ export function useToggleEpisodeWatched(seriesId: number) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       if (watched) {
@@ -104,7 +104,7 @@ export function useMarkEpisodesWatched(seriesId: number) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const rows = episodes.map((e) => ({
@@ -158,7 +158,7 @@ export function useIncrementEpisodeRewatch(seriesId: number) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const { data: episodeRow, error: readError } = await supabase

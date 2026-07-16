@@ -1,6 +1,6 @@
 import { useOptimisticMutation } from "@seenlist/hooks";
 import type { LibraryItem, LibraryStatus, MediaType } from "@seenlist/types";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { LIBRARY_QUERY_KEY } from "./library-state";
 
 interface MoveVariables {
@@ -17,7 +17,7 @@ export function useMoveLibraryItem() {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       if (mediaType === "movie") {
@@ -63,7 +63,7 @@ export function useRemoveLibraryItem() {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       if (mediaType === "movie") {

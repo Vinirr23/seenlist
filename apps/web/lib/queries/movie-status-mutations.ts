@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MovieWatchStatus } from "@seenlist/types";
 import { useOptimisticMutation } from "@seenlist/hooks";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { movieStatusQueryKey } from "./movie-status-state";
 import { LIBRARY_QUERY_KEY } from "./library-state";
 
@@ -31,7 +31,7 @@ export function useSetMovieStatus(movieId: number) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       if (currentStatus === status) {
@@ -72,7 +72,7 @@ export function useIncrementMovieRewatch(movieId: number) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const { data: row, error: readError } = await supabase

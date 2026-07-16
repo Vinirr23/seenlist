@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 
 export type WatchedEpisodeKey = `${number}-${number}`; // `${seasonNumber}-${episodeNumber}`
 
@@ -24,7 +24,7 @@ async function fetchWatchedEpisodes(seriesId: number): Promise<Set<WatchedEpisod
   const supabase = createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser(supabase);
   if (!user) return new Set();
 
   const { data, error } = await supabase
@@ -64,7 +64,7 @@ async function fetchMostRecentWatchedEpisode(
   const supabase = createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser(supabase);
   if (!user) return null;
 
   const { data, error } = await supabase

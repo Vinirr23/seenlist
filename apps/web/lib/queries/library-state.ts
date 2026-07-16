@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import type { MediaSummary } from "@/lib/tmdb/client";
 import { useRealtimeInvalidate } from "@/lib/supabase/useRealtimeInvalidate";
 
@@ -23,7 +23,7 @@ interface SeriesStatusRow {
   total_watch_events: number | null;
 }
 
-interface WatchedEpisodeRow {
+export interface WatchedEpisodeRow {
   series_id: number;
   watched_at: string;
 }
@@ -31,6 +31,57 @@ interface WatchedEpisodeRow {
 interface LibrarySummariesResponse {
   movies: MediaSummary[];
   series: MediaSummary[];
+}
+
+/**
+ * AUDITORIA — mesmo bug já encontrado e corrigido no mobile
+ * (TASK-144/149, `WATCHED_EPISODES_PAGE_SIZE` em `apps/mobile/lib/
+ * library.ts`), nunca portado pro web: sem paginação, o limite
+ * padrão de 1000 linhas por consulta do Supabase/PostgREST cortava
+ * silenciosamente a contagem de episódios assistidos pra contas com
+ * muito histórico. Busca a CONTAGEM primeiro (rápida, sem trazer
+ * linha nenhuma) e dispara todas as páginas necessárias ao mesmo
+ * tempo (`Promise.all`) — mesmo raciocínio de `fetchDisplaySummaries`
+ * logo acima. Reaproveitada por `fetchLibraryItems` (biblioteca
+ * própria), `usePublicLibraryItems` (biblioteca de outro usuário) e
+ * `useProfileSectionCounts` (contador "Séries" do Perfil) — as três
+ * tinham a mesma consulta sem paginação, duplicada.
+ */
+const WATCHED_EPISODES_PAGE_SIZE = 1000;
+
+export async function fetchAllWatchedEpisodeRows(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<WatchedEpisodeRow[]> {
+  const { count, error: countError } = await supabase
+    .from("watched_episodes")
+    .select("series_id", { count: "exact", head: true })
+    .eq("is_special", false)
+    .eq("user_id", userId);
+  if (countError) throw countError;
+
+  const total = count ?? 0;
+  if (total === 0) return [];
+
+  const pageCount = Math.ceil(total / WATCHED_EPISODES_PAGE_SIZE);
+  const pages = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) => {
+      const from = index * WATCHED_EPISODES_PAGE_SIZE;
+      return supabase
+        .from("watched_episodes")
+        .select("series_id, watched_at")
+        .eq("is_special", false)
+        .eq("user_id", userId)
+        .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
+    })
+  );
+
+  const rows: WatchedEpisodeRow[] = [];
+  for (const page of pages) {
+    if (page.error) throw page.error;
+    rows.push(...((page.data ?? []) as WatchedEpisodeRow[]));
+  }
+  return rows;
 }
 
 function toLibraryStatus(movieStatus: MovieStatusRow["status"]): LibraryStatus {
@@ -261,7 +312,7 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
   const supabase = createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser(supabase);
   if (!user) return [];
 
   // CORREÇÃO CRÍTICA — a política de biblioteca pública (leitura
@@ -271,13 +322,13 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
   // inteira do usuário atual podia se misturar com a de qualquer
   // pessoa cujo perfil ele segue/é público — a causa raiz real por
   // trás de "mesclou" ao reimportar.
-  const [movieResult, seriesResult, episodeResult] = await Promise.all([
+  const [movieResult, seriesResult, episodeRows] = await Promise.all([
     supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", user.id),
     supabase
       .from("series_status")
       .select("series_id, status, created_at, updated_at, total_watch_events")
       .eq("user_id", user.id),
-    supabase.from("watched_episodes").select("series_id, watched_at").eq("is_special", false).eq("user_id", user.id),
+    fetchAllWatchedEpisodeRows(supabase, user.id),
   ]);
 
   if (movieResult.error) {
@@ -288,14 +339,9 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
     console.error("[library] Falha ao buscar series_status", seriesResult.error);
     throw seriesResult.error;
   }
-  if (episodeResult.error) {
-    console.error("[library] Falha ao buscar watched_episodes", episodeResult.error);
-    throw episodeResult.error;
-  }
 
   const movieRows = (movieResult.data ?? []) as MovieStatusRow[];
   const seriesRows = (seriesResult.data ?? []) as SeriesStatusRow[];
-  const episodeRows = (episodeResult.data ?? []) as WatchedEpisodeRow[];
 
   // Mesma regra de inclusão que buildLibraryItemsFromRows aplica por
   // dentro — precisa ser calculada aqui de novo porque os resumos do

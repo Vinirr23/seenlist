@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 
 export interface FollowListUser {
@@ -25,7 +25,7 @@ export function useFollowList(userId: string | null, direction: "following" | "f
       const supabase = createClient();
       const {
         data: { user: viewer },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
 
       const relationColumn = direction === "following" ? "follower_id" : "following_id";
       const otherColumn = direction === "following" ? "following_id" : "follower_id";

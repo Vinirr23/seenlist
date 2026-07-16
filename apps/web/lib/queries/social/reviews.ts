@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { useToast } from "@/lib/toast/ToastProvider";
 import type { MediaTarget } from "./types";
@@ -151,7 +151,7 @@ export function useMyReview(target: MediaTarget) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) return null;
 
       let query = supabase
@@ -235,7 +235,7 @@ export function useUpsertReview(target: MediaTarget) {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const payload: Record<string, unknown> = {

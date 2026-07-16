@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 
 /** Mesmo vocabulário fixo do CHECK da migration — mudar aqui sem mudar lá (ou vice-versa) quebra o insert. */
@@ -44,7 +44,7 @@ export function useMyFeedCategories() {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const { data, error } = await supabase.from("user_feed_categories").select("category").eq("user_id", user.id);
@@ -71,7 +71,7 @@ export function useSetFeedCategories() {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const { error: deleteError } = await supabase.from("user_feed_categories").delete().eq("user_id", user.id);

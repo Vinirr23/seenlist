@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useUpdateMyProfile } from "./my-profile";
 
@@ -22,7 +22,7 @@ export function useBannerUpload() {
       const supabase = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentAuthUser(supabase);
       if (!user) throw new Error("not authenticated");
 
       const extension = file.name.split(".").pop() ?? "jpg";

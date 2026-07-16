@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { LibraryStatus } from "@seenlist/types";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 
 export function seriesStatusQueryKey(seriesId: number) {
   return ["series-status", seriesId] as const;
@@ -19,7 +19,7 @@ async function fetchSeriesStatus(seriesId: number): Promise<LibraryStatus | null
   const supabase = createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getCurrentAuthUser(supabase);
   if (!user) return null;
 
   const { data, error } = await supabase
