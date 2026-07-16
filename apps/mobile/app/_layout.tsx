@@ -5,8 +5,31 @@ import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
+import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { colors } from "@/lib/theme";
+
+const SPLASH_DURATION_MS = 3000;
+
+/**
+ * TASK-165 (splash, retomada) — sem isso, a splash NATIVA (a que o
+ * Android mostra sozinho, configurada em app.json) some assim que o
+ * JavaScript termina de montar o primeiro componente — em aparelhos
+ * rápidos isso pode ser rápido demais pra dar tempo de ver, do jeito
+ * que o usuário percebeu. `preventAutoHideAsync()` (chamado aqui, no
+ * escopo do módulo — precisa rodar antes de qualquer render) avisa o
+ * sistema pra NÃO esconder a splash sozinho; a gente esconde na mão
+ * com `hideAsync()` depois de 3 segundos garantidos, não importa
+ * quão rápido o JS tenha carregado. Esse timer é independente do
+ * `loading` do `useAuth()` em `app/index.tsx` — mesmo que a sessão
+ * resolva em 100ms, a splash nativa continua cobrindo a tela até
+ * completar os 3s (a tela de destino já pode ter navegado por baixo
+ * nesse meio tempo, só não fica visível até a splash sumir).
+ */
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Ignora — só pode falhar se chamado depois do auto-hide já ter
+  // acontecido (corrida rara), o que não muda nada de importante.
+});
 
 /**
  * TASK-114 (Notificações) — mostra a notificação como banner/som
@@ -42,6 +65,15 @@ function useNotificationDeepLinks() {
   }, [router]);
 }
 
+function useHideSplashAfterDelay() {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, SPLASH_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, []);
+}
+
 /**
  * TASK-096 (detalhes de série) — trocado de `<Slot />` pra `<Stack />`.
  * Até aqui, a raiz só tinha duas telas mutuamente exclusivas
@@ -56,6 +88,7 @@ function useNotificationDeepLinks() {
  */
 export default function RootLayout() {
   useNotificationDeepLinks();
+  useHideSplashAfterDelay();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
