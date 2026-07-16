@@ -7,6 +7,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0E14",
+    "icon": "./assets/images/icon.png",
     "newArchEnabled": true,
     "plugins": [
       "expo-router",
@@ -23,7 +24,11 @@
       "bundleIdentifier": "com.seenlist.app"
     },
     "android": {
-      "package": "com.seenlist.app"
+      "package": "com.seenlist.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
+        "backgroundColor": "#0B0E14"
+      }
     },
     "extra": {
       "router": {},
