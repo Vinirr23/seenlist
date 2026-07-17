@@ -98,7 +98,7 @@ export function SeriesHeader({
         <SeriesQuickActionsSheet
           seriesId={seriesId}
           seriesTitle={seriesTitle}
-          currentStatus={(currentStatus ?? "want_to_watch") as LibraryStatus}
+          currentStatus={currentStatus ?? null}
           onClose={() => setShowMoreOptions(false)}
         />
       )}

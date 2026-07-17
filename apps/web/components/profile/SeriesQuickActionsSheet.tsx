@@ -14,7 +14,18 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 export interface SeriesQuickActionsSheetProps {
   seriesId: number;
   seriesTitle: string;
-  currentStatus: LibraryStatus;
+  /**
+   * AUDITORIA (achado real, com prova em teste) — antes,
+   * `SeriesActions.tsx` mandava `currentStatus ?? "want_to_watch"`
+   * pra satisfazer este tipo quando não havia status explícito
+   * (série só com progresso de episódio, sem nunca ter clicado num
+   * status). Isso fazia o próprio menu achar que "Assistir depois"
+   * já estava ativo — clicar nele virava "remover" (nenhuma linha
+   * pra remover, então não fazia nada), em vez de criar a linha de
+   * verdade. Agora aceita `null` (o estado real de "nenhum status
+   * explícito"), sem inventar um valor.
+   */
+  currentStatus: LibraryStatus | null;
   onClose: () => void;
 }
 

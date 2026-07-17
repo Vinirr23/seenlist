@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
-import type { LibraryStatus } from "@seenlist/types";
 import { cn } from "@seenlist/utils";
 import { useSeriesStatus, useSetSeriesStatus } from "@/lib/queries/series-status";
 import { useToast } from "@/lib/toast/ToastProvider";
@@ -101,7 +100,7 @@ export function SeriesActions({ seriesId, seriesTitle }: { seriesId: number; ser
         <SeriesQuickActionsSheet
           seriesId={seriesId}
           seriesTitle={seriesTitle}
-          currentStatus={(currentStatus ?? "want_to_watch") as LibraryStatus}
+          currentStatus={currentStatus ?? null}
           onClose={() => setShowMoreOptions(false)}
         />
       )}
