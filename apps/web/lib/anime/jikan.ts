@@ -17,7 +17,12 @@ async function fetchJikan(path: string): Promise<{ response: Response | null; de
 
   for (let attempt = 0; attempt <= DELAYS_MS.length; attempt++) {
     try {
-      const response = await fetch(`${JIKAN_BASE}${path}`, { next: { revalidate: 60 * 60 * 24 * 30 } });
+      // TASK-168 (correção 7) — sem cache de servidor aqui, mesmo
+      // raciocínio do AniList (`anilist.ts`) — o cache do lado do
+      // cliente (React Query) já cobre isso, condicionado a
+      // `searchFailed`, sem risco de guardar uma resposta ruim por
+      // 30 dias.
+      const response = await fetch(`${JIKAN_BASE}${path}`);
       if (response.ok) return { response, debugReason: null };
       if (RETRYABLE_STATUSES.has(response.status) && attempt < DELAYS_MS.length) {
         await new Promise((resolve) => setTimeout(resolve, DELAYS_MS[attempt]));
