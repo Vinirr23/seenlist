@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAnimeCharacters, findMalIdWithDebug } from "@/lib/anime/jikan";
+import { getAniListCharactersWithDebug } from "@/lib/anime/anilist";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -11,14 +12,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Parâmetro 'title' é obrigatório." }, { status: 400 });
   }
 
-  // TASK-168 — `?debug=1` devolve o que a busca no MyAnimeList
-  // considerou (candidatos e pontuações), pra investigar sem precisar
-  // dos logs do Vercel. Ex.: /api/anime/characters?title=That+Time+I+Got+Reincarnated+as+a+Slime&year=2018&debug=1
+  // TASK-168 — `?debug=1` devolve o que as DUAS fontes (AniList,
+  // tentado primeiro, e Jikan, reforço) consideraram, pra investigar
+  // sem precisar dos logs do Vercel.
   if (searchParams.get("debug") === "1") {
-    const debugInfo = await findMalIdWithDebug(title, Number.isFinite(year) ? year : null);
-    return NextResponse.json(debugInfo);
+    const [aniList, jikan] = await Promise.all([
+      getAniListCharactersWithDebug(title, Number.isFinite(year) ? year : null),
+      findMalIdWithDebug(title, Number.isFinite(year) ? year : null),
+    ]);
+    return NextResponse.json({ aniList, jikan });
   }
 
-  const characters = await getAnimeCharacters(title, Number.isFinite(year) ? year : null);
-  return NextResponse.json({ characters });
+  const result = await getAnimeCharacters(title, Number.isFinite(year) ? year : null);
+  return NextResponse.json(result);
 }

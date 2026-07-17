@@ -97,6 +97,74 @@ export interface AniListResult {
  * certinho e não achou nada (não é anime) é `searchFailed: false`,
  * `characters: []`.
  */
+export interface AniListDebugInfo {
+  queryTitle: string;
+  queryYear: number | null;
+  httpStatus: number | null;
+  graphqlErrors: string[] | null;
+  candidates: { id: number; romaji: string | null; english: string | null; year: number | null; score: number }[];
+  chosenId: number | null;
+}
+
+/**
+ * TASK-168 (correção 6) — versão com debug de `getAniListCharacters`,
+ * pra dar pra ver de fora (via `/api/anime/characters?debug=1`)
+ * exatamente o que o AniList considerou — o AniList virou a primeira
+ * tentativa, então o debug antigo (só do Jikan) não mostrava mais o
+ * que importava.
+ */
+export async function getAniListCharactersWithDebug(title: string, year: number | null): Promise<AniListDebugInfo> {
+  const debug: AniListDebugInfo = {
+    queryTitle: title,
+    queryYear: year,
+    httpStatus: null,
+    graphqlErrors: null,
+    candidates: [],
+    chosenId: null,
+  };
+
+  let response: Response;
+  try {
+    response = await fetch(ANILIST_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ query: SEARCH_QUERY, variables: { search: title, perPage: 5 } }),
+    });
+  } catch (error) {
+    debug.graphqlErrors = [error instanceof Error ? error.message : String(error)];
+    return debug;
+  }
+
+  debug.httpStatus = response.status;
+  if (!response.ok) return debug;
+
+  const body = (await response.json()) as AniListResponse;
+  if (body.errors && body.errors.length > 0) {
+    debug.graphqlErrors = body.errors.map((e) => e.message);
+    return debug;
+  }
+
+  const candidates = body.data?.Page?.media ?? [];
+  let best: { media: AniListMedia; score: number } | null = null;
+  for (const media of candidates) {
+    const scoreRomaji = media.title.romaji ? tokenOverlapScore(title, media.title.romaji) : 0;
+    const scoreEnglish = media.title.english ? tokenOverlapScore(title, media.title.english) : 0;
+    let score = Math.max(scoreRomaji, scoreEnglish);
+    if (year && media.startDate?.year && Math.abs(year - media.startDate.year) <= 1) score += 0.15;
+    debug.candidates.push({
+      id: media.id,
+      romaji: media.title.romaji,
+      english: media.title.english,
+      year: media.startDate?.year ?? null,
+      score: Math.round(score * 1000) / 1000,
+    });
+    if (!best || score > best.score) best = { media, score };
+  }
+
+  if (best && best.score >= 0.5) debug.chosenId = best.media.id;
+  return debug;
+}
+
 export async function getAniListCharacters(title: string, year: number | null): Promise<AniListResult> {
   let response: Response;
   try {
