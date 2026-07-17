@@ -88,6 +88,29 @@ function computeConfidence(
 }
 
 /**
+ * TASK-166 (achado real, com prova em dado bruto) — "Friends" tinha
+ * 236 linhas em `rewatched_episode.csv` (episódios granulares únicos
+ * = 236, o total real da série) mas `nb_episodes_seen` em
+ * `user_tv_show_data.csv` vinha ZERADO — o TV Time aparentemente não
+ * soma reassistida nenhuma nesse contador quando a série inteira foi
+ * logada só como reassistida, sem nenhuma passada "watched" inicial.
+ * Resultado: a série inteira ia pra "Assistir depois", mesmo com
+ * prova concreta (236 episódios específicos, com data) de que foi
+ * assistida por completo.
+ *
+ * Correção: `totalWatchEvents` deixa de ser a única fonte — o PISO
+ * agora é `max(totalWatchEvents, episódios granulares únicos)`. Os
+ * granulares (`watched_on_episode.csv`/`rewatched_episode.csv`/
+ * `seen_episode_latest.csv`) já eram parseados antes (só usados pra
+ * desambiguação/confiança) — nada novo é lido do arquivo, só passa a
+ * também contar como watch event de verdade quando o agregado
+ * subestima.
+ */
+function countUniqueKnownEpisodes(knownEpisodes: GranularEpisodeSignal[]): number {
+  return new Set(knownEpisodes.map((e) => `${e.seasonNumber}-${e.episodeNumber}`)).size;
+}
+
+/**
  * TASK-027J — mudança central: `uniqueEpisodesSeen = min(totalWatchEvents,
  * total do TMDB)`. Isso substitui o antigo comportamento (TASK-027B/C)
  * de marcar "needs_review" sempre que totalWatchEvents excedia o
@@ -100,14 +123,16 @@ function computeConfidence(
  * presa em "precisa de revisão" pra sempre.
  */
 export function reconstructProgress(show: ParsedShow, summary: SeasonSummary | null): ReconstructedProgress {
+  const effectiveWatchEvents = Math.max(show.totalWatchEvents, countUniqueKnownEpisodes(show.knownEpisodes));
+
   if (!summary || summary.seasons.length === 0) {
     return {
       episodes: [],
       uniqueEpisodesSeen: 0,
       confidence: 0,
-      needsReview: show.totalWatchEvents > 0,
+      needsReview: effectiveWatchEvents > 0,
       reviewReason: "TMDB não retornou nenhuma temporada para esta série.",
-      kind: show.totalWatchEvents > 0 ? "needs_review" : "deterministic",
+      kind: effectiveWatchEvents > 0 ? "needs_review" : "deterministic",
       nextEpisode: null,
     };
   }
@@ -119,14 +144,14 @@ export function reconstructProgress(show: ParsedShow, summary: SeasonSummary | n
       episodes: [],
       uniqueEpisodesSeen: 0,
       confidence: 0,
-      needsReview: show.totalWatchEvents > 0,
+      needsReview: effectiveWatchEvents > 0,
       reviewReason: "A série não tem nenhum episódio cadastrado no TMDB (fora de especiais).",
-      kind: show.totalWatchEvents > 0 ? "needs_review" : "deterministic",
+      kind: effectiveWatchEvents > 0 ? "needs_review" : "deterministic",
       nextEpisode: null,
     };
   }
 
-  const uniqueEpisodesSeen = Math.min(show.totalWatchEvents, chronological.length);
+  const uniqueEpisodesSeen = Math.min(effectiveWatchEvents, chronological.length);
   const episodes = chronological.slice(0, uniqueEpisodesSeen);
   const confidence = computeConfidence(uniqueEpisodesSeen, chronological, show.knownEpisodes);
   const nextEpisode = chronological[uniqueEpisodesSeen] ?? null;
