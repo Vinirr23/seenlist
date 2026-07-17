@@ -1,17 +1,20 @@
 const JIKAN_BASE = "https://api.jikan.moe/v4";
 
 /**
- * TASK-168 — mesma correção do web (`lib/anime/jikan.ts`): a Jikan
- * tem limite agressivo de requisições (~3/segundo) — uma segunda
- * tentativa curta cobre o caso comum de bater nesse limite por um
- * instante.
+ * TASK-168 (correção 4) — mesma ideia do web: a Jikan não só tem
+ * limite de requisições (429), como também responde devagar/cai sob
+ * carga (502/503/504) — problema do lado deles. 3 tentativas no
+ * total, com pausa crescente.
  */
 async function fetchJikan(path: string): Promise<Response | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+  const DELAYS_MS = [500, 1500];
+
+  for (let attempt = 0; attempt <= DELAYS_MS.length; attempt++) {
     const response = await fetch(`${JIKAN_BASE}${path}`);
     if (response.ok) return response;
-    if (response.status === 429 && attempt === 0) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+    if (RETRYABLE_STATUSES.has(response.status) && attempt < DELAYS_MS.length) {
+      await new Promise((resolve) => setTimeout(resolve, DELAYS_MS[attempt]));
       continue;
     }
     console.error(`[animeCharacters] Resposta ${response.status} em ${path}`);

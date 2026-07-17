@@ -1,31 +1,24 @@
 const JIKAN_BASE = "https://api.jikan.moe/v4";
 
 /**
- * TASK-168 (achado real — segunda causa possível, além do título em
- * português) — a Jikan é uma API pública sem chave, com limite bem
- * agressivo de requisições (~3/segundo, ~60/minuto documentado por
- * eles). Rodando num servidor compartilhado (Vercel), é bem possível
- * bater nesse limite e a busca falhar sempre, mesmo com o título
- * certo — o erro nem aparece no navegador (isso roda no servidor,
- * não no client), só nos logs do Vercel, difícil de notar. Uma
- * segunda tentativa, com uma pausa curta, cobre o caso comum de
- * "bati no limite por um instante", sem custo perceptível quando não
- * é isso (a maioria das chamadas passa de primeira).
- *
- * TASK-168 (correção 3) — `debugReason` devolve o motivo exato da
- * falha (status HTTP ou mensagem da exceção) pra aparecer no próprio
- * JSON de `?debug=1`, sem precisar dos logs do Vercel — achado real:
- * o primeiro debug voltou `candidates: []`, o que só acontece se a
- * chamada à Jikan falhou de verdade (rede, bloqueio, etc.), não é
- * mais uma questão de título/pontuação.
+ * TASK-168 (correção 4, achado real via debug: "HTTP 504
+ * Gateway Time-out") — a Jikan não só tem limite de requisições
+ * (429), como também é conhecida por responder devagar/cair sob
+ * carga (502/503/504) — problema de instabilidade do lado deles, não
+ * do SeenList. 3 tentativas no total, com pausa crescente (a
+ * primeira pausa curta cobre um pico passageiro de 429; a segunda,
+ * mais longa, dá mais fôlego pra um 504 de verdade se recuperar).
  */
 async function fetchJikan(path: string): Promise<{ response: Response | null; debugReason: string | null }> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+  const DELAYS_MS = [500, 1500];
+
+  for (let attempt = 0; attempt <= DELAYS_MS.length; attempt++) {
     try {
       const response = await fetch(`${JIKAN_BASE}${path}`, { next: { revalidate: 60 * 60 * 24 * 30 } });
       if (response.ok) return { response, debugReason: null };
-      if (response.status === 429 && attempt === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 800));
+      if (RETRYABLE_STATUSES.has(response.status) && attempt < DELAYS_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, DELAYS_MS[attempt]));
         continue;
       }
       console.error(`[jikan] Resposta ${response.status} em ${path}`);
@@ -36,7 +29,7 @@ async function fetchJikan(path: string): Promise<{ response: Response | null; de
       return { response: null, debugReason: `Exceção: ${message}` };
     }
   }
-  return { response: null, debugReason: "Esgotou as tentativas (429 repetido)." };
+  return { response: null, debugReason: "Esgotou as tentativas (instabilidade repetida do Jikan)." };
 }
 
 export interface AnimeCharacter {
