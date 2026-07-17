@@ -122,9 +122,17 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
    * cai pro elenco do TMDB (foto do ator/dublador, como já era).
    * `enabled: Boolean(title)` dentro do hook cuida de não disparar
    * a busca antes de `seriesDetails` carregar.
+   *
+   * TASK-168 (correção — voltava sempre foto de dublador em animes
+   * de verdade, achado real: "That Time I Got Reincarnated as a
+   * Slime") — usa `seriesDetails.matchTitle` (título em inglês, só
+   * pra essa comparação), não `seriesDetails.title` (que vem em
+   * português, já que toda chamada ao TMDB pede `language=pt-BR` —
+   * comparar título em português contra o inglês/romaji que o
+   * MyAnimeList usa nunca batia, a busca falhava sempre, silenciosamente.
    */
   const seriesYear = seriesDetails?.firstAirDate ? Number(seriesDetails.firstAirDate.slice(0, 4)) : null;
-  const { data: animeCharacters } = useAnimeCharacters(seriesDetails?.title, seriesYear);
+  const { data: animeCharacters } = useAnimeCharacters(seriesDetails?.matchTitle, seriesYear);
   const favoriteCharacterOptions: FavoriteCharacterOption[] = useMemo(() => {
     if (animeCharacters && animeCharacters.length > 0) return animeCharacters;
     return (seriesDetails?.cast ?? []).map((member) => ({

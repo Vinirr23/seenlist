@@ -117,7 +117,14 @@ export default function EpisodeDetailScreen() {
       if (cancelled) return;
       setSeriesDetails(value);
       const year = value.firstAirDate ? Number(value.firstAirDate.slice(0, 4)) : null;
-      getAnimeCharacters(value.title, Number.isFinite(year) ? year : null).then((characters) => {
+      // TASK-168 — `value.title` vem em português (a API sempre pede
+      // language=pt-BR); o MyAnimeList/Jikan só conhece título em
+      // inglês/romaji, então a busca sempre falhava silenciosamente e
+      // caía pro elenco do TMDB (foto de dublador em vez de
+      // personagem). `matchTitle` é escolhido pra isso especificamente
+      // (título alternativo em inglês do TMDB, nunca exibido na tela)
+      // — ver `pickTitleForExternalMatching` em apps/web/lib/tmdb/client.ts.
+      getAnimeCharacters(value.matchTitle, Number.isFinite(year) ? year : null).then((characters) => {
         if (!cancelled) setAnimeCharacters(characters);
       });
     });

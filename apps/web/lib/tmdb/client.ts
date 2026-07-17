@@ -133,6 +133,8 @@ export async function findByExternalId(
 interface TmdbTvDetailsResponse {
   id: number;
   name: string;
+  /** TASK-168 — nome original (não traduzido) do TMDB. Pra anime japonês normalmente vem em kanji/hiragana, não serve sozinho pra comparar com o MyAnimeList (que usa romaji/inglês) — por isso `alternative_titles` também é buscado, de preferência. */
+  original_name: string;
   overview: string;
   backdrop_path: string | null;
   poster_path: string | null;
@@ -146,6 +148,7 @@ interface TmdbTvDetailsResponse {
   seasons: { season_number: number; name: string; episode_count: number }[];
   credits?: { cast: { id: number; name: string; character: string; profile_path: string | null }[] };
   similar?: { results: TmdbMultiSearchItem[] };
+  alternative_titles?: { results: { iso_3166_1: string; title: string }[] };
 }
 
 /**
@@ -194,11 +197,53 @@ export async function getSeriesSeasonSummary(seriesId: number): Promise<SeriesSe
  * (via `append_to_response`) — evita 3 requests separados pra
  * montar uma única tela.
  */
+/**
+ * TASK-168 (achado real, com prova em tela — "That Time I Got
+ * Reincarnated as a Slime" mostrando foto de dublador em vez de
+ * personagem) — toda chamada ao TMDB pede `language=pt-BR`
+ * (`tmdbGet`), então `data.name` vem em português. O
+ * MyAnimeList/Jikan (`lib/anime/jikan.ts`) só conhece título em
+ * inglês/romaji — comparar "título em português" contra "título em
+ * inglês" nunca bate o placar mínimo de `tokenOverlapScore`, e a
+ * busca falha silenciosamente (por design — cai pro elenco do TMDB
+ * em vez de arriscar achar o anime errado). Esta função escolhe,
+ * nesta ordem, o melhor título pra ESSA comparação específica (nunca
+ * usado pra exibir na tela — só como entrada de `getAnimeCharacters`):
+ *   1. Título alternativo dos EUA (`alternative_titles`, US) —
+ *      normalmente é literalmente o título de distribuição em
+ *      inglês, o que mais se parece com o que o MyAnimeList usa.
+ *   2. Título alternativo do Reino Unido (GB) — mesma ideia,
+ *      fallback caso não tenha entrada dos EUA especificamente.
+ *   3. `original_name` — só serve quando já está em escrita latina
+ *      (funciona bem pra anime cujo nome original já é romanizado ou
+ *      pra séries de outros países que não usam script latino
+ *      diferente do JP); descartado se tiver caractere fora do
+ *      básico (kanji/hangul/etc.), porque `normalizeTitle` em
+ *      jikan.ts remove esses caracteres inteiros, zerando a
+ *      comparação de qualquer forma.
+ *   4. `data.name` (português) — último recurso, mesmo
+ *      comportamento de antes desta correção (raramente bate, mas
+ *      não é pior que não tentar).
+ */
+function pickTitleForExternalMatching(data: TmdbTvDetailsResponse): string {
+  const alternatives = data.alternative_titles?.results ?? [];
+  const us = alternatives.find((t) => t.iso_3166_1 === "US" && t.title.trim().length > 0);
+  if (us) return us.title;
+
+  const gb = alternatives.find((t) => t.iso_3166_1 === "GB" && t.title.trim().length > 0);
+  if (gb) return gb.title;
+
+  const isBasicLatin = (s: string) => /^[\x20-\x7E]*$/.test(s);
+  if (data.original_name && isBasicLatin(data.original_name)) return data.original_name;
+
+  return data.name;
+}
+
 export async function getSeriesDetails(
   seriesId: string
 ): Promise<Omit<SeriesDetails, "seasons">> {
   const data = await tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, {
-    append_to_response: "credits,similar",
+    append_to_response: "credits,similar,alternative_titles",
   });
 
   const cast: CastMember[] = (data.credits?.cast ?? []).slice(0, 15).map((member) => ({
@@ -215,6 +260,7 @@ export async function getSeriesDetails(
   return {
     id: data.id,
     title: data.name,
+    matchTitle: pickTitleForExternalMatching(data),
     overview: data.overview,
     backdropPath: data.backdrop_path,
     posterPath: data.poster_path,

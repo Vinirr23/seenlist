@@ -76,6 +76,8 @@ export interface MovieDetails {
 export interface SeriesDetails {
   id: number;
   title: string;
+  /** TASK-168 — melhor título pra comparar com fontes externas em inglês (MyAnimeList/Jikan), nunca exibido na tela — ver `pickTitleForExternalMatching` em lib/tmdb/client.ts. */
+  matchTitle: string;
   overview: string;
   backdropPath: string | null;
   posterPath: string | null;
