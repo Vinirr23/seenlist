@@ -406,6 +406,20 @@ export function TvTimeImportWizard() {
           favoriteCount={parsed?.favoriteCount ?? 0}
           pendingCount={pendingCount}
         />
+
+        {summary.liveTmdbUnavailableCount > 0 && (
+          <div className="mx-auto max-w-xs px-6 pb-4 text-center">
+            <p className="text-xs text-muted">
+              {summary.liveTmdbUnavailableCount}{" "}
+              {summary.liveTmdbUnavailableCount === 1
+                ? "série não pôde ser confirmada"
+                : "séries não puderam ser confirmadas"}{" "}
+              contra as datas de exibição reais (instabilidade temporária do TMDB) — a categoria dela ficou calculada
+              só pela contagem de episódios, sem essa checagem extra. Rodar a importação de novo deve corrigir.
+            </p>
+          </div>
+        )}
+
         {AUDIT_MODE_ENABLED && auditReport && (
           <div className="mx-auto flex max-w-xs flex-col gap-2 px-6 pb-8">
             <p className="text-center text-[10px] uppercase tracking-wide text-muted">

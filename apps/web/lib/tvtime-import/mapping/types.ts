@@ -78,4 +78,6 @@ export interface ImportSummary {
   watchingShows: number;
   favoritesImported: number;
   averageConfidence: number;
+  /** TASK-166 — quantas séries (dentre as que precisavam da checagem, ou seja, não estavam em "assistir depois") ficaram sem dado de episódio ao vivo do TMDB pra confirmar "Assistindo" vs "Em dia" vs "Concluída" — mantidas com a categoria calculada só pela contagem bruta, sem a correção. Mostrado na tela pra não depender do usuário abrir o console (o modo de auditoria só existe em desenvolvimento). */
+  liveTmdbUnavailableCount: number;
 }

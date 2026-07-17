@@ -12,7 +12,7 @@ import { FullPipelineAuditCollector, type FullPipelineTrace } from "../diagnosti
 import { saveReplaySnapshot } from "./replaySnapshot";
 
 const SEASON_INFO_BATCH_SIZE = 10;
-const LIVE_EPISODES_BATCH_SIZE = 20;
+const LIVE_EPISODES_BATCH_SIZE = 6;
 const EPISODE_UPSERT_CHUNK_SIZE = 500;
 
 async function fetchSeasonSummaries(tmdbIds: number[]): Promise<Map<number, SeasonSummary>> {
@@ -48,27 +48,45 @@ async function fetchSeasonSummaries(tmdbIds: number[]): Promise<Map<number, Seas
  * `decideWatchingVsUpToDate`/`getAllEpisodesWithAirDates` já fazem
  * — temporada 0 nunca entra na lista retornada por essa rota).
  */
+/**
+ * TASK-166 (correção) — lote reduzido de 20 pra 6 (buscar episódio
+ * com data de exibição é bem mais pesado que o resumo de temporadas:
+ * pra cada série, busca TODAS as temporadas em paralelo — um lote de
+ * 20 séries com várias temporadas cada pode estourar o tempo limite
+ * da função serverless). Uma tentativa extra por lote antes de
+ * desistir — falha de rede pontual não devia custar a correção de 6
+ * séries inteiras à toa.
+ */
 async function fetchLiveEpisodes(tmdbIds: number[]): Promise<Map<number, LiveEpisodeAirDate[]>> {
   const result = new Map<number, LiveEpisodeAirDate[]>();
-  for (let start = 0; start < tmdbIds.length; start += LIVE_EPISODES_BATCH_SIZE) {
-    const batch = tmdbIds.slice(start, start + LIVE_EPISODES_BATCH_SIZE);
+
+  async function fetchBatch(batch: number[]): Promise<boolean> {
     try {
       const response = await fetch("/api/tmdb/series-episodes-at-export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seriesIds: batch }),
       });
-      if (!response.ok) continue;
+      if (!response.ok) return false;
       const data = (await response.json()) as {
         series: { id: number; episodes: LiveEpisodeAirDate[] }[];
       };
       for (const entry of data.series) {
         result.set(entry.id, entry.episodes);
       }
-    } catch (error) {
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  for (let start = 0; start < tmdbIds.length; start += LIVE_EPISODES_BATCH_SIZE) {
+    const batch = tmdbIds.slice(start, start + LIVE_EPISODES_BATCH_SIZE);
+    let ok = await fetchBatch(batch);
+    if (!ok) ok = await fetchBatch(batch); // uma segunda tentativa antes de desistir do lote
+    if (!ok) {
       console.error(
-        "[tvtime-import] Falha ao buscar episódios ao vivo de um lote — essas séries mantêm o status sem correção de data de exibição",
-        error
+        `[tvtime-import] Falha ao buscar episódios ao vivo do lote ${start}-${start + batch.length} (2 tentativas) — essas séries mantêm o status sem correção de data de exibição: ${batch.join(", ")}`
       );
     }
   }
@@ -300,6 +318,8 @@ export async function runImport(
     });
   }
 
+  let liveTmdbUnavailableCount = 0;
+
   for (let index = 0; index < needsWork.length; index++) {
     const match = needsWork[index];
     if (!match) continue;
@@ -335,6 +355,9 @@ export async function runImport(
         // episódio futuro). Também promove pra "completed" quando a
         // série já encerrou e tudo que saiu foi assistido.
         const liveEpisodes = liveEpisodesBySeriesId.get(tmdbId) ?? null;
+        if (status !== "want_to_watch" && (!liveEpisodes || liveEpisodes.length === 0)) {
+          liveTmdbUnavailableCount += 1;
+        }
         const correction = correctStatusWithLiveTmdb(status, reconstruction.uniqueEpisodesSeen, summary?.ended ?? false, liveEpisodes);
         if (correction.status !== status) {
           console.log(`[tvtime-import] "${match.show.name}": ${status} → ${correction.status} (${correction.reason})`);
@@ -567,6 +590,7 @@ export async function runImport(
       confidences.length > 0
         ? Math.round((confidences.reduce((sum, c) => sum + c, 0) / confidences.length) * 10) / 10
         : 0,
+    liveTmdbUnavailableCount,
   };
 
   return { summary, auditRecords, fullPipelineTraces: fullPipelineAudit.getTraces() };
