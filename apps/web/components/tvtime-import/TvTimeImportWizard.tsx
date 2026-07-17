@@ -23,16 +23,10 @@ import { buildSnapshot, saveSnapshot, determineImportType } from "@/lib/tvtime-i
 import type { AuditReport } from "@/lib/tvtime-import/audit/types";
 import { createClient } from "@/lib/supabase/client";
 import { useImportProgress } from "@/lib/tvtime-import/progress/useImportProgress";
-import type {
-  ImportOptions,
-  ImportSummary,
-  LibraryMergeStrategy,
-  ParsedArchive,
-  ShowMatch,
-} from "@/lib/tvtime-import/mapping/types";
+import type { ImportOptions, ImportSummary, ParsedArchive, ShowMatch } from "@/lib/tvtime-import/mapping/types";
 import { CelebrationScreen } from "./CelebrationScreen";
 
-type Step = "landing" | "processing" | "invalid" | "confirm" | "importing" | "import-error" | "done";
+type Step = "landing" | "processing" | "invalid" | "confirm" | "confirm-wipe" | "importing" | "import-error" | "done";
 
 /**
  * TASK-027.5 — reformulação do fluxo: a seleção manual DEIXOU de
@@ -60,7 +54,15 @@ export function TvTimeImportWizard() {
     importLibrary: true,
     importEpisodes: true,
     restoreProgress: true,
-    mergeStrategy: "merge",
+    // TASK-166 — a pedido: SEMPRE substitui a biblioteca antiga antes
+    // de importar, nunca mescla. Sem isso, uma série que ficou com
+    // categoria errada numa importação anterior nunca era
+    // reprocessada de novo — a idempotência trata "Concluída" como
+    // definitivo e pula pra sempre (`isShowAlreadyConsistent`), então
+    // rodar a importação de novo em modo "mesclar" nunca corrigia
+    // nada que já tivesse ficado errado antes. A opção de escolher
+    // deixou de existir na tela — sempre substitui.
+    mergeStrategy: "replace",
   });
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
@@ -344,33 +346,45 @@ export function TvTimeImportWizard() {
           </label>
         </div>
 
-        <div className="mb-6">
-          <p className="mb-2 text-xs font-medium text-muted">Já tenho séries na minha biblioteca:</p>
-          <div className="flex gap-2">
-            {(["merge", "replace"] as LibraryMergeStrategy[]).map((strategy) => (
-              <button
-                key={strategy}
-                type="button"
-                onClick={() => setOptions((current) => ({ ...current, mergeStrategy: strategy }))}
-                className={`flex-1 rounded-lg border px-3 py-2.5 text-xs font-medium transition-colors ${
-                  options.mergeStrategy === strategy
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted"
-                }`}
-              >
-                {strategy === "merge" ? "Mesclar com minha biblioteca" : "Substituir tudo"}
-              </button>
-            ))}
-          </div>
+        <div className="mb-6 rounded-lg border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
+          Esta importação substitui sua biblioteca de séries atual (séries, episódios assistidos e favoritos de
+          série) — não mescla com o que já está lá.
         </div>
 
         <button
           type="button"
-          onClick={handleImport}
+          onClick={() => setStep("confirm-wipe")}
           className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-background transition-transform active:scale-[0.96]"
         >
           Importar agora
         </button>
+      </div>
+    );
+  }
+
+  if (step === "confirm-wipe") {
+    return (
+      <div className="mx-auto max-w-sm px-6 py-10 text-center">
+        <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-danger" strokeWidth={1.5} />
+        <p className="mb-6 text-base font-medium text-text">
+          Esta importação substituirá toda a sua biblioteca de séries atual. Deseja continuar?
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setStep("confirm")}
+            className="flex-1 rounded-lg border border-border py-2.5 text-sm font-medium text-text"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleImport}
+            className="flex-1 rounded-lg bg-danger py-2.5 text-sm font-semibold text-background"
+          >
+            Substituir e continuar
+          </button>
+        </div>
       </div>
     );
   }
