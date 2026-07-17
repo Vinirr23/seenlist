@@ -130,17 +130,33 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
    * português, já que toda chamada ao TMDB pede `language=pt-BR` —
    * comparar título em português contra o inglês/romaji que o
    * MyAnimeList usa nunca batia, a busca falhava sempre, silenciosamente.
+   *
+   * TASK-168 (correção 5, plano B — a pedido) — a causa raiz de
+   * verdade era instabilidade da própria Jikan (504 repetido,
+   * confirmado via `?debug=1`), fora do nosso controle. Quando a
+   * busca FALHA de verdade (`searchFailed`), não dá pra saber se a
+   * série é anime ou não — cair pro elenco do TMDB nesse caso mostra
+   * foto de dublador rotulada como "personagem", parecendo certo sem
+   * ser. Agora esconde a opção de personagem inteira nesse caso,
+   * em vez de arriscar mostrar informação errada. Só cai pro elenco
+   * quando a busca RODOU CERTINHO e genuinamente não achou nada
+   * (série não é anime, por exemplo — `searchFailed: false`).
    */
   const seriesYear = seriesDetails?.firstAirDate ? Number(seriesDetails.firstAirDate.slice(0, 4)) : null;
-  const { data: animeCharacters } = useAnimeCharacters(seriesDetails?.matchTitle, seriesYear);
+  const { data: animeResult } = useAnimeCharacters(seriesDetails?.matchTitle, seriesYear);
+  const animeDebugUrl =
+    seriesDetails?.matchTitle && seriesYear
+      ? `/api/anime/characters?title=${encodeURIComponent(seriesDetails.matchTitle)}&year=${seriesYear}&debug=1`
+      : null;
   const favoriteCharacterOptions: FavoriteCharacterOption[] = useMemo(() => {
-    if (animeCharacters && animeCharacters.length > 0) return animeCharacters;
+    if (animeResult && animeResult.characters.length > 0) return animeResult.characters;
+    if (animeResult?.searchFailed) return [];
     return (seriesDetails?.cast ?? []).map((member) => ({
       id: member.id,
       name: member.character || member.name,
       imageUrl: tmdbImage(member.profilePath, "w185"),
     }));
-  }, [animeCharacters, seriesDetails?.cast]);
+  }, [animeResult, seriesDetails?.cast]);
 
   const currentSeasonEpisodes = useMemo(() => {
     const currentSeason = seriesDetails?.seasons.find((s) => s.seasonNumber === season);
@@ -354,6 +370,17 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
                 onChange={(mood) => upsertRating.mutate({ mood })}
               />
             </section>
+
+            {animeDebugUrl && (
+              <a
+                href={animeDebugUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block text-center text-[10px] text-muted underline"
+              >
+                [debug temporário] matchTitle=&quot;{seriesDetails?.matchTitle}&quot; ano={seriesYear}
+              </a>
+            )}
 
             {favoriteCharacterOptions.length > 0 && (
               <section>
