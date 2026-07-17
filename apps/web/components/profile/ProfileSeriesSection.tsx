@@ -9,6 +9,7 @@ import { PosterGrid } from "./PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { MediaListRow } from "../media/MediaListRow";
+import { LoadingSkeleton } from "../search/LoadingSkeleton";
 
 /**
  * TASK-029 — "continuar suportando grade, lista, filtros". As
@@ -18,9 +19,17 @@ import { MediaListRow } from "../media/MediaListRow";
  * usados em Séries → Minha Lista) — escopo próprio
  * ("profile-series"), não interfere na preferência de "Séries" nem
  * de "Filmes" no menu principal.
+ *
+ * AUDITORIA (achado real, com prova em tela) — faltava checar
+ * `isLoading`: `items` vem `undefined` enquanto a Biblioteca ainda
+ * carrega, `items ?? []` virava lista vazia, e a tela mostrava "você
+ * ainda não tem nenhuma série" por um instante ANTES do dado
+ * chegar, mesmo pra quem tem a biblioteca cheia — sem skeleton
+ * nenhum cobrindo esse intervalo. Reaproveita `LoadingSkeleton`
+ * (mesmo componente já usado em `LibraryView.tsx`).
  */
 export function ProfileSeriesSection() {
-  const { data: items } = useLibraryItems();
+  const { data: items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-series");
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -33,6 +42,10 @@ export function ProfileSeriesSection() {
       })).filter((category) => category.items.length > 0),
     [series]
   );
+
+  if (isLoading) {
+    return <LoadingSkeleton />;
+  }
 
   if (nonEmptyCategories.length === 0) {
     return <p className="px-1 text-sm text-muted">Você ainda não tem nenhuma série na sua biblioteca.</p>;

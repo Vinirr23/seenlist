@@ -6,6 +6,7 @@ import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { PosterGrid } from "./PosterGrid";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { MediaListRow } from "../media/MediaListRow";
+import { LoadingSkeleton } from "../search/LoadingSkeleton";
 
 /**
  * TASK-024 — só filmes "Assistido" (status "completed"), sem
@@ -13,15 +14,23 @@ import { MediaListRow } from "../media/MediaListRow";
  * tela atual" mantido; só adicionado o modo lista (mesmo padrão da
  * TASK-029 em ProfileSeriesSection.tsx), escopo próprio
  * ("profile-movies").
+ *
+ * AUDITORIA — mesmo achado/correção de `ProfileSeriesSection.tsx`:
+ * faltava checar `isLoading` antes de mostrar "você ainda não
+ * assistiu nenhum filme".
  */
 export function ProfileMoviesSection() {
-  const { data: items } = useLibraryItems();
+  const { data: items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-movies");
 
   const watchedMovies = useMemo(
     () => (items ?? []).filter((item) => item.mediaType === "movie" && item.status === "completed"),
     [items]
   );
+
+  if (isLoading) {
+    return <LoadingSkeleton />;
+  }
 
   if (watchedMovies.length === 0) {
     return <p className="px-1 text-sm text-muted">Você ainda não assistiu nenhum filme.</p>;
