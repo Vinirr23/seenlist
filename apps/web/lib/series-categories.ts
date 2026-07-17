@@ -8,11 +8,12 @@ export interface SeriesCategory {
 }
 
 /**
- * Ordem: Assistindo, Em dia, Assistir depois, Interrompidas, Assistidas.
- * TASK-033 — "Em dia" deixou de ser um flag calculado na leitura
- * (isCaughtUp, removido); agora é o status "up_to_date" de verdade,
- * decidido e gravado pelo importador. "Assistindo" não precisa mais
- * excluir nada — os dois nunca se sobrepõem, são status distintos.
+ * Ordem (a pedido, reorganizada): Assistindo, Assistir depois, Em
+ * dia, Assistidas, Interrompidas. TASK-033 — "Em dia" deixou de ser
+ * um flag calculado na leitura (isCaughtUp, removido); agora é o
+ * status "up_to_date" de verdade, decidido e gravado pelo
+ * importador. "Assistindo" não precisa mais excluir nada — os dois
+ * nunca se sobrepõem, são status distintos.
  */
 export const SERIES_CATEGORIES: SeriesCategory[] = [
   {
@@ -22,24 +23,24 @@ export const SERIES_CATEGORIES: SeriesCategory[] = [
     filter: (i) => i.status === "watching",
   },
   {
+    slug: "assistir-depois",
+    label: "Assistir depois",
+    barColorClass: "bg-purple-500",
+    filter: (i) => i.status === "want_to_watch",
+  },
+  {
     slug: "em-dia",
     label: "Em dia",
     barColorClass: "bg-blue-500",
     filter: (i) => i.status === "up_to_date",
   },
   {
-    slug: "assistir-depois",
-    label: "Assistir depois",
-    barColorClass: "bg-purple-500",
-    filter: (i) => i.status === "want_to_watch",
-  },
-  { slug: "pausadas", label: "Interrompidas", barColorClass: "bg-red-500", filter: (i) => i.status === "paused" },
-  {
     slug: "concluidas",
     label: "Assistidas",
     barColorClass: "bg-green-500",
     filter: (i) => i.status === "completed",
   },
+  { slug: "pausadas", label: "Interrompidas", barColorClass: "bg-red-500", filter: (i) => i.status === "paused" },
 ];
 
 export function getSeriesCategoryBySlug(slug: string): SeriesCategory | undefined {
