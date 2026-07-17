@@ -11,19 +11,32 @@ const JIKAN_BASE = "https://api.jikan.moe/v4";
  * segunda tentativa, com uma pausa curta, cobre o caso comum de
  * "bati no limite por um instante", sem custo perceptível quando não
  * é isso (a maioria das chamadas passa de primeira).
+ *
+ * TASK-168 (correção 3) — `debugReason` devolve o motivo exato da
+ * falha (status HTTP ou mensagem da exceção) pra aparecer no próprio
+ * JSON de `?debug=1`, sem precisar dos logs do Vercel — achado real:
+ * o primeiro debug voltou `candidates: []`, o que só acontece se a
+ * chamada à Jikan falhou de verdade (rede, bloqueio, etc.), não é
+ * mais uma questão de título/pontuação.
  */
-async function fetchJikan(path: string): Promise<Response | null> {
+async function fetchJikan(path: string): Promise<{ response: Response | null; debugReason: string | null }> {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await fetch(`${JIKAN_BASE}${path}`, { next: { revalidate: 60 * 60 * 24 * 30 } });
-    if (response.ok) return response;
-    if (response.status === 429 && attempt === 0) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      continue;
+    try {
+      const response = await fetch(`${JIKAN_BASE}${path}`, { next: { revalidate: 60 * 60 * 24 * 30 } });
+      if (response.ok) return { response, debugReason: null };
+      if (response.status === 429 && attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        continue;
+      }
+      console.error(`[jikan] Resposta ${response.status} em ${path}`);
+      return { response: null, debugReason: `HTTP ${response.status} ${response.statusText}` };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[jikan] Exceção ao buscar ${path}`, error);
+      return { response: null, debugReason: `Exceção: ${message}` };
     }
-    console.error(`[jikan] Resposta ${response.status} em ${path}`);
-    return null;
   }
-  return null;
+  return { response: null, debugReason: "Esgotou as tentativas (429 repetido)." };
 }
 
 export interface AnimeCharacter {
@@ -69,6 +82,8 @@ export interface JikanMatchDebugInfo {
   queryYear: number | null;
   candidates: { malId: number; title: string; titleEnglish: string | null; year: number | null; score: number }[];
   chosenMalId: number | null;
+  /** TASK-168 — motivo exato de a busca ter falhado (status HTTP/exceção), quando `candidates` vem vazio por falha de rede, não por falta de correspondência. */
+  debugReason: string | null;
 }
 
 /**
@@ -81,10 +96,19 @@ export interface JikanMatchDebugInfo {
  * não pediu debug.
  */
 export async function findMalIdWithDebug(title: string, year: number | null): Promise<JikanMatchDebugInfo> {
-  const debug: JikanMatchDebugInfo = { queryTitle: title, queryYear: year, candidates: [], chosenMalId: null };
+  const debug: JikanMatchDebugInfo = {
+    queryTitle: title,
+    queryYear: year,
+    candidates: [],
+    chosenMalId: null,
+    debugReason: null,
+  };
 
-  const response = await fetchJikan(`/anime?q=${encodeURIComponent(title)}&limit=5`);
-  if (!response) return debug;
+  const { response, debugReason } = await fetchJikan(`/anime?q=${encodeURIComponent(title)}&limit=5`);
+  if (!response) {
+    debug.debugReason = debugReason;
+    return debug;
+  }
 
   const body = (await response.json()) as { data?: JikanSearchResult[] };
   const candidates = body.data ?? [];
@@ -133,7 +157,7 @@ interface JikanCharacterEntry {
 }
 
 async function fetchCharactersByMalId(malId: number): Promise<AnimeCharacter[]> {
-  const response = await fetchJikan(`/anime/${malId}/characters`);
+  const { response } = await fetchJikan(`/anime/${malId}/characters`);
   if (!response) return [];
 
   const body = (await response.json()) as { data?: JikanCharacterEntry[] };
