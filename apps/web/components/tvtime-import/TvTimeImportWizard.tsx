@@ -232,22 +232,6 @@ export function TvTimeImportWizard() {
           📁 Selecionar arquivo .zip
         </button>
         <input ref={fileInputRef} type="file" accept=".zip" className="hidden" onChange={handleFileSelected} />
-
-        <div className="mt-8 w-full max-w-xs">
-          <p className="text-sm font-medium text-text">Ainda não tem seu arquivo?</p>
-          <p className="mt-1 text-xs text-muted">
-            Receba gratuitamente seu arquivo oficial do TV Time para importar toda sua biblioteca.
-          </p>
-
-          <a
-            href="https://gdpr.tvtime.com/gdpr/self-service"
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-primary py-3 text-sm font-semibold text-primary transition-transform active:scale-[0.96]"
-          >
-            📥 Receber arquivo do TV Time
-          </a>
-        </div>
       </div>
     );
   }
