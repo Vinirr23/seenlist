@@ -7,62 +7,53 @@ export interface CorrectionResult {
 }
 
 /**
- * TASK-166 — o importador GDPR (`resolveStatus.ts`) decidia status
- * só com a contagem bruta do TMDB (`totalKnownEpisodes`, TODOS os
- * episódios já anunciados, incluindo os que ainda nem foram ao ar).
- * Pra série em andamento, isso quase nunca bate — o usuário nunca
- * consegue ter visto um episódio que ainda nem estreou, então a
- * série ficava presa em "watching" pra sempre, mesmo already em dia
- * com tudo que já saiu. É a mesma causa raiz já corrigida no
- * importador por extensão (TASK-042/043, `category.ts`) e na
- * Biblioteca ao vivo (`seriesCategoryRecalc.ts`) — esta função
- * replica a MESMA lógica (mesma função compartilhada
- * `decideWatchingVsUpToDate`), só que aplicada depois de
- * `resolveStatus.ts` em vez de substituí-lo, pra não mexer numa
- * função já testada (`resolveStatus.test.ts`) sem necessidade.
+ * TASK-166 (reescrita fiel) — cópia direta da estrutura de
+ * `resolveCategory` (lib/tvtime-migration/category.ts), sem
+ * reinterpretar nada. Ponto que a primeira versão desta função
+ * errou: em `resolveCategory`, "completed" NUNCA é um valor de
+ * entrada (`base`) — o mapeamento direto do CSV (`CSV_TO_CATEGORY`)
+ * só produz watching/want_to_watch/paused/up_to_date; "completed" só
+ * nasce ali dentro, da checagem `seriesEnded && tudo assistido`. A
+ * primeira versão daqui deixava `resolveStatus.ts` (deste
+ * importador) decidir "completed" ANTES, usando o total desatualizado
+ * de `SeasonSummary` (estrutura de temporadas, sem data de exibição)
+ * — e só reavaliava quem tivesse ficado "watching", nunca quem já
+ * tivesse ficado "completed" errado por esse motivo. Corrigido:
+ * agora, sempre que há dado ao vivo disponível, TODO `baseStatus`
+ * que não seja "want_to_watch" (watching OU completed vindo de
+ * `resolveStatus.ts`) é reavaliado do zero — exatamente como
+ * `resolveCategory` reavalia todo `base` que não seja
+ * want_to_watch/paused.
  *
- * Dois ajustes em cima do que `resolveStatus.ts` decidiu:
- *   1. Série encerrada no TMDB (`ended`) + tudo que já foi ao ar
- *      assistido → "completed", mesmo que `resolveStatus` tenha
- *      decidido "watching" (porque `totalKnownEpisodes` incluía
- *      episódio anunciado que nunca chegou a estrear de verdade).
- *   2. Série "watching" com dado de episódio ao vivo disponível →
- *      reavaliada por `decideWatchingVsUpToDate` (mesma função da
- *      Biblioteca/extensão) — vira "up_to_date" quando não sobra
- *      nenhum episódio JÁ LANÇADO sem assistir.
- *
- * "want_to_watch" nunca é tocado aqui — mesma decisão explícita já
- * documentada em `resolveStatus.ts` (status explícito ou zero
- * episódios visto não muda por causa de data de exibição).
+ * `mainEpisodesTotal` (equivalente a `mainEpisodesTotal` de
+ * `resolveCategory`) só é usado como FALLBACK, quando não há
+ * `liveEpisodes` — mesma prioridade de `resolveCategory`
+ * (`nonSpecialLiveEpisodes ? ... : mainEpisodesTotal`).
  */
 export function correctStatusWithLiveTmdb(
   baseStatus: ResolvedStatus,
-  uniqueEpisodesSeen: number,
-  ended: boolean,
+  mainEpisodesWatched: number,
+  mainEpisodesTotal: number,
+  seriesEnded: boolean,
   liveEpisodes: LiveEpisodeAirDate[] | null
 ): CorrectionResult {
   if (baseStatus === "want_to_watch") {
     return { status: baseStatus, reason: null };
   }
 
-  if (!liveEpisodes || liveEpisodes.length === 0) {
-    return { status: baseStatus, reason: null };
-  }
+  const totalKnown = liveEpisodes && liveEpisodes.length > 0 ? liveEpisodes.length : mainEpisodesTotal;
+  const allEpisodesWatchedOverall = totalKnown > 0 && mainEpisodesWatched >= totalKnown;
 
-  const allEpisodesWatchedOverall = uniqueEpisodesSeen >= liveEpisodes.length;
-
-  if (ended && allEpisodesWatchedOverall && baseStatus !== "completed") {
+  if (seriesEnded && allEpisodesWatchedOverall) {
     return {
       status: "completed",
-      reason: `Série encerrada no TMDB e todos os ${liveEpisodes.length} episódios principais assistidos — corrigido de "${baseStatus}" para "completed".`,
+      reason: `Série encerrada oficialmente e todos os ${totalKnown} episódios principais assistidos.`,
     };
   }
 
-  if (baseStatus === "watching") {
-    const decision = decideWatchingVsUpToDate(uniqueEpisodesSeen, liveEpisodes);
-    if (decision.category !== baseStatus) {
-      return { status: decision.category, reason: decision.reason };
-    }
+  if (liveEpisodes && liveEpisodes.length > 0) {
+    const decision = decideWatchingVsUpToDate(mainEpisodesWatched, liveEpisodes);
+    return { status: decision.category, reason: decision.reason };
   }
 
   return { status: baseStatus, reason: null };

@@ -358,7 +358,13 @@ export async function runImport(
         if (status !== "want_to_watch" && (!liveEpisodes || liveEpisodes.length === 0)) {
           liveTmdbUnavailableCount += 1;
         }
-        const correction = correctStatusWithLiveTmdb(status, reconstruction.uniqueEpisodesSeen, summary?.ended ?? false, liveEpisodes);
+        const correction = correctStatusWithLiveTmdb(
+          status,
+          reconstruction.uniqueEpisodesSeen,
+          totalKnownEpisodes ?? 0,
+          summary?.ended ?? false,
+          liveEpisodes
+        );
         if (correction.status !== status) {
           console.log(`[tvtime-import] "${match.show.name}": ${status} → ${correction.status} (${correction.reason})`);
           status = correction.status;
