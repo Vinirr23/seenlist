@@ -242,9 +242,21 @@ function pickTitleForExternalMatching(data: TmdbTvDetailsResponse): string {
 export async function getSeriesDetails(
   seriesId: string
 ): Promise<Omit<SeriesDetails, "seasons">> {
-  const data = await tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, {
-    append_to_response: "credits,similar,alternative_titles",
-  });
+  const [data, englishData] = await Promise.all([
+    tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, {
+      append_to_response: "credits,similar,alternative_titles",
+    }),
+    // TASK-168 (correção 2) — depender só de `alternative_titles` não
+    // bastava: muita série/anime não tem uma entrada "US" cadastrada
+    // ali (o campo normalmente só existe quando o título de
+    // distribuição difere region a region de verdade, não é uma
+    // cópia garantida do nome em inglês). Pedir o mesmo `/tv/{id}`
+    // de novo, só que com `language=en-US`, sempre devolve o nome que
+    // o TMDB usa em inglês pra essa série — muito mais confiável pra
+    // comparar com o MyAnimeList. Falha (rede, 404 raríssimo) não
+    // derruba a tela inteira — cai pros fallbacks de sempre.
+    tmdbGet<{ name: string }>(`/tv/${seriesId}`, { language: "en-US" }).catch(() => null),
+  ]);
 
   const cast: CastMember[] = (data.credits?.cast ?? []).slice(0, 15).map((member) => ({
     id: member.id,
@@ -260,7 +272,7 @@ export async function getSeriesDetails(
   return {
     id: data.id,
     title: data.name,
-    matchTitle: pickTitleForExternalMatching(data),
+    matchTitle: englishData?.name ? englishData.name : pickTitleForExternalMatching(data),
     overview: data.overview,
     backdropPath: data.backdrop_path,
     posterPath: data.poster_path,
