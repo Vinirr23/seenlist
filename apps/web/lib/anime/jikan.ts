@@ -1,5 +1,31 @@
 const JIKAN_BASE = "https://api.jikan.moe/v4";
 
+/**
+ * TASK-168 (achado real — segunda causa possível, além do título em
+ * português) — a Jikan é uma API pública sem chave, com limite bem
+ * agressivo de requisições (~3/segundo, ~60/minuto documentado por
+ * eles). Rodando num servidor compartilhado (Vercel), é bem possível
+ * bater nesse limite e a busca falhar sempre, mesmo com o título
+ * certo — o erro nem aparece no navegador (isso roda no servidor,
+ * não no client), só nos logs do Vercel, difícil de notar. Uma
+ * segunda tentativa, com uma pausa curta, cobre o caso comum de
+ * "bati no limite por um instante", sem custo perceptível quando não
+ * é isso (a maioria das chamadas passa de primeira).
+ */
+async function fetchJikan(path: string): Promise<Response | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await fetch(`${JIKAN_BASE}${path}`, { next: { revalidate: 60 * 60 * 24 * 30 } });
+    if (response.ok) return response;
+    if (response.status === 429 && attempt === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      continue;
+    }
+    console.error(`[jikan] Resposta ${response.status} em ${path}`);
+    return null;
+  }
+  return null;
+}
+
 export interface AnimeCharacter {
   id: number;
   name: string;
@@ -38,6 +64,52 @@ interface JikanSearchResult {
   year: number | null;
 }
 
+export interface JikanMatchDebugInfo {
+  queryTitle: string;
+  queryYear: number | null;
+  candidates: { malId: number; title: string; titleEnglish: string | null; year: number | null; score: number }[];
+  chosenMalId: number | null;
+}
+
+/**
+ * TASK-168 — versão de `findMalId` que também devolve os candidatos e
+ * pontuações consideradas, pra dar pra ver de fora (via
+ * `/api/anime/characters?debug=1`) por que bateu ou não bateu, sem
+ * precisar abrir os logs do Vercel (o usuário não tem fácil acesso a
+ * isso). `findMalId` (sem debug) continua existindo, chama esta por
+ * baixo e descarta o detalhe — mesmo comportamento de antes pra quem
+ * não pediu debug.
+ */
+export async function findMalIdWithDebug(title: string, year: number | null): Promise<JikanMatchDebugInfo> {
+  const debug: JikanMatchDebugInfo = { queryTitle: title, queryYear: year, candidates: [], chosenMalId: null };
+
+  const response = await fetchJikan(`/anime?q=${encodeURIComponent(title)}&limit=5`);
+  if (!response) return debug;
+
+  const body = (await response.json()) as { data?: JikanSearchResult[] };
+  const candidates = body.data ?? [];
+  if (candidates.length === 0) return debug;
+
+  let best: { malId: number; score: number } | null = null;
+  for (const candidate of candidates) {
+    const scoreMain = tokenOverlapScore(title, candidate.title);
+    const scoreEnglish = candidate.title_english ? tokenOverlapScore(title, candidate.title_english) : 0;
+    let score = Math.max(scoreMain, scoreEnglish);
+    if (year && candidate.year && Math.abs(year - candidate.year) <= 1) score += 0.15;
+    debug.candidates.push({
+      malId: candidate.mal_id,
+      title: candidate.title,
+      titleEnglish: candidate.title_english,
+      year: candidate.year,
+      score: Math.round(score * 1000) / 1000,
+    });
+    if (!best || score > best.score) best = { malId: candidate.mal_id, score };
+  }
+
+  if (best && best.score >= 0.5) debug.chosenMalId = best.malId;
+  return debug;
+}
+
 /**
  * Busca no Jikan pelo nome e tenta achar o anime certo — compara o
  * TMDB título (`title` e, se disponível, `originalTitle`) contra
@@ -47,26 +119,8 @@ interface JikanSearchResult {
  * personagem de outra série).
  */
 async function findMalId(title: string, year: number | null): Promise<number | null> {
-  const response = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(title)}&limit=5`, {
-    next: { revalidate: 60 * 60 * 24 * 30 },
-  });
-  if (!response.ok) return null;
-
-  const body = (await response.json()) as { data?: JikanSearchResult[] };
-  const candidates = body.data ?? [];
-  if (candidates.length === 0) return null;
-
-  let best: { malId: number; score: number } | null = null;
-  for (const candidate of candidates) {
-    const scoreMain = tokenOverlapScore(title, candidate.title);
-    const scoreEnglish = candidate.title_english ? tokenOverlapScore(title, candidate.title_english) : 0;
-    let score = Math.max(scoreMain, scoreEnglish);
-    if (year && candidate.year && Math.abs(year - candidate.year) <= 1) score += 0.15;
-    if (!best || score > best.score) best = { malId: candidate.mal_id, score };
-  }
-
-  if (!best || best.score < 0.5) return null;
-  return best.malId;
+  const debug = await findMalIdWithDebug(title, year);
+  return debug.chosenMalId;
 }
 
 interface JikanCharacterEntry {
@@ -79,10 +133,8 @@ interface JikanCharacterEntry {
 }
 
 async function fetchCharactersByMalId(malId: number): Promise<AnimeCharacter[]> {
-  const response = await fetch(`${JIKAN_BASE}/anime/${malId}/characters`, {
-    next: { revalidate: 60 * 60 * 24 * 30 },
-  });
-  if (!response.ok) return [];
+  const response = await fetchJikan(`/anime/${malId}/characters`);
+  if (!response) return [];
 
   const body = (await response.json()) as { data?: JikanCharacterEntry[] };
   const entries = body.data ?? [];

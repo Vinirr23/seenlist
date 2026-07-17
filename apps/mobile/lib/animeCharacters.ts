@@ -1,5 +1,25 @@
 const JIKAN_BASE = "https://api.jikan.moe/v4";
 
+/**
+ * TASK-168 — mesma correção do web (`lib/anime/jikan.ts`): a Jikan
+ * tem limite agressivo de requisições (~3/segundo) — uma segunda
+ * tentativa curta cobre o caso comum de bater nesse limite por um
+ * instante.
+ */
+async function fetchJikan(path: string): Promise<Response | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await fetch(`${JIKAN_BASE}${path}`);
+    if (response.ok) return response;
+    if (response.status === 429 && attempt === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      continue;
+    }
+    console.error(`[animeCharacters] Resposta ${response.status} em ${path}`);
+    return null;
+  }
+  return null;
+}
+
 export interface AnimeCharacter {
   id: number;
   name: string;
@@ -42,8 +62,8 @@ interface JikanSearchResult {
  * só, e a Jikan não exige autenticação nem tem custo por chamada.
  */
 async function findMalId(title: string, year: number | null): Promise<number | null> {
-  const response = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(title)}&limit=5`);
-  if (!response.ok) return null;
+  const response = await fetchJikan(`/anime?q=${encodeURIComponent(title)}&limit=5`);
+  if (!response) return null;
 
   const body = (await response.json()) as { data?: JikanSearchResult[] };
   const candidates = body.data ?? [];
@@ -72,8 +92,8 @@ interface JikanCharacterEntry {
 }
 
 async function fetchCharactersByMalId(malId: number): Promise<AnimeCharacter[]> {
-  const response = await fetch(`${JIKAN_BASE}/anime/${malId}/characters`);
-  if (!response.ok) return [];
+  const response = await fetchJikan(`/anime/${malId}/characters`);
+  if (!response) return [];
 
   const body = (await response.json()) as { data?: JikanCharacterEntry[] };
   const entries = body.data ?? [];
