@@ -160,6 +160,16 @@ export interface SeriesSeasonSummary {
   seasons: { seasonNumber: number; episodeCount: number }[];
   /** Nomes alternativos/títulos em outros países — TASK-027.5, critério de "aliases". */
   alternativeTitles: string[];
+  /**
+   * TASK-166 — true quando a série já terminou de exibir (TMDB
+   * status "Ended"/"Canceled"), mesmo campo que `getSeriesSummary`
+   * já expõe pra Biblioteca/recalc ao vivo. Sem chamada nova ao TMDB
+   * — já vem no mesmo request de `/tv/{id}`, só não era lido aqui.
+   * Usado pelo importador GDPR pra aplicar a mesma correção
+   * watching→completed que a Biblioteca já faz (ver
+   * `correctStatusWithLiveTmdb.ts`).
+   */
+  ended: boolean;
 }
 
 interface TmdbAlternativeTitlesResponse {
@@ -175,6 +185,7 @@ export async function getSeriesSeasonSummary(seriesId: number): Promise<SeriesSe
     numberOfSeasons: data.number_of_seasons,
     seasons: data.seasons.map((season) => ({ seasonNumber: season.season_number, episodeCount: season.episode_count })),
     alternativeTitles: (data.alternative_titles?.results ?? []).map((entry) => entry.title),
+    ended: data.status === "Ended" || data.status === "Canceled",
   };
 }
 

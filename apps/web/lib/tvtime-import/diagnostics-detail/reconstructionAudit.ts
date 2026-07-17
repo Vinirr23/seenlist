@@ -180,13 +180,14 @@ export class ReconstructionAuditCollector {
       completed: [],
       watching: [],
       want_to_watch: [],
+      up_to_date: [],
     };
     for (const t of this.traces) {
       if (t.statusCalculated) byStatus[t.statusCalculated].push(t);
     }
 
     console.group("%c[TASK-027F/J] Amostra de auditoria (10 de cada categoria)", "font-weight: bold; color: #4FD1C5");
-    for (const status of ["completed", "watching", "want_to_watch"] as const) {
+    for (const status of ["completed", "watching", "up_to_date", "want_to_watch"] as const) {
       const sample = byStatus[status].slice(0, sampleSize);
       console.log(`--- ${status} (${byStatus[status].length} no total, mostrando ${sample.length}) ---`);
       console.table(

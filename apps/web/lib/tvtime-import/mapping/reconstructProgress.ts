@@ -3,6 +3,8 @@ import type { GranularEpisodeSignal, ParsedShow } from "./types";
 export interface SeasonSummary {
   numberOfSeasons: number;
   seasons: { seasonNumber: number; episodeCount: number }[];
+  /** TASK-166 — ver comentário em SeriesSeasonSummary (lib/tmdb/client.ts), mesmo campo. Opcional pra não quebrar os testes existentes que constroem este objeto direto sem esse campo — sempre presente quando vem de `getSeriesSeasonSummary` de verdade. */
+  ended?: boolean;
 }
 
 /**

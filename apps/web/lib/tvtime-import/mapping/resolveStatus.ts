@@ -1,4 +1,15 @@
-export type ResolvedStatus = "watching" | "want_to_watch" | "completed";
+/**
+ * TASK-166 — "up_to_date" adicionado à união. `resolveStatus()` em
+ * si continua nunca retornando esse valor (só decide entre os 3
+ * originais, sem olhar pra data de exibição nenhuma) — quem promove
+ * "watching" pra "up_to_date" é a correção de
+ * `correctStatusWithLiveTmdb.ts`, chamada depois, em runImport.ts.
+ * O tipo precisa incluir o quarto valor porque é o que
+ * `correctStatusWithLiveTmdb` retorna, e o resto do pipeline
+ * (diagnóstico, gravação no Supabase) usa este mesmo tipo pra tudo
+ * que é "o status final decidido pra uma série".
+ */
+export type ResolvedStatus = "watching" | "want_to_watch" | "completed" | "up_to_date";
 
 /**
  * TASK-027B — "nunca colocar todas as séries em Assistir depois".

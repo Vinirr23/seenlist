@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { ImportOptions, ImportSummary, ShowMatch } from "../mapping/types";
 import { resolveStatus, type ResolvedStatus } from "../mapping/resolveStatus";
 import { reconstructProgress, type SeasonSummary } from "../mapping/reconstructProgress";
+import { correctStatusWithLiveTmdb } from "../mapping/correctStatusWithLiveTmdb";
+import type { LiveEpisodeAirDate } from "@/lib/queries/airDateCategory";
 import { isShowAlreadyConsistent } from "./idempotency";
 import type { AuditRecord } from "../audit/types";
 import { StatusDiagnosticsCollector, describeStatusDecision } from "../diagnostics-detail/statusDiagnostics";
@@ -10,6 +12,7 @@ import { FullPipelineAuditCollector, type FullPipelineTrace } from "../diagnosti
 import { saveReplaySnapshot } from "./replaySnapshot";
 
 const SEASON_INFO_BATCH_SIZE = 10;
+const LIVE_EPISODES_BATCH_SIZE = 20;
 const EPISODE_UPSERT_CHUNK_SIZE = 500;
 
 async function fetchSeasonSummaries(tmdbIds: number[]): Promise<Map<number, SeasonSummary>> {
@@ -30,6 +33,41 @@ async function fetchSeasonSummaries(tmdbIds: number[]): Promise<Map<number, Seas
     } catch (error) {
       console.error(
         "[tvtime-import] Falha ao buscar estrutura de temporadas de um lote — essas séries vão pra revisão",
+        error
+      );
+    }
+  }
+  return result;
+}
+
+/**
+ * TASK-166 — reaproveita a rota já existente `/api/tmdb/series-
+ * episodes-at-export` (TASK-027R, já usada pelo importador por
+ * extensão) pra buscar episódio+air_date de cada série, em lote. Só
+ * as não-especiais interessam pra essa decisão (mesmo filtro que
+ * `decideWatchingVsUpToDate`/`getAllEpisodesWithAirDates` já fazem
+ * — temporada 0 nunca entra na lista retornada por essa rota).
+ */
+async function fetchLiveEpisodes(tmdbIds: number[]): Promise<Map<number, LiveEpisodeAirDate[]>> {
+  const result = new Map<number, LiveEpisodeAirDate[]>();
+  for (let start = 0; start < tmdbIds.length; start += LIVE_EPISODES_BATCH_SIZE) {
+    const batch = tmdbIds.slice(start, start + LIVE_EPISODES_BATCH_SIZE);
+    try {
+      const response = await fetch("/api/tmdb/series-episodes-at-export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seriesIds: batch }),
+      });
+      if (!response.ok) continue;
+      const data = (await response.json()) as {
+        series: { id: number; episodes: LiveEpisodeAirDate[] }[];
+      };
+      for (const entry of data.series) {
+        result.set(entry.id, entry.episodes);
+      }
+    } catch (error) {
+      console.error(
+        "[tvtime-import] Falha ao buscar episódios ao vivo de um lote — essas séries mantêm o status sem correção de data de exibição",
         error
       );
     }
@@ -177,6 +215,7 @@ export async function runImport(
   );
 
   const seasonSummaries = await fetchSeasonSummaries(needsWork.map((match) => match.tmdbId as number));
+  const liveEpisodesBySeriesId = await fetchLiveEpisodes(needsWork.map((match) => match.tmdbId as number));
 
   // TASK-027K, "melhoria adicionada" — snapshot salvo aqui, depois do
   // parsing+matching+TMDB (as três etapas caras), antes de qualquer
@@ -289,6 +328,18 @@ export async function runImport(
           match.show.isExplicitlyForLater,
           totalKnownEpisodes
         );
+
+        // TASK-166 — mesma lógica do importador por extensão (category.ts,
+        // TASK-042/043): "watching" vs "up_to_date" decidido por episódio
+        // JÁ LANÇADO, não pelo total anunciado no TMDB (que inclui
+        // episódio futuro). Também promove pra "completed" quando a
+        // série já encerrou e tudo que saiu foi assistido.
+        const liveEpisodes = liveEpisodesBySeriesId.get(tmdbId) ?? null;
+        const correction = correctStatusWithLiveTmdb(status, reconstruction.uniqueEpisodesSeen, summary?.ended ?? false, liveEpisodes);
+        if (correction.status !== status) {
+          console.log(`[tvtime-import] "${match.show.name}": ${status} → ${correction.status} (${correction.reason})`);
+          status = correction.status;
+        }
 
         // TASK-027J — a validação redundante da TASK-027G foi removida
         // daqui: com uniqueEpisodesSeen já vindo limitado por min() em

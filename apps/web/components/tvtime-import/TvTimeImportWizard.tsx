@@ -232,6 +232,11 @@ export function TvTimeImportWizard() {
           📁 Selecionar arquivo .zip
         </button>
         <input ref={fileInputRef} type="file" accept=".zip" className="hidden" onChange={handleFileSelected} />
+
+        <p className="mt-4 text-xs text-muted">
+          Importa só séries. O TV Time não guarda dado suficiente de filme assistido nesse arquivo pra importar
+          também — filmes continuam sendo adicionados manualmente.
+        </p>
       </div>
     );
   }
