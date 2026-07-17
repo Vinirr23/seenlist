@@ -70,6 +70,7 @@ export default function EpisodeDetailScreen() {
 
   const [seriesDetails, setSeriesDetails] = useState<SeriesDetails | null>(null);
   const [animeCharacters, setAnimeCharacters] = useState<FavoriteCharacterOption[]>([]);
+  const [animeSearchFailed, setAnimeSearchFailed] = useState(false);
 
   const [watched, setWatched] = useState(false);
   const [watchedLoading, setWatchedLoading] = useState(true);
@@ -124,8 +125,16 @@ export default function EpisodeDetailScreen() {
       // personagem). `matchTitle` é escolhido pra isso especificamente
       // (título alternativo em inglês do TMDB, nunca exibido na tela)
       // — ver `pickTitleForExternalMatching` em apps/web/lib/tmdb/client.ts.
-      getAnimeCharacters(value.matchTitle, Number.isFinite(year) ? year : null).then((characters) => {
-        if (!cancelled) setAnimeCharacters(characters);
+      // TASK-168 (correção 5, plano B — a pedido) — causa raiz de
+      // verdade era instabilidade da própria Jikan (504 repetido, não
+      // dá pra saber se a série é anime quando a busca falha de
+      // verdade). Cair pro elenco do TMDB nesse caso mostrava foto de
+      // dublador como se fosse personagem — agora `searchFailed`
+      // esconde a opção inteira em vez disso.
+      getAnimeCharacters(value.matchTitle, Number.isFinite(year) ? year : null).then((result) => {
+        if (cancelled) return;
+        setAnimeCharacters(result.characters);
+        setAnimeSearchFailed(result.searchFailed);
       });
     });
 
@@ -142,15 +151,16 @@ export default function EpisodeDetailScreen() {
     return currentSeason ? [...currentSeason.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber) : [];
   }, [seriesDetails?.seasons, seasonNumber]);
 
-  /** Anime com correspondência no MyAnimeList: ilustração de verdade do personagem. Sem correspondência: cai pro elenco do TMDB (foto do ator/dublador). */
+  /** Anime com correspondência no MyAnimeList: ilustração de verdade do personagem. Busca falhou de verdade (instabilidade externa): esconde a opção, não arrisca mostrar dublador como se fosse personagem. Sem correspondência (rodou certinho, não é anime): cai pro elenco do TMDB. */
   const favoriteCharacterOptions: FavoriteCharacterOption[] = useMemo(() => {
     if (animeCharacters.length > 0) return animeCharacters;
+    if (animeSearchFailed) return [];
     return (seriesDetails?.cast ?? []).map((member) => ({
       id: member.id,
       name: member.character || member.name,
       imageUrl: tmdbImageUrl(member.profilePath, "w185"),
     }));
-  }, [animeCharacters, seriesDetails?.cast]);
+  }, [animeCharacters, animeSearchFailed, seriesDetails?.cast]);
 
   const swipeGesture = useMemo(
     () =>

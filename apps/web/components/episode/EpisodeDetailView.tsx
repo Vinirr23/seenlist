@@ -144,10 +144,6 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
    */
   const seriesYear = seriesDetails?.firstAirDate ? Number(seriesDetails.firstAirDate.slice(0, 4)) : null;
   const { data: animeResult } = useAnimeCharacters(seriesDetails?.matchTitle, seriesYear);
-  const animeDebugUrl =
-    seriesDetails?.matchTitle && seriesYear
-      ? `/api/anime/characters?title=${encodeURIComponent(seriesDetails.matchTitle)}&year=${seriesYear}&debug=1`
-      : null;
   const favoriteCharacterOptions: FavoriteCharacterOption[] = useMemo(() => {
     if (animeResult && animeResult.characters.length > 0) return animeResult.characters;
     if (animeResult?.searchFailed) return [];
@@ -370,17 +366,6 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
                 onChange={(mood) => upsertRating.mutate({ mood })}
               />
             </section>
-
-            {animeDebugUrl && (
-              <a
-                href={animeDebugUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="block text-center text-[10px] text-muted underline"
-              >
-                [debug temporário] matchTitle=&quot;{seriesDetails?.matchTitle}&quot; ano={seriesYear}
-              </a>
-            )}
 
             {favoriteCharacterOptions.length > 0 && (
               <section>
