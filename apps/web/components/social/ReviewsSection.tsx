@@ -6,6 +6,7 @@ import { useCreatePost } from "@/lib/queries/posts";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { ReviewComposer } from "./ReviewComposer";
 import { ReviewCard } from "./ReviewCard";
+import { ReviewsSkeleton } from "./ReviewsSkeleton";
 import { EmptyState } from "../search/EmptyState";
 
 export interface ReviewsSectionProps {
@@ -73,7 +74,7 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
       )}
 
       {isLoading ? (
-        <p className="text-center text-xs text-muted">Carregando avaliações...</p>
+        <ReviewsSkeleton />
       ) : othersReviews.length === 0 ? (
         <EmptyState message="Nenhuma outra avaliação ainda." />
       ) : (

@@ -124,7 +124,17 @@ export function AdminInviteView() {
 
       {loadError && <p className="mb-3 text-sm text-danger">{loadError}</p>}
 
-      {signups === null && !loadError && <p className="text-sm text-muted">Carregando lista...</p>}
+      {signups === null && !loadError && (
+        <div className="space-y-1 rounded-lg border border-border bg-surface p-1" aria-busy="true" aria-label="Carregando lista">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="flex items-center gap-2.5 border-b border-border px-3 py-2 last:border-none">
+              <div className="h-3.5 w-3.5 shrink-0 animate-pulse rounded bg-background" />
+              <div className="h-3.5 flex-1 animate-pulse rounded bg-background" />
+              <div className="h-3 w-12 shrink-0 animate-pulse rounded bg-background" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {signups && (
         <form onSubmit={handleSubmit} className="space-y-4">

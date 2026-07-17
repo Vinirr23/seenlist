@@ -7,6 +7,7 @@ import { useSpoilerProtection } from "@/lib/queries/social/spoiler-protection";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { CommentItem } from "./CommentItem";
 import { CommentComposer } from "./CommentComposer";
+import { CommentsSkeleton } from "./CommentsSkeleton";
 import { EmptyState } from "../search/EmptyState";
 
 interface CommentNode extends Comment {
@@ -94,7 +95,7 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
       </div>
 
       {isLoading ? (
-        <p className="text-center text-xs text-muted">Carregando comentários...</p>
+        <CommentsSkeleton />
       ) : tree.length === 0 ? (
         <EmptyState message="Nenhum comentário ainda. Seja o primeiro a comentar." />
       ) : (
