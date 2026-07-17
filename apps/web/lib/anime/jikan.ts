@@ -1,3 +1,5 @@
+import { getAniListCharacters } from "./anilist";
+
 const JIKAN_BASE = "https://api.jikan.moe/v4";
 
 /**
@@ -80,13 +82,15 @@ export interface JikanMatchDebugInfo {
 }
 
 /**
- * TASK-168 — versão de `findMalId` que também devolve os candidatos e
- * pontuações consideradas, pra dar pra ver de fora (via
+ * TASK-168 — versão de `findMalId` (removida, sem uso depois desta
+ * reestruturação) que também devolve os candidatos e pontuações
+ * consideradas, pra dar pra ver de fora (via
  * `/api/anime/characters?debug=1`) por que bateu ou não bateu, sem
  * precisar abrir os logs do Vercel (o usuário não tem fácil acesso a
- * isso). `findMalId` (sem debug) continua existindo, chama esta por
- * baixo e descarta o detalhe — mesmo comportamento de antes pra quem
- * não pediu debug.
+ * isso). `getAnimeCharacters` chama esta diretamente agora, não mais
+ * através de um wrapper simples — precisa do `debugReason` pra saber
+ * se foi "busca falhou" (`searchFailed: true`) ou "buscou certinho,
+ * não achou" (`searchFailed: false`).
  */
 export async function findMalIdWithDebug(title: string, year: number | null): Promise<JikanMatchDebugInfo> {
   const debug: JikanMatchDebugInfo = {
@@ -135,11 +139,6 @@ export async function findMalIdWithDebug(title: string, year: number | null): Pr
  * o anime errado (melhor cair pro elenco do TMDB do que mostrar
  * personagem de outra série).
  */
-async function findMalId(title: string, year: number | null): Promise<number | null> {
-  const debug = await findMalIdWithDebug(title, year);
-  return debug.chosenMalId;
-}
-
 interface JikanCharacterEntry {
   character: {
     mal_id: number;
@@ -149,9 +148,10 @@ interface JikanCharacterEntry {
   role: string;
 }
 
-async function fetchCharactersByMalId(malId: number): Promise<AnimeCharacter[]> {
+/** `failed: true` quando a chamada em si não deu (rede/instabilidade) — diferente de "achou o anime mas API de personagens devolveu vazio", que também vira `[]` mas com `failed: false`. */
+async function fetchCharactersByMalId(malId: number): Promise<{ characters: AnimeCharacter[]; failed: boolean }> {
   const { response } = await fetchJikan(`/anime/${malId}/characters`);
-  if (!response) return [];
+  if (!response) return { characters: [], failed: true };
 
   const body = (await response.json()) as { data?: JikanCharacterEntry[] };
   const entries = body.data ?? [];
@@ -160,28 +160,62 @@ async function fetchCharactersByMalId(malId: number): Promise<AnimeCharacter[]> 
   const main = entries.filter((entry) => entry.role === "Main");
   const source = main.length >= 3 ? main : entries; // poucos "Main" catalogados (comum em animes menos populares) — usa todos nesse caso, melhor que ficar vazio
 
-  return source.slice(0, 12).map((entry) => ({
-    id: entry.character.mal_id,
-    name: entry.character.name,
-    imageUrl: entry.character.images?.jpg?.image_url ?? null,
-  }));
+  return {
+    characters: source.slice(0, 12).map((entry) => ({
+      id: entry.character.mal_id,
+      name: entry.character.name,
+      imageUrl: entry.character.images?.jpg?.image_url ?? null,
+    })),
+    failed: false,
+  };
+}
+
+export interface AnimeCharactersResult {
+  characters: AnimeCharacter[];
+  /**
+   * TASK-168 (correção 5, a pedido — plano B) — `true` quando a
+   * busca em si FALHOU (rede/instabilidade da Jikan, ex.: 504
+   * repetido), não quando ela rodou certinho e só não achou
+   * correspondência (série não é anime, por exemplo — isso é
+   * `false`, comportamento normal). Antes, os dois casos eram
+   * indistinguíveis (`[]` pros dois), e quem chama sempre caía pro
+   * elenco do TMDB (foto de dublador) — inclusive quando a série ERA
+   * um anime de verdade e só não deu pra confirmar por instabilidade
+   * externa, o que mostrava informação errada com aparência de
+   * certa. Agora quem chama pode decidir esconder a opção de
+   * personagem inteira nesse caso, em vez de arriscar mostrar
+   * dublador como se fosse personagem.
+   */
+  searchFailed: boolean;
 }
 
 /**
  * Ponto de entrada único: título (+ ano, se tiver) do TMDB entra,
- * lista de personagens (ou vazia) sai. Qualquer falha no meio do
- * caminho — sem correspondência, Jikan fora do ar, rate limit —
- * simplesmente devolve `[]`, nunca lança erro: quem chama
- * (`/api/anime/characters`) trata lista vazia como "usa o elenco do
- * TMDB", nunca como uma condição de erro.
+ * lista de personagens sai, com uma bandeira dizendo se a busca
+ * falhou de verdade ou só não achou nada (ver `AnimeCharactersResult`).
+ *
+ * TASK-168 (fonte adicional) — tenta o AniList primeiro (banco
+ * próprio deles, sem scraping — mais estável que o Jikan, que já
+ * mostrou instabilidade real, 504 repetido). Só recorre ao Jikan se
+ * o AniList genuinamente falhar (`searchFailed`) — se o AniList
+ * rodou certinho e não achou nada, não faz sentido tentar o Jikan
+ * de novo pro mesmo título, o resultado tende a ser o mesmo.
+ * `searchFailed` só fica `true` se as DUAS fontes falharem.
  */
-export async function getAnimeCharacters(title: string, year: number | null): Promise<AnimeCharacter[]> {
+export async function getAnimeCharacters(title: string, year: number | null): Promise<AnimeCharactersResult> {
   try {
-    const malId = await findMalId(title, year);
-    if (!malId) return [];
-    return await fetchCharactersByMalId(malId);
+    const aniList = await getAniListCharacters(title, year);
+    if (!aniList.searchFailed) return aniList;
+
+    console.error("[jikan] AniList falhou, tentando Jikan como reforço");
+    const debug = await findMalIdWithDebug(title, year);
+    if (debug.debugReason) return { characters: [], searchFailed: true };
+    if (!debug.chosenMalId) return { characters: [], searchFailed: false };
+
+    const { characters, failed } = await fetchCharactersByMalId(debug.chosenMalId);
+    return { characters, searchFailed: failed };
   } catch (error) {
     console.error("[jikan] Falha ao buscar personagens do anime", error);
-    return [];
+    return { characters: [], searchFailed: true };
   }
 }

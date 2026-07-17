@@ -1,3 +1,5 @@
+import { getAniListCharacters } from "./anilist";
+
 const JIKAN_BASE = "https://api.jikan.moe/v4";
 
 /**
@@ -64,13 +66,28 @@ interface JikanSearchResult {
  * cada abertura de episódio busca de novo. Aceitável: é uma chamada
  * só, e a Jikan não exige autenticação nem tem custo por chamada.
  */
-async function findMalId(title: string, year: number | null): Promise<number | null> {
+interface FindMalIdResult {
+  malId: number | null;
+  /** TASK-168 (plano B) — true quando a chamada em si falhou (rede/instabilidade da Jikan), diferente de "rodou certinho e não achou nada" (série não é anime, por exemplo). */
+  searchFailed: boolean;
+}
+
+/**
+ * TASK-122 (personagem favorito) — porta de `lib/anime/jikan.ts`.
+ * No web isso roda numa rota do site (com cache de 30 dias via
+ * `next.revalidate`); aqui chama a Jikan direto do app — é uma API
+ * pública, sem chave, então não precisa de servidor no meio. Sem
+ * cache de 30 dias equivalente (RN não tem essa opção do Next.js) —
+ * cada abertura de episódio busca de novo. Aceitável: é uma chamada
+ * só, e a Jikan não exige autenticação nem tem custo por chamada.
+ */
+async function findMalId(title: string, year: number | null): Promise<FindMalIdResult> {
   const response = await fetchJikan(`/anime?q=${encodeURIComponent(title)}&limit=5`);
-  if (!response) return null;
+  if (!response) return { malId: null, searchFailed: true };
 
   const body = (await response.json()) as { data?: JikanSearchResult[] };
   const candidates = body.data ?? [];
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return { malId: null, searchFailed: false };
 
   let best: { malId: number; score: number } | null = null;
   for (const candidate of candidates) {
@@ -81,8 +98,8 @@ async function findMalId(title: string, year: number | null): Promise<number | n
     if (!best || score > best.score) best = { malId: candidate.mal_id, score };
   }
 
-  if (!best || best.score < 0.5) return null;
-  return best.malId;
+  if (!best || best.score < 0.5) return { malId: null, searchFailed: false };
+  return { malId: best.malId, searchFailed: false };
 }
 
 interface JikanCharacterEntry {
@@ -94,9 +111,9 @@ interface JikanCharacterEntry {
   role: string;
 }
 
-async function fetchCharactersByMalId(malId: number): Promise<AnimeCharacter[]> {
+async function fetchCharactersByMalId(malId: number): Promise<{ characters: AnimeCharacter[]; failed: boolean }> {
   const response = await fetchJikan(`/anime/${malId}/characters`);
-  if (!response) return [];
+  if (!response) return { characters: [], failed: true };
 
   const body = (await response.json()) as { data?: JikanCharacterEntry[] };
   const entries = body.data ?? [];
@@ -104,21 +121,37 @@ async function fetchCharactersByMalId(malId: number): Promise<AnimeCharacter[]> 
   const main = entries.filter((entry) => entry.role === "Main");
   const source = main.length >= 3 ? main : entries;
 
-  return source.slice(0, 12).map((entry) => ({
-    id: entry.character.mal_id,
-    name: entry.character.name,
-    imageUrl: entry.character.images?.jpg?.image_url ?? null,
-  }));
+  return {
+    characters: source.slice(0, 12).map((entry) => ({
+      id: entry.character.mal_id,
+      name: entry.character.name,
+      imageUrl: entry.character.images?.jpg?.image_url ?? null,
+    })),
+    failed: false,
+  };
 }
 
-/** Idêntico a getAnimeCharacters do web — sem correspondência ou qualquer falha no meio do caminho, devolve lista vazia (nunca lança erro); quem chama trata isso como "usa o elenco do TMDB". */
-export async function getAnimeCharacters(title: string, year: number | null): Promise<AnimeCharacter[]> {
+export interface AnimeCharactersResult {
+  characters: AnimeCharacter[];
+  /** TASK-168 (plano B, a pedido) — true quando a busca no MyAnimeList falhou de verdade (instabilidade externa, ex.: 504 repetido), não quando só não achou nada (série não é anime). Quem chama usa isso pra decidir entre esconder a opção de personagem e cair pro elenco do TMDB. */
+  searchFailed: boolean;
+}
+
+/** Idêntico a getAnimeCharacters do web — tenta AniList primeiro (mais estável, sem scraping), Jikan como reforço se o AniList falhar de verdade. */
+export async function getAnimeCharacters(title: string, year: number | null): Promise<AnimeCharactersResult> {
   try {
-    const malId = await findMalId(title, year);
-    if (!malId) return [];
-    return await fetchCharactersByMalId(malId);
+    const aniList = await getAniListCharacters(title, year);
+    if (!aniList.searchFailed) return aniList;
+
+    console.error("[animeCharacters] AniList falhou, tentando Jikan como reforço");
+    const { malId, searchFailed } = await findMalId(title, year);
+    if (searchFailed) return { characters: [], searchFailed: true };
+    if (!malId) return { characters: [], searchFailed: false };
+
+    const { characters, failed } = await fetchCharactersByMalId(malId);
+    return { characters, searchFailed: failed };
   } catch (error) {
     console.error("[animeCharacters] Falha ao buscar personagens do anime", error);
-    return [];
+    return { characters: [], searchFailed: true };
   }
 }
