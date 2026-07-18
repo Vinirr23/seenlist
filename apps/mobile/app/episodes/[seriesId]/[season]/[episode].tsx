@@ -196,7 +196,7 @@ export default function EpisodeDetailScreen() {
       rating: null,
       reviewText: null,
       containsSpoiler: false,
-      mood: null,
+      mood: [],
       watchedPlatform: null,
       favoriteCharacterId: null,
       favoriteCharacterName: null,
@@ -215,7 +215,7 @@ export default function EpisodeDetailScreen() {
     }
   }
 
-  async function handleSetMood(mood: string | null) {
+  async function handleSetMood(mood: string[]) {
     setMyReview((current) => (current ? { ...current, mood } : { ...seedMyReview(), mood }));
     try {
       await upsertReview(target, { mood });
@@ -343,7 +343,7 @@ export default function EpisodeDetailScreen() {
               <Text variant="subtitle" style={styles.sectionTitle}>
                 Como você se sentiu?
               </Text>
-              <EpisodeMoodPicker value={myReview?.mood ?? null} onChange={handleSetMood} />
+              <EpisodeMoodPicker value={myReview?.mood ?? []} onChange={handleSetMood} />
             </View>
           )}
 

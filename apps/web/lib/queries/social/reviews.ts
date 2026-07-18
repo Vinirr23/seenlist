@@ -11,8 +11,8 @@ export interface Review {
   rating: number | null;
   reviewText: string | null;
   containsSpoiler: boolean;
-  /** TASK-067 — reação pós-"assistido", estilo TV Time. Todos opcionais — nada disso é exigido pra salvar uma nota. */
-  mood: string | null;
+  /** TASK-173 (antes: string única) — múltipla escolha, array de key. Reação pós-"assistido", estilo TV Time. Todos opcionais — nada disso é exigido pra salvar uma nota. */
+  mood: string[];
   favoriteCharacterId: number | null;
   favoriteCharacterName: string | null;
   watchedPlatform: string | null;
@@ -131,7 +131,7 @@ export function useReviews(target: MediaTarget) {
         rating: row.rating === null ? null : Number(row.rating),
         reviewText: row.review_text,
         containsSpoiler: row.contains_spoiler,
-        mood: null,
+        mood: [],
         favoriteCharacterId: null,
         favoriteCharacterName: null,
         watchedPlatform: null,
@@ -183,7 +183,7 @@ export function useMyReview(target: MediaTarget) {
         rating: Number(data.rating),
         reviewText: data.review_text,
         containsSpoiler: data.contains_spoiler,
-        mood: data.mood,
+        mood: data.mood ?? [],
         favoriteCharacterId: data.favorite_character_id,
         favoriteCharacterName: data.favorite_character_name,
         watchedPlatform: data.watched_platform,
@@ -227,7 +227,7 @@ export function useUpsertReview(target: MediaTarget) {
       rating?: number;
       reviewText?: string | null;
       containsSpoiler?: boolean;
-      mood?: string | null;
+      mood?: string[] | null;
       favoriteCharacterId?: number | null;
       favoriteCharacterName?: string | null;
       watchedPlatform?: string | null;

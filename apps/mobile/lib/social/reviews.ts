@@ -16,7 +16,7 @@ export interface Review {
   rating: number | null;
   reviewText: string | null;
   containsSpoiler: boolean;
-  mood: string | null;
+  mood: string[];
   watchedPlatform: string | null;
   favoriteCharacterId: number | null;
   favoriteCharacterName: string | null;
@@ -30,7 +30,7 @@ interface ReviewRow {
   rating: number | string | null;
   review_text: string | null;
   contains_spoiler: boolean;
-  mood: string | null;
+  mood: string[];
   watched_platform: string | null;
   favorite_character_id: number | null;
   favorite_character_name: string | null;
@@ -83,7 +83,7 @@ export async function fetchReviews(target: ReviewTarget): Promise<Review[]> {
       rating: row.rating === null ? null : Number(row.rating),
       reviewText: row.review_text,
       containsSpoiler: row.contains_spoiler,
-      mood: row.mood,
+      mood: row.mood ?? [],
       favoriteCharacterId: row.favorite_character_id,
       favoriteCharacterName: row.favorite_character_name,
       watchedPlatform: row.watched_platform,
@@ -123,7 +123,7 @@ export async function fetchMyReview(target: ReviewTarget): Promise<Review | null
     rating: row.rating === null ? null : Number(row.rating),
     reviewText: row.review_text,
     containsSpoiler: row.contains_spoiler,
-    mood: row.mood,
+    mood: row.mood ?? [],
     favoriteCharacterId: row.favorite_character_id,
     favoriteCharacterName: row.favorite_character_name,
     watchedPlatform: row.watched_platform,
@@ -176,7 +176,7 @@ export async function upsertReview(
     rating?: number;
     reviewText?: string | null;
     containsSpoiler?: boolean;
-    mood?: string | null;
+    mood?: string[] | null;
     watchedPlatform?: string | null;
     favoriteCharacterId?: number | null;
     favoriteCharacterName?: string | null;

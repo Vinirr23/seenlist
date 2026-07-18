@@ -17,17 +17,17 @@ const MOODS = [
   { key: "tense", emoji: "😬", label: "Tenso" },
 ];
 
-/** TASK-115 (episódio) — porta de EpisodeMoodPicker.tsx: escolha única, tocar de novo no mesmo desmarca. */
-export function EpisodeMoodPicker({ value, onChange }: { value: string | null; onChange: (mood: string | null) => void }) {
+/** TASK-173 (antes: escolha única) — múltipla escolha: cada toque alterna esse humor na lista, sem desmarcar os outros. */
+export function EpisodeMoodPicker({ value, onChange }: { value: string[]; onChange: (moods: string[]) => void }) {
   return (
     <View style={styles.grid}>
       {MOODS.map((mood) => {
-        const selected = value === mood.key;
+        const selected = value.includes(mood.key);
         return (
           <Pressable
             key={mood.key}
             style={[styles.card, selected && styles.cardActive]}
-            onPress={() => onChange(selected ? null : mood.key)}
+            onPress={() => onChange(selected ? value.filter((m) => m !== mood.key) : [...value, mood.key])}
           >
             <Text style={styles.emoji}>{mood.emoji}</Text>
             <Text style={[styles.label, selected && styles.labelActive]} numberOfLines={1}>

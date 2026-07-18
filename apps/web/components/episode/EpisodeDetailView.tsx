@@ -362,7 +362,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
             <section>
               <h2 className="mb-2 text-sm font-medium text-text">Como você se sentiu?</h2>
               <EpisodeMoodPicker
-                value={myRating?.mood ?? null}
+                value={myRating?.mood ?? []}
                 onChange={(mood) => upsertRating.mutate({ mood })}
               />
             </section>

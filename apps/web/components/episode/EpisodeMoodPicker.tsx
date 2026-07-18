@@ -18,25 +18,25 @@ const MOODS = [
   { key: "tense", emoji: "😬", label: "Tenso" },
 ];
 
-/** TASK-067 — "Como você se sentiu?", escolha única (tocar de novo no mesmo desmarca). Guardado em `reviews.mood` como a `key` (estável, independe do rótulo em português mudar depois). */
+/** TASK-173 (antes: escolha única) — múltipla escolha: cada toque alterna esse humor na lista, sem desmarcar os outros. Guardado em `reviews.mood` como array de `key` (estável, independe do rótulo em português mudar depois). */
 export function EpisodeMoodPicker({
   value,
   onChange,
 }: {
-  value: string | null;
-  onChange: (mood: string | null) => void;
+  value: string[];
+  onChange: (moods: string[]) => void;
 }) {
   return (
     <div className="grid grid-cols-4 gap-2">
       {MOODS.map((mood) => {
-        const selected = value === mood.key;
+        const selected = value.includes(mood.key);
         return (
           <button
             key={mood.key}
             type="button"
             onClick={() => {
               hapticTick();
-              onChange(selected ? null : mood.key);
+              onChange(selected ? value.filter((m) => m !== mood.key) : [...value, mood.key]);
             }}
             className={cn(
               "flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition-colors",
