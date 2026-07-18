@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSeriesDetails, useWatchedEpisodes, useSeriesStatus, useIsFavorite, removeSeries } from "@/lib/useSeriesDetails";
 import { dismissRecommendation } from "@/lib/recommendations";
+import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { Screen, Text } from "@/components/ui";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { SeriesHeader } from "@/components/series-detail/SeriesHeader";
 import { SeriesQuickActionsSheet } from "@/components/series-detail/SeriesQuickActionsSheet";
 import { RecommendationQuickActionsSheet } from "@/components/social/RecommendationQuickActionsSheet";
+import { ConfettiBurst } from "@/components/series-detail/ConfettiBurst";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
@@ -42,6 +44,30 @@ export default function SeriesDetailScreen() {
   const { isFavorite, toggle: toggleFavorite } = useIsFavorite(numericId);
 
   const watchedCount = watched.size;
+
+  // TASK-170 — precisa ficar ANTES dos `return` condicionais abaixo
+  // (regra dos hooks). Mesma lógica de "linha de base" do web —
+  // ver comentário lá (`SeriesDetailsView.tsx`) pro raciocínio
+  // completo de por que não dá pra só comparar contra o valor do
+  // primeiro render (que é sempre "carregando").
+  const caughtUpBadge = series ? computeSeriesCaughtUpBadge(series, watched) : null;
+  const [showConfetti, setShowConfetti] = useState(false);
+  const badgeBaselineRef = useRef<{ established: boolean; value: SeriesCaughtUpBadge }>({
+    established: false,
+    value: null,
+  });
+
+  useEffect(() => {
+    if (!series) return;
+    if (!badgeBaselineRef.current.established) {
+      badgeBaselineRef.current = { established: true, value: caughtUpBadge };
+      return;
+    }
+    if (caughtUpBadge === "ended" && badgeBaselineRef.current.value !== "ended") {
+      setShowConfetti(true);
+    }
+    badgeBaselineRef.current.value = caughtUpBadge;
+  }, [caughtUpBadge, series]);
 
   if (isLoading) {
     return (
@@ -120,7 +146,7 @@ export default function SeriesDetailScreen() {
             </View>
           ) : (
             <View style={styles.section}>
-              <EpisodeCarousel seriesId={numericId} category={status} seasons={series.seasons} watched={watched} onToggleEpisode={toggle} />
+              <EpisodeCarousel seriesId={numericId} category={status} seasons={series.seasons} watched={watched} onToggleEpisode={toggle} caughtUpBadge={caughtUpBadge} />
 
               {series.seasons.length === 0 ? (
                 <Text variant="muted">Nenhuma temporada encontrada.</Text>
@@ -178,6 +204,8 @@ export default function SeriesDetailScreen() {
           }}
         />
       )}
+
+      {showConfetti && <ConfettiBurst onDone={() => setShowConfetti(false)} />}
     </Screen>
   );
 }

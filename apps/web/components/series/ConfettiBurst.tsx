@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const COLORS = ["#E8A33D", "#4FD1C5", "#22c55e", "#a855f7", "#3b82f6", "#F4F1E8"];
 const PARTICLE_COUNT = 40;
@@ -28,6 +28,8 @@ interface Particle {
  */
 export function ConfettiBurst({ onDone }: { onDone?: () => void }) {
   const [visible, setVisible] = useState(true);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
 
   const particles = useMemo<Particle[]>(
     () =>
@@ -44,17 +46,26 @@ export function ConfettiBurst({ onDone }: { onDone?: () => void }) {
   );
 
   useEffect(() => {
+    // `onDoneRef` (não `onDone` direto) de propósito — `onDone` quase
+    // sempre chega como uma arrow function nova a cada render do
+    // componente pai (`onDone={() => setShowConfetti(false)}`); sem a
+    // ref, esse efeito reiniciaria o timer de 2,6s toda vez que o pai
+    // re-renderizasse no meio da animação (comum aqui, já que marcar
+    // episódio dispara várias atualizações otimistas em sequência).
     const timer = setTimeout(() => {
       setVisible(false);
-      onDone?.();
+      onDoneRef.current?.();
     }, DURATION_MS);
     return () => clearTimeout(timer);
-  }, [onDone]);
+  }, []);
 
   if (!visible) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[60] overflow-hidden" aria-hidden="true">
+    <div
+      className="pointer-events-none fixed inset-0 left-1/2 z-[60] w-full -translate-x-1/2 overflow-hidden md:max-w-[430px]"
+      aria-hidden="true"
+    >
       <style>{`
         @keyframes seenlist-confetti-fall {
           0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }

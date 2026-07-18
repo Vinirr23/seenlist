@@ -5,8 +5,10 @@ import { Feather } from "@expo/vector-icons";
 import type { LibraryStatus, SeriesDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { episodeKey, resolveCarouselEpisodes, type EpisodeRef, type WatchedEpisodeKey } from "@/lib/seriesDetails";
+import type { SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { Text } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
+import { SeriesCaughtUpCard } from "./SeriesCaughtUpCard";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 type CarouselItem = EpisodeRef;
@@ -17,12 +19,15 @@ export function EpisodeCarousel({
   seasons,
   watched,
   onToggleEpisode,
+  caughtUpBadge,
 }: {
   seriesId: number;
   category: LibraryStatus | null | undefined;
   seasons: SeriesDetails["seasons"];
   watched: Set<WatchedEpisodeKey>;
   onToggleEpisode: (seasonNumber: number, episodeNumber: number) => void;
+  /** TASK-170 (ajuste — a pedido) — o card "mais episódios a caminho"/"série encerrada" mora aqui, não depois das temporadas (diferente do web, decisão explícita pro mobile). */
+  caughtUpBadge?: SeriesCaughtUpBadge;
 }) {
   const items = resolveCarouselEpisodes(category, seasons, watched);
   const listRef = useRef<FlatList<CarouselItem>>(null);
@@ -71,7 +76,17 @@ export function EpisodeCarousel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seriesId, watched]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    if (!caughtUpBadge) return null;
+    return (
+      <View style={styles.section}>
+        <Text variant="subtitle" style={styles.title}>
+          Episódios
+        </Text>
+        <SeriesCaughtUpCard badge={caughtUpBadge} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.section}>
