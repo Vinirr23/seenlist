@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { ScrollView, View, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useMovieDetails, useMovieStatus } from "@/lib/useMovieDetails";
+import { dismissRecommendation } from "@/lib/recommendations";
 import { Screen, Text } from "@/components/ui";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { MovieHeader } from "@/components/movie-detail/MovieHeader";
 import { MovieActions } from "@/components/movie-detail/MovieActions";
+import { RecommendationQuickActionsSheet } from "@/components/social/RecommendationQuickActionsSheet";
 import { StreamingProviders } from "@/components/movie-detail/StreamingProviders";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
@@ -22,9 +25,10 @@ import { colors, spacing } from "@/lib/theme";
  * comentários, "reassistir" — mesmos motivos da tela de série.
  */
 export default function MovieDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, recId } = useLocalSearchParams<{ id: string; recId?: string }>();
   const movieId = String(id);
   const numericId = Number(movieId);
+  const [showRecommendationActions, setShowRecommendationActions] = useState(Boolean(recId));
 
   const { movie, isLoading, isError } = useMovieDetails(movieId);
   const { status, busy, changeStatus } = useMovieStatus(numericId);
@@ -89,6 +93,21 @@ export default function MovieDetailScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {showRecommendationActions && (
+        <RecommendationQuickActionsSheet
+          mediaType="movie"
+          onWantToWatch={() => {
+            changeStatus("want_to_watch");
+            setShowRecommendationActions(false);
+          }}
+          onStartWatching={() => setShowRecommendationActions(false)}
+          onIgnore={() => {
+            if (recId) dismissRecommendation(recId).catch(() => {});
+            setShowRecommendationActions(false);
+          }}
+        />
+      )}
     </Screen>
   );
 }

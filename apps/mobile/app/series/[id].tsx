@@ -2,10 +2,12 @@ import { useState } from "react";
 import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSeriesDetails, useWatchedEpisodes, useSeriesStatus, useIsFavorite, removeSeries } from "@/lib/useSeriesDetails";
+import { dismissRecommendation } from "@/lib/recommendations";
 import { Screen, Text } from "@/components/ui";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { SeriesHeader } from "@/components/series-detail/SeriesHeader";
 import { SeriesQuickActionsSheet } from "@/components/series-detail/SeriesQuickActionsSheet";
+import { RecommendationQuickActionsSheet } from "@/components/social/RecommendationQuickActionsSheet";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
@@ -27,11 +29,12 @@ type DetailTab = "sobre" | "episodios";
  */
 export default function SeriesDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, recId } = useLocalSearchParams<{ id: string; recId?: string }>();
   const seriesId = String(id);
   const numericId = Number(seriesId);
   const [tab, setTab] = useState<DetailTab>("episodios");
   const [showActions, setShowActions] = useState(false);
+  const [showRecommendationActions, setShowRecommendationActions] = useState(Boolean(recId));
 
   const { series, isLoading, isError } = useSeriesDetails(seriesId);
   const { watched, busy: episodesBusy, toggle, markMany, unmarkSeason, rewatch } = useWatchedEpisodes(numericId);
@@ -155,6 +158,24 @@ export default function SeriesDetailScreen() {
           }}
           onRemove={handleRemove}
           onClose={() => setShowActions(false)}
+        />
+      )}
+
+      {showRecommendationActions && (
+        <RecommendationQuickActionsSheet
+          mediaType="series"
+          onWantToWatch={() => {
+            changeStatus("want_to_watch");
+            setShowRecommendationActions(false);
+          }}
+          onStartWatching={() => {
+            changeStatus("watching");
+            setShowRecommendationActions(false);
+          }}
+          onIgnore={() => {
+            if (recId) dismissRecommendation(recId).catch(() => {});
+            setShowRecommendationActions(false);
+          }}
         />
       )}
     </Screen>

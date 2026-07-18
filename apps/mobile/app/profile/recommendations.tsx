@@ -42,7 +42,8 @@ export default function RecommendationsScreen() {
     if (!rec.readAt) {
       markRecommendationRead(rec.id).then(reload);
     }
-    router.push(rec.mediaType === "movie" ? `/movies/${rec.mediaId}` : `/series/${rec.mediaId}`);
+    const base = rec.mediaType === "movie" ? `/movies/${rec.mediaId}` : `/series/${rec.mediaId}`;
+    router.push(`${base}?recId=${rec.id}`);
   }
 
   function handleDismiss(id: string) {
