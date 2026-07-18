@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useCurrentUser, useProfileSectionCounts, useSocialCounts } from "@/lib/useCurrentUser";
 import { useFollowCounts } from "@/lib/usePublicProfile";
 import { fetchEditableProfile } from "@/lib/editProfile";
+import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 import { Screen, Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
@@ -39,6 +40,11 @@ export default function ProfileScreen() {
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [bio, setBio] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [unreadRecommendations, setUnreadRecommendations] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    fetchUnreadRecommendationsCount().then(setUnreadRecommendations);
+  }, []);
 
   useEffect(() => {
     fetchEditableProfile().then((profile) => {
@@ -135,6 +141,12 @@ export default function ProfileScreen() {
         </View>
 
         <View style={[styles.section, styles.sectionList]}>
+          <ProfileSectionRow
+            icon="send"
+            label="Recomendações"
+            count={unreadRecommendations}
+            onPress={() => router.push("/profile/recommendations")}
+          />
           <ProfileSectionRow icon="check-square" label="Minhas listas" count={sectionCounts?.lists} onPress={() => router.push("/lists")} />
           <ProfileSectionRow icon="tv" label="Séries" count={sectionCounts?.series} onPress={() => router.push("/profile/series")} />
           <ProfileSectionRow

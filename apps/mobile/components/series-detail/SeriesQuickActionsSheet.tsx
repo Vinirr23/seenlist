@@ -6,6 +6,7 @@ import { useMyLists } from "@/lib/useMyLists";
 import { addToList as addSeriesToList } from "@/lib/lists";
 import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
+import { RecommendSheet } from "../social/RecommendSheet";
 
 export interface SeriesQuickActionsSheetProps {
   seriesId: number;
@@ -41,6 +42,7 @@ export function SeriesQuickActionsSheet({
   const [showNewListForm, setShowNewListForm] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [addedListId, setAddedListId] = useState<string | null>(null);
+  const [showRecommend, setShowRecommend] = useState(false);
 
   async function handleShare() {
     try {
@@ -153,6 +155,7 @@ export function SeriesQuickActionsSheet({
               />
               <ActionRow icon="list" label="Adicionar a lista" onPress={() => setView("pick-list")} />
               <ActionRow icon="clock" label="Assistir depois" onPress={() => onSetStatus("want_to_watch")} />
+              <ActionRow icon="send" label="Recomendar pra alguém" onPress={() => setShowRecommend(true)} />
               <ActionRow icon="pause-circle" label="Parar de assistir" onPress={() => onSetStatus("paused")} />
               <ActionRow icon="trash-2" label="Remover série" danger onPress={() => setConfirmingRemove(true)} />
               <ActionRow icon="share-2" label="Compartilhar" onPress={handleShare} />
@@ -165,6 +168,15 @@ export function SeriesQuickActionsSheet({
           )}
         </Pressable>
       </Pressable>
+
+      {showRecommend && (
+        <RecommendSheet
+          mediaType="series"
+          mediaId={seriesId}
+          mediaTitle={seriesTitle}
+          onClose={() => setShowRecommend(false)}
+        />
+      )}
     </Modal>
   );
 }

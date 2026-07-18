@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { MovieWatchStatus } from "@seenlist/types";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
+import { RecommendSheet } from "../social/RecommendSheet";
 
 const OPTIONS: { status: MovieWatchStatus; label: string; icon: keyof typeof Feather.glyphMap }[] = [
   { status: "watched", label: "Assistido", icon: "check" },
@@ -10,14 +12,20 @@ const OPTIONS: { status: MovieWatchStatus; label: string; icon: keyof typeof Fea
 ];
 
 export function MovieActions({
+  movieId,
+  movieTitle,
   currentStatus,
   busy,
   onChange,
 }: {
+  movieId: number;
+  movieTitle: string;
   currentStatus: MovieWatchStatus | null;
   busy: boolean;
   onChange: (status: MovieWatchStatus) => void;
 }) {
+  const [showRecommend, setShowRecommend] = useState(false);
+
   return (
     <View style={styles.row}>
       {OPTIONS.map((option) => {
@@ -36,6 +44,20 @@ export function MovieActions({
           </Pressable>
         );
       })}
+
+      {/* TASK-169 — botão dedicado, não um menu "..." (filme nunca teve um, diferente de série) — menor mudança pra encaixar a funcionalidade. */}
+      <Pressable style={styles.recommendButton} onPress={() => setShowRecommend(true)}>
+        <Feather name="send" size={16} color={colors.muted} />
+      </Pressable>
+
+      {showRecommend && (
+        <RecommendSheet
+          mediaType="movie"
+          mediaId={movieId}
+          mediaTitle={movieTitle}
+          onClose={() => setShowRecommend(false)}
+        />
+      )}
     </View>
   );
 }
@@ -65,5 +87,13 @@ const styles = StyleSheet.create({
   labelActive: {
     color: colors.primary,
     fontSize: 11,
+  },
+  recommendButton: {
+    width: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 });

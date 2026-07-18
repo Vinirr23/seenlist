@@ -51,7 +51,7 @@ export default function MovieDetailScreen() {
         <MovieHeader movie={movie} watched={status === "watched"} />
 
         <View style={styles.body}>
-          <MovieActions currentStatus={status} busy={busy} onChange={changeStatus} />
+          <MovieActions movieId={numericId} movieTitle={movie.title} currentStatus={status} busy={busy} onChange={changeStatus} />
 
           <Text style={styles.overview}>{movie.overview || "Sem sinopse disponível."}</Text>
 
