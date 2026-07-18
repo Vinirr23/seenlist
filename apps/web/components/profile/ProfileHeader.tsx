@@ -127,16 +127,25 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
 
       {profile?.bio && <p className="mt-3 text-sm text-text">{profile.bio}</p>}
 
-      <div className="mt-4 flex gap-6">
-        <Link href="/profile/following" className="transition-opacity active:opacity-70">
+      <div className="mt-4 flex gap-2">
+        <Link
+          href="/profile/following"
+          className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-center transition-colors hover:border-primary/40 active:bg-background"
+        >
           <p className="text-sm font-bold text-text">{counts?.following ?? 0}</p>
           <p className="text-xs text-muted">{t("profile.following")}</p>
         </Link>
-        <Link href="/profile/followers" className="transition-opacity active:opacity-70">
+        <Link
+          href="/profile/followers"
+          className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-center transition-colors hover:border-primary/40 active:bg-background"
+        >
           <p className="text-sm font-bold text-text">{counts?.followers ?? 0}</p>
           <p className="text-xs text-muted">{t("profile.followers")}</p>
         </Link>
-        <Link href="/profile/comments" className="transition-opacity active:opacity-70">
+        <Link
+          href="/profile/comments"
+          className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-center transition-colors hover:border-primary/40 active:bg-background"
+        >
           <p className="text-sm font-bold text-text">{socialCounts?.commentsGiven ?? 0}</p>
           <p className="text-xs text-muted">{t("profile.comments")}</p>
         </Link>
