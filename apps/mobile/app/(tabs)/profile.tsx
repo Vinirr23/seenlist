@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ScrollView, View, Image, Pressable, Share, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useCurrentUser, useProfileSectionCounts, useSocialCounts } from "@/lib/useCurrentUser";
 import { useFollowCounts } from "@/lib/usePublicProfile";
@@ -42,9 +42,11 @@ export default function ProfileScreen() {
   const [username, setUsername] = useState<string | null>(null);
   const [unreadRecommendations, setUnreadRecommendations] = useState<number | undefined>(undefined);
 
-  useEffect(() => {
-    fetchUnreadRecommendationsCount().then(setUnreadRecommendations);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadRecommendationsCount().then(setUnreadRecommendations);
+    }, [])
+  );
 
   useEffect(() => {
     fetchEditableProfile().then((profile) => {
