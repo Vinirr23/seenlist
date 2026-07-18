@@ -1,12 +1,9 @@
 "use client";
 
-import { LogOut } from "lucide-react";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { LogoutButton } from "@/components/layout/LogoutButton";
 import { ProfileHeader } from "./ProfileHeader";
 import { StatisticsCard } from "./StatisticsCard";
-import { SettingsSection } from "./SettingsSection";
 import { ProfileSectionsList } from "./ProfileSectionsList";
 
 /**
@@ -16,6 +13,14 @@ import { ProfileSectionsList } from "./ProfileSectionsList";
  * em toda mutation/query do projeto).
  *
  * Tradução (4º lote) — Perfil.
+ *
+ * Redesign (a pedido) — `SettingsSection` ("Configurações") e
+ * `LogoutButton` ("Sair") saíram daqui: viraram redundantes depois
+ * que o ícone de engrenagem passou a flutuar sobre a capa
+ * (`ProfileHeader.tsx`), levando direto pra `/profile/settings` —
+ * que já tem tanto as configurações quanto o botão de sair dentro
+ * dela (conferido antes de remover, pra não tirar o único jeito de
+ * sair da conta).
  */
 export function ProfileView() {
   const { data: user, isLoading, isError } = useCurrentUser();
@@ -44,13 +49,6 @@ export function ProfileView() {
       <StatisticsCard />
 
       <ProfileSectionsList />
-
-      <SettingsSection />
-
-      <LogoutButton className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10">
-        <LogOut className="h-4 w-4" strokeWidth={2} />
-        {t("settings.logout")}
-      </LogoutButton>
     </div>
   );
 }
