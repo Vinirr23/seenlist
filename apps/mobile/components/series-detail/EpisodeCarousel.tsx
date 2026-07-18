@@ -70,20 +70,31 @@ export function EpisodeCarousel({
    * chega primeiro.
    */
   function attemptScroll() {
-    if (hasUserScrolled.current || episodeItems.length === 0) return;
+    if (episodeItems.length === 0) return;
     const firstUnwatchedIndex = episodeItems.findIndex(({ seasonNumber, episode }) => !watched.has(episodeKey(seasonNumber, episode.episodeNumber)));
-    if (firstUnwatchedIndex > 0) {
-      listRef.current?.scrollToOffset({ offset: firstUnwatchedIndex * (CARD_WIDTH + GAP), animated: false });
+
+    // TASK-173 (achado real, a pedido — "a rolagem recua" ao marcar o
+    // último episódio) — quando não sobra episódio não assistido, a
+    // rolagem pro card final SEMPRE acontece, mesmo que
+    // `hasUserScrolled` já esteja true. Esse guard existe pra não
+    // brigar com o usuário navegando livremente pelo carrossel — mas
+    // no caso mais comum de todos, marcar o ÚLTIMO episódio exige
+    // rolar até ele primeiro, o que já deixava `hasUserScrolled` true
+    // e cancelava a rolagem final logo depois, bem na hora que ela
+    // mais fazia sentido (mostrar o card de recompensa). Terminar a
+    // série é um momento deliberado — vale a pena rolar de qualquer
+    // jeito, diferente de "pular pro primeiro não assistido" (que
+    // continua respeitando o usuário navegando por conta própria).
+    if (firstUnwatchedIndex === -1) {
+      if (data.length > 1) {
+        listRef.current?.scrollToOffset({ offset: (data.length - 1) * (CARD_WIDTH + GAP), animated: true });
+      }
       return;
     }
-    // TASK-170 (achado real, a pedido — "mostra o primeiro episódio")
-    // — `findIndex` devolve -1 quando TODOS os episódios já lançados
-    // estão assistidos (série "Em dia"); sem essa checagem, a lista
-    // ficava parada no episódio 1 por padrão, em vez de ir pro fim
-    // (onde está o episódio mais recente e o card "Em dia"/"Série
-    // encerrada").
-    if (firstUnwatchedIndex === -1 && data.length > 1) {
-      listRef.current?.scrollToOffset({ offset: (data.length - 1) * (CARD_WIDTH + GAP), animated: false });
+
+    if (hasUserScrolled.current) return;
+    if (firstUnwatchedIndex > 0) {
+      listRef.current?.scrollToOffset({ offset: firstUnwatchedIndex * (CARD_WIDTH + GAP), animated: false });
     }
   }
 

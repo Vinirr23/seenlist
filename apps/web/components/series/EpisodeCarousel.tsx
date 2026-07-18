@@ -86,13 +86,29 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
    * lista de 80+ episódios.
    */
   useEffect(() => {
-    if (hasUserScrolledRef.current || !containerRef.current || items.length === 0) return;
+    if (!containerRef.current || items.length === 0) return;
     const firstUnwatchedIndex = items.findIndex(
       ({ seasonNumber, episode }) => !isEpisodeWatched(watched, seasonNumber, episode.episodeNumber)
     );
-    const targetIndex = firstUnwatchedIndex === -1 ? items.length - 1 : firstUnwatchedIndex;
-    if (targetIndex > 0) {
-      containerRef.current.scrollLeft = targetIndex * (ITEM_WIDTH + ITEM_GAP);
+
+    // TASK-173 (achado real, a pedido — "a rolagem recua" ao marcar o
+    // último episódio) — quando não sobra nada não assistido, rola
+    // pro final SEMPRE, mesmo que `hasUserScrolledRef` já esteja
+    // true. Esse guard existe pra não brigar com o usuário navegando
+    // livremente — mas marcar o ÚLTIMO episódio quase sempre exige
+    // rolar até ele primeiro, o que já deixava o guard ativo e
+    // cancelava a rolagem final bem na hora que ela mais fazia
+    // sentido.
+    if (firstUnwatchedIndex === -1) {
+      if (items.length > 1) {
+        containerRef.current.scrollTo({ left: (items.length - 1) * (ITEM_WIDTH + ITEM_GAP), behavior: "smooth" });
+      }
+      return;
+    }
+
+    if (hasUserScrolledRef.current) return;
+    if (firstUnwatchedIndex > 0) {
+      containerRef.current.scrollLeft = firstUnwatchedIndex * (ITEM_WIDTH + ITEM_GAP);
     }
   }, [items, watched]);
 
