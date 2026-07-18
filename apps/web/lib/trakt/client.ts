@@ -31,7 +31,13 @@ export async function exchangeTraktCode(code: string): Promise<string> {
     }),
   });
   if (!response.ok) {
-    throw new Error(`Trakt token exchange falhou: HTTP ${response.status}`);
+    // TASK-171 (correção — achado real, 403 sem motivo claro) — o
+    // Trakt costuma devolver um corpo JSON explicando o motivo real
+    // (ex.: client id/secret errado, redirect_uri não bate,
+    // "invalid_grant" pra código expirado/já usado) — só o código
+    // HTTP sozinho não é suficiente pra saber qual desses é.
+    const body = await response.text().catch(() => "");
+    throw new Error(`Trakt token exchange falhou: HTTP ${response.status} — ${body}`);
   }
   const data = (await response.json()) as TraktTokenResponse;
   return data.access_token;
