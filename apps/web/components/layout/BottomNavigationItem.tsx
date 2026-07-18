@@ -22,21 +22,26 @@ export function BottomNavigationItem({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className="flex flex-1 flex-col items-center justify-center gap-1 py-3.5"
+      className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5"
     >
-      <span className="relative">
+      <span
+        className={cn(
+          "relative flex h-9 w-9 items-center justify-center rounded-full transition-colors",
+          active && "bg-primary/15"
+        )}
+      >
         <Icon
-          className={cn("h-6 w-6", active ? "text-text" : "text-muted")}
+          className={cn("h-5 w-5", active ? "text-primary" : "text-muted")}
           strokeWidth={active ? 2.4 : 2}
         />
         {badge && (
           <span
             aria-label="Notificações não lidas"
-            className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-surface"
+            className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-surface"
           />
         )}
       </span>
-      <span className={cn("text-[10px]", active ? "font-semibold text-text" : "text-muted")}>
+      <span className={cn("text-[10px]", active ? "font-semibold text-primary" : "text-muted")}>
         {label}
       </span>
     </Link>

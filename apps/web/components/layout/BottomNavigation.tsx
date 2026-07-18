@@ -44,7 +44,7 @@ export function BottomNavigation() {
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed bottom-0 left-1/2 z-40 flex w-full -translate-x-1/2 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:max-w-[430px]"
+      className="fixed inset-x-3 bottom-3 z-40 mx-auto flex max-w-[404px] items-center rounded-2xl border border-border bg-surface/95 shadow-lg shadow-black/20 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]"
     >
       {tabs.map((tab) => (
         <BottomNavigationItem
