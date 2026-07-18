@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Share2, Check } from "lucide-react";
 import { useToast } from "@/lib/toast/ToastProvider";
 
-export function ShareProfileButton({ username }: { username: string }) {
+export function ShareProfileButton({ username, iconOnly = false }: { username: string; iconOnly?: boolean }) {
   const [copied, setCopied] = useState(false);
   const toast = useToast();
 
@@ -19,6 +19,19 @@ export function ShareProfileButton({ username }: { username: string }) {
       console.error("[profile] Falha ao copiar link do perfil", error);
       toast.error("Não foi possível copiar o link.");
     }
+  }
+
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        onClick={handleShare}
+        aria-label="Compartilhar perfil"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-transform active:scale-90"
+      >
+        {copied ? <Check className="h-4 w-4 text-success" strokeWidth={2} /> : <Share2 className="h-4 w-4" strokeWidth={2} />}
+      </button>
+    );
   }
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Settings } from "lucide-react";
 import type { CurrentUser } from "@/lib/queries/current-user";
 import { useMyProfile } from "@/lib/queries/my-profile";
 import { useFollowCounts } from "@/lib/queries/public-profile";
@@ -38,12 +39,35 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
   const joinDate = joinDateFormatter.format(new Date(user.createdAt));
 
   return (
-    <div className={profile?.bannerUrl ? "mb-6" : "mb-6 -mx-4 -mt-4 px-4 pt-8 pb-2 bg-gradient-to-b from-primary/[0.09] via-transparent to-transparent sm:rounded-t-lg"}>
+    <div className={profile?.bannerUrl ? "mb-6" : "mb-6 -mx-4 -mt-4 px-4 pt-4 pb-2 bg-gradient-to-b from-primary/[0.09] via-transparent to-transparent sm:rounded-t-lg"}>
       {profile?.bannerUrl && (
         <div className="relative -mx-4 h-32 w-[calc(100%+2rem)] overflow-hidden bg-surface shadow-lg shadow-black/30 sm:rounded-b-lg">
           {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
           <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-background to-transparent" aria-hidden="true" />
+          <div className="absolute right-3 top-3 flex gap-2">
+            {profile?.username && <ShareProfileButton username={profile.username} iconOnly />}
+            <Link
+              href="/profile/settings"
+              aria-label="Configurações"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-transform active:scale-90"
+            >
+              <Settings className="h-4 w-4" strokeWidth={2} />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {!profile?.bannerUrl && (
+        <div className="flex justify-end gap-2 pb-2">
+          {profile?.username && <ShareProfileButton username={profile.username} iconOnly />}
+          <Link
+            href="/profile/settings"
+            aria-label="Configurações"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-muted transition-colors hover:text-text"
+          >
+            <Settings className="h-4 w-4" strokeWidth={2} />
+          </Link>
         </div>
       )}
 
@@ -88,7 +112,6 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         >
           {t("profile.edit")}
         </Link>
-        {profile?.username && <ShareProfileButton username={profile.username} />}
       </div>
     </div>
   );
