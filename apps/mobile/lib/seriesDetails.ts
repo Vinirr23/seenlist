@@ -616,26 +616,23 @@ function getNextUpcomingEpisode(seasons: SeriesDetails["seasons"]): EpisodeRef |
 }
 
 /**
- * Idêntico a resolveCarouselEpisodes do web — decide o conteúdo do
- * carrossel pela categoria da série. "completed"/"want_to_watch"/
- * status desconhecido: sem carrossel (não inventa fila fake).
+ * Idêntico a resolveCarouselEpisodes do web, com divergência
+ * proposital (achado real, TASK-170, ajustado duas vezes a pedido)
+ * — não depende mais da categoria pra decidir o que mostrar. Sempre
+ * mostra todos os episódios já lançados em ordem (assistidos ou
+ * não), pra qualquer status de biblioteca, inclusive "Concluída"/
+ * "Assistir depois"/sem status nenhum — antes disso ficava vazio
+ * bem na hora que a série virava "Em dia" ou "Concluída", que era
+ * exatamente quando um histórico completo fazia mais sentido de
+ * ver. `category` continua no parâmetro só pra não quebrar quem já
+ * chama esta função — não é mais usado no corpo.
  */
 export function resolveCarouselEpisodes(
-  category: LibraryStatus | null | undefined,
+  _category: LibraryStatus | null | undefined,
   seasons: SeriesDetails["seasons"],
   watched: Set<WatchedEpisodeKey>
 ): EpisodeRef[] {
-  if (category === "watching") return getPendingEpisodes(seasons, watched);
-  if (category === "paused") {
-    const pending = getPendingEpisodes(seasons, watched);
-    const first = pending[0];
-    return first ? [first] : [];
-  }
-  if (category === "up_to_date") {
-    const next = getNextUpcomingEpisode(seasons);
-    return next ? [next] : [];
-  }
-  return [];
+  return getPendingEpisodes(seasons, watched);
 }
 export async function fetchSeriesStatus(seriesId: number): Promise<LibraryStatus | null> {
   const {

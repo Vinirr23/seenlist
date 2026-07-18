@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Clapperboard } from "lucide-react";
 import type { SeasonWithEpisodes, Episode } from "@seenlist/types";
 import { useWatchedEpisodes, useToggleEpisodeWatched, isEpisodeWatched, type WatchedEpisodeKey } from "@/lib/queries/watched-episodes";
@@ -21,19 +21,18 @@ function isAired(episode: Episode, today: Date): boolean {
 }
 
 /**
- * TASK-057 — episódios já lançados e ainda não assistidos, em ordem
- * (temporada, episódio). Mesma noção de "pendente" já usada em
- * outros lugares do app (ex.: ContinueWatchingCard) — sem inventar
- * uma regra nova.
+ * TASK-170 (trazido do mobile, a pedido — "deixa a versão web desse
+ * mesmo jeito") — episódios já lançados EM ORDEM, estejam assistidos
+ * ou não (antes só trazia os pendentes). Mesma função e mesmo nome
+ * do mobile (`lib/seriesDetails.ts`), só que em TS puro pro web.
  */
-function getPendingEpisodes(seasons: SeasonWithEpisodes[], watched: Set<WatchedEpisodeKey> | undefined): EpisodeRef[] {
+function getPendingEpisodes(seasons: SeasonWithEpisodes[], _watched: Set<WatchedEpisodeKey> | undefined): EpisodeRef[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const result: EpisodeRef[] = [];
 
   for (const season of [...seasons].sort((a, b) => a.seasonNumber - b.seasonNumber)) {
     for (const episode of [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber)) {
-      if (isEpisodeWatched(watched, season.seasonNumber, episode.episodeNumber)) continue;
       if (!isAired(episode, today)) continue;
       result.push({ seasonNumber: season.seasonNumber, episode });
     }
@@ -41,50 +40,19 @@ function getPendingEpisodes(seasons: SeasonWithEpisodes[], watched: Set<WatchedE
   return result;
 }
 
-/** O próximo episódio com data de lançamento no futuro — o mais próximo dela. */
-function getNextUpcomingEpisode(seasons: SeasonWithEpisodes[]): EpisodeRef | null {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let best: EpisodeRef | null = null;
-
-  for (const season of seasons) {
-    for (const episode of season.episodes) {
-      if (!episode.airDate) continue;
-      const airDate = new Date(`${episode.airDate}T00:00:00`);
-      if (airDate <= today) continue;
-      if (!best || !best.episode.airDate || airDate < new Date(`${best.episode.airDate}T00:00:00`)) {
-        best = { seasonNumber: season.seasonNumber, episode };
-      }
-    }
-  }
-  return best;
-}
-
 /**
- * TASK-057 — decide o conteúdo do carrossel pela categoria da série,
- * exatamente como especificado. Categorias sem fila natural de
- * episódios (Assistidas, Assistir depois, ou status desconhecido)
- * escondem o carrossel — não inventam uma fila fake.
+ * TASK-170 (trazido do mobile) — não depende mais da categoria.
+ * Sempre mostra todos os episódios já lançados, em qualquer status
+ * de biblioteca — antes ficava vazio bem nas categorias "Em dia"/
+ * "Concluída"/"Assistir depois", que era exatamente quando um
+ * histórico completo fazia mais sentido de ver.
  */
 function resolveCarouselEpisodes(
-  category: string | null | undefined,
+  _category: string | null | undefined,
   seasons: SeasonWithEpisodes[],
   watched: Set<WatchedEpisodeKey> | undefined
 ): EpisodeRef[] {
-  if (category === "watching") {
-    return getPendingEpisodes(seasons, watched);
-  }
-  if (category === "paused") {
-    const pending = getPendingEpisodes(seasons, watched);
-    const first = pending[0];
-    return first ? [first] : [];
-  }
-  if (category === "up_to_date") {
-    const next = getNextUpcomingEpisode(seasons);
-    return next ? [next] : [];
-  }
-  // "completed" e "want_to_watch" (e qualquer status desconhecido): sem carrossel.
-  return [];
+  return getPendingEpisodes(seasons, watched);
 }
 
 export interface EpisodeCarouselProps {
@@ -95,14 +63,38 @@ export interface EpisodeCarouselProps {
   colorClass?: string;
 }
 
+const ITEM_WIDTH = 144; // w-36 (9rem)
+const ITEM_GAP = 12; // gap-3 (0.75rem)
+
 export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, colorClass }: EpisodeCarouselProps) {
   const { data: watched } = useWatchedEpisodes(seriesId);
   const toggleWatched = useToggleEpisodeWatched(seriesId);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasUserScrolledRef = useRef(false);
 
   const items = useMemo(
     () => resolveCarouselEpisodes(category, seasons, watched),
     [category, seasons, watched]
   );
+
+  /**
+   * TASK-170 (trazido do mobile) — rolagem automática pro primeiro
+   * episódio ainda não assistido; se não sobrar nenhum (série "Em
+   * dia"/"Concluída"), rola pro FINAL da lista (onde fica o episódio
+   * mais recente), em vez de ficar parada no episódio 1. Web nunca
+   * teve essa rolagem — sempre abria no início, mesmo fundo de uma
+   * lista de 80+ episódios.
+   */
+  useEffect(() => {
+    if (hasUserScrolledRef.current || !containerRef.current || items.length === 0) return;
+    const firstUnwatchedIndex = items.findIndex(
+      ({ seasonNumber, episode }) => !isEpisodeWatched(watched, seasonNumber, episode.episodeNumber)
+    );
+    const targetIndex = firstUnwatchedIndex === -1 ? items.length - 1 : firstUnwatchedIndex;
+    if (targetIndex > 0) {
+      containerRef.current.scrollLeft = targetIndex * (ITEM_WIDTH + ITEM_GAP);
+    }
+  }, [items, watched]);
 
   if (items.length === 0) return null;
 
@@ -114,7 +106,13 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
   return (
     <section>
       <h2 className="mb-2 text-sm font-medium text-text">Episódios</h2>
-      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+      <div
+        ref={containerRef}
+        onScroll={() => {
+          hasUserScrolledRef.current = true;
+        }}
+        className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1"
+      >
         {items.map(({ seasonNumber, episode }) => {
           const stillUrl = tmdbImage(episode.stillPath, "w300");
           const watchedNow = isEpisodeWatched(watched, seasonNumber, episode.episodeNumber);

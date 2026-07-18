@@ -8,10 +8,11 @@ import { episodeKey, resolveCarouselEpisodes, type EpisodeRef, type WatchedEpiso
 import type { SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { Text } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
-import { SeriesCaughtUpCard } from "./SeriesCaughtUpCard";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
-type CarouselItem = EpisodeRef;
+type CarouselItem =
+  | ({ kind: "episode" } & EpisodeRef)
+  | { kind: "caught-up"; badge: Exclude<SeriesCaughtUpBadge, null> };
 
 export function EpisodeCarousel({
   seriesId,
@@ -29,7 +30,12 @@ export function EpisodeCarousel({
   /** TASK-170 (ajuste — a pedido) — o card "mais episódios a caminho"/"série encerrada" mora aqui, não depois das temporadas (diferente do web, decisão explícita pro mobile). */
   caughtUpBadge?: SeriesCaughtUpBadge;
 }) {
-  const items = resolveCarouselEpisodes(category, seasons, watched);
+  const episodeItems = resolveCarouselEpisodes(category, seasons, watched);
+  /** TASK-170 (ajuste — a pedido, "não é pra tirar a rolagem, é pra incluir no final") — mesma FlatList horizontal de sempre, só com um card a mais no final quando a série está em dia/encerrada, no mesmo tamanho dos cards de episódio. */
+  const data: CarouselItem[] = [
+    ...episodeItems.map((item) => ({ kind: "episode" as const, ...item })),
+    ...(caughtUpBadge ? [{ kind: "caught-up" as const, badge: caughtUpBadge }] : []),
+  ];
   const listRef = useRef<FlatList<CarouselItem>>(null);
   const renderedSeriesId = useRef<number | null>(null);
   const hasUserScrolled = useRef(false);
@@ -64,10 +70,20 @@ export function EpisodeCarousel({
    * chega primeiro.
    */
   function attemptScroll() {
-    if (hasUserScrolled.current || items.length === 0) return;
-    const firstUnwatchedIndex = items.findIndex(({ seasonNumber, episode }) => !watched.has(episodeKey(seasonNumber, episode.episodeNumber)));
+    if (hasUserScrolled.current || episodeItems.length === 0) return;
+    const firstUnwatchedIndex = episodeItems.findIndex(({ seasonNumber, episode }) => !watched.has(episodeKey(seasonNumber, episode.episodeNumber)));
     if (firstUnwatchedIndex > 0) {
       listRef.current?.scrollToOffset({ offset: firstUnwatchedIndex * (CARD_WIDTH + GAP), animated: false });
+      return;
+    }
+    // TASK-170 (achado real, a pedido — "mostra o primeiro episódio")
+    // — `findIndex` devolve -1 quando TODOS os episódios já lançados
+    // estão assistidos (série "Em dia"); sem essa checagem, a lista
+    // ficava parada no episódio 1 por padrão, em vez de ir pro fim
+    // (onde está o episódio mais recente e o card "Em dia"/"Série
+    // encerrada").
+    if (firstUnwatchedIndex === -1 && data.length > 1) {
+      listRef.current?.scrollToOffset({ offset: (data.length - 1) * (CARD_WIDTH + GAP), animated: false });
     }
   }
 
@@ -76,17 +92,7 @@ export function EpisodeCarousel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seriesId, watched]);
 
-  if (items.length === 0) {
-    if (!caughtUpBadge) return null;
-    return (
-      <View style={styles.section}>
-        <Text variant="subtitle" style={styles.title}>
-          Episódios
-        </Text>
-        <SeriesCaughtUpCard badge={caughtUpBadge} />
-      </View>
-    );
-  }
+  if (data.length === 0) return null;
 
   return (
     <View style={styles.section}>
@@ -107,10 +113,12 @@ export function EpisodeCarousel({
        */}
       <FlatList
         ref={listRef}
-        data={items}
+        data={data}
         horizontal
         showsHorizontalScrollIndicator={false}
-        keyExtractor={({ seasonNumber, episode }) => `${seasonNumber}-${episode.episodeNumber}`}
+        keyExtractor={(item, index) =>
+          item.kind === "episode" ? `${item.seasonNumber}-${item.episode.episodeNumber}` : `caught-up-${index}`
+        }
         contentContainerStyle={styles.row}
         getItemLayout={(_, index) => ({ length: CARD_WIDTH + GAP, offset: (CARD_WIDTH + GAP) * index, index })}
         initialNumToRender={6}
@@ -120,15 +128,19 @@ export function EpisodeCarousel({
         onScrollBeginDrag={() => {
           hasUserScrolled.current = true;
         }}
-        renderItem={({ item: { seasonNumber, episode } }) => (
-          <EpisodeCarouselCard
-            seriesId={seriesId}
-            seasonNumber={seasonNumber}
-            episode={episode}
-            isWatched={watched.has(episodeKey(seasonNumber, episode.episodeNumber))}
-            onToggle={() => onToggleEpisode(seasonNumber, episode.episodeNumber)}
-          />
-        )}
+        renderItem={({ item }) =>
+          item.kind === "episode" ? (
+            <EpisodeCarouselCard
+              seriesId={seriesId}
+              seasonNumber={item.seasonNumber}
+              episode={item.episode}
+              isWatched={watched.has(episodeKey(item.seasonNumber, item.episode.episodeNumber))}
+              onToggle={() => onToggleEpisode(item.seasonNumber, item.episode.episodeNumber)}
+            />
+          ) : (
+            <CaughtUpMiniCard badge={item.badge} />
+          )
+        }
       />
     </View>
   );
@@ -174,6 +186,21 @@ function EpisodeCarouselCard({
   );
 }
 
+/** TASK-170 (ajuste) — mesmo tamanho/formato do `EpisodeCarouselCard` (CARD_WIDTH, `stillWrapper` no lugar da imagem), pra ficar visualmente parte da mesma fileira, não um banner destoante. */
+function CaughtUpMiniCard({ badge }: { badge: Exclude<SeriesCaughtUpBadge, null> }) {
+  const isEnded = badge === "ended";
+  return (
+    <View style={styles.card}>
+      <View style={[styles.stillWrapper, isEnded ? styles.miniCardEnded : styles.miniCardOngoing]}>
+        <Feather name={isEnded ? "award" : "zap"} size={22} color={isEnded ? "#4ade80" : "#60a5fa"} />
+      </View>
+      <Text numberOfLines={2} style={styles.miniCardText}>
+        {isEnded ? "Série encerrada" : "Em dia! Mais episódios a caminho"}
+      </Text>
+    </View>
+  );
+}
+
 const CARD_WIDTH = 144;
 const GAP = spacing.sm;
 
@@ -215,5 +242,17 @@ const styles = StyleSheet.create({
   watchedButtonRow: {
     marginTop: spacing.xs,
     alignItems: "flex-start",
+  },
+  miniCardOngoing: {
+    backgroundColor: "rgba(96,165,250,0.12)",
+  },
+  miniCardEnded: {
+    backgroundColor: "rgba(74,222,128,0.12)",
+  },
+  miniCardText: {
+    marginTop: spacing.xs,
+    fontSize: 11,
+    color: colors.text,
+    fontWeight: "600",
   },
 });
