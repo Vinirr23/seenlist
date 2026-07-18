@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { Settings, Pencil } from "lucide-react";
 import type { CurrentUser } from "@/lib/queries/current-user";
 import { useMyProfile } from "@/lib/queries/my-profile";
 import { useFollowCounts } from "@/lib/queries/public-profile";
@@ -41,11 +41,21 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
   return (
     <div className={profile?.bannerUrl ? "mb-6" : "mb-6 -mx-4 -mt-4 px-4 pt-4 pb-2 bg-gradient-to-b from-primary/[0.09] via-transparent to-transparent sm:rounded-t-lg"}>
       {profile?.bannerUrl && (
-        <div className="relative -mx-4 h-32 w-[calc(100%+2rem)] overflow-visible">
+        <div className="relative -mx-4 h-56 w-[calc(100%+2rem)] overflow-visible">
           <div className="relative h-full w-full overflow-hidden rounded-b-lg bg-surface shadow-lg shadow-black/30">
             {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
             <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-background to-transparent" aria-hidden="true" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" aria-hidden="true" />
+          </div>
+
+          <div className="absolute left-3 top-3">
+            <Link
+              href="/profile/edit"
+              aria-label={t("profile.edit")}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-transform active:scale-90"
+            >
+              <Pencil className="h-4 w-4" strokeWidth={2} />
+            </Link>
           </div>
 
           <div className="absolute right-3 top-3 flex gap-2">
@@ -132,14 +142,16 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         </Link>
       </div>
 
-      <div className="mt-3 flex gap-2">
-        <Link
-          href="/profile/edit"
-          className="inline-flex items-center justify-center rounded-lg border border-primary bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition-transform active:scale-[0.96]"
-        >
-          {t("profile.edit")}
-        </Link>
-      </div>
+      {!profile?.bannerUrl && (
+        <div className="mt-3 flex gap-2">
+          <Link
+            href="/profile/edit"
+            className="inline-flex items-center justify-center rounded-lg border border-primary bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition-transform active:scale-[0.96]"
+          >
+            {t("profile.edit")}
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
