@@ -40,9 +40,10 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
   return (
     <div className={profile?.bannerUrl ? "mb-6" : "mb-6 -mx-4 -mt-4 px-4 pt-8 pb-2 bg-gradient-to-b from-primary/[0.09] via-transparent to-transparent sm:rounded-t-lg"}>
       {profile?.bannerUrl && (
-        <div className="-mx-4 mb-4 h-28 w-[calc(100%+2rem)] overflow-hidden bg-surface sm:rounded-b-lg">
+        <div className="relative -mx-4 mb-4 h-32 w-[calc(100%+2rem)] overflow-hidden bg-surface shadow-lg shadow-black/30 sm:rounded-b-lg">
           {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
           <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-background to-transparent" aria-hidden="true" />
         </div>
       )}
 
