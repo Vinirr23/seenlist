@@ -41,10 +41,13 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
   return (
     <div className={profile?.bannerUrl ? "mb-6" : "mb-6 -mx-4 -mt-4 px-4 pt-4 pb-2 bg-gradient-to-b from-primary/[0.09] via-transparent to-transparent sm:rounded-t-lg"}>
       {profile?.bannerUrl && (
-        <div className="relative -mx-4 h-32 w-[calc(100%+2rem)] overflow-hidden bg-surface shadow-lg shadow-black/30 sm:rounded-b-lg">
-          {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
-          <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-background to-transparent" aria-hidden="true" />
+        <div className="relative -mx-4 h-32 w-[calc(100%+2rem)] overflow-visible">
+          <div className="relative h-full w-full overflow-hidden rounded-b-lg bg-surface shadow-lg shadow-black/30">
+            {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
+            <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-background to-transparent" aria-hidden="true" />
+          </div>
+
           <div className="absolute right-3 top-3 flex gap-2">
             {profile?.username && <ShareProfileButton username={profile.username} iconOnly />}
             <Link
@@ -54,6 +57,28 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
             >
               <Settings className="h-4 w-4" strokeWidth={2} />
             </Link>
+          </div>
+
+          {/**
+           * Achado real (bug corrigido) — a primeira versão tentava
+           * manter avatar+nome na MESMA linha flex, puxando a linha
+           * inteira pra cima com margem negativa. Como o bloco de
+           * texto (3 linhas) é mais alto que o avatar, alinhar pela
+           * base (`items-end`) empurrava o TEXTO pra dentro da área
+           * da capa também, não só o avatar — ficava tudo espremido.
+           * Agora o avatar é posicionado sozinho, ancorado na borda
+           * de baixo da capa (`absolute -bottom-8`), e o nome/usuário
+           * vira um bloco totalmente separado, abaixo, sem dividir
+           * altura com nada — mesmo padrão clássico de capa +avatar
+           * do Twitter/Instagram.
+           */}
+          <div className="absolute -bottom-8 left-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface ring-2 ring-primary/50 ring-offset-2 ring-offset-background">
+            {user.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
+              <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-lg font-semibold text-muted">{initials(user.name)}</span>
+            )}
           </div>
         </div>
       )}
@@ -71,15 +96,17 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         </div>
       )}
 
-      <div className={profile?.bannerUrl ? "-mt-8 flex items-end gap-4" : "flex items-center gap-4"}>
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface ring-2 ring-primary/50 ring-offset-2 ring-offset-background">
-          {user.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
-            <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-lg font-semibold text-muted">{initials(user.name)}</span>
-          )}
-        </div>
+      <div className={profile?.bannerUrl ? "mt-10 flex items-center gap-4" : "flex items-center gap-4"}>
+        {!profile?.bannerUrl && (
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface ring-2 ring-primary/50 ring-offset-2 ring-offset-background">
+            {user.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
+              <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-lg font-semibold text-muted">{initials(user.name)}</span>
+            )}
+          </div>
+        )}
 
         <div className="min-w-0">
           <p className="truncate text-lg font-bold text-text">{user.name}</p>
