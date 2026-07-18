@@ -118,6 +118,13 @@ export default function SettingsScreen() {
           <SettingsRow label="Notificações" onPress={() => router.push("/settings/notifications")} last />
         </View>
 
+        {/* TASK-171/172 — abre a versão web numa aba dentro do app (mesmo `WebBrowser` já usado pra Sobre/Privacidade/Termos), em vez de reconstruir OAuth e parser de .zip nativo no mobile — os dois já escrevem no mesmo Supabase que o mobile lê, então o resultado aparece aqui na volta, sem duplicar nada. */}
+        <SectionLabel label="Importar dados" />
+        <View style={styles.card}>
+          <SettingsRow label="Importar do Trakt" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/import/trakt`)} />
+          <SettingsRow label="Migrar do TV Time" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/import/tvtime`)} last />
+        </View>
+
         <SectionLabel label="Aplicativo" />
         <View style={styles.card}>
           <SettingsRow label="Enviar feedback" onPress={() => router.push("/settings/feedback")} />
