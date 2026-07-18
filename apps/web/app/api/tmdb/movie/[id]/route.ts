@@ -8,7 +8,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const details = await getMovieDetails(id);
     return NextResponse.json(details);
   } catch (error) {
+    // TASK-172 (achado real — dois filmes sem capa/nome que davam
+    // erro genérico ao abrir) — antes só logava aqui no servidor
+    // (Vercel), sem repassar motivo nenhum pro app, que só sabia
+    // dizer "falhou". Agora o app recebe a mensagem real também.
+    const message = error instanceof Error ? error.message : String(error);
     console.error(`[api/tmdb/movie/${id}] Falha ao carregar detalhes do filme.`, error);
-    return NextResponse.json({ error: "Não foi possível carregar o filme agora." }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }
