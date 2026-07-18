@@ -9,12 +9,10 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
  * TASK-106 (Listas) — porta de `ListsPageView.tsx` + `ListsView.tsx`
- * do web. Fiel a uma particularidade real do próprio web: as listas
- * aqui só têm NOME — não existe ainda (nem lá) uma tela pra abrir
- * uma lista e ver o que tem dentro, editar ou apagar. Essa tela
- * serve pra criar listas e vê-las existirem; "Adicionar a série X
- * à lista Y" acontece pelo menu "..." da tela de detalhes da série
- * (`SeriesQuickActionsSheet`).
+ * do web. TASK-172 — cada linha agora leva pra `/lists/[id]`, onde
+ * dá pra ver o conteúdo, remover item e apagar a lista; antes disso
+ * o nome não estava ligado a rota nenhuma (mesma lacuna existia no
+ * web).
  */
 export default function ListsScreen() {
   const router = useRouter();
@@ -76,10 +74,11 @@ export default function ListsScreen() {
         ) : (
           <View style={styles.list}>
             {lists.map((list) => (
-              <View key={list.id} style={styles.listRow}>
+              <Pressable key={list.id} style={styles.listRow} onPress={() => router.push(`/lists/${list.id}`)}>
                 <Feather name="check-square" size={18} color={colors.primary} />
                 <Text style={styles.listName}>{list.name}</Text>
-              </View>
+                <Feather name="chevron-right" size={18} color={colors.muted} style={{ marginLeft: "auto" }} />
+              </Pressable>
             ))}
           </View>
         )}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ListChecks } from "lucide-react";
+import Link from "next/link";
+import { Plus, ListChecks, ChevronRight } from "lucide-react";
 import { useMyLists, useCreateList } from "@/lib/queries/lists";
 
 /**
@@ -74,13 +75,15 @@ export function ListsView() {
       {lists && lists.length > 0 && (
         <div className="space-y-2">
           {lists.map((list) => (
-            <div
+            <Link
               key={list.id}
-              className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3.5"
+              href={`/profile/lists/${list.id}`}
+              className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3.5 transition-colors hover:border-primary/40"
             >
               <ListChecks className="h-5 w-5 text-primary" strokeWidth={2} />
-              <span className="text-sm font-medium text-text">{list.name}</span>
-            </div>
+              <span className="flex-1 text-sm font-medium text-text">{list.name}</span>
+              <ChevronRight className="h-4 w-4 text-muted" strokeWidth={2} />
+            </Link>
           ))}
         </div>
       )}
