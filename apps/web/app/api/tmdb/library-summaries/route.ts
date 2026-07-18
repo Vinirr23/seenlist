@@ -26,19 +26,50 @@ function sanitizeIds(value: unknown): number[] {
  * corretas. `Promise.allSettled` isola cada item: uma falha vira só
  * uma ausência pontual, as demais completam normalmente.
  */
+/**
+ * TASK-172 (achado real — pôster parava de carregar "depois de uma
+ * certa quantidade" de filmes assistidos) — antes, uma página de até
+ * 100 ids disparava as 100 chamadas ao TMDB TODAS AO MESMO TEMPO
+ * (`Promise.allSettled` sem limite nenhum de simultaneidade).
+ * Quanto mais filme/série na conta, maior a rajada, maior a chance
+ * de bater num limite de taxa do TMDB no meio da rajada — os que
+ * falhassem por causa disso simplesmente sumiam (sem pôster), sem
+ * segunda chance. Agora processa em lotes menores (10 por vez) e dá
+ * uma segunda tentativa pro que falhar — mesmo raciocínio já
+ * aplicado antes pro Jikan/Trakt.
+ */
 async function settleSummaries<T>(ids: number[], fetcher: (id: number) => Promise<T>, label: string): Promise<T[]> {
-  const settled = await Promise.allSettled(ids.map((id) => fetcher(id)));
+  const CONCURRENCY = 20;
   const results: T[] = [];
-  settled.forEach((outcome, index) => {
-    if (outcome.status === "fulfilled") {
-      results.push(outcome.value);
-    } else {
-      console.error(
-        `[api/tmdb/library-summaries] Falha ao buscar resumo de ${label} ${ids[index]} — os demais não são afetados.`,
-        outcome.reason
-      );
+
+  for (let start = 0; start < ids.length; start += CONCURRENCY) {
+    const batchIds = ids.slice(start, start + CONCURRENCY);
+    const settled = await Promise.allSettled(batchIds.map((id) => fetcher(id)));
+
+    const retryIds: number[] = [];
+    settled.forEach((outcome, index) => {
+      if (outcome.status === "fulfilled") {
+        results.push(outcome.value);
+      } else {
+        retryIds.push(batchIds[index]!);
+      }
+    });
+
+    if (retryIds.length > 0) {
+      const retried = await Promise.allSettled(retryIds.map((id) => fetcher(id)));
+      retried.forEach((outcome, index) => {
+        if (outcome.status === "fulfilled") {
+          results.push(outcome.value);
+        } else {
+          console.error(
+            `[api/tmdb/library-summaries] Falha ao buscar resumo de ${label} ${retryIds[index]} (2 tentativas) — os demais não são afetados.`,
+            outcome.reason
+          );
+        }
+      });
     }
-  });
+  }
+
   return results;
 }
 
