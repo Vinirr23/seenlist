@@ -21,7 +21,20 @@ interface TraktTokenResponse {
 export async function exchangeTraktCode(code: string): Promise<string> {
   const response = await fetch(`${TRAKT_API_BASE}/oauth/token`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      // TASK-171 (correção — achado real: Cloudflare bloqueando com
+      // "Sorry, you have been blocked", não erro do Trakt em si) —
+      // requisição de servidor pra servidor sem `User-Agent` é um
+      // dos sinais mais comuns que esse tipo de proteção anti-bot
+      // usa pra barrar tráfego. Um User-Agent identificável (com
+      // contato) é prática padrão pra chamada de servidor — reduz
+      // bastante a chance de ser barrado, mesmo sem garantir 100%
+      // (IP compartilhado de serverless pode ocasionalmente ainda
+      // cair nisso, é fora do nosso controle).
+      "User-Agent": "SeenList/1.0 (+https://seenlist.app)",
+    },
     body: JSON.stringify({
       code,
       client_id: env.traktClientId(),
@@ -31,9 +44,8 @@ export async function exchangeTraktCode(code: string): Promise<string> {
     }),
   });
   if (!response.ok) {
-    // TASK-171 (correção — achado real, 403 sem motivo claro) — o
-    // Trakt costuma devolver um corpo JSON explicando o motivo real
-    // (ex.: client id/secret errado, redirect_uri não bate,
+    // O Trakt costuma devolver um corpo explicando o motivo real
+    // (client id/secret errado, redirect_uri não bate,
     // "invalid_grant" pra código expirado/já usado) — só o código
     // HTTP sozinho não é suficiente pra saber qual desses é.
     const body = await response.text().catch(() => "");
@@ -46,6 +58,8 @@ export async function exchangeTraktCode(code: string): Promise<string> {
 function traktHeaders(accessToken: string) {
   return {
     "Content-Type": "application/json",
+    Accept: "application/json",
+    "User-Agent": "SeenList/1.0 (+https://seenlist.app)",
     "trakt-api-version": "2",
     "trakt-api-key": env.traktClientId(),
     Authorization: `Bearer ${accessToken}`,
@@ -100,7 +114,8 @@ async function fetchTraktPaginated<T>(path: string, accessToken: string): Promis
       headers: traktHeaders(accessToken),
     });
     if (!response.ok) {
-      throw new Error(`Trakt ${path} falhou: HTTP ${response.status}`);
+      const body = await response.text().catch(() => "");
+      throw new Error(`Trakt ${path} falhou: HTTP ${response.status} — ${body.slice(0, 300)}`);
     }
     const data = (await response.json()) as T[];
     results.push(...data);
