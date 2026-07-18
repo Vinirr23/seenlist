@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MessageCircle, ChevronRight } from "lucide-react";
 import { useSeriesDetails } from "@/lib/queries/series";
 import { useWatchedEpisodes } from "@/lib/queries/watched-episodes";
 import { useSeriesStatus } from "@/lib/queries/series-status";
 import { getSeriesCategoryByStatus } from "@/lib/series-categories";
+import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { SeriesHeader } from "./SeriesHeader";
 import { SeriesTabs, type SeriesTab } from "./SeriesTabs";
 import { SeriesDetailsSkeleton } from "./SeriesDetailsSkeleton";
 import { SeasonAccordion } from "./SeasonAccordion";
 import { EpisodeCarousel } from "./EpisodeCarousel";
+import { SeriesCaughtUpCard } from "./SeriesCaughtUpCard";
+import { ConfettiBurst } from "./ConfettiBurst";
 import { CastCarousel } from "../media/CastCarousel";
 import { MetaRow } from "../media/MetaRow";
 import { SimilarSeriesCarousel } from "./SimilarSeriesCarousel";
@@ -30,6 +33,43 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
   const { data: watchedEpisodes } = useWatchedEpisodes(numericId);
   const { data: currentStatus } = useSeriesStatus(numericId);
   const categoryColorClass = currentStatus ? getSeriesCategoryByStatus(currentStatus)?.barColorClass : undefined;
+
+  // TASK-170 — precisa ficar ANTES dos `return` condicionais abaixo
+  // (regra dos hooks: mesma quantidade de hooks em toda renderização
+  // do componente, nunca depois de um retorno condicional). Por isso
+  // `series` entra opcional aqui (`series ?? null` dentro da função) —
+  // nos primeiros renders (carregando/erro) o resultado é sempre
+  // `null`.
+  const caughtUpBadge = series ? computeSeriesCaughtUpBadge(series, watchedEpisodes) : null;
+  const [showConfetti, setShowConfetti] = useState(false);
+  /**
+   * Guarda o valor de referência pra comparar transição — começa
+   * "não estabelecido" de propósito. Achado real ao escrever isto:
+   * se a referência fosse inicializada direto com `caughtUpBadge`
+   * (que, enquanto os dados ainda carregam, é sempre `null`), a
+   * PRIMEIRA vez que o dado de verdade chegasse já "ended" (série
+   * visitada que já estava completa antes) disparava o confete à
+   * toa — parecia uma transição, mas só era o primeiro dado real
+   * chegando. Só estabelece a referência (sem disparar nada) na
+   * primeira renderização em que `series` já existe; só compara
+   * depois disso.
+   */
+  const badgeBaselineRef = useRef<{ established: boolean; value: SeriesCaughtUpBadge }>({
+    established: false,
+    value: null,
+  });
+
+  useEffect(() => {
+    if (!series) return;
+    if (!badgeBaselineRef.current.established) {
+      badgeBaselineRef.current = { established: true, value: caughtUpBadge };
+      return;
+    }
+    if (caughtUpBadge === "ended" && badgeBaselineRef.current.value !== "ended") {
+      setShowConfetti(true);
+    }
+    badgeBaselineRef.current.value = caughtUpBadge;
+  }, [caughtUpBadge, series]);
 
   if (isLoading) {
     return <SeriesDetailsSkeleton />;
@@ -131,9 +171,13 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
                 ))}
               </div>
             )}
+
+            {caughtUpBadge && <SeriesCaughtUpCard badge={caughtUpBadge} />}
           </div>
         )}
       </PageContainer>
+
+      {showConfetti && <ConfettiBurst onDone={() => setShowConfetti(false)} />}
     </div>
   );
 }
