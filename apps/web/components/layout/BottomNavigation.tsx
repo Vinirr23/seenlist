@@ -5,6 +5,7 @@ import { tabs } from "@/lib/navigation";
 import { BottomNavigationItem } from "./BottomNavigationItem";
 import { useBottomNavHidden } from "@/lib/layout/bottomNavVisibility";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useUnreadRecommendationsCount } from "@/lib/queries/recommendations";
 
 /**
  * Fixa no rodapé. TASK-014: nada de sidebar/layout de desktop — em
@@ -36,6 +37,7 @@ export function BottomNavigation() {
   const pathname = usePathname();
   const hidden = useBottomNavHidden();
   const { t } = useTranslation();
+  const { data: unreadCount } = useUnreadRecommendationsCount();
 
   if (hidden) return null;
 
@@ -45,7 +47,13 @@ export function BottomNavigation() {
       className="fixed bottom-0 left-1/2 z-40 flex w-full -translate-x-1/2 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:max-w-[430px]"
     >
       {tabs.map((tab) => (
-        <BottomNavigationItem key={tab.href} {...tab} label={t(tab.label)} active={pathname === tab.href} />
+        <BottomNavigationItem
+          key={tab.href}
+          {...tab}
+          label={t(tab.label)}
+          active={pathname === tab.href}
+          badge={tab.href === "/profile" && (unreadCount ?? 0) > 0}
+        />
       ))}
     </nav>
   );

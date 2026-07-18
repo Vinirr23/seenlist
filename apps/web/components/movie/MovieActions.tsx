@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Plus, Play } from "lucide-react";
+import { Check, Plus, Play, Send } from "lucide-react";
 import type { MovieWatchStatus } from "@seenlist/types";
 import { cn } from "@seenlist/utils";
 import { useMovieStatus, useSetMovieStatus, useIncrementMovieRewatch } from "@/lib/queries/movie-status";
@@ -11,6 +11,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { InlineError } from "../media/InlineError";
 import { FavoriteButton } from "../media/FavoriteButton";
 import { WatchedActionsBottomSheet } from "../media/WatchedActionsBottomSheet";
+import { RecommendSheet } from "../social/RecommendSheet";
 
 /** Tradução (2º lote) — `labelKey` no lugar do texto fixo; quem renderiza resolve com `t()`. */
 const OPTIONS: { status: MovieWatchStatus; labelKey: string; icon: typeof Check }[] = [
@@ -19,13 +20,14 @@ const OPTIONS: { status: MovieWatchStatus; labelKey: string; icon: typeof Check 
   { status: "watching", labelKey: "library.tab.watching", icon: Play },
 ];
 
-export function MovieActions({ movieId }: { movieId: number }) {
+export function MovieActions({ movieId, movieTitle }: { movieId: number; movieTitle: string }) {
   const { data: currentStatus } = useMovieStatus(movieId);
   const setStatus = useSetMovieStatus(movieId);
   const incrementRewatch = useIncrementMovieRewatch(movieId);
   const toast = useToast();
   const { t } = useTranslation();
   const [showWatchedActions, setShowWatchedActions] = useState(false);
+  const [showRecommend, setShowRecommend] = useState(false);
 
   function handleClick(option: (typeof OPTIONS)[number]) {
     // TASK-047 — igual TV Time: tocar em "Assistido" quando já está assistido não desmarca direto, abre o "Marcar como...".
@@ -72,8 +74,28 @@ export function MovieActions({ movieId }: { movieId: number }) {
           );
         })}
         <FavoriteButton mediaType="movie" mediaId={movieId} />
+        <button
+          type="button"
+          aria-label="Recomendar pra alguém"
+          onClick={() => {
+            hapticTick();
+            setShowRecommend(true);
+          }}
+          className="flex shrink-0 items-center justify-center rounded-lg border border-border px-3 text-muted transition-colors hover:border-primary/50 hover:text-text"
+        >
+          <Send className="h-4 w-4" strokeWidth={2.25} />
+        </button>
       </div>
       <InlineError show={setStatus.isError} />
+
+      {showRecommend && (
+        <RecommendSheet
+          mediaType="movie"
+          mediaId={movieId}
+          mediaTitle={movieTitle}
+          onClose={() => setShowRecommend(false)}
+        />
+      )}
 
       {showWatchedActions && (
         <WatchedActionsBottomSheet

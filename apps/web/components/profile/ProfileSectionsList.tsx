@@ -1,8 +1,9 @@
 "use client";
 
-import { ListChecks, Tv, Star, Clapperboard } from "lucide-react";
+import { ListChecks, Tv, Star, Clapperboard, Send } from "lucide-react";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { useProfileSectionCounts } from "@/lib/queries/profile-section-counts";
+import { useUnreadRecommendationsCount } from "@/lib/queries/recommendations";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ProfileSectionRow } from "./ProfileSectionRow";
 
@@ -20,10 +21,17 @@ import { ProfileSectionRow } from "./ProfileSectionRow";
 export function ProfileSectionsList() {
   const { data: user } = useCurrentUser();
   const { data: counts } = useProfileSectionCounts(user?.id ?? null);
+  const { data: unreadRecommendations } = useUnreadRecommendationsCount();
   const { t } = useTranslation();
 
   return (
     <section className="mb-6 space-y-2">
+      <ProfileSectionRow
+        icon={Send}
+        label="Recomendações"
+        count={unreadRecommendations}
+        href="/profile/recommendations"
+      />
       <ProfileSectionRow icon={ListChecks} label={t("profile.section.lists")} count={counts?.lists} href="/profile/lists" />
       <ProfileSectionRow icon={Tv} label={t("nav.series")} count={counts?.series} href="/profile/series" />
       <ProfileSectionRow

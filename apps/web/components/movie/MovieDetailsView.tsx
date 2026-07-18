@@ -42,7 +42,7 @@ export function MovieDetailsView({ movieId }: { movieId: string }) {
 
       <PageContainer>
         <div className="space-y-6">
-          <MovieActions movieId={numericId} />
+          <MovieActions movieId={numericId} movieTitle={movie.title} />
 
           {!movie.overview && movie.cast.length === 0 ? (
             <EmptyState message={t("movie.noInfo")} />

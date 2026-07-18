@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, ListPlus, Clock, PauseCircle, Trash2, Share2, X, ArrowLeft, Check, Plus } from "lucide-react";
+import { Heart, ListPlus, Clock, PauseCircle, Trash2, Share2, X, ArrowLeft, Check, Plus, Send } from "lucide-react";
 import type { LibraryStatus } from "@seenlist/types";
 import { useSetSeriesStatus } from "@/lib/queries/series-status";
 import { useRemoveLibraryItem } from "@/lib/queries/library";
@@ -10,6 +10,7 @@ import { useMyLists, useCreateList, useAddToList } from "@/lib/queries/lists";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { RecommendSheet } from "../social/RecommendSheet";
 
 export interface SeriesQuickActionsSheetProps {
   seriesId: number;
@@ -55,6 +56,7 @@ export function SeriesQuickActionsSheet({
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [showNewListForm, setShowNewListForm] = useState(false);
+  const [showRecommend, setShowRecommend] = useState(false);
 
   const setStatus = useSetSeriesStatus(seriesId);
   const removeItem = useRemoveLibraryItem();
@@ -263,6 +265,18 @@ export function SeriesQuickActionsSheet({
 
             <button
               type="button"
+              onClick={() => {
+                hapticTick();
+                setShowRecommend(true);
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-text hover:bg-background"
+            >
+              <Send className="h-4 w-4" strokeWidth={2} />
+              Recomendar pra alguém
+            </button>
+
+            <button
+              type="button"
               onClick={() => handleSetStatus("paused")}
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-text hover:bg-background"
             >
@@ -299,6 +313,15 @@ export function SeriesQuickActionsSheet({
           </div>
         )}
       </div>
+
+      {showRecommend && (
+        <RecommendSheet
+          mediaType="series"
+          mediaId={seriesId}
+          mediaTitle={seriesTitle}
+          onClose={() => setShowRecommend(false)}
+        />
+      )}
     </div>
   );
 }
