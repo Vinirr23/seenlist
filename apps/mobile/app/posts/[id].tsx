@@ -1,4 +1,4 @@
-import { ScrollView, View, Pressable, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { usePost } from "@/lib/usePost";
@@ -28,22 +28,27 @@ export default function PostDetailScreen() {
         <Text variant="subtitle">Post</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {isLoading ? (
-          <PostCardSkeleton count={1} />
-        ) : isError ? (
-          <Text variant="muted">Não foi possível carregar este post.</Text>
-        ) : !post ? (
-          <Text variant="muted">Este post não existe mais.</Text>
-        ) : (
-          <PostCard post={post} detail />
-        )}
-      </ScrollView>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.content}>
+          {isLoading ? (
+            <PostCardSkeleton count={1} />
+          ) : isError ? (
+            <Text variant="muted">Não foi possível carregar este post.</Text>
+          ) : !post ? (
+            <Text variant="muted">Este post não existe mais.</Text>
+          ) : (
+            <PostCard post={post} detail />
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

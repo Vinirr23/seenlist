@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View, Image, TextInput, Pressable, Alert, StyleSheet } from "react-native";
+import { ScrollView, View, Image, TextInput, Pressable, Alert, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -178,6 +178,7 @@ export default function EpisodeCommentDetailScreen() {
         <Text variant="subtitle">Comentário</Text>
       </View>
 
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content}>
         {isLoading ? (
           <AvatarRowSkeleton count={1} />
@@ -318,6 +319,7 @@ export default function EpisodeCommentDetailScreen() {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -325,6 +327,9 @@ export default function EpisodeCommentDetailScreen() {
 const AVATAR_SIZE = 28;
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

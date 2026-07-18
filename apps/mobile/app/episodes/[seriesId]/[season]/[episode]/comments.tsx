@@ -1,4 +1,4 @@
-import { ScrollView, View, Pressable, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { EpisodeCommentsSection } from "@/components/episode/EpisodeCommentsSection";
@@ -25,17 +25,22 @@ export default function EpisodeCommentsScreen() {
         <Text variant="subtitle">Comentários</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <EpisodeCommentsSection
-          seriesId={seriesIdNum}
-          target={{ mediaType: "series", mediaId: seriesIdNum, seasonNumber, episodeNumber }}
-        />
-      </ScrollView>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <EpisodeCommentsSection
+            seriesId={seriesIdNum}
+            target={{ mediaType: "series", mediaId: seriesIdNum, seasonNumber, episodeNumber }}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

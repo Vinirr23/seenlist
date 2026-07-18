@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ScrollView, View, TextInput, Pressable, StyleSheet } from "react-native";
+import { ScrollView, View, TextInput, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { usePostComments } from "@/lib/usePost";
@@ -43,7 +43,8 @@ export default function PostCommentDetailScreen() {
         <Text variant="subtitle">Comentário</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.content}>
         {isLoading ? (
           <AvatarRowSkeleton count={1} />
         ) : !comment ? (
@@ -91,12 +92,16 @@ export default function PostCommentDetailScreen() {
             </View>
           </>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
