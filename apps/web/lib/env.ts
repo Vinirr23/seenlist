@@ -36,4 +36,8 @@ export const env = {
   adminEmail: () => requireEnv("ADMIN_EMAIL", process.env.ADMIN_EMAIL),
   /** TASK-077 (correção) — chave de serviço do Supabase, ignora RLS. Só pra consultas administrativas no servidor (ex.: listar `beta_signups`, que não tem policy de SELECT nenhuma — nem pra usuário comum, nem pro dono, de propósito). Nunca usar no cliente. */
   supabaseServiceRoleKey: () => requireEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY),
+  /** TASK-171 — app OAuth cadastrado em trakt.tv/oauth/applications. Client ID não é secreto de verdade (aparece na própria URL de autorização), mas mesmo assim só é lido no servidor aqui — sem necessidade de expor via NEXT_PUBLIC_. */
+  traktClientId: () => requireEnv("TRAKT_CLIENT_ID", process.env.TRAKT_CLIENT_ID),
+  /** TASK-171 — esse sim é secreto de verdade (troca o "code" do OAuth pelo token de acesso) — nunca pode chegar ao navegador. */
+  traktClientSecret: () => requireEnv("TRAKT_CLIENT_SECRET", process.env.TRAKT_CLIENT_SECRET),
 };
