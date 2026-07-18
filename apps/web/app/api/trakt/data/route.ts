@@ -8,6 +8,7 @@ import {
   fetchTraktMovieWatchlist,
   fetchTraktShowWatchlist,
 } from "@/lib/trakt/client";
+import { getMovieSummary, getSeriesSummary } from "@/lib/tmdb/client";
 
 export interface TraktImportMovie {
   tmdbId: number;
@@ -141,9 +142,46 @@ export async function GET() {
       getOrCreateSeries(tmdbId, item.show?.title ?? `Série #${tmdbId}`).wantToWatch = true;
     }
 
+    // TASK-172 (achado real — dois filmes com ID do TMDB que o Trakt
+    // devolveu mas que não existe de verdade lá, HTTP 404 confirmado
+    // ao abrir depois de importado) — o Trakt guarda o ID do TMDB no
+    // próprio cadastro deles, mas esse cadastro pode estar
+    // desatualizado/errado, principalmente pra título mais obscuro.
+    // Confirma cada ID contra o TMDB de verdade ANTES de gravar —
+    // `Promise.allSettled` isola falha por item (um ID ruim não
+    // derruba a validação dos outros), mesmo padrão já usado em
+    // `/api/tmdb/library-summaries`. Item que falhar essa checagem
+    // não entra no resultado — mais devagar que confiar cegamente no
+    // Trakt, mas evita reproduzir esse bug de novo numa importação
+    // futura.
+    const [movieChecks, seriesChecks] = await Promise.all([
+      Promise.allSettled([...moviesById.keys()].map((id) => getMovieSummary(id))),
+      Promise.allSettled([...seriesById.keys()].map((id) => getSeriesSummary(id))),
+    ]);
+
+    const validMovieIds = new Set<number>();
+    [...moviesById.keys()].forEach((id, index) => {
+      if (movieChecks[index]?.status === "fulfilled") {
+        validMovieIds.add(id);
+      } else {
+        console.error(`[trakt/data] Filme #${id} não existe de verdade no TMDB — descartado da importação.`);
+        skippedCount++;
+      }
+    });
+
+    const validSeriesIds = new Set<number>();
+    [...seriesById.keys()].forEach((id, index) => {
+      if (seriesChecks[index]?.status === "fulfilled") {
+        validSeriesIds.add(id);
+      } else {
+        console.error(`[trakt/data] Série #${id} não existe de verdade no TMDB — descartada da importação.`);
+        skippedCount++;
+      }
+    });
+
     const payload: TraktImportData = {
-      movies: [...moviesById.values()],
-      series: [...seriesById.values()],
+      movies: [...moviesById.values()].filter((m) => validMovieIds.has(m.tmdbId)),
+      series: [...seriesById.values()].filter((s) => validSeriesIds.has(s.tmdbId)),
       skippedCount,
     };
     return NextResponse.json(payload);
