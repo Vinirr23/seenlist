@@ -65,6 +65,7 @@ export function SettingsPage() {
         <PendingTvTimeImportsRow />
         <SettingsRow label="Migrar do TV Time" href="/import/tvtime" />
         <SettingsRow label="Importar do Trakt" href="/import/trakt" />
+        <SettingsRow label="Corrigir status das séries" href="/profile/settings/repair-series" />
         <SettingsRow label={t("settings.about")} href="/profile/settings/about" />
         <SettingsRow label={t("settings.privacy")} href="/profile/settings/privacy" />
         <SettingsRow label={t("settings.terms")} href="/profile/settings/terms" last />

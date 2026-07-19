@@ -1,5 +1,6 @@
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import type { TraktImportData } from "@/app/api/trakt/data/route";
+import { recalculateSeriesCategoryAfterEpisodeChange } from "@/lib/queries/seriesCategoryRecalc";
 
 export interface TraktImportResult {
   moviesWatched: number;
@@ -80,6 +81,7 @@ export async function importTraktData(
 
   // === Séries — episódios assistidos ===
   onProgress?.("Importando episódios assistidos...");
+  const seriesWithNewEpisodes: number[] = [];
   for (const series of data.series) {
     if (series.watchedEpisodes.length === 0) continue;
     const rows = series.watchedEpisodes.map((e) => ({
@@ -94,6 +96,38 @@ export async function importTraktData(
     if (error) throw error;
     result.seriesWithEpisodes++;
     result.episodesImported += rows.length;
+    seriesWithNewEpisodes.push(series.tmdbId);
+  }
+
+  /**
+   * TASK-175 (achado real — feedback de usuário: "128 séries
+   * inseridas, só 7 aparecem, status só atualiza quando procuro e
+   * atualizo") — a importação gravava só `watched_episodes`, nunca
+   * uma linha explícita em `series_status`. A Biblioteca até mostra
+   * essas séries (cai no fallback "Assistindo" derivado, ver
+   * `buildLibraryItemsFromRows`), mas ficam PRESAS nessa categoria
+   * "provisória" pra sempre — nunca viram "Concluída"/"Em dia"
+   * sozinhas. O importador do TV Time já fazia essa checagem contra
+   * o TMDB na hora de gravar; o do Trakt nunca fazia. Roda a mesma
+   * função que já existe pra esse fim exato (chamada hoje só depois
+   * de marcar episódio manualmente na tela) — em lotes de 10 por vez
+   * (cada chamada faz 2 idas ao TMDB; 128 séries de uma vez só
+   * derrubaria isso).
+   */
+  onProgress?.("Calculando status definitivo das séries (Assistindo/Em dia/Concluída)...");
+  const RECALC_CONCURRENCY = 10;
+  for (let start = 0; start < seriesWithNewEpisodes.length; start += RECALC_CONCURRENCY) {
+    const batch = seriesWithNewEpisodes.slice(start, start + RECALC_CONCURRENCY);
+    await Promise.all(
+      batch.map((seriesId) =>
+        recalculateSeriesCategoryAfterEpisodeChange(seriesId).catch((error) => {
+          console.error(`[trakt/import] Falha ao recalcular categoria da série ${seriesId}`, error);
+        })
+      )
+    );
+    onProgress?.(
+      `Calculando status definitivo das séries... (${Math.min(start + RECALC_CONCURRENCY, seriesWithNewEpisodes.length)}/${seriesWithNewEpisodes.length})`
+    );
   }
 
   // === Séries — assistir depois (só quando genuinamente sem status nem episódio assistido) ===
