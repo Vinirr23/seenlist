@@ -253,7 +253,17 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     right: spacing.lg,
-    bottom: spacing.lg,
+    // TASK-172 (achado real, a pedido — "o botão redondo ficou em
+    // cima da barra") — a barra de navegação virou flutuante
+    // (`position: absolute`, 12px de margem da borda + 64px de
+    // altura, ver `app/(tabs)/_layout.tsx`), então parou de reservar
+    // espaço no layout normal da tela — o FAB, que usava um valor
+    // fixo pequeno (`spacing.lg`, pensado pra quando a barra
+    // "empurrava" o conteúdo pra cima sozinha), passou a ficar
+    // atrás/em cima da barra nova. 92px = 12 (margem) + 64 (altura
+    // da barra) + 16 (respiro) — sobe o suficiente pra ficar sempre
+    // acima dela.
+    bottom: 92,
     width: 56,
     height: 56,
     borderRadius: radius.full,
