@@ -1,15 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Star, Check } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Star, Check } from "lucide-react";
 import type { MovieDetails } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { MovieQuickActionsSheet } from "./MovieQuickActionsSheet";
 
 export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: boolean }) {
   const router = useRouter();
   const { t } = useTranslation();
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
   const backdropUrl = tmdbImage(movie.backdropPath, "w1280");
   const posterUrl = tmdbImage(movie.posterPath, "w342");
   const year = movie.releaseDate ? movie.releaseDate.slice(0, 4) : null;
@@ -31,6 +35,19 @@ export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: 
         className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2.25} />
+      </button>
+
+      {/* TASK-172 (ajuste — a pedido, mesmo lugar de SeriesHeader.tsx) — "..." flutuando na capa, não espremido na fileira de botões de MovieActions.tsx (de onde saiu). */}
+      <button
+        type="button"
+        onClick={() => {
+          hapticTick();
+          setShowMoreOptions(true);
+        }}
+        aria-label={t("action.moreOptions")}
+        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
+      >
+        <MoreHorizontal className="h-4 w-4" strokeWidth={2.25} />
       </button>
 
       <div className="relative -mt-16 flex gap-4 px-4">
@@ -61,6 +78,10 @@ export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: 
           </div>
         </div>
       </div>
+
+      {showMoreOptions && (
+        <MovieQuickActionsSheet movieId={movie.id} movieTitle={movie.title} onClose={() => setShowMoreOptions(false)} />
+      )}
     </div>
   );
 }

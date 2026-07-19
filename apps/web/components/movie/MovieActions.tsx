@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Plus, MoreVertical } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import type { MovieWatchStatus } from "@seenlist/types";
 import { cn } from "@seenlist/utils";
 import { useMovieStatus, useSetMovieStatus, useIncrementMovieRewatch } from "@/lib/queries/movie-status";
@@ -11,34 +11,26 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { InlineError } from "../media/InlineError";
 import { FavoriteButton } from "../media/FavoriteButton";
 import { WatchedActionsBottomSheet } from "../media/WatchedActionsBottomSheet";
-import { MovieQuickActionsSheet } from "./MovieQuickActionsSheet";
 
 /**
- * TASK-172 (ajuste — a pedido) — só 3 botões principais, igual
- * série: Assistido, Assistir depois, e o coração de favorito (não
- * está nesta lista — é renderizado à parte, fora do `.map`).
- * "Assistindo" saiu da fileira principal — nunca fez tanto sentido
- * pra filme quanto pra série (que tem progresso de episódio de
- * verdade), e a mesma decisão já valia pra série (não é mais
- * escolhido manualmente ali também). "Recomendar" saiu da fileira
- * principal e foi pro menu "...", que ganhou junto: adicionar a
- * lista (não existia pra filme, achado real), remover, compartilhar
- * — mesmo conjunto do menu de série, sem "favoritar" (já é botão
- * principal aqui, seria redundante).
+ * TASK-172 (ajuste 2 — a pedido, "tudo apertado") — o "..." saiu
+ * daqui de vez e foi pro canto superior direito da capa
+ * (`MovieHeader.tsx`), mesmo lugar exato de `SeriesHeader.tsx` —
+ * antes estava espremido nesta fileira junto dos outros 3 botões,
+ * agora fica só: Assistido, Assistir depois, coração de favorito.
  */
 const OPTIONS: { status: MovieWatchStatus; labelKey: string; icon: typeof Check }[] = [
   { status: "watched", labelKey: "action.watched", icon: Check },
   { status: "want_to_watch", labelKey: "library.tab.wantToWatch", icon: Plus },
 ];
 
-export function MovieActions({ movieId, movieTitle }: { movieId: number; movieTitle: string }) {
+export function MovieActions({ movieId }: { movieId: number }) {
   const { data: currentStatus } = useMovieStatus(movieId);
   const setStatus = useSetMovieStatus(movieId);
   const incrementRewatch = useIncrementMovieRewatch(movieId);
   const toast = useToast();
   const { t } = useTranslation();
   const [showWatchedActions, setShowWatchedActions] = useState(false);
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   function handleClick(option: (typeof OPTIONS)[number]) {
     // TASK-047 — igual TV Time: tocar em "Assistido" quando já está assistido não desmarca direto, abre o "Marcar como...".
@@ -85,23 +77,8 @@ export function MovieActions({ movieId, movieTitle }: { movieId: number; movieTi
           );
         })}
         <FavoriteButton mediaType="movie" mediaId={movieId} />
-        <button
-          type="button"
-          aria-label={t("action.more")}
-          onClick={() => {
-            hapticTick();
-            setShowMoreOptions(true);
-          }}
-          className="flex shrink-0 items-center justify-center rounded-lg border border-border px-3 text-muted transition-colors hover:border-primary/50 hover:text-text"
-        >
-          <MoreVertical className="h-4 w-4" strokeWidth={2.25} />
-        </button>
       </div>
       <InlineError show={setStatus.isError} />
-
-      {showMoreOptions && (
-        <MovieQuickActionsSheet movieId={movieId} movieTitle={movieTitle} onClose={() => setShowMoreOptions(false)} />
-      )}
 
       {showWatchedActions && (
         <WatchedActionsBottomSheet

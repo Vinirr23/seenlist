@@ -6,7 +6,15 @@ import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
-export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: boolean }) {
+export function MovieHeader({
+  movie,
+  watched,
+  onMorePress,
+}: {
+  movie: MovieDetails;
+  watched: boolean;
+  onMorePress: () => void;
+}) {
   const router = useRouter();
   const backdropUrl = tmdbImageUrl(movie.backdropPath, "w780");
   const posterUrl = tmdbImageUrl(movie.posterPath, "w342");
@@ -25,6 +33,11 @@ export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: 
 
       <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
         <Feather name="arrow-left" size={18} color={colors.text} />
+      </Pressable>
+
+      {/* TASK-172 (ajuste — a pedido, mesmo lugar de SeriesHeader.tsx) — "..." flutuando na capa, não espremido na fileira de MovieActions.tsx (de onde saiu). */}
+      <Pressable style={styles.moreButton} onPress={onMorePress} hitSlop={8}>
+        <Feather name="more-horizontal" size={18} color={colors.text} />
       </Pressable>
 
       <View style={styles.headerRow}>
@@ -93,6 +106,17 @@ const styles = StyleSheet.create({
   backButton: {
     position: "absolute",
     left: spacing.md,
+    top: spacing.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(11,14,20,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moreButton: {
+    position: "absolute",
+    right: spacing.md,
     top: spacing.md,
     width: 36,
     height: 36,
