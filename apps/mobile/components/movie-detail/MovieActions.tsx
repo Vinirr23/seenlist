@@ -1,16 +1,27 @@
 import { useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { MovieWatchStatus } from "@seenlist/types";
+import { useIsMovieFavorite } from "@/lib/useMovieDetails";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
-import { RecommendSheet } from "../social/RecommendSheet";
+import { MovieQuickActionsSheet } from "./MovieQuickActionsSheet";
 
 const OPTIONS: { status: MovieWatchStatus; label: string; icon: keyof typeof Feather.glyphMap }[] = [
   { status: "watched", label: "Assistido", icon: "check" },
   { status: "want_to_watch", label: "Assistir depois", icon: "plus" },
 ];
 
+/**
+ * TASK-172 (ajuste — a pedido) — só 3 botões principais, igual
+ * série: Assistido, Assistir depois, coração de favorito (achado
+ * real: nunca existiu pra filme no mobile, só série — agora usa
+ * `useIsMovieFavorite`, espelhando `useIsFavorite` de série). O
+ * botão de recomendar isolado saiu daqui — foi pro menu "...", que
+ * ganhou junto: adicionar a lista (também não existia pra filme),
+ * remover, compartilhar.
+ */
 export function MovieActions({
   movieId,
   movieTitle,
@@ -24,7 +35,9 @@ export function MovieActions({
   busy: boolean;
   onChange: (status: MovieWatchStatus) => void;
 }) {
-  const [showRecommend, setShowRecommend] = useState(false);
+  const router = useRouter();
+  const { isFavorite, busy: favoriteBusy, toggle: toggleFavorite } = useIsMovieFavorite(movieId);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   return (
     <View style={styles.row}>
@@ -45,17 +58,20 @@ export function MovieActions({
         );
       })}
 
-      {/* TASK-169 — botão dedicado, não um menu "..." (filme nunca teve um, diferente de série) — menor mudança pra encaixar a funcionalidade. */}
-      <Pressable style={styles.recommendButton} onPress={() => setShowRecommend(true)}>
-        <Feather name="send" size={16} color={colors.muted} />
+      <Pressable style={styles.iconButton} disabled={favoriteBusy} onPress={toggleFavorite}>
+        <Feather name="heart" size={16} color={isFavorite ? colors.danger : colors.muted} />
       </Pressable>
 
-      {showRecommend && (
-        <RecommendSheet
-          mediaType="movie"
-          mediaId={movieId}
-          mediaTitle={movieTitle}
-          onClose={() => setShowRecommend(false)}
+      <Pressable style={styles.iconButton} onPress={() => setShowMoreOptions(true)}>
+        <Feather name="more-vertical" size={16} color={colors.muted} />
+      </Pressable>
+
+      {showMoreOptions && (
+        <MovieQuickActionsSheet
+          movieId={movieId}
+          movieTitle={movieTitle}
+          onRemoved={() => router.back()}
+          onClose={() => setShowMoreOptions(false)}
         />
       )}
     </View>
@@ -88,7 +104,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 11,
   },
-  recommendButton: {
+  iconButton: {
     width: 40,
     alignItems: "center",
     justifyContent: "center",

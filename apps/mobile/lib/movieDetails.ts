@@ -42,3 +42,47 @@ export async function setMovieStatus(movieId: number, status: MovieWatchStatus, 
     if (error) throw error;
   }
 }
+
+/** TASK-172 — favoritar filme, achado real: só existia pra série no mobile. Idêntico a fetchIsFavorite de lib/seriesDetails.ts, mesma tabela genérica `favorites`, só troca media_type. */
+export async function fetchIsMovieFavorite(movieId: number): Promise<boolean> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return false;
+
+  const { data, error } = await supabase
+    .from("favorites")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .eq("media_type", "movie")
+    .eq("media_id", movieId)
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export async function toggleMovieFavorite(movieId: number, currentlyFavorite: boolean): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) throw new Error("not authenticated");
+
+  if (currentlyFavorite) {
+    const { error } = await supabase.from("favorites").delete().match({ user_id: user.id, media_type: "movie", media_id: movieId });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from("favorites").insert({ user_id: user.id, media_type: "movie", media_id: movieId });
+    if (error) throw error;
+  }
+}
+
+/** TASK-172 — remover filme da biblioteca, achado real: menu "..." não existia pra filme. Mais simples que série (sem episódio assistido pra apagar junto). */
+export async function removeMovieFromLibrary(movieId: number): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) throw new Error("not authenticated");
+
+  const { error } = await supabase.from("movie_status").delete().match({ movie_id: movieId, user_id: user.id });
+  if (error) throw error;
+}
