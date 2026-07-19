@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Modal, TextInput, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { createTextPost } from "@/lib/posts";
@@ -27,6 +28,7 @@ const MIN_POLL_OPTIONS = 2;
  * no service (`lib/social/polls.ts`) e no `PollBlock`, não aqui.
  */
 export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
+  const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"post" | "poll">("post");
   const [body, setBody] = useState("");
@@ -124,7 +126,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Pressable style={styles.fab} onPress={handleOpen}>
+      <Pressable style={[styles.fab, { bottom: 92 + insets.bottom }]} onPress={handleOpen}>
         <Feather name="plus" size={24} color={colors.background} />
       </Pressable>
 
@@ -253,17 +255,11 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     right: spacing.lg,
-    // TASK-172 (achado real, a pedido — "o botão redondo ficou em
-    // cima da barra") — a barra de navegação virou flutuante
-    // (`position: absolute`, 12px de margem da borda + 64px de
-    // altura, ver `app/(tabs)/_layout.tsx`), então parou de reservar
-    // espaço no layout normal da tela — o FAB, que usava um valor
-    // fixo pequeno (`spacing.lg`, pensado pra quando a barra
-    // "empurrava" o conteúdo pra cima sozinha), passou a ficar
-    // atrás/em cima da barra nova. 92px = 12 (margem) + 64 (altura
-    // da barra) + 16 (respiro) — sobe o suficiente pra ficar sempre
-    // acima dela.
-    bottom: 92,
+    // TASK-172/176 — 92px = 12 (margem da barra) + 64 (altura da
+    // barra) + 16 (respiro) acima dela; o `insets.bottom` (área do
+    // sistema — gestos/botões, varia por aparelho) é somado no
+    // lugar onde o componente usa esse estilo, não aqui (Style
+    // estático não tem acesso ao hook de área segura).
     width: 56,
     height: 56,
     borderRadius: radius.full,

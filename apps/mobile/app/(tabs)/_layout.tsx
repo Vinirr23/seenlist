@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { Tabs } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { colors, radius } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 
 const UNREAD_POLL_INTERVAL_MS = 30_000;
+const TAB_BAR_MARGIN = 12;
 
 /**
  * TASK-090 — mesmas 5 abas e mesma ordem do web
@@ -39,6 +41,7 @@ function renderTabIcon(name: keyof typeof Feather.glyphMap) {
 
 export default function TabsLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +65,16 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarShowLabel: true,
-        tabBarStyle: styles.tabBar,
+        // TASK-176 (achado real, a pedido — "a barra ficou por trás
+        // da barra do celular") — a margem de baixo era um valor
+        // fixo (12px), sem levar em conta a área reservada pela
+        // navegação do próprio sistema (gestos ou botões, que varia
+        // de aparelho pra aparelho). Soma `insets.bottom` (a mesma
+        // área seguraque o resto do app já usa, via `Screen.tsx`) —
+        // em celular sem barra de sistema visível, `insets.bottom`
+        // já vem 0, então não muda nada; onde tem, agora sobe o
+        // suficiente pra nunca ficar por trás.
+        tabBarStyle: [styles.tabBar, { bottom: TAB_BAR_MARGIN + insets.bottom }],
         tabBarItemStyle: styles.tabBarItem,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
@@ -88,7 +100,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 12,
     right: 12,
-    bottom: 12,
     height: 64,
     borderRadius: radius.lg,
     borderTopWidth: 0,
