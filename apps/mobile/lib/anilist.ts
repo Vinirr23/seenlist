@@ -56,6 +56,36 @@ interface AniListResponse {
   errors?: { message: string }[];
 }
 
+/** TASK-174 (achado real, mesmo motivo do web — ver comentário completo em apps/web/lib/anime/anilist.ts) — palavras comuns em inglês/português não contam como sobreposição de verdade. */
+const STOPWORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "of",
+  "in",
+  "on",
+  "at",
+  "to",
+  "and",
+  "or",
+  "is",
+  "it",
+  "its",
+  "for",
+  "with",
+  "this",
+  "that",
+  "de",
+  "da",
+  "do",
+  "das",
+  "dos",
+  "e",
+  "o",
+  "os",
+  "as",
+]);
+
 function normalizeTitle(title: string): string {
   return title
     .normalize("NFD")
@@ -67,8 +97,8 @@ function normalizeTitle(title: string): string {
 }
 
 function tokenOverlapScore(a: string, b: string): number {
-  const tokensA = new Set(normalizeTitle(a).split(" ").filter(Boolean));
-  const tokensB = new Set(normalizeTitle(b).split(" ").filter(Boolean));
+  const tokensA = new Set(normalizeTitle(a).split(" ").filter((token) => token && !STOPWORDS.has(token)));
+  const tokensB = new Set(normalizeTitle(b).split(" ").filter((token) => token && !STOPWORDS.has(token)));
   if (tokensA.size === 0 || tokensB.size === 0) return 0;
   let shared = 0;
   for (const token of tokensA) if (tokensB.has(token)) shared++;
@@ -116,7 +146,7 @@ export async function getAniListCharacters(title: string, year: number | null): 
     if (!best || score > best.score) best = { media, score };
   }
 
-  if (!best || best.score < 0.5) return { characters: [], searchFailed: false };
+  if (!best || best.score < 0.6) return { characters: [], searchFailed: false };
 
   const edges = best.media.characters.edges;
   const main = edges.filter((edge) => edge.role === "MAIN");
