@@ -79,20 +79,65 @@ export default function ProfileScreen() {
   return (
     <Screen padded={false}>
       <ScrollView contentContainerStyle={styles.content}>
-        {!!bannerUrl && (
-          <View style={styles.bannerWrapper}>
-            <Image source={{ uri: bannerUrl }} style={styles.banner} resizeMode="cover" />
+        {!!bannerUrl ? (
+          <View style={styles.bannerOuter}>
+            <View style={styles.bannerInner}>
+              <Image source={{ uri: bannerUrl }} style={styles.banner} resizeMode="cover" />
+              {/* TASK-172 (redesign) — sem expo-linear-gradient instalado (evita dependência nativa nova / build extra) — simula o degradê com faixas empilhadas de opacidade crescente, em vez de um degradê de verdade. */}
+              <View style={styles.fadeStack} pointerEvents="none">
+                <View style={[styles.fadeBand, { opacity: 0.25 }]} />
+                <View style={[styles.fadeBand, { opacity: 0.55 }]} />
+                <View style={[styles.fadeBand, { opacity: 0.85 }]} />
+                <View style={[styles.fadeBand, { opacity: 1 }]} />
+              </View>
+            </View>
+
+            <Pressable style={styles.bannerIconLeft} onPress={() => router.push("/settings/edit-profile")}>
+              <Feather name="edit-2" size={16} color="#fff" />
+            </Pressable>
+
+            <View style={styles.bannerIconsRight}>
+              {!!username && (
+                <Pressable style={styles.bannerIconButton} onPress={handleShare}>
+                  <Feather name="share-2" size={16} color="#fff" />
+                </Pressable>
+              )}
+              <Pressable style={styles.bannerIconButton} onPress={() => router.push("/settings")}>
+                <Feather name="settings" size={16} color="#fff" />
+              </Pressable>
+            </View>
+
+            <View style={styles.avatarOverlap}>
+              {user.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarInitials}>{initials(user.name)}</Text>
+              )}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.topIconsRowNoBanner}>
+            {!!username && (
+              <Pressable style={styles.bannerIconButtonFlat} onPress={handleShare}>
+                <Feather name="share-2" size={16} color={colors.muted} />
+              </Pressable>
+            )}
+            <Pressable style={styles.bannerIconButtonFlat} onPress={() => router.push("/settings")}>
+              <Feather name="settings" size={16} color={colors.muted} />
+            </Pressable>
           </View>
         )}
 
-        <View style={styles.headerRow}>
-          <View style={styles.avatar}>
-            {user.avatarUrl ? (
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarInitials}>{initials(user.name)}</Text>
-            )}
-          </View>
+        <View style={[styles.headerRow, bannerUrl ? styles.headerRowWithBanner : null]}>
+          {!bannerUrl && (
+            <View style={styles.avatar}>
+              {user.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarInitials}>{initials(user.name)}</Text>
+              )}
+            </View>
+          )}
           <View style={styles.headerText}>
             <Text numberOfLines={1} variant="subtitle">
               {user.name}
@@ -107,19 +152,19 @@ export default function ProfileScreen() {
         {!!bio && <Text style={styles.bio}>{bio}</Text>}
 
         <View style={styles.countsRow}>
-          <Pressable onPress={() => router.push(`/follow-list/${user.id}/following`)}>
+          <Pressable style={styles.countCard} onPress={() => router.push(`/follow-list/${user.id}/following`)}>
             <Text style={styles.countNumber}>{counts.following}</Text>
             <Text variant="muted" style={styles.countLabel}>
               Seguindo
             </Text>
           </Pressable>
-          <Pressable onPress={() => router.push(`/follow-list/${user.id}/followers`)}>
+          <Pressable style={styles.countCard} onPress={() => router.push(`/follow-list/${user.id}/followers`)}>
             <Text style={styles.countNumber}>{counts.followers}</Text>
             <Text variant="muted" style={styles.countLabel}>
               Seguidores
             </Text>
           </Pressable>
-          <Pressable onPress={() => router.push("/profile/comments")}>
+          <Pressable style={styles.countCard} onPress={() => router.push("/profile/comments")}>
             <Text style={styles.countNumber}>{socialCounts?.commentsGiven ?? 0}</Text>
             <Text variant="muted" style={styles.countLabel}>
               Comentários
@@ -127,22 +172,19 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.actionsRow}>
-          <Pressable style={styles.editButton} onPress={() => router.push("/settings/edit-profile")}>
-            <Text style={styles.editButtonText}>Editar</Text>
-          </Pressable>
-          {!!username && (
-            <Pressable style={styles.shareButton} onPress={handleShare}>
-              <Feather name="share-2" size={16} color={colors.text} />
+        {!bannerUrl && (
+          <View style={styles.actionsRow}>
+            <Pressable style={styles.editButton} onPress={() => router.push("/settings/edit-profile")}>
+              <Text style={styles.editButtonText}>Editar</Text>
             </Pressable>
-          )}
-        </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <StatisticsCard />
         </View>
 
-        <View style={[styles.section, styles.sectionList]}>
+        <View style={[styles.section, styles.sectionList, styles.lastSection]}>
           <ProfileSectionRow
             icon="send"
             label="Recomendações"
@@ -165,16 +207,6 @@ export default function ProfileScreen() {
             onPress={() => router.push("/profile/favorite-movies")}
           />
         </View>
-
-        <View style={[styles.section, styles.lastSection]}>
-          <Pressable style={styles.settingsRow} onPress={() => router.push("/settings")}>
-            <View style={styles.settingsLeft}>
-              <Feather name="settings" size={16} color={colors.muted} />
-              <Text style={styles.settingsLabel}>Configurações</Text>
-            </View>
-            <Feather name="chevron-right" size={16} color={colors.muted} />
-          </Pressable>
-        </View>
       </ScrollView>
     </Screen>
   );
@@ -186,13 +218,94 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xxl,
   },
-  bannerWrapper: {
-    height: 112,
+  bannerOuter: {
+    height: 208,
+    marginBottom: 40,
+  },
+  bannerInner: {
+    height: 168,
     backgroundColor: colors.surface,
+    overflow: "hidden",
   },
   banner: {
     width: "100%",
     height: "100%",
+  },
+  fadeStack: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 56,
+    flexDirection: "column",
+    justifyContent: "flex-end",
+  },
+  fadeBand: {
+    height: 14,
+    backgroundColor: colors.background,
+  },
+  bannerIconLeft: {
+    position: "absolute",
+    left: 12,
+    top: 12,
+    height: 36,
+    width: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  bannerIconsRight: {
+    position: "absolute",
+    right: 12,
+    top: 12,
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  bannerIconButton: {
+    height: 36,
+    width: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  bannerIconButtonFlat: {
+    height: 36,
+    width: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+  },
+  topIconsRowNoBanner: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  /**
+   * TASK-172 (redesign — achado real, bug já corrigido antes no web
+   * de um jeito parecido) — o avatar sobreposto usa posição absoluta
+   * ancorada na borda de baixo da capa (`bannerOuter`), não fica na
+   * mesma fileira flex do nome — mesmo raciocínio do web
+   * (`ProfileHeader.tsx`): manter os dois na mesma fileira faz o
+   * bloco de texto (mais alto que o avatar) ser espremido junto.
+   */
+  avatarOverlap: {
+    position: "absolute",
+    left: spacing.lg,
+    bottom: 0,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   headerRow: {
     flexDirection: "row",
@@ -200,6 +313,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
+  },
+  headerRowWithBanner: {
+    marginTop: 0,
   },
   avatar: {
     width: AVATAR_SIZE,
@@ -209,6 +325,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   avatarImage: {
     width: "100%",
@@ -239,9 +357,18 @@ const styles = StyleSheet.create({
   },
   countsRow: {
     flexDirection: "row",
-    gap: spacing.lg,
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
+  },
+  countCard: {
+    flex: 1,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
   },
   countNumber: {
     fontSize: fontSize.sm,
@@ -270,15 +397,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     textTransform: "uppercase",
   },
-  shareButton: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   section: {
     marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
@@ -288,25 +406,5 @@ const styles = StyleSheet.create({
   },
   sectionList: {
     gap: spacing.sm,
-  },
-  settingsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4,
-  },
-  settingsLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  settingsLabel: {
-    fontSize: fontSize.sm,
-    color: colors.text,
   },
 });

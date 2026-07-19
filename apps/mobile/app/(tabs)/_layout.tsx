@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { View, StyleSheet } from "react-native";
 import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { colors } from "@/lib/theme";
+import { colors, radius } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 
 const UNREAD_POLL_INTERVAL_MS = 30_000;
@@ -15,20 +16,27 @@ const UNREAD_POLL_INTERVAL_MS = 30_000;
  * (histórico da EAS: cota de build já estourou uma vez, então cada
  * dependência nova evitada é um risco a menos).
  *
- * Cada aba abre uma tela "Em construção" por enquanto — só a
- * fundação (navegação + design system + login) foi construída nesta
- * sessão. Telas de conteúdo entram uma por vez, nas próximas.
- *
  * TASK-169 — `tabBarBadge` (suporte nativo do Expo Router/React
  * Navigation, sem lib nova) mostra a contagem de recomendações não
- * lidas na aba Perfil, mesma ideia da bolinha do web
- * (`BottomNavigation.tsx`), só que aqui usa o número em vez de um
- * ponto (limitação/comportamento padrão do `tabBarBadge`). Busca de
- * novo a cada 30s enquanto o app está aberto — não é tempo real
- * (evita gastar conexão do Supabase Realtime só por isso, ver
- * discussão de custo antes de construir a feature), atualiza rápido
- * o bastante pra não parecer travado.
+ * lidas na aba Perfil. Busca de novo a cada 30s enquanto o app está
+ * aberto — não é tempo real (evita gastar conexão do Supabase
+ * Realtime só por isso, ver discussão de custo antes de construir a
+ * feature), atualiza rápido o bastante pra não parecer travado.
+ *
+ * Redesign (a pedido, mesmo visual do web) — barra flutuante
+ * (`position: absolute`, margem das bordas, cantos arredondados,
+ * sombra) em vez de colada na tela inteira; ícone ativo ganha um
+ * selo circular dourado atrás dele (`renderTabIcon`), em vez de só
+ * trocar de cor.
  */
+function renderTabIcon(name: keyof typeof Feather.glyphMap) {
+  return ({ focused, color }: { focused: boolean; color: string }) => (
+    <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
+      <Feather name={name} color={color} size={20} />
+    </View>
+  );
+}
+
 export default function TabsLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -53,36 +61,58 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-        },
+        tabBarShowLabel: true,
+        tabBarStyle: styles.tabBar,
+        tabBarItemStyle: styles.tabBarItem,
+        tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
-      <Tabs.Screen
-        name="series"
-        options={{ title: "Séries", tabBarIcon: ({ color, size }) => <Feather name="tv" color={color} size={size} /> }}
-      />
-      <Tabs.Screen
-        name="movies"
-        options={{ title: "Filmes", tabBarIcon: ({ color, size }) => <Feather name="film" color={color} size={size} /> }}
-      />
-      <Tabs.Screen
-        name="feed"
-        options={{ title: "Feed", tabBarIcon: ({ color, size }) => <Feather name="rss" color={color} size={size} /> }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{ title: "Explorar", tabBarIcon: ({ color, size }) => <Feather name="compass" color={color} size={size} /> }}
-      />
+      <Tabs.Screen name="series" options={{ title: "Séries", tabBarIcon: renderTabIcon("tv") }} />
+      <Tabs.Screen name="movies" options={{ title: "Filmes", tabBarIcon: renderTabIcon("film") }} />
+      <Tabs.Screen name="feed" options={{ title: "Feed", tabBarIcon: renderTabIcon("rss") }} />
+      <Tabs.Screen name="explore" options={{ title: "Explorar", tabBarIcon: renderTabIcon("compass") }} />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Perfil",
-          tabBarIcon: ({ color, size }) => <Feather name="user" color={color} size={size} />,
+          tabBarIcon: renderTabIcon("user"),
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 12,
+    height: 64,
+    borderRadius: radius.lg,
+    borderTopWidth: 0,
+    backgroundColor: colors.surface,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 12,
+  },
+  tabBarItem: {
+    paddingTop: 8,
+  },
+  tabBarLabel: {
+    fontSize: 10,
+  },
+  iconWrapper: {
+    height: 34,
+    width: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconWrapperActive: {
+    backgroundColor: "rgba(232,163,61,0.15)",
+  },
+});

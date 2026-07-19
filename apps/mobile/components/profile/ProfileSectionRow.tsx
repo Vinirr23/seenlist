@@ -17,7 +17,9 @@ export function ProfileSectionRow({
   return (
     <Pressable style={styles.row} onPress={onPress}>
       <View style={styles.left}>
-        <Feather name={icon} size={18} color={colors.primary} />
+        <View style={styles.iconBadge}>
+          <Feather name={icon} size={16} color={colors.primary} />
+        </View>
         <Text style={styles.label}>{label}</Text>
       </View>
       <View style={styles.right}>
@@ -38,12 +40,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 6,
+    paddingVertical: spacing.sm + 4,
   },
   left: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  iconBadge: {
+    height: 32,
+    width: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(232,163,61,0.12)",
   },
   label: {
     fontSize: fontSize.sm,

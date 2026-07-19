@@ -14,6 +14,13 @@ const numberFormatter = new Intl.NumberFormat("pt-BR");
  * carrossel de 7 (`StatsCarousel`, usado só no perfil PÚBLICO de
  * outra pessoa). Leva pra `/profile/stats`, a tela completa com
  * abas Séries/Filmes.
+ *
+ * Redesign (a pedido, mesmo visual do web) — sem
+ * `expo-linear-gradient` instalado (evita dependência nativa nova),
+ * o degradê do web vira um tingimento sólido sutil aqui (fundo
+ * dourado bem fraco) — mesma ideia, versão mais simples. Ícone por
+ * métrica, e "Ver detalhes" como pílula preenchida em vez de só a
+ * seta.
  */
 export function StatisticsCard() {
   const router = useRouter();
@@ -47,11 +54,11 @@ export function StatisticsCard() {
   const seriesTime = formatWatchDuration(stats.seriesWatchMinutes);
   const movieTime = formatWatchDuration(stats.movieWatchMinutes);
 
-  const preview = [
-    { label: "Episódios assistidos", value: numberFormatter.format(stats.episodesWatched) },
-    { label: "Filmes assistidos", value: numberFormatter.format(stats.moviesCompleted) },
-    { label: "Tempo vendo séries", value: seriesTime.primary },
-    { label: "Tempo vendo filmes", value: movieTime.primary },
+  const preview: { label: string; value: string; icon: keyof typeof Feather.glyphMap }[] = [
+    { label: "Episódios assistidos", value: numberFormatter.format(stats.episodesWatched), icon: "tv" },
+    { label: "Filmes assistidos", value: numberFormatter.format(stats.moviesCompleted), icon: "film" },
+    { label: "Tempo vendo séries", value: seriesTime.primary, icon: "clock" },
+    { label: "Tempo vendo filmes", value: movieTime.primary, icon: "video" },
   ];
 
   return (
@@ -61,15 +68,23 @@ export function StatisticsCard() {
           <Feather name="bar-chart-2" size={16} color={colors.primary} />
           <Text variant="label">Estatísticas</Text>
         </View>
-        <Feather name="chevron-right" size={16} color={colors.muted} />
+        <View style={styles.pillButton}>
+          <Text style={styles.pillButtonText}>Ver detalhes</Text>
+          <Feather name="chevron-right" size={12} color={colors.background} />
+        </View>
       </View>
       <View style={styles.grid}>
         {preview.map((item) => (
           <View key={item.label} style={styles.gridItem}>
-            <Text style={styles.value}>{item.value}</Text>
-            <Text variant="muted" style={styles.label}>
-              {item.label}
-            </Text>
+            <View style={styles.gridItemRow}>
+              <Feather name={item.icon} size={14} color={colors.secondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.value}>{item.value}</Text>
+                <Text variant="muted" style={styles.label}>
+                  {item.label}
+                </Text>
+              </View>
+            </View>
           </View>
         ))}
       </View>
@@ -84,7 +99,7 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: "rgba(232,163,61,0.06)",
     borderRadius: radius.lg,
     padding: spacing.md,
   },
@@ -92,12 +107,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+  },
+  pillButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
+  },
+  pillButtonText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.background,
   },
   grid: {
     flexDirection: "row",
@@ -106,6 +135,12 @@ const styles = StyleSheet.create({
   gridItem: {
     width: "50%",
     marginBottom: spacing.sm,
+    paddingRight: spacing.sm,
+  },
+  gridItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
   value: {
     fontSize: fontSize.lg,
