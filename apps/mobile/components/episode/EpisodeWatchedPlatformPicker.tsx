@@ -61,6 +61,7 @@ export function EpisodeWatchedPlatformPicker({
 
 const styles = StyleSheet.create({
   row: {
+    flexDirection: "row",
     gap: spacing.md,
   },
   item: {

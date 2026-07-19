@@ -87,6 +87,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   row: {
+    flexDirection: "row",
     gap: spacing.sm,
   },
   loadingRow: {

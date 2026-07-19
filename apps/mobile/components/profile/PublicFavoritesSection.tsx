@@ -67,6 +67,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   row: {
+    flexDirection: "row",
     gap: spacing.sm,
   },
   card: {

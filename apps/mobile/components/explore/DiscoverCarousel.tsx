@@ -99,6 +99,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   row: {
+    flexDirection: "row",
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },

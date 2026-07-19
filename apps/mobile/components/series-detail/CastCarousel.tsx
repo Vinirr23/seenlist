@@ -36,6 +36,7 @@ export function CastCarousel({ cast }: { cast: CastMember[] }) {
 
 const styles = StyleSheet.create({
   row: {
+    flexDirection: "row",
     gap: spacing.sm,
   },
   card: {

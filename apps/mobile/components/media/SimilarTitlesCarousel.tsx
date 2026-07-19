@@ -48,6 +48,7 @@ const CARD_WIDTH = 104;
 
 const styles = StyleSheet.create({
   row: {
+    flexDirection: "row",
     gap: spacing.sm,
   },
   card: {

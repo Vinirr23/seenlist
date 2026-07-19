@@ -56,6 +56,7 @@ const AVATAR_SIZE = 72;
 
 const styles = StyleSheet.create({
   row: {
+    flexDirection: "row",
     gap: spacing.md,
   },
   item: {
