@@ -143,7 +143,7 @@ export function RecommendSheet({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
-  keyboardView: { justifyContent: "flex-end" },
+  keyboardView: { flex: 1, justifyContent: "flex-end" },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,

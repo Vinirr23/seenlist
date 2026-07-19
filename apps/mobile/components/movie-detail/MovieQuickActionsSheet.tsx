@@ -205,6 +205,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
   },
   keyboardView: {
+    flex: 1,
     justifyContent: "flex-end",
   },
   sheet: {
