@@ -151,7 +151,7 @@ export async function findMalIdWithDebug(title: string, year: number | null): Pr
     const scoreMain = tokenOverlapScore(title, candidate.title);
     const scoreEnglish = candidate.title_english ? tokenOverlapScore(title, candidate.title_english) : 0;
     let score = Math.max(scoreMain, scoreEnglish);
-    if (year && candidate.year && Math.abs(year - candidate.year) <= 1) score += 0.15;
+    if (year && candidate.year && Math.abs(year - candidate.year) <= 1) score += 0.05;
     debug.candidates.push({
       malId: candidate.mal_id,
       title: candidate.title,
@@ -162,7 +162,7 @@ export async function findMalIdWithDebug(title: string, year: number | null): Pr
     if (!best || score > best.score) best = { malId: candidate.mal_id, score };
   }
 
-  if (best && best.score >= 0.6) debug.chosenMalId = best.malId;
+  if (best && best.score >= 0.7) debug.chosenMalId = best.malId;
   return debug;
 }
 
@@ -170,11 +170,17 @@ export async function findMalIdWithDebug(title: string, year: number | null): Pr
  * Busca no Jikan pelo nome e tenta achar o anime certo — compara o
  * TMDB título (`title` e, se disponível, `originalTitle`) contra
  * `title`/`title_english` de cada resultado, com um bônus se o ano
- * bater. Limiar de 0.6 (achado real, TASK-174: 0.5 deixava passar
- * falso positivo tipo "House of the Dragon" batendo com anime que
- * só compartilha palavra comum) — abaixo disso, prefere não achar
- * nada a achar o anime errado (melhor cair pro elenco do TMDB do que
- * mostrar personagem de outra série).
+ * bater. Limiar de 0.7 (achado real, TASK-174 — duas rodadas: 0.5
+ * deixava passar "House of the Dragon" contra um anime que só
+ * compartilhava palavra comum tipo "the"/"of"; depois de filtrar
+ * essas palavras, ainda passava em 0.6 por coincidência real —
+ * "House of the Dragon" e "Dragon Goes House-Hunting" compartilham
+ * as duas palavras que sobram, e o bônus de ano empurrava o resto)
+ * — abaixo disso, prefere não achar nada a achar o anime errado
+ * (melhor cair pro elenco do TMDB do que mostrar personagem de outra
+ * série). Bônus de ano reduzido de 0.15 pra 0.05 pelo mesmo motivo —
+ * não pode ser forte o bastante pra sozinho decidir uma
+ * correspondência fraca.
  */
 interface JikanCharacterEntry {
   character: {

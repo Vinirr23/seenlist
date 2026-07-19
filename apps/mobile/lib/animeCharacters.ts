@@ -124,11 +124,11 @@ async function findMalId(title: string, year: number | null): Promise<FindMalIdR
     const scoreMain = tokenOverlapScore(title, candidate.title);
     const scoreEnglish = candidate.title_english ? tokenOverlapScore(title, candidate.title_english) : 0;
     let score = Math.max(scoreMain, scoreEnglish);
-    if (year && candidate.year && Math.abs(year - candidate.year) <= 1) score += 0.15;
+    if (year && candidate.year && Math.abs(year - candidate.year) <= 1) score += 0.05;
     if (!best || score > best.score) best = { malId: candidate.mal_id, score };
   }
 
-  if (!best || best.score < 0.6) return { malId: null, searchFailed: false };
+  if (!best || best.score < 0.7) return { malId: null, searchFailed: false };
   return { malId: best.malId, searchFailed: false };
 }
 

@@ -142,11 +142,11 @@ export async function getAniListCharacters(title: string, year: number | null): 
     const scoreRomaji = media.title.romaji ? tokenOverlapScore(title, media.title.romaji) : 0;
     const scoreEnglish = media.title.english ? tokenOverlapScore(title, media.title.english) : 0;
     let score = Math.max(scoreRomaji, scoreEnglish);
-    if (year && media.startDate?.year && Math.abs(year - media.startDate.year) <= 1) score += 0.15;
+    if (year && media.startDate?.year && Math.abs(year - media.startDate.year) <= 1) score += 0.05;
     if (!best || score > best.score) best = { media, score };
   }
 
-  if (!best || best.score < 0.6) return { characters: [], searchFailed: false };
+  if (!best || best.score < 0.7) return { characters: [], searchFailed: false };
 
   const edges = best.media.characters.edges;
   const main = edges.filter((edge) => edge.role === "MAIN");
