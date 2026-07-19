@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Modal, Pressable, TextInput, Share, StyleSheet } from "react-native";
+import { View, Modal, Pressable, TextInput, Share, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryStatus } from "@seenlist/types";
 import { useMyLists } from "@/lib/useMyLists";
@@ -72,6 +72,7 @@ export function SeriesQuickActionsSheet({
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView}>
         <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
           {confirmingRemove ? (
             <View style={styles.confirm}>
@@ -167,6 +168,7 @@ export function SeriesQuickActionsSheet({
             </View>
           )}
         </Pressable>
+        </KeyboardAvoidingView>
       </Pressable>
 
       {showRecommend && (
@@ -208,6 +210,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  keyboardView: {
+    justifyContent: "flex-end",
   },
   sheet: {
     backgroundColor: colors.surface,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Modal, Pressable, TextInput, FlatList, Image, StyleSheet } from "react-native";
+import { View, Modal, Pressable, TextInput, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchFollowList, type FollowListUser } from "@/lib/followList";
@@ -60,6 +60,7 @@ export function RecommendSheet({
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView}>
         <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
           <View style={styles.header}>
             <Text numberOfLines={1} style={styles.title}>
@@ -134,6 +135,7 @@ export function RecommendSheet({
             <Text style={styles.sendButtonText}>{sending ? "Enviando..." : "Enviar recomendação"}</Text>
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Pressable>
     </Modal>
   );
@@ -141,6 +143,7 @@ export function RecommendSheet({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
+  keyboardView: { justifyContent: "flex-end" },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
