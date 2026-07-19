@@ -170,6 +170,7 @@ export async function getAniListCharactersWithDebug(title: string, year: number 
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ query: SEARCH_QUERY, variables: { search: title, perPage: 5 } }),
+      cache: "no-store",
     });
   } catch (error) {
     debug.graphqlErrors = [error instanceof Error ? error.message : String(error)];
@@ -213,15 +214,13 @@ export async function getAniListCharacters(title: string, year: number | null): 
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ query: SEARCH_QUERY, variables: { search: title, perPage: 5 } }),
-      // TASK-168 (correção 7, achado real via debug: produção
-      // presa numa resposta antiga, debug sem cache funcionando
-      // certo) — sem cache de servidor aqui de propósito. O cache
-      // de 30 dias já existe do lado do cliente (`useAnimeCharacters`,
-      // React Query), condicionado a `searchFailed` — mais seguro,
-      // porque só entra em cache depois que o código já decidiu se
-      // deu certo ou não, nunca guarda uma resposta HTTP 200 "vazia
-      // por acaso" (instabilidade pontual) como se fosse definitiva
-      // por um mês inteiro.
+      // TASK-174 (achado real — resultado errado de antes da
+      // correção continuava aparecendo mesmo em aba anônima, o que
+      // só faz sentido se o cache fosse do SERVIDOR, não do
+      // navegador) — `cache: "no-store"` explícito aqui, sem
+      // depender do comportamento padrão do Next.js pra `fetch`
+      // dentro de Route Handler, que pode variar/confundir.
+      cache: "no-store",
     });
   } catch (error) {
     console.error("[anilist] Exceção ao buscar", error);

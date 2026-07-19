@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { getAnimeCharacters, findMalIdWithDebug } from "@/lib/anime/jikan";
 import { getAniListCharactersWithDebug } from "@/lib/anime/anilist";
 
+// TASK-174 (achado real — resposta errada de antes da correção
+// continuava aparecendo mesmo em aba anônima, o que só faz sentido
+// com cache do SERVIDOR/rota, não do navegador) — força esta rota a
+// nunca ser cacheada em nenhum nível (Vercel Data Cache, CDN, etc.),
+// além do `cache: "no-store"` já explícito nas chamadas ao
+// AniList/Jikan dentro dela.
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const title = searchParams.get("title");

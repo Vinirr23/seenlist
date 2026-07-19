@@ -17,12 +17,12 @@ async function fetchJikan(path: string): Promise<{ response: Response | null; de
 
   for (let attempt = 0; attempt <= DELAYS_MS.length; attempt++) {
     try {
-      // TASK-168 (correção 7) — sem cache de servidor aqui, mesmo
-      // raciocínio do AniList (`anilist.ts`) — o cache do lado do
-      // cliente (React Query) já cobre isso, condicionado a
-      // `searchFailed`, sem risco de guardar uma resposta ruim por
-      // 30 dias.
-      const response = await fetch(`${JIKAN_BASE}${path}`);
+      // TASK-174 (achado real — resposta errada persistindo mesmo em
+      // aba anônima, o que só faz sentido com cache do SERVIDOR) —
+      // `cache: "no-store"` explícito, sem depender do
+      // comportamento padrão do Next.js pra `fetch` dentro de Route
+      // Handler.
+      const response = await fetch(`${JIKAN_BASE}${path}`, { cache: "no-store" });
       if (response.ok) return { response, debugReason: null };
       if (RETRYABLE_STATUSES.has(response.status) && attempt < DELAYS_MS.length) {
         await new Promise((resolve) => setTimeout(resolve, DELAYS_MS[attempt]));
