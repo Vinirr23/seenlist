@@ -46,17 +46,48 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  const { data: episodeRows, error: episodeError } = await admin
+  // TASK-175 (correção — achado real, comprovado por SQL direto: 127
+  // séries de verdade, mas a rota só via 6) — o Supabase limita a
+  // 1000 linhas por consulta por padrão. Sem paginação explícita, uma
+  // conta com muitos episódios assistidos (aqui, centenas de séries
+  // × vários episódios cada) batia nesse teto silenciosamente —
+  // mesmo bug de sempre, mesmo padrão de correção já usado em
+  // `fetchAllWatchedEpisodeRows` (lib/queries/library-state.ts).
+  const PAGE_SIZE = 1000;
+  const { count: episodeRowCount, error: countError } = await admin
     .from("watched_episodes")
-    .select("series_id")
+    .select("series_id", { count: "exact", head: true })
     .eq("user_id", userId)
     .eq("is_special", false);
-  if (episodeError) {
-    console.error("[admin/repair-series-categories] Falha ao buscar watched_episodes", episodeError);
-    return NextResponse.json({ error: "Falha ao buscar episódios assistidos." }, { status: 500 });
+  if (countError) {
+    console.error("[admin/repair-series-categories] Falha ao contar watched_episodes", countError);
+    return NextResponse.json({ error: "Falha ao contar episódios assistidos." }, { status: 500 });
   }
 
-  const seriesIds = [...new Set((episodeRows ?? []).map((r) => r.series_id as number))];
+  const total = episodeRowCount ?? 0;
+  const pageCount = Math.ceil(total / PAGE_SIZE);
+  const episodePages = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) => {
+      const from = index * PAGE_SIZE;
+      return admin
+        .from("watched_episodes")
+        .select("series_id")
+        .eq("user_id", userId)
+        .eq("is_special", false)
+        .range(from, from + PAGE_SIZE - 1);
+    })
+  );
+
+  const episodeRows: { series_id: number }[] = [];
+  for (const page of episodePages) {
+    if (page.error) {
+      console.error("[admin/repair-series-categories] Falha ao buscar página de watched_episodes", page.error);
+      return NextResponse.json({ error: "Falha ao buscar episódios assistidos." }, { status: 500 });
+    }
+    episodeRows.push(...((page.data ?? []) as { series_id: number }[]));
+  }
+
+  const seriesIds = [...new Set(episodeRows.map((r) => r.series_id))];
 
   const { data: statusRows, error: statusError } = await admin
     .from("series_status")
