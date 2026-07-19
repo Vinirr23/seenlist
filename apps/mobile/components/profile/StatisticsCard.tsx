@@ -1,4 +1,5 @@
 import { View, Pressable, StyleSheet } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useProfileStats } from "@/lib/useProfileStats";
@@ -15,12 +16,12 @@ const numberFormatter = new Intl.NumberFormat("pt-BR");
  * outra pessoa). Leva pra `/profile/stats`, a tela completa com
  * abas Séries/Filmes.
  *
- * Redesign (a pedido, mesmo visual do web) — sem
- * `expo-linear-gradient` instalado (evita dependência nativa nova),
- * o degradê do web vira um tingimento sólido sutil aqui (fundo
- * dourado bem fraco) — mesma ideia, versão mais simples. Ícone por
- * métrica, e "Ver detalhes" como pílula preenchida em vez de só a
- * seta.
+ * Redesign (a pedido, mesmo visual do web) — degradê de verdade via
+ * `expo-linear-gradient` (instalado a pedido, precisou de build
+ * novo). Ícone por métrica, "Ver detalhes" como pílula preenchida em
+ * vez de só a seta. Carregando/erro usam fundo sólido (`cardStatic`)
+ * — não faz sentido animar/degradê num estado que nem tem dado pra
+ * mostrar ainda.
  */
 export function StatisticsCard() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export function StatisticsCard() {
 
   if (isLoading) {
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, styles.cardStatic]}>
         <View style={styles.header}>
           <Skeleton width={120} height={16} />
         </View>
@@ -45,7 +46,7 @@ export function StatisticsCard() {
   }
   if (isError || !stats) {
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, styles.cardStatic]}>
         <Text variant="muted">Não foi possível carregar suas estatísticas agora.</Text>
       </View>
     );
@@ -62,32 +63,39 @@ export function StatisticsCard() {
   ];
 
   return (
-    <Pressable style={styles.card} onPress={() => router.push("/profile/stats")}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Feather name="bar-chart-2" size={16} color={colors.primary} />
-          <Text variant="label">Estatísticas</Text>
+    <Pressable onPress={() => router.push("/profile/stats")}>
+      <LinearGradient
+        colors={["rgba(232,163,61,0.16)", "rgba(19,24,38,1)", "rgba(79,209,197,0.10)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Feather name="bar-chart-2" size={16} color={colors.primary} />
+            <Text variant="label">Estatísticas</Text>
+          </View>
+          <View style={styles.pillButton}>
+            <Text style={styles.pillButtonText}>Ver detalhes</Text>
+            <Feather name="chevron-right" size={12} color={colors.background} />
+          </View>
         </View>
-        <View style={styles.pillButton}>
-          <Text style={styles.pillButtonText}>Ver detalhes</Text>
-          <Feather name="chevron-right" size={12} color={colors.background} />
-        </View>
-      </View>
-      <View style={styles.grid}>
-        {preview.map((item) => (
-          <View key={item.label} style={styles.gridItem}>
-            <View style={styles.gridItemRow}>
-              <Feather name={item.icon} size={14} color={colors.secondary} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.value}>{item.value}</Text>
-                <Text variant="muted" style={styles.label}>
-                  {item.label}
-                </Text>
+        <View style={styles.grid}>
+          {preview.map((item) => (
+            <View key={item.label} style={styles.gridItem}>
+              <View style={styles.gridItemRow}>
+                <Feather name={item.icon} size={14} color={colors.secondary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.value}>{item.value}</Text>
+                  <Text variant="muted" style={styles.label}>
+                    {item.label}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      </LinearGradient>
     </Pressable>
   );
 }
@@ -99,9 +107,11 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "rgba(232,163,61,0.06)",
     borderRadius: radius.lg,
     padding: spacing.md,
+  },
+  cardStatic: {
+    backgroundColor: colors.surface,
   },
   header: {
     flexDirection: "row",

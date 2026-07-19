@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ScrollView, View, Image, Pressable, Share, StyleSheet } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useCurrentUser, useProfileSectionCounts, useSocialCounts } from "@/lib/useCurrentUser";
@@ -83,13 +84,11 @@ export default function ProfileScreen() {
           <View style={styles.bannerOuter}>
             <View style={styles.bannerInner}>
               <Image source={{ uri: bannerUrl }} style={styles.banner} resizeMode="cover" />
-              {/* TASK-172 (redesign) — sem expo-linear-gradient instalado (evita dependência nativa nova / build extra) — simula o degradê com faixas empilhadas de opacidade crescente, em vez de um degradê de verdade. */}
-              <View style={styles.fadeStack} pointerEvents="none">
-                <View style={[styles.fadeBand, { opacity: 0.25 }]} />
-                <View style={[styles.fadeBand, { opacity: 0.55 }]} />
-                <View style={[styles.fadeBand, { opacity: 0.85 }]} />
-                <View style={[styles.fadeBand, { opacity: 1 }]} />
-              </View>
+              <LinearGradient
+                colors={["transparent", colors.background]}
+                style={styles.fadeOverlay}
+                pointerEvents="none"
+              />
             </View>
 
             <Pressable style={styles.bannerIconLeft} onPress={() => router.push("/settings/edit-profile")}>
@@ -231,18 +230,12 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  fadeStack: {
+  fadeOverlay: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
     height: 56,
-    flexDirection: "column",
-    justifyContent: "flex-end",
-  },
-  fadeBand: {
-    height: 14,
-    backgroundColor: colors.background,
   },
   bannerIconLeft: {
     position: "absolute",
