@@ -71,7 +71,7 @@ function ActivityTabContent() {
 
   if (isLoading) {
     return (
-      <View style={styles.emptyActivity}>
+      <View style={styles.loadingActivity}>
         <PostCardSkeleton />
       </View>
     );
@@ -148,6 +148,10 @@ const styles = StyleSheet.create({
   discoverContent: {
     paddingTop: spacing.xs,
     paddingBottom: spacing.xl,
+  },
+  loadingActivity: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   emptyActivity: {
     flex: 1,
