@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Modal, Pressable, TextInput, Share, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { View, Modal, Pressable, TextInput, ScrollView, Share, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useMyLists } from "@/lib/useMyLists";
 import { addToList } from "@/lib/lists";
@@ -26,6 +27,7 @@ type SheetView = "menu" | "pick-list";
  * a lista, recomendar, remover, compartilhar.
  */
 export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose }: MovieQuickActionsSheetProps) {
+  const insets = useSafeAreaInsets();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [view, setView] = useState<SheetView>("menu");
   const { lists, isLoading: listsLoading, creating, create } = useMyLists();
@@ -74,9 +76,10 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+      {/* TASK-176 (achado real, comparado com CreatePostButton.tsx que já funcionava) — o `KeyboardAvoidingView` precisa ser filho DIRETO do `Modal`, sem nenhum `Pressable`/View extra o envolvendo, ou o cálculo de altura no Android não funciona direito. O "tocar fora fecha" virou um `Pressable` de fundo separado (posição absoluta, atrás da folha), não mais um wrapper por cima do KeyboardAvoidingView. */}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           {confirmingRemove ? (
             <View style={styles.confirm}>
               <Text style={styles.confirmTitle}>Remover este filme?</Text>
@@ -93,7 +96,7 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
               </View>
             </View>
           ) : view === "pick-list" ? (
-            <View>
+            <ScrollView keyboardShouldPersistTaps="handled" style={styles.pickListScroll}>
               <View style={styles.pickListHeader}>
                 <Pressable onPress={() => setView("menu")} hitSlop={8}>
                   <Feather name="arrow-left" size={16} color={colors.muted} />
@@ -144,7 +147,7 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
                   <Text style={[styles.actionLabel, { color: colors.primary }]}>Criar nova lista</Text>
                 </Pressable>
               )}
-            </View>
+            </ScrollView>
           ) : (
             <View>
               <Text numberOfLines={1} variant="muted" style={styles.sheetTitle}>
@@ -162,9 +165,8 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
               </Pressable>
             </View>
           )}
-        </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
+        </View>
+      </KeyboardAvoidingView>
 
       {showRecommend && (
         <RecommendSheet
@@ -204,10 +206,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.6)",
   },
-  keyboardView: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
@@ -220,6 +218,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 12,
     fontWeight: "600",
+  },
+  pickListScroll: {
+    maxHeight: 420,
   },
   pickListHeader: {
     flexDirection: "row",

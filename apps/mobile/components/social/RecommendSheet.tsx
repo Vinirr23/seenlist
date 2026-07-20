@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Modal, Pressable, TextInput, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchFollowList, type FollowListUser } from "@/lib/followList";
@@ -25,6 +26,7 @@ export function RecommendSheet({
   mediaTitle: string;
   onClose: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const [search, setSearch] = useState("");
   const [following, setFollowing] = useState<FollowListUser[] | null>(null);
@@ -59,9 +61,10 @@ export function RecommendSheet({
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+      {/* TASK-176 (mesma correção de MovieQuickActionsSheet.tsx/SeriesQuickActionsSheet.tsx) — KeyboardAvoidingView filho direto do Modal, "tocar fora fecha" virou Pressable de fundo separado. */}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.header}>
             <Text numberOfLines={1} style={styles.title}>
               Recomendar &quot;{mediaTitle}&quot;
@@ -134,16 +137,14 @@ export function RecommendSheet({
             <Feather name="send" size={16} color={colors.background} />
             <Text style={styles.sendButtonText}>{sending ? "Enviando..." : "Enviar recomendação"}</Text>
           </Pressable>
-        </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
-  keyboardView: { flex: 1, justifyContent: "flex-end" },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,

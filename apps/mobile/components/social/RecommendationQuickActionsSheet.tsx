@@ -1,4 +1,5 @@
 import { View, Modal, Pressable, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
@@ -23,10 +24,11 @@ export function RecommendationQuickActionsSheet({
   onStartWatching: () => void;
   onIgnore: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onIgnore}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <Pressable style={styles.option} onPress={onWantToWatch}>
             <Feather name="clock" size={18} color={colors.text} />
             <Text style={styles.optionLabel}>Assistir depois</Text>

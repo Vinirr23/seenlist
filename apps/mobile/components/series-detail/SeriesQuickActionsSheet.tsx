@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Modal, Pressable, TextInput, Share, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryStatus } from "@seenlist/types";
 import { useMyLists } from "@/lib/useMyLists";
@@ -36,6 +37,7 @@ export function SeriesQuickActionsSheet({
   onRemove,
   onClose,
 }: SeriesQuickActionsSheetProps) {
+  const insets = useSafeAreaInsets();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [view, setView] = useState<SheetView>("menu");
   const { lists, isLoading: listsLoading, creating, create } = useMyLists();
@@ -71,9 +73,10 @@ export function SeriesQuickActionsSheet({
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+      {/* TASK-176 (achado real, comparado com CreatePostButton.tsx que já funcionava) — o `KeyboardAvoidingView` precisa ser filho DIRETO do `Modal`, sem nenhum `Pressable`/View extra o envolvendo, ou o cálculo de altura no Android não funciona direito. O "tocar fora fecha" virou um `Pressable` de fundo separado (posição absoluta, atrás da folha), não mais um wrapper por cima do KeyboardAvoidingView. */}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           {confirmingRemove ? (
             <View style={styles.confirm}>
               <Text style={styles.confirmTitle}>Remover esta série?</Text>
@@ -167,9 +170,8 @@ export function SeriesQuickActionsSheet({
               </Pressable>
             </View>
           )}
-        </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
+        </View>
+      </KeyboardAvoidingView>
 
       {showRecommend && (
         <RecommendSheet
@@ -210,10 +212,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.6)",
-  },
-  keyboardView: {
-    flex: 1,
-    justifyContent: "flex-end",
   },
   sheet: {
     backgroundColor: colors.surface,
