@@ -9,6 +9,7 @@ import { ActivityFeedRow } from "@/components/explore/ActivityFeedRow";
 import { useDiscoverList } from "@/lib/useDiscoverList";
 import { useActivityFeed } from "@/lib/useActivityFeed";
 import { colors, spacing, radius } from "@/lib/theme";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 type ExploreTab = "discover" | "activity";
 
@@ -25,6 +26,7 @@ type ExploreTab = "discover" | "activity";
  * perto duplicaria lógica sem um lugar certo pra ela morar.
  */
 export default function ExploreScreen() {
+  const tabBarClearance = useTabBarClearance();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<ExploreTab>("discover");
 
@@ -40,7 +42,7 @@ export default function ExploreScreen() {
       </View>
 
       {query ? (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
           <SearchResults query={query} />
         </ScrollView>
       ) : (
@@ -51,7 +53,7 @@ export default function ExploreScreen() {
           </View>
 
           {tab === "discover" ? (
-            <ScrollView contentContainerStyle={styles.discoverContent}>
+            <ScrollView contentContainerStyle={[styles.discoverContent, { paddingBottom: tabBarClearance }]}>
               <DiscoverCarousel title="Séries em alta" items={trendingSeries.items} isLoading={trendingSeries.isLoading} />
               <DiscoverCarousel title="Filmes em alta" items={trendingMovies.items} isLoading={trendingMovies.isLoading} />
               <DiscoverCarousel title="Lançamentos recentes" items={upcomingMovies.items} isLoading={upcomingMovies.isLoading} />
@@ -67,6 +69,7 @@ export default function ExploreScreen() {
 }
 
 function ActivityTabContent() {
+  const tabBarClearance = useTabBarClearance();
   const { items, isLoading, isError } = useActivityFeed();
 
   if (isLoading) {
@@ -96,7 +99,7 @@ function ActivityTabContent() {
   }
 
   return (
-    <ScrollView>
+    <ScrollView contentContainerStyle={{ paddingBottom: tabBarClearance }}>
       {items.map((item) => (
         <ActivityFeedRow key={item.id} item={item} />
       ))}

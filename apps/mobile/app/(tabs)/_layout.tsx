@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, Pressable, Text as RNText, StyleSheet } from "react-native";
 import { Tabs } from "expo-router";
+import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { colors, radius } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 
 const UNREAD_POLL_INTERVAL_MS = 30_000;
 const TAB_BAR_MARGIN = 12;
+
+const ROUTE_META: Record<string, { icon: keyof typeof Feather.glyphMap; label: string; title: string }> = {
+  series: { icon: "tv", label: "Séries", title: "Séries" },
+  movies: { icon: "film", label: "Filmes", title: "Filmes" },
+  feed: { icon: "rss", label: "Feed", title: "Feed" },
+  explore: { icon: "compass", label: "Explorar", title: "Explorar" },
+  profile: { icon: "user", label: "Perfil", title: "Perfil" },
+};
 
 /**
  * TASK-090 — mesmas 5 abas e mesma ordem do web
@@ -18,30 +27,25 @@ const TAB_BAR_MARGIN = 12;
  * (histórico da EAS: cota de build já estourou uma vez, então cada
  * dependência nova evitada é um risco a menos).
  *
- * TASK-169 — `tabBarBadge` (suporte nativo do Expo Router/React
- * Navigation, sem lib nova) mostra a contagem de recomendações não
- * lidas na aba Perfil. Busca de novo a cada 30s enquanto o app está
+ * TASK-169 — badge de recomendações não lidas, redesenhado à mão
+ * (ver abaixo) — busca de novo a cada 30s enquanto o app está
  * aberto — não é tempo real (evita gastar conexão do Supabase
- * Realtime só por isso, ver discussão de custo antes de construir a
- * feature), atualiza rápido o bastante pra não parecer travado.
+ * Realtime só por isso), atualiza rápido o bastante pra não parecer
+ * travado.
  *
- * Redesign (a pedido, mesmo visual do web) — barra flutuante
- * (`position: absolute`, margem das bordas, cantos arredondados,
- * sombra) em vez de colada na tela inteira; ícone ativo ganha um
- * selo circular dourado atrás dele (`renderTabIcon`), em vez de só
- * trocar de cor.
+ * Redesign (a pedido, 3ª rodada — achado real: mesmo desenhando o
+ * conteúdo dentro de `tabBarIcon`, o React Navigation reserva um
+ * ESPAÇO FIXO pro slot de ícone, pensado pra conteúdo de largura
+ * constante — a pílula (mais larga que um ícone sozinho, só quando
+ * ativa) ficava cortada por esse limite, em vez de simplesmente
+ * ocupar mais espaço) — a solução de verdade é parar de usar
+ * `tabBarIcon`/`tabBarLabel` (o sistema padrão) e desenhar a barra
+ * inteira à mão, via prop `tabBar` — controle total, sem nenhum
+ * limite escondido de tamanho.
  */
-function renderTabIcon(name: keyof typeof Feather.glyphMap) {
-  return ({ focused, color }: { focused: boolean; color: string }) => (
-    <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
-      <Feather name={name} color={color} size={20} />
-    </View>
-  );
-}
-
-export default function TabsLayout() {
-  const [unreadCount, setUnreadCount] = useState(0);
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,38 +63,53 @@ export default function TabsLayout() {
   }, []);
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarShowLabel: true,
-        // TASK-176 (achado real, a pedido — "a barra ficou por trás
-        // da barra do celular") — a margem de baixo era um valor
-        // fixo (12px), sem levar em conta a área reservada pela
-        // navegação do próprio sistema (gestos ou botões, que varia
-        // de aparelho pra aparelho). Soma `insets.bottom` (a mesma
-        // área seguraque o resto do app já usa, via `Screen.tsx`) —
-        // em celular sem barra de sistema visível, `insets.bottom`
-        // já vem 0, então não muda nada; onde tem, agora sobe o
-        // suficiente pra nunca ficar por trás.
-        tabBarStyle: [styles.tabBar, { bottom: TAB_BAR_MARGIN + insets.bottom }],
-        tabBarItemStyle: styles.tabBarItem,
-        tabBarLabelStyle: styles.tabBarLabel,
-      }}
-    >
-      <Tabs.Screen name="series" options={{ title: "Séries", tabBarIcon: renderTabIcon("tv") }} />
-      <Tabs.Screen name="movies" options={{ title: "Filmes", tabBarIcon: renderTabIcon("film") }} />
-      <Tabs.Screen name="feed" options={{ title: "Feed", tabBarIcon: renderTabIcon("rss") }} />
-      <Tabs.Screen name="explore" options={{ title: "Explorar", tabBarIcon: renderTabIcon("compass") }} />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Perfil",
-          tabBarIcon: renderTabIcon("user"),
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-        }}
-      />
+    <View style={[styles.tabBar, { bottom: TAB_BAR_MARGIN + insets.bottom }]}>
+      {state.routes.map((route, index) => {
+        const meta = ROUTE_META[route.name];
+        if (!meta) return null;
+        const focused = state.index === index;
+
+        function handlePress() {
+          const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+          if (!focused && !event.defaultPrevented) {
+            navigation.navigate(route.name);
+          }
+        }
+
+        return (
+          <Pressable key={route.key} onPress={handlePress} style={styles.tabItem}>
+            {focused ? (
+              <View style={styles.activePill}>
+                <Feather name={meta.icon} color={colors.background} size={15} />
+                <RNText style={styles.activePillLabel} numberOfLines={1}>
+                  {meta.label}
+                </RNText>
+              </View>
+            ) : (
+              <View style={styles.iconWrapper}>
+                <Feather name={meta.icon} color={colors.muted} size={20} />
+                {route.name === "profile" && unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <RNText style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</RNText>
+                  </View>
+                )}
+              </View>
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export default function TabsLayout() {
+  return (
+    <Tabs tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
+      <Tabs.Screen name="series" options={{ title: "Séries" }} />
+      <Tabs.Screen name="movies" options={{ title: "Filmes" }} />
+      <Tabs.Screen name="feed" options={{ title: "Feed" }} />
+      <Tabs.Screen name="explore" options={{ title: "Explorar" }} />
+      <Tabs.Screen name="profile" options={{ title: "Perfil" }} />
     </Tabs>
   );
 }
@@ -98,32 +117,62 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     position: "absolute",
-    left: 12,
-    right: 12,
-    height: 64,
-    borderRadius: radius.lg,
-    borderTopWidth: 0,
-    backgroundColor: colors.surface,
+    left: 16,
+    right: 16,
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    borderRadius: 28,
+    backgroundColor: "rgba(19,24,38,0.88)",
     shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 12,
   },
-  tabBarItem: {
-    paddingTop: 8,
-  },
-  tabBarLabel: {
-    fontSize: 10,
-  },
-  iconWrapper: {
-    height: 34,
-    width: 34,
-    borderRadius: 17,
+  tabItem: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  iconWrapperActive: {
-    backgroundColor: "rgba(232,163,61,0.15)",
+  iconWrapper: {
+    height: 36,
+    width: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activePill: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 1,
+    height: 44,
+    minWidth: 52,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+  },
+  activePillLabel: {
+    color: colors.background,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  badge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "700",
   },
 });

@@ -8,6 +8,7 @@ import { todayLocalKey } from "@/lib/localDate";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
@@ -51,6 +52,7 @@ function upcomingLabel(releaseDate: string, todayKey: string): string {
  */
 export default function MoviesScreen() {
   const router = useRouter();
+  const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("movies-library");
@@ -84,7 +86,7 @@ export default function MoviesScreen() {
 
       {tab === "minha-lista" ? (
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
           <View style={styles.sectionHeader}>
@@ -110,7 +112,7 @@ export default function MoviesScreen() {
         </ScrollView>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
           <View style={styles.sectionHeader}>

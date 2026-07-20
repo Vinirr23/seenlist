@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, View, TextInput, Pressable, StyleSheet } from "react-native";
+import { ScrollView, View, TextInput, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useMyLists } from "@/lib/useMyLists";
@@ -38,56 +38,61 @@ export default function ListsScreen() {
         <Text variant="subtitle">Minhas listas</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <Pressable style={styles.createButton} onPress={() => setShowForm((v) => !v)}>
-          <Feather name="plus" size={16} color={colors.background} />
-          <Text style={styles.createButtonText}>Criar nova lista</Text>
-        </Pressable>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <Pressable style={styles.createButton} onPress={() => setShowForm((v) => !v)}>
+            <Feather name="plus" size={16} color={colors.background} />
+            <Text style={styles.createButtonText}>Criar nova lista</Text>
+          </Pressable>
 
-        {showForm && (
-          <View style={styles.form}>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Nome da lista"
-              placeholderTextColor={colors.muted}
-              maxLength={80}
-              autoFocus
-              style={styles.input}
-            />
-            <Pressable style={styles.saveButton} onPress={handleCreate} disabled={!name.trim() || creating}>
-              <Text style={styles.saveButtonText}>{creating ? "Criando…" : "Salvar"}</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {isLoading ? (
-          <AvatarRowSkeleton />
-        ) : isError ? (
-          <Text variant="muted" style={styles.centerText}>
-            Não foi possível carregar suas listas agora.
-          </Text>
-        ) : !lists || lists.length === 0 ? (
-          <Text variant="muted" style={styles.centerText}>
-            Você ainda não criou nenhuma lista.
-          </Text>
-        ) : (
-          <View style={styles.list}>
-            {lists.map((list) => (
-              <Pressable key={list.id} style={styles.listRow} onPress={() => router.push(`/lists/${list.id}`)}>
-                <Feather name="check-square" size={18} color={colors.primary} />
-                <Text style={styles.listName}>{list.name}</Text>
-                <Feather name="chevron-right" size={18} color={colors.muted} style={{ marginLeft: "auto" }} />
+          {showForm && (
+            <View style={styles.form}>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="Nome da lista"
+                placeholderTextColor={colors.muted}
+                maxLength={80}
+                autoFocus
+                style={styles.input}
+              />
+              <Pressable style={styles.saveButton} onPress={handleCreate} disabled={!name.trim() || creating}>
+                <Text style={styles.saveButtonText}>{creating ? "Criando…" : "Salvar"}</Text>
               </Pressable>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+            </View>
+          )}
+
+          {isLoading ? (
+            <AvatarRowSkeleton />
+          ) : isError ? (
+            <Text variant="muted" style={styles.centerText}>
+              Não foi possível carregar suas listas agora.
+            </Text>
+          ) : !lists || lists.length === 0 ? (
+            <Text variant="muted" style={styles.centerText}>
+              Você ainda não criou nenhuma lista.
+            </Text>
+          ) : (
+            <View style={styles.list}>
+              {lists.map((list) => (
+                <Pressable key={list.id} style={styles.listRow} onPress={() => router.push(`/lists/${list.id}`)}>
+                  <Feather name="check-square" size={18} color={colors.primary} />
+                  <Text style={styles.listName}>{list.name}</Text>
+                  <Feather name="chevron-right" size={18} color={colors.muted} style={{ marginLeft: "auto" }} />
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

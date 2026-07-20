@@ -9,6 +9,7 @@ import { fetchLikeInfoFor, fetchCommentCountsFor } from "@/lib/social/likes";
 import { fetchSavedStatusesFor } from "@/lib/social/savedPosts";
 import { fetchPollDataFor, type PollData } from "@/lib/social/polls";
 import { colors, spacing } from "@/lib/theme";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /**
  * TASK-095/153 — primeira versão do Feed nativo: lista de posts
@@ -23,6 +24,7 @@ import { colors, spacing } from "@/lib/theme";
  * repassa pronto pra cada `PostCard`.
  */
 export default function FeedScreen() {
+  const tabBarClearance = useTabBarClearance();
   const { posts, isLoading, isError, refreshing, refetch } = usePosts();
 
   const [likeInfoByPostId, setLikeInfoByPostId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
@@ -49,7 +51,7 @@ export default function FeedScreen() {
   return (
     <Screen padded={false}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
       >
         {isError ? (

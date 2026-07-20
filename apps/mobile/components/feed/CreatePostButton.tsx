@@ -126,7 +126,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Pressable style={[styles.fab, { bottom: 92 + insets.bottom }]} onPress={handleOpen}>
+      <Pressable style={[styles.fab, { bottom: 84 + insets.bottom }]} onPress={handleOpen}>
         <Feather name="plus" size={24} color={colors.background} />
       </Pressable>
 

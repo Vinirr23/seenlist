@@ -8,6 +8,7 @@ import { useUpcomingEpisodes } from "@/lib/useUpcomingEpisodes";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { recalculateUpToDateSeriesCategories } from "@/lib/seriesDetails";
 import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
@@ -38,6 +39,7 @@ const CONTINUE_LIMIT = 8;
  */
 export default function SeriesHomeScreen() {
   const router = useRouter();
+  const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
   const { items, isLoading, isError, refreshing, refetch, refetchSilently } = useLibraryItems();
   const upcoming = useUpcomingEpisodes();
@@ -74,12 +76,31 @@ export default function SeriesHomeScreen() {
    * toa.
    */
   const [nextEpisodes, setNextEpisodes] = useState<Map<number, NextEpisodeToWatch>>(new Map());
+  /**
+   * TASK-176 (achado real, a pedido — "mostra o cartão antigo por
+   * uns segundos, depois troca pro novo") — sem isso, não dava pra
+   * distinguir "ainda buscando o próximo episódio" de "buscou e essa
+   * série genuinamente não tem nenhum pendente" — os dois casos
+   * pareciam a mesma coisa (`nextEpisodes.get(item.id)` undefined),
+   * então a lista caía no cartão simples (`MediaListRow`) por engano
+   * enquanto os dados certos ainda estavam a caminho, e só trocava
+   * pro cartão completo (`ContinueWatchingListRow`) quando a busca
+   * terminava — visível como uma "atualização" incômoda.
+   */
+  const [nextEpisodesLoaded, setNextEpisodesLoaded] = useState(false);
 
   const loadNextEpisodes = useCallback(() => {
     if (viewMode !== "list" || continueWatching.length === 0) return;
+    setNextEpisodesLoaded(false);
     fetchNextEpisodesToWatch(continueWatching.map((item) => item.id))
-      .then(setNextEpisodes)
-      .catch((error) => console.error("[SeriesHomeScreen] Falha ao buscar próximos episódios", error));
+      .then((map) => {
+        setNextEpisodes(map);
+        setNextEpisodesLoaded(true);
+      })
+      .catch((error) => {
+        console.error("[SeriesHomeScreen] Falha ao buscar próximos episódios", error);
+        setNextEpisodesLoaded(true); // não trava no esqueleto pra sempre se der erro — cai pro cartão simples
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, continueWatching.map((i) => i.id).join(",")]);
 
@@ -121,6 +142,8 @@ export default function SeriesHomeScreen() {
             />
           ) : viewMode === "grid" ? (
             <PosterGrid items={continueWatching} onPressItem={handlePressItem} />
+          ) : !nextEpisodesLoaded ? (
+            <LibraryListSkeleton />
           ) : (
             <View style={styles.listRows}>
               {continueWatching.map((item) => {
@@ -159,7 +182,7 @@ export default function SeriesHomeScreen() {
           </View>
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
           {upcoming.isLoading ? (
             <UpcomingEpisodeCardSkeleton />
           ) : upcoming.isError ? (

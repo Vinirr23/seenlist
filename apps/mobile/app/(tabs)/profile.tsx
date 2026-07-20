@@ -7,6 +7,7 @@ import { useCurrentUser, useProfileSectionCounts, useSocialCounts } from "@/lib/
 import { useFollowCounts } from "@/lib/usePublicProfile";
 import { fetchEditableProfile } from "@/lib/editProfile";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
@@ -42,6 +43,7 @@ export default function ProfileScreen() {
   const [bio, setBio] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [unreadRecommendations, setUnreadRecommendations] = useState<number | undefined>(undefined);
+  const tabBarClearance = useTabBarClearance();
 
   useFocusEffect(
     useCallback(() => {
@@ -79,7 +81,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen padded={false}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
         {!!bannerUrl ? (
           <View style={styles.bannerOuter}>
             <View style={styles.bannerInner}>
@@ -113,6 +115,17 @@ export default function ProfileScreen() {
                 <Text style={styles.avatarInitials}>{initials(user.name)}</Text>
               )}
             </View>
+
+            {/* TASK-176 (a pedido — "gap enorme", "sobe o nome pro lado da foto") — quando tem capa, nome/usuário ficam ao lado do avatar, sobrepondo a capa também, em vez de numa fileira própria abaixo dela (que sobrava um vão vazio). */}
+            <View style={styles.headerTextOnBanner}>
+              <Text numberOfLines={1} variant="subtitle">
+                {user.name}
+              </Text>
+              {!!username && <Text style={styles.username}>@{username}</Text>}
+              <Text variant="muted" style={styles.joinDate}>
+                Membro desde {joinDate}
+              </Text>
+            </View>
           </View>
         ) : (
           <View style={styles.topIconsRowNoBanner}>
@@ -127,8 +140,8 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        <View style={[styles.headerRow, bannerUrl ? styles.headerRowWithBanner : null]}>
-          {!bannerUrl && (
+        {!bannerUrl && (
+          <View style={styles.headerRow}>
             <View style={styles.avatar}>
               {user.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
@@ -136,17 +149,17 @@ export default function ProfileScreen() {
                 <Text style={styles.avatarInitials}>{initials(user.name)}</Text>
               )}
             </View>
-          )}
-          <View style={styles.headerText}>
-            <Text numberOfLines={1} variant="subtitle">
-              {user.name}
-            </Text>
-            {!!username && <Text style={styles.username}>@{username}</Text>}
-            <Text variant="muted" style={styles.joinDate}>
-              Membro desde {joinDate}
-            </Text>
+            <View style={styles.headerText}>
+              <Text numberOfLines={1} variant="subtitle">
+                {user.name}
+              </Text>
+              {!!username && <Text style={styles.username}>@{username}</Text>}
+              <Text variant="muted" style={styles.joinDate}>
+                Membro desde {joinDate}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {!!bio && <Text style={styles.bio}>{bio}</Text>}
 
@@ -219,7 +232,7 @@ const styles = StyleSheet.create({
   },
   bannerOuter: {
     height: 208,
-    marginBottom: 40,
+    marginBottom: 12,
   },
   bannerInner: {
     height: 168,
@@ -307,8 +320,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
   },
-  headerRowWithBanner: {
-    marginTop: 0,
+  /** TASK-176 (a pedido — fecha o vão vazio embaixo da capa) — nome/usuário/data ancorados na mesma borda de baixo do avatar, à direita dele, sobrepondo a capa também, em vez de fileira própria depois. */
+  headerTextOnBanner: {
+    position: "absolute",
+    left: spacing.lg + AVATAR_SIZE + spacing.sm,
+    right: spacing.lg,
+    bottom: 6,
   },
   avatar: {
     width: AVATAR_SIZE,
