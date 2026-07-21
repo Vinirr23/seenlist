@@ -21,7 +21,7 @@ export default function ProfileStatsScreen() {
   const [tab, setTab] = useState<StatsTab>("series");
 
   return (
-    <Screen padded={false}>
+    <Screen padded={false} bottomInset>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
