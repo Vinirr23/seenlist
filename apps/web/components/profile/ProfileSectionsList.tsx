@@ -1,28 +1,26 @@
 "use client";
 
-import { ListChecks, Tv, Star, Clapperboard, Send } from "lucide-react";
+import { Tv, Star, Clapperboard } from "lucide-react";
 import { useCurrentUser } from "@/lib/queries/current-user";
-import { useProfileSectionCounts } from "@/lib/queries/profile-section-counts";
 import { useSeriesActivityIds, useMovieActivityIds, useFavoriteIds } from "@/lib/queries/profile-media-carousel";
-import { useUnreadRecommendationsCount } from "@/lib/queries/recommendations";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { ProfileSectionRow } from "./ProfileSectionRow";
 import { ProfileMediaCarousel } from "./ProfileMediaCarousel";
+import { ProfileRecommendationsPreview } from "./ProfileRecommendationsPreview";
+import { ProfileListsPreview } from "./ProfileListsPreview";
 
 /**
  * TASK-177 (redesign, a pedido — referências de outros apps trazidas
  * pelo usuário) — "Séries"/"Filmes"/"Séries favoritas"/"Filmes
  * favoritos" deixaram de ser só uma linha com número: agora mostram
  * um carrossel de pôster de verdade, ordenado por atividade mais
- * recente, com rolagem infinita. "Recomendações"/"Minhas listas"
- * continuam como linha simples — recomendação é sobre pessoas, lista
- * é uma coisa mais abstrata, nenhum dos dois ganha muito virando
- * carrossel de pôster.
+ * recente, com rolagem infinita.
+ *
+ * TASK-178 — "Recomendações"/"Minhas listas" também ganharam prévia
+ * visual de verdade (avatar de quem recomendou + pôster do baralho
+ * de cada lista), em vez de só "0 >" — ver `ProfileRecommendationsPreview.tsx`/`ProfileListsPreview.tsx`.
  */
 export function ProfileSectionsList() {
   const { data: user } = useCurrentUser();
-  const { data: counts } = useProfileSectionCounts(user?.id ?? null);
-  const { data: unreadRecommendations } = useUnreadRecommendationsCount();
   const { t } = useTranslation();
 
   const seriesIds = useSeriesActivityIds(user?.id ?? null);
@@ -32,15 +30,11 @@ export function ProfileSectionsList() {
 
   return (
     <div className="mb-2">
-      <section className="mb-6 space-y-2">
-        <ProfileSectionRow
-          icon={Send}
-          label="Recomendações"
-          count={unreadRecommendations}
-          href="/profile/recommendations"
-        />
-        <ProfileSectionRow icon={ListChecks} label={t("profile.section.lists")} count={counts?.lists} href="/profile/lists" />
+      <section className="mb-6">
+        <ProfileRecommendationsPreview />
       </section>
+
+      <ProfileListsPreview />
 
       <ProfileMediaCarousel
         icon={Tv}
