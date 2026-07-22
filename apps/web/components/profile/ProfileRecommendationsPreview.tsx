@@ -39,9 +39,12 @@ export function ProfileRecommendationsPreview() {
   }
 
   const latest = recommendations[0]!;
+  const uniqueSenderIds = new Set(recommendations.map((r) => r.sender.userId));
   const uniqueSenders = [...new Map(recommendations.map((r) => [r.sender.userId, r.sender])).values()].slice(0, 4);
   const posterUrl = tmdbImage(latest.posterPath, "w185");
   const unreadCount = recommendations.filter((r) => !r.readAt).length;
+  const extraCount = recommendations.length - 1;
+  const senderName = latest.sender.displayName ?? latest.sender.username;
 
   return (
     <Link
@@ -64,10 +67,32 @@ export function ProfileRecommendationsPreview() {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-text">
-          <span className="font-semibold">{latest.sender.displayName ?? latest.sender.username}</span> recomendou{" "}
-          <span className="font-semibold">&quot;{latest.title}&quot;</span> pra você
-        </p>
+        {/*
+         * TASK-178 (ajuste — a pedido, "como fica quando tem mais de
+         * uma?") — achado real: antes, o texto SEMPRE só mostrava a
+         * recomendação mais recente, mesmo com várias — escondia que
+         * tinha mais coisa ali. Agora diferencia 3 casos: só 1 no
+         * total (texto de sempre); várias da MESMA pessoa ("e mais N
+         * título(s)"); várias de pessoas DIFERENTES ("e mais N
+         * pessoa(s) te recomendaram títulos").
+         */}
+        {extraCount === 0 ? (
+          <p className="truncate text-sm text-text">
+            <span className="font-semibold">{senderName}</span> recomendou{" "}
+            <span className="font-semibold">&quot;{latest.title}&quot;</span> pra você
+          </p>
+        ) : uniqueSenderIds.size === 1 ? (
+          <p className="truncate text-sm text-text">
+            <span className="font-semibold">{senderName}</span> recomendou{" "}
+            <span className="font-semibold">&quot;{latest.title}&quot;</span> e mais {extraCount}{" "}
+            {extraCount === 1 ? "título" : "títulos"}
+          </p>
+        ) : (
+          <p className="truncate text-sm text-text">
+            <span className="font-semibold">{senderName}</span> e mais {uniqueSenderIds.size - 1}{" "}
+            {uniqueSenderIds.size - 1 === 1 ? "pessoa" : "pessoas"} te recomendaram títulos
+          </p>
+        )}
         {unreadCount > 0 && <p className="text-xs text-primary">{unreadCount} não lida{unreadCount > 1 ? "s" : ""}</p>}
       </div>
 
