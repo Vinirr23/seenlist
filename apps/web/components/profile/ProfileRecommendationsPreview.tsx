@@ -52,7 +52,8 @@ export function ProfileRecommendationsPreview() {
         {uniqueSenders.map((sender) => (
           <div key={sender.userId} className="h-8 w-8 overflow-hidden rounded-full border-2 border-surface bg-background">
             {sender.avatarUrl ? (
-              <Image src={sender.avatarUrl} alt={sender.displayName ?? sender.username} width={32} height={32} className="h-full w-full object-cover" />
+              // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image (mesmo padrão de ProfileHeader.tsx)
+              <img src={sender.avatarUrl} alt={sender.displayName ?? sender.username} className="h-full w-full object-cover" />
             ) : (
               <span className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-muted">
                 {(sender.displayName ?? sender.username).slice(0, 1).toUpperCase()}
