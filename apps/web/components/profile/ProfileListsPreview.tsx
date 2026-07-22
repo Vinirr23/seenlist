@@ -31,7 +31,7 @@ export function ProfileListsPreview() {
         </div>
       ) : !lists || lists.length === 0 ? (
         <Link
-          href="/lists"
+          href="/profile/lists"
           className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-surface/40 px-4 py-8 text-center transition-colors hover:border-primary/40"
         >
           <Plus className="h-6 w-6 text-muted" strokeWidth={2} />
