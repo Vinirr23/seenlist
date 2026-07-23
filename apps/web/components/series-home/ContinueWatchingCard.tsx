@@ -8,7 +8,7 @@ import type { LibraryItem } from "@seenlist/types";
 import { useSeriesDetails } from "@/lib/queries/series";
 import { useWatchedEpisodes, isEpisodeWatched, type WatchedEpisodeKey } from "@/lib/queries/watched-episodes-state";
 import { useToggleEpisodeWatched } from "@/lib/queries/watched-episodes-mutations";
-import { computeBadge, type UpcomingBadge } from "@/lib/queries/upcoming-episodes";
+import { computeBadge, hasEpisodeAired, type UpcomingBadge } from "@/lib/queries/upcoming-episodes";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
 import { cn } from "@seenlist/utils";
@@ -65,6 +65,21 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
   }, [seriesDetails, watched]);
 
   if (!seriesDetails || !next) return null;
+
+  /*
+   * Correção (bug real, reportado): depois de "Continue assistindo"
+   * passar a incluir séries "Em dia" (pra série que ganhou episódio
+   * novo poder voltar a aparecer com o selo NOVO), sobrou um efeito
+   * colateral — uma série "Em dia" cujo único episódio não assistido
+   * ainda não foi ao ar (ex.: T03E06 previsto pra daqui a 2 dias)
+   * também batia aqui, e o card aparecia como se já desse pra marcar
+   * como assistido. Episódio que ainda não foi ao ar não é "continue
+   * assistindo" — é "Em breve" (outra aba). Guard: se o próximo não
+   * assistido ainda não tem data de exibição já passada, não mostra
+   * o card aqui (a série continua listada normalmente em "Em breve"
+   * enquanto isso).
+   */
+  if (!hasEpisodeAired(next.episode.airDate)) return null;
 
   const { seasonNumber, episode } = next;
   const badge =

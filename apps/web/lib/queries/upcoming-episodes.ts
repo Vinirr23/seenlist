@@ -96,6 +96,21 @@ export interface BadgeableEpisode {
  * não assistido, não o próximo a ir ao ar). Mesma função, sem
  * duplicar a regra em dois lugares.
  */
+/**
+ * Extraído de dentro de `computeBadge` (mesma comparação de data,
+ * "hoje" local) pra ser reaproveitado por quem precisa só saber "já
+ * foi ao ar?" sem precisar do cálculo de badge inteiro — caso do
+ * `ContinueWatchingCard`, que precisa decidir se chegou a hora de
+ * mostrar o card, não só qual selo mostrar.
+ */
+export function hasEpisodeAired(airDate: string | null): boolean {
+  if (!airDate) return false;
+  const parsed = new Date(`${airDate}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return parsed.getTime() <= today.getTime();
+}
+
 export function computeBadge(episode: BadgeableEpisode, watchedKeys: Set<string>): UpcomingBadge {
   if (episode.episodeNumber === 1 && episode.seasonNumber > 1) return "premiere";
 
