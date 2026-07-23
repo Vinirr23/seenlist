@@ -90,7 +90,17 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
         )
       : null;
   const badgeConfig = badge ? BADGE_CONFIG[badge] : null;
-  const stillUrl = tmdbImage(episode.stillPath, "w300");
+  /*
+   * Ajuste (a pedido): trocado o still do episódio (`episode.stillPath`)
+   * pelo pôster da série (`item.posterPath`) — achado real: além de
+   * faltar em vários episódios (TMDB nem sempre tem still pra todo
+   * episódio), quando existe costuma vir em baixa qualidade, e é uma
+   * imagem PAISAGEM (16:9) forçada dentro de um recorte RETRATO
+   * (o container aqui é 64×96, a mesma proporção 2:3 de um pôster),
+   * cortando as bordas de um jeito estranho. O pôster da série já vem
+   * nessa proporção de verdade e é sempre consistente entre os cards.
+   */
+  const posterUrl = tmdbImage(item.posterPath, "w185");
   const episodeCode = `T${String(seasonNumber).padStart(2, "0")} | E${String(episode.episodeNumber).padStart(2, "0")}`;
 
   function handleMarkWatched() {
@@ -104,8 +114,8 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
       className="flex items-stretch gap-3 rounded-lg border border-border bg-surface p-3"
     >
       <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded bg-background">
-        {stillUrl ? (
-          <Image src={stillUrl} alt="" fill sizes="64px" className="object-cover" />
+        {posterUrl ? (
+          <Image src={posterUrl} alt={item.title} fill sizes="64px" className="object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center">
             <Clapperboard className="h-5 w-5 text-muted/40" strokeWidth={1.5} />
