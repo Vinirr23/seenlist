@@ -1,17 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { ScrollView, View, Image, Pressable, Share, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { useCurrentUser, useProfileSectionCounts, useSocialCounts } from "@/lib/useCurrentUser";
+import { useCurrentUser, useSocialCounts } from "@/lib/useCurrentUser";
 import { useFollowCounts } from "@/lib/usePublicProfile";
 import { fetchEditableProfile } from "@/lib/editProfile";
-import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
+import { useSeriesActivityIds, useMovieActivityIds, useFavoriteIds } from "@/lib/profileMediaCarousel";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
-import { ProfileSectionRow } from "@/components/profile/ProfileSectionRow";
+import { ProfileRecommendationsPreview } from "@/components/profile/ProfileRecommendationsPreview";
+import { ProfileListsPreview } from "@/components/profile/ProfileListsPreview";
+import { ProfileMediaCarousel } from "@/components/profile/ProfileMediaCarousel";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
@@ -38,18 +40,24 @@ export default function ProfileScreen() {
   const { user } = useCurrentUser();
   const counts = useFollowCounts(user?.id ?? null);
   const socialCounts = useSocialCounts(user?.id ?? null);
-  const sectionCounts = useProfileSectionCounts(user?.id ?? null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [bio, setBio] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
-  const [unreadRecommendations, setUnreadRecommendations] = useState<number | undefined>(undefined);
   const tabBarClearance = useTabBarClearance();
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchUnreadRecommendationsCount().then(setUnreadRecommendations);
-    }, [])
-  );
+  /**
+   * Redesign (porta do web, TASK-177/178) — "Séries"/"Filmes"/
+   * "Séries favoritas"/"Filmes favoritos" viraram carrossel de
+   * pôster ordenado por atividade mais recente, em vez de linha só
+   * com contador (`ProfileMediaCarousel`, ids calculados aqui).
+   * "Recomendações" e "Minhas listas" buscam os próprios dados
+   * sozinhas (`ProfileRecommendationsPreview`/`ProfileListsPreview`),
+   * por isso não têm hook correspondente aqui.
+   */
+  const seriesActivity = useSeriesActivityIds(user?.id ?? null);
+  const movieActivity = useMovieActivityIds(user?.id ?? null);
+  const favoriteSeries = useFavoriteIds(user?.id ?? null, "series");
+  const favoriteMovies = useFavoriteIds(user?.id ?? null, "movie");
 
   useEffect(() => {
     fetchEditableProfile().then((profile) => {
@@ -196,27 +204,44 @@ export default function ProfileScreen() {
           <StatisticsCard />
         </View>
 
-        <View style={[styles.section, styles.sectionList, styles.lastSection]}>
-          <ProfileSectionRow
-            icon="send"
-            label="Recomendações"
-            count={unreadRecommendations}
-            onPress={() => router.push("/profile/recommendations")}
+        <View style={styles.sectionsWrapper}>
+          <ProfileRecommendationsPreview />
+          <ProfileListsPreview />
+          <ProfileMediaCarousel
+            icon="tv"
+            label="Séries"
+            href="/profile/series"
+            mediaType="series"
+            ids={seriesActivity.ids}
+            isLoadingIds={seriesActivity.isLoading}
           />
-          <ProfileSectionRow icon="check-square" label="Minhas listas" count={sectionCounts?.lists} onPress={() => router.push("/lists")} />
-          <ProfileSectionRow icon="tv" label="Séries" count={sectionCounts?.series} onPress={() => router.push("/profile/series")} />
-          <ProfileSectionRow
+          <ProfileMediaCarousel
             icon="star"
             label="Séries favoritas"
-            count={sectionCounts?.favoriteSeries}
-            onPress={() => router.push("/profile/favorite-series")}
+            href="/profile/favorite-series"
+            mediaType="series"
+            ids={favoriteSeries.ids}
+            isLoadingIds={favoriteSeries.isLoading}
+            emptyLabel="Adicionar séries favoritas"
+            emptyHref="/profile/series"
           />
-          <ProfileSectionRow icon="film" label="Filmes" count={sectionCounts?.movies} onPress={() => router.push("/profile/movies")} />
-          <ProfileSectionRow
+          <ProfileMediaCarousel
+            icon="film"
+            label="Filmes"
+            href="/profile/movies"
+            mediaType="movie"
+            ids={movieActivity.ids}
+            isLoadingIds={movieActivity.isLoading}
+          />
+          <ProfileMediaCarousel
             icon="star"
             label="Filmes favoritos"
-            count={sectionCounts?.favoriteMovies}
-            onPress={() => router.push("/profile/favorite-movies")}
+            href="/profile/favorite-movies"
+            mediaType="movie"
+            ids={favoriteMovies.ids}
+            isLoadingIds={favoriteMovies.isLoading}
+            emptyLabel="Adicionar filmes favoritos"
+            emptyHref="/profile/movies"
           />
         </View>
       </ScrollView>
@@ -411,10 +436,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
-  lastSection: {
+  sectionsWrapper: {
+    marginTop: spacing.lg,
     marginBottom: spacing.xl,
-  },
-  sectionList: {
-    gap: spacing.sm,
   },
 });

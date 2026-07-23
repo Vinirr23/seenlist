@@ -63,7 +63,7 @@ const WATCHED_EPISODES_PAGE_SIZE = 1000; // limite padrão de linhas por consult
  * necessárias AO MESMO TEMPO (`Promise.all`) — o tempo de rede das
  * páginas se sobrepõe, em vez de somar.
  */
-async function fetchAllWatchedEpisodeRows(userId: string): Promise<WatchedEpisodeRow[]> {
+export async function fetchAllWatchedEpisodeRows(userId: string): Promise<WatchedEpisodeRow[]> {
   const { count, error: countError } = await supabase
     .from("watched_episodes")
     .select("series_id", { count: "exact", head: true })
