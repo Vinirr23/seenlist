@@ -53,7 +53,9 @@ export function ProfileRecommendationsPreview() {
         <View style={styles.emptyIcon}>
           <Feather name="send" size={16} color={colors.primary} />
         </View>
-        <Text style={styles.title}>Recomendações</Text>
+        <Text numberOfLines={1} style={styles.title}>
+          Recomendações
+        </Text>
         <Text variant="muted" style={styles.emptyLabel}>
           Nenhuma ainda
         </Text>
