@@ -30,6 +30,12 @@ const BADGE_CONFIG: Record<Exclude<UpcomingBadge, null>, { label: string; classN
  * `next_episode_to_air` (só a data), e mostrar um horário inventado
  * seria pior do que não mostrar nenhum. No lugar dele, a emissora
  * ocupa esse espaço (a única informação real disponível ali).
+ *
+ * Ajuste (porta do mobile, a pedido) — episódio a partir do 7º dia
+ * cai no grupo catch-all "DEPOIS" (`useUpcomingEpisodes`, evita
+ * "SEXTA" ambíguo — podia ser essa semana ou a que vem) e, nesses
+ * casos, o espaço que mostraria a emissora passa a mostrar a
+ * contagem exata de dias até a estreia.
  */
 export function EmBreveSection() {
   const { groups, isLoading, isError } = useUpcomingEpisodes();
@@ -99,10 +105,17 @@ export function EmBreveSection() {
                     {hasRealEpisodeName && <p className="truncate text-sm text-muted">{episode.name}</p>}
                   </div>
 
-                  {network && (
-                    <div className="shrink-0 self-center text-right">
-                      <p className="text-xs text-muted">{network}</p>
+                  {episode.daysUntil >= 7 ? (
+                    <div className="flex shrink-0 flex-col items-center self-center">
+                      <span className="text-xl font-extrabold leading-none text-text">{episode.daysUntil}</span>
+                      <span className="text-[10px] font-bold tracking-wide text-muted">DIAS</span>
                     </div>
+                  ) : (
+                    network && (
+                      <div className="shrink-0 self-center text-right">
+                        <p className="text-xs text-muted">{network}</p>
+                      </div>
+                    )
                   )}
                 </Link>
               );

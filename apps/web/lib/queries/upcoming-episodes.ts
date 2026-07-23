@@ -12,6 +12,8 @@ export type UpcomingBadge = "premiere" | "novo" | "mais-recente" | null;
 
 export interface UpcomingEpisodeWithBadge extends NextEpisodeToAir {
   badge: UpcomingBadge;
+  /** Porta de `upcomingEpisodes.ts` do mobile — dias a partir de hoje (0 = hoje, 1 = amanhã...). Usado pro selo "N DIAS" no grupo "DEPOIS", pra não confundir "esta quinta" com "quinta que vem". */
+  daysUntil: number;
 }
 
 export interface UpcomingGroup {
@@ -129,6 +131,8 @@ export function computeBadge(episode: BadgeableEpisode, watchedKeys: Set<string>
 
 
 const WEEKDAY_SHORT = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
+/** Porta de `upcomingEpisodes.ts` do mobile — a partir do 7º dia, "SEXTA" fica ambíguo (podia ser essa semana ou a que vem). Vira o grupo "DEPOIS", com contagem de dias exata por card em vez de nome de dia da semana. */
+const AMBIGUOUS_AFTER_DAYS = 6;
 
 function startOfDay(date: Date): Date {
   const copy = new Date(date);
@@ -136,20 +140,25 @@ function startOfDay(date: Date): Date {
   return copy;
 }
 
-/**
- * TASK-023, item 2: "HOJE" e "AMANHÃ" nos dois primeiros dias,
- * depois o nome curto do dia da semana ("SEXTA", não "SEXTA-FEIRA"
- * — bate com o exemplo da tarefa).
- */
-function formatDayLabel(dateKey: string): string {
-  // "T00:00:00" evita o fuso horário local empurrar a data pro dia anterior.
-  const target = startOfDay(new Date(`${dateKey}T00:00:00`));
-  const today = startOfDay(new Date());
-  const tomorrow = startOfDay(new Date(today.getTime() + 24 * 60 * 60 * 1000));
+function daysBetween(target: Date, today: Date): number {
+  return Math.round((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+}
 
-  if (target.getTime() === today.getTime()) return "HOJE";
-  if (target.getTime() === tomorrow.getTime()) return "AMANHÃ";
-  return WEEKDAY_SHORT[target.getDay()] ?? "";
+/**
+ * TASK-023, item 2 (ajuste — porta do mobile): "HOJE" e "AMANHÃ" nos
+ * dois primeiros dias, nome curto do dia da semana até o 6º dia
+ * ("SEXTA", não "SEXTA-FEIRA"), e a partir do 7º dia vira "DEPOIS"
+ * (grupo catch-all só, sem ambiguidade de "qual sexta é essa").
+ */
+function formatDayLabel(daysUntil: number, dateKey: string): string {
+  if (daysUntil === 0) return "HOJE";
+  if (daysUntil === 1) return "AMANHÃ";
+  if (daysUntil <= AMBIGUOUS_AFTER_DAYS) {
+    // "T00:00:00" evita o fuso horário local empurrar a data pro dia anterior.
+    const target = startOfDay(new Date(`${dateKey}T00:00:00`));
+    return WEEKDAY_SHORT[target.getDay()] ?? "";
+  }
+  return "DEPOIS";
 }
 
 /**
@@ -204,21 +213,36 @@ export function useUpcomingEpisodes() {
   const groups = useMemo<UpcomingGroup[]>(() => {
     const episodes = upcomingQuery.data ?? [];
     const watchedKeys = watchedQuery.data ?? new Set<string>();
-    const byDate = new Map<string, UpcomingEpisodeWithBadge[]>();
+    const today = startOfDay(new Date());
+    const byGroupKey = new Map<string, { label: string; episodes: UpcomingEpisodeWithBadge[] }>();
 
     for (const episode of episodes) {
-      const withBadge: UpcomingEpisodeWithBadge = { ...episode, badge: computeBadge(episode, watchedKeys) };
-      const list = byDate.get(episode.airDate);
-      if (list) {
-        list.push(withBadge);
+      const target = startOfDay(new Date(`${episode.airDate}T00:00:00`));
+      const daysUntil = daysBetween(target, today);
+      const label = formatDayLabel(daysUntil, episode.airDate);
+      // "DEPOIS" é um grupo só, catch-all; os outros continuam um grupo por dia.
+      const groupKey = label === "DEPOIS" ? "depois" : episode.airDate;
+
+      const withBadge: UpcomingEpisodeWithBadge = { ...episode, badge: computeBadge(episode, watchedKeys), daysUntil };
+      const group = byGroupKey.get(groupKey);
+      if (group) {
+        group.episodes.push(withBadge);
       } else {
-        byDate.set(episode.airDate, [withBadge]);
+        byGroupKey.set(groupKey, { label, episodes: [withBadge] });
       }
     }
 
-    return [...byDate.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([dateKey, eps]) => ({ dateKey, label: formatDayLabel(dateKey), episodes: eps }));
+    return [...byGroupKey.entries()]
+      .sort(([a], [b]) => {
+        if (a === "depois") return 1; // "DEPOIS" sempre por último
+        if (b === "depois") return -1;
+        return a.localeCompare(b);
+      })
+      .map(([dateKey, group]) => ({
+        dateKey,
+        label: group.label,
+        episodes: group.episodes.sort((a, b) => a.daysUntil - b.daysUntil),
+      }));
   }, [upcomingQuery.data, watchedQuery.data]);
 
   return {
