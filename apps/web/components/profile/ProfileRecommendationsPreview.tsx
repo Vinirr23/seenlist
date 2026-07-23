@@ -51,19 +51,37 @@ export function ProfileRecommendationsPreview() {
       href="/profile/recommendations"
       className="mb-2 flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3.5 transition-colors hover:border-primary/40"
     >
-      <div className="flex shrink-0 -space-x-3">
-        {uniqueSenders.map((sender) => (
-          <div key={sender.userId} className="h-8 w-8 overflow-hidden rounded-full border-2 border-surface bg-background">
-            {sender.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image (mesmo padrão de ProfileHeader.tsx)
-              <img src={sender.avatarUrl} alt={sender.displayName ?? sender.username} className="h-full w-full object-cover" />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-muted">
-                {(sender.displayName ?? sender.username).slice(0, 1).toUpperCase()}
-              </span>
-            )}
-          </div>
-        ))}
+      <div className="relative shrink-0">
+        <div className="flex -space-x-3">
+          {uniqueSenders.map((sender) => (
+            <div key={sender.userId} className="h-8 w-8 overflow-hidden rounded-full border-2 border-surface bg-background">
+              {sender.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image (mesmo padrão de ProfileHeader.tsx)
+                <img src={sender.avatarUrl} alt={sender.displayName ?? sender.username} className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-muted">
+                  {(sender.displayName ?? sender.username).slice(0, 1).toUpperCase()}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        {/*
+         * Achado real (feedback de usuário): a frase de recomendação
+         * truncava no meio ("e mais 1 pessoa te re...") e a linha "N
+         * não lida(s)" só piorava, roubando o espaço que faltava pro
+         * texto. Removida a linha de texto; o indicador de não-lida
+         * virou um selo numérico sobre os avatares (padrão comum de
+         * notificação), sem competir por espaço com a frase.
+         */}
+        {unreadCount > 0 && (
+          <span
+            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-surface bg-primary px-1 text-[9px] font-bold leading-none text-background"
+            aria-label={`${unreadCount} recomendação${unreadCount > 1 ? "ões" : ""} não lida${unreadCount > 1 ? "s" : ""}`}
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -74,26 +92,27 @@ export function ProfileRecommendationsPreview() {
          * tinha mais coisa ali. Agora diferencia 3 casos: só 1 no
          * total (texto de sempre); várias da MESMA pessoa ("e mais N
          * título(s)"); várias de pessoas DIFERENTES ("e mais N
-         * pessoa(s) te recomendaram títulos").
+         * pessoa(s) te recomendaram títulos"). `line-clamp-2` (em vez
+         * de `truncate`) pra frase completa sempre aparecer, quebrando
+         * em duas linhas quando não coube numa só.
          */}
         {extraCount === 0 ? (
-          <p className="truncate text-sm text-text">
+          <p className="line-clamp-2 text-sm text-text">
             <span className="font-semibold">{senderName}</span> recomendou{" "}
             <span className="font-semibold">&quot;{latest.title}&quot;</span> pra você
           </p>
         ) : uniqueSenderIds.size === 1 ? (
-          <p className="truncate text-sm text-text">
+          <p className="line-clamp-2 text-sm text-text">
             <span className="font-semibold">{senderName}</span> recomendou{" "}
             <span className="font-semibold">&quot;{latest.title}&quot;</span> e mais {extraCount}{" "}
             {extraCount === 1 ? "título" : "títulos"}
           </p>
         ) : (
-          <p className="truncate text-sm text-text">
+          <p className="line-clamp-2 text-sm text-text">
             <span className="font-semibold">{senderName}</span> e mais {uniqueSenderIds.size - 1}{" "}
             {uniqueSenderIds.size - 1 === 1 ? "pessoa" : "pessoas"} te recomendaram títulos
           </p>
         )}
-        {unreadCount > 0 && <p className="text-xs text-primary">{unreadCount} não lida{unreadCount > 1 ? "s" : ""}</p>}
       </div>
 
       {posterUrl && (
