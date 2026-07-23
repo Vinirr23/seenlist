@@ -26,6 +26,13 @@
           "imageWidth": 200,
           "backgroundColor": "#0B0E14"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/adaptive-icon-foreground.png",
+          "color": "#E8A33D"
+        }
       ]
     ],
     "ios": {
@@ -33,6 +40,7 @@
     },
     "android": {
       "package": "com.seenlist.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
         "backgroundColor": "#0B0E14"
