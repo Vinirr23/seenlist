@@ -8,7 +8,6 @@ import { colors } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 
 const UNREAD_POLL_INTERVAL_MS = 30_000;
-const TAB_BAR_MARGIN = 12;
 
 const ROUTE_META: Record<string, { icon: keyof typeof Feather.glyphMap; label: string; title: string }> = {
   series: { icon: "tv", label: "Séries", title: "Séries" },
@@ -42,6 +41,15 @@ const ROUTE_META: Record<string, { icon: keyof typeof Feather.glyphMap; label: s
  * `tabBarIcon`/`tabBarLabel` (o sistema padrão) e desenhar a barra
  * inteira à mão, via prop `tabBar` — controle total, sem nenhum
  * limite escondido de tamanho.
+ *
+ * Ajuste (a pedido) — a barra deixou de ser flutuante (cantos
+ * arredondados, margem de 16 dos dois lados, sombra) e virou FIXA:
+ * borda a borda, encostada no fundo de verdade (`left/right/bottom:
+ * 0`), fundo sólido (não mais semi-transparente) e uma borda
+ * superior fina em vez de sombra. `useTabBarClearance()` (o cálculo
+ * de espaço reservado que TODA tela com lista usa, pra não ficar
+ * escondendo o último item atrás da barra) foi atualizado junto —
+ * não tinha mais os 12px de margem que existiam antes.
  */
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -63,7 +71,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   }, []);
 
   return (
-    <View style={[styles.tabBar, { bottom: TAB_BAR_MARGIN + insets.bottom }]}>
+    <View style={[styles.tabBar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}>
       {state.routes.map((route, index) => {
         const meta = ROUTE_META[route.name];
         if (!meta) return null;
@@ -117,19 +125,15 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     position: "absolute",
-    left: 16,
-    right: 16,
-    height: 56,
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    borderRadius: 28,
-    backgroundColor: "rgba(19,24,38,0.88)",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 12,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   tabItem: {
     flex: 1,

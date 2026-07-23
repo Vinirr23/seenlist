@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1079703782659",
+    "project_id": "seenlist",
+    "storage_bucket": "seenlist.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1079703782659:android:1ab827bef2b3627d779536",
+        "android_client_info": {
+          "package_name": "com.seenlist.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCstznuoXvktdvZgUcN0DyaiCUXauTI2Mk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
