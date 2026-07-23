@@ -47,9 +47,16 @@ export function ProfileRecommendationsPreview() {
   const senderName = latest.sender.displayName ?? latest.sender.username;
 
   return (
+    // A pedido: com recomendação não lida, o card ganha contorno/fundo
+    // de destaque (não só o selo nos avatares) pra chamar mais atenção
+    // sem precisar entrar na tela pra notar.
     <Link
       href="/profile/recommendations"
-      className="mb-2 flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3.5 transition-colors hover:border-primary/40"
+      className={`mb-2 flex items-center gap-3 rounded-lg border px-4 py-3.5 transition-colors ${
+        unreadCount > 0
+          ? "border-primary/60 bg-primary/5 ring-1 ring-primary/20 hover:border-primary"
+          : "border-border bg-surface hover:border-primary/40"
+      }`}
     >
       <div className="relative shrink-0">
         <div className="flex -space-x-3">
