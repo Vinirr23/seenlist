@@ -40,7 +40,34 @@ export function MinhaListaSection() {
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
 
-  const continueWatching = useMemo(
+  /**
+   * Correção (bug real, reportado): "Em dia" (`up_to_date`) é um status
+   * PRÓPRIO, separado de "watching" — mesma causa raiz já documentada
+   * em `useUpcomingEpisodes`/"Em breve". Filtrando só "watching" aqui,
+   * uma série que já estava em dia sumia de "Continue assistindo" pra
+   * sempre, mesmo quando saía episódio novo — nunca tinha chance de
+   * mostrar o card (e o selo NOVO) de novo, porque nada no web
+   * recalcula essa categoria sozinho (diferente do app nativo, que
+   * refaz esse recálculo toda vez que a aba ganha foco — decisão
+   * documentada como só-nativo na época, não portada pro web).
+   *
+   * Ampliado só pro modo LISTA: é o único lugar que mostra o selo
+   * NOVO (`ContinueWatchingCard`, que já sabe voltar `null` sozinho
+   * quando a série em dia não tem episódio pendente nenhum — nada
+   * aparece à toa). O modo GRADE (`PosterGrid`) não filtra nem mostra
+   * selo nenhum — incluir "Em dia" ali poluiria "Continue assistindo"
+   * com séries sem nada pendente, então esse continua só "watching".
+   */
+  const continueWatchingList = useMemo(
+    () =>
+      series
+        .filter((item) => item.status === "watching" || item.status === "up_to_date")
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .slice(0, CONTINUE_ASSISTINDO_LIMIT),
+    [series]
+  );
+
+  const continueWatchingGrid = useMemo(
     () =>
       series
         .filter((item) => item.status === "watching")
@@ -48,6 +75,8 @@ export function MinhaListaSection() {
         .slice(0, CONTINUE_ASSISTINDO_LIMIT),
     [series]
   );
+
+  const continueWatching = viewMode === "grid" ? continueWatchingGrid : continueWatchingList;
 
   if (isError) {
     return <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />;
