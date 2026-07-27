@@ -26,6 +26,8 @@ import { useToast } from "@/lib/toast/ToastProvider";
 import { cn } from "@seenlist/utils";
 import { WhereToWatchSection } from "./WhereToWatchSection";
 import { EpisodeWatchedButton } from "../series/EpisodeWatchedButton";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 export interface EpisodeDetailViewProps {
   seriesId: string;
@@ -91,6 +93,7 @@ const SWIPE_THRESHOLD_PX = 60;
  */
 export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailViewProps) {
   const router = useRouter();
+  const { t, locale } = useTranslation();
   const seriesIdNum = Number(seriesId);
   const { data: seriesDetails } = useSeriesDetails(seriesId);
   const { data: currentStatus } = useSeriesStatus(seriesIdNum);
@@ -182,10 +185,10 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
     }
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copiado");
+      toast.success(t("social.linkCopied"));
     } catch (error) {
       console.error("[episode] Falha ao copiar link do episódio", error);
-      toast.error("Não foi possível copiar o link.");
+      toast.error(t("social.linkCopyError"));
     }
   }
 
@@ -233,9 +236,9 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   if (isError || !episodePage) {
     return (
       <div className="mx-auto max-w-[430px] px-4 py-16 text-center">
-        <p className="text-sm text-muted">Não foi possível carregar este episódio agora.</p>
+        <p className="text-sm text-muted">{t("episode.errorLoad")}</p>
         <Link href={`/series/${seriesId}`} className="mt-4 inline-block text-sm text-primary underline">
-          Voltar para a série
+          {t("episode.backToSeries")}
         </Link>
       </div>
     );
@@ -251,7 +254,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
         <button
           type="button"
           onClick={() => router.push(`/series/${seriesId}`)}
-          aria-label="Voltar para a série"
+          aria-label={t("episode.backToSeries")}
           className="flex h-8 w-8 shrink-0 items-center justify-center text-text"
         >
           <ChevronDown className="h-6 w-6" strokeWidth={2} />
@@ -278,7 +281,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
         {stillUrl ? (
           <Image src={stillUrl} alt={ep.name} fill sizes="430px" className="object-cover" priority />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted">Sem imagem</div>
+          <div className="flex h-full items-center justify-center text-sm text-muted">{t("episode.noImage")}</div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
 
@@ -295,7 +298,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
           <button
             type="button"
             onClick={handleShare}
-            aria-label="Compartilhar episódio"
+            aria-label={t("episode.shareEpisode")}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
           >
             <Share2 className="h-4 w-4" strokeWidth={2} />
@@ -313,7 +316,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
           {ep.airDate && (
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" strokeWidth={2} />
-              {new Date(ep.airDate).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}
+              {new Date(ep.airDate).toLocaleDateString(INTL_LOCALES[locale], { day: "numeric", month: "long", year: "numeric" })}
             </span>
           )}
           <span className="flex items-center gap-1">
@@ -322,7 +325,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
             ) : (
               <EyeOff className="h-3.5 w-3.5" strokeWidth={2} />
             )}
-            {isWatched ? "Assistido" : "Não assistido"}
+            {isWatched ? t("episode.watched") : t("episode.notWatched")}
           </span>
         </div>
         <EpisodeWatchedButton
@@ -343,7 +346,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
         {isWatched && (
           <>
             <section>
-              <h2 className="mb-2 text-sm font-medium text-text">Onde você assistiu?</h2>
+              <h2 className="mb-2 text-sm font-medium text-text">{t("episode.whereDidYouWatch")}</h2>
               <EpisodeWatchedPlatformPicker
                 providers={watchProviders}
                 value={myRating?.watchedPlatform ?? null}
@@ -352,7 +355,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
             </section>
 
             <section className="rounded-lg border border-border bg-surface p-3">
-              <h2 className="mb-1 text-center text-sm font-medium text-text">Avaliar este episódio</h2>
+              <h2 className="mb-1 text-center text-sm font-medium text-text">{t("episode.rateThisEpisode")}</h2>
               <EpisodeStarRatingRow
                 value={myRating?.rating ?? 0}
                 onChange={(rating) => upsertRating.mutate({ rating })}
@@ -360,7 +363,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
             </section>
 
             <section>
-              <h2 className="mb-2 text-sm font-medium text-text">Como você se sentiu?</h2>
+              <h2 className="mb-2 text-sm font-medium text-text">{t("episode.howDidYouFeel")}</h2>
               <EpisodeMoodPicker
                 value={myRating?.mood ?? []}
                 onChange={(mood) => upsertRating.mutate({ mood })}
@@ -369,7 +372,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
 
             {favoriteCharacterOptions.length > 0 && (
               <section>
-                <h2 className="mb-2 text-sm font-medium text-text">Quem foi seu personagem favorito?</h2>
+                <h2 className="mb-2 text-sm font-medium text-text">{t("episode.favoriteCharacterQuestion")}</h2>
                 <EpisodeFavoriteCharacterPicker
                   characters={favoriteCharacterOptions}
                   selectedId={myRating?.favoriteCharacterId ?? null}
@@ -386,20 +389,20 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
         )}
 
         <section className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="mb-3 text-sm font-semibold text-text">Informações do episódio</h2>
+          <h2 className="mb-3 text-sm font-semibold text-text">{t("episode.episodeInfo")}</h2>
           {ratingAggregate && ratingAggregate.count > 0 ? (
             <div className="mb-3">
               <div className="flex items-center gap-2">
                 <HalfStarRating value={ratingAggregate.average ?? 0} size="sm" />
                 <span className="text-lg font-bold text-text">{(ratingAggregate.average ?? 0).toFixed(1)}/5</span>
               </div>
-              <p className="mt-0.5 text-xs text-muted">Avaliação da comunidade SeenList</p>
+              <p className="mt-0.5 text-xs text-muted">{t("episode.communityRating")}</p>
               <p className="text-xs text-muted">
-                {ratingAggregate.count} avaliaç{ratingAggregate.count === 1 ? "ão" : "ões"}
+                {ratingAggregate.count} {ratingAggregate.count === 1 ? t("episode.rating.singular") : t("episode.rating.plural")}
               </p>
             </div>
           ) : (
-            <p className="mb-3 text-xs text-muted">Ainda sem avaliações da comunidade SeenList.</p>
+            <p className="mb-3 text-xs text-muted">{t("episode.noRatingsYet")}</p>
           )}
           {ep.overview && <p className="text-sm leading-relaxed text-muted">{ep.overview}</p>}
         </section>
@@ -412,7 +415,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
       >
         <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
-        {commentCount} COMENTÁRIO{commentCount === 1 ? "" : "S"}
+        {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}
         <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
       </Link>
     </div>
