@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { View, Image, Pressable, ScrollView, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyListsWithPreview, type ListWithPreview } from "@/lib/lists";
 import { tmdbImageUrl } from "@/lib/library";
@@ -16,29 +16,39 @@ const CARD_SIZE = 112;
  * mais recente (a consulta já vem ordenada assim), fica na frente
  * sem rotação; os de trás alternam o lado, tipo um baralho de
  * verdade.
+ *
+ * Correção (bug real, reportado) — buscava só na montagem
+ * (`useEffect` com deps vazias); como a aba Perfil fica montada em
+ * segundo plano (o React Navigation não desmonta abas ao trocar),
+ * criar/editar uma lista em outra tela e voltar pro Perfil nunca
+ * disparava uma busca nova. Trocado por `useFocusEffect` (mesmo
+ * padrão já usado em `ProfileRecommendationsPreview`), que busca de
+ * novo toda vez que a aba ganha foco.
  */
 export function ProfileListsPreview() {
   const router = useRouter();
   const [lists, setLists] = useState<ListWithPreview[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchMyListsWithPreview()
-      .then((data) => {
-        if (!cancelled) setLists(data);
-      })
-      .catch((error) => {
-        console.error("[ProfileListsPreview] Falha ao buscar listas", error);
-        if (!cancelled) setLists([]);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      fetchMyListsWithPreview()
+        .then((data) => {
+          if (!cancelled) setLists(data);
+        })
+        .catch((error) => {
+          console.error("[ProfileListsPreview] Falha ao buscar listas", error);
+          if (!cancelled) setLists([]);
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   return (
     <View style={styles.section}>

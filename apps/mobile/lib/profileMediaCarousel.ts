@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { fetchAllWatchedEpisodeRows } from "@/lib/library";
 
@@ -14,67 +15,76 @@ import { fetchAllWatchedEpisodeRows } from "@/lib/library";
  * de centenas de itens de uma vez só.
  *
  * Sem react-query no mobile (mesmo padrão de `useMyLists.ts`) — só
- * `useState`/`useEffect` local por hook.
+ * `useState` local por hook.
+ *
+ * Correção (bug real, reportado em "Minhas listas", mesma causa
+ * aqui) — buscava só na montagem (`useEffect`); como a aba Perfil
+ * fica montada em segundo plano (o React Navigation não desmonta
+ * abas ao trocar), assistir um episódio/favoritar algo em outra tela
+ * e voltar pro Perfil nunca disparava uma busca nova. Trocado por
+ * `useFocusEffect`, que busca de novo toda vez que a aba ganha foco.
  */
 export function useSeriesActivityIds(userId: string | null) {
   const [ids, setIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!userId) {
-      setIds([]);
-      setIsLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setIsLoading(true);
-
-    (async () => {
-      try {
-        const [statusResult, episodeRows] = await Promise.all([
-          supabase.from("series_status").select("series_id, status, updated_at").eq("user_id", userId),
-          fetchAllWatchedEpisodeRows(userId),
-        ]);
-        if (statusResult.error) {
-          console.error("[profileMediaCarousel] Falha ao buscar series_status", statusResult.error);
-        }
-
-        const lastActivityBySeriesId = new Map<number, number>();
-        const removedIds = new Set<number>();
-
-        for (const row of statusResult.data ?? []) {
-          if (row.status === "removed") {
-            removedIds.add(row.series_id);
-            continue;
-          }
-          lastActivityBySeriesId.set(row.series_id, new Date(row.updated_at).getTime());
-        }
-        for (const row of episodeRows) {
-          const watchedAtMs = new Date(row.watched_at).getTime();
-          const current = lastActivityBySeriesId.get(row.series_id);
-          if (!current || watchedAtMs > current) {
-            lastActivityBySeriesId.set(row.series_id, watchedAtMs);
-          }
-        }
-        for (const id of removedIds) {
-          lastActivityBySeriesId.delete(id);
-        }
-
-        if (!cancelled) {
-          setIds([...lastActivityBySeriesId.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id));
-        }
-      } catch (error) {
-        console.error("[profileMediaCarousel] Falha ao calcular atividade de séries", error);
-        if (!cancelled) setIds([]);
-      } finally {
-        if (!cancelled) setIsLoading(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) {
+        setIds([]);
+        setIsLoading(false);
+        return;
       }
-    })();
+      let cancelled = false;
+      setIsLoading(true);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
+      (async () => {
+        try {
+          const [statusResult, episodeRows] = await Promise.all([
+            supabase.from("series_status").select("series_id, status, updated_at").eq("user_id", userId),
+            fetchAllWatchedEpisodeRows(userId),
+          ]);
+          if (statusResult.error) {
+            console.error("[profileMediaCarousel] Falha ao buscar series_status", statusResult.error);
+          }
+
+          const lastActivityBySeriesId = new Map<number, number>();
+          const removedIds = new Set<number>();
+
+          for (const row of statusResult.data ?? []) {
+            if (row.status === "removed") {
+              removedIds.add(row.series_id);
+              continue;
+            }
+            lastActivityBySeriesId.set(row.series_id, new Date(row.updated_at).getTime());
+          }
+          for (const row of episodeRows) {
+            const watchedAtMs = new Date(row.watched_at).getTime();
+            const current = lastActivityBySeriesId.get(row.series_id);
+            if (!current || watchedAtMs > current) {
+              lastActivityBySeriesId.set(row.series_id, watchedAtMs);
+            }
+          }
+          for (const id of removedIds) {
+            lastActivityBySeriesId.delete(id);
+          }
+
+          if (!cancelled) {
+            setIds([...lastActivityBySeriesId.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id));
+          }
+        } catch (error) {
+          console.error("[profileMediaCarousel] Falha ao calcular atividade de séries", error);
+          if (!cancelled) setIds([]);
+        } finally {
+          if (!cancelled) setIsLoading(false);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [userId])
+  );
 
   return { ids, isLoading };
 }
@@ -84,35 +94,37 @@ export function useMovieActivityIds(userId: string | null) {
   const [ids, setIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!userId) {
-      setIds([]);
-      setIsLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setIsLoading(true);
-
-    supabase
-      .from("movie_status")
-      .select("movie_id, updated_at")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error("[profileMediaCarousel] Falha ao buscar movie_status", error);
-          setIds([]);
-        } else {
-          setIds((data ?? []).map((row) => row.movie_id as number));
-        }
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) {
+        setIds([]);
         setIsLoading(false);
-      });
+        return;
+      }
+      let cancelled = false;
+      setIsLoading(true);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
+      supabase
+        .from("movie_status")
+        .select("movie_id, updated_at")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) {
+            console.error("[profileMediaCarousel] Falha ao buscar movie_status", error);
+            setIds([]);
+          } else {
+            setIds((data ?? []).map((row) => row.movie_id as number));
+          }
+          setIsLoading(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [userId])
+  );
 
   return { ids, isLoading };
 }
@@ -122,36 +134,38 @@ export function useFavoriteIds(userId: string | null, mediaType: "movie" | "seri
   const [ids, setIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!userId) {
-      setIds([]);
-      setIsLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setIsLoading(true);
-
-    supabase
-      .from("favorites")
-      .select("media_id, created_at")
-      .eq("user_id", userId)
-      .eq("media_type", mediaType)
-      .order("created_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error("[profileMediaCarousel] Falha ao buscar favoritos", error);
-          setIds([]);
-        } else {
-          setIds((data ?? []).map((row) => row.media_id as number));
-        }
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) {
+        setIds([]);
         setIsLoading(false);
-      });
+        return;
+      }
+      let cancelled = false;
+      setIsLoading(true);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, mediaType]);
+      supabase
+        .from("favorites")
+        .select("media_id, created_at")
+        .eq("user_id", userId)
+        .eq("media_type", mediaType)
+        .order("created_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) {
+            console.error("[profileMediaCarousel] Falha ao buscar favoritos", error);
+            setIds([]);
+          } else {
+            setIds((data ?? []).map((row) => row.media_id as number));
+          }
+          setIsLoading(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [userId, mediaType])
+  );
 
   return { ids, isLoading };
 }
