@@ -6,6 +6,7 @@ import { useCreatePost } from "@/lib/queries/posts";
 import { usePostImageUpload } from "@/lib/queries/post-image-upload";
 import { hapticTick } from "@/lib/haptics";
 import { useHideBottomNav } from "@/lib/layout/bottomNavVisibility";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const MAX_LENGTH = 500;
 
@@ -27,6 +28,7 @@ export function CreatePostButton() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const createPost = useCreatePost();
   const { upload, pending: uploadPending, error: uploadError, clearError } = usePostImageUpload();
+  const { t } = useTranslation();
 
   useHideBottomNav(open);
 
@@ -96,7 +98,7 @@ export function CreatePostButton() {
           hapticTick();
           setOpen(true);
         }}
-        aria-label="Criar post"
+        aria-label={t("feed.createPost")}
         className="fixed right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-background shadow-lg active:scale-95"
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
       >
@@ -107,14 +109,14 @@ export function CreatePostButton() {
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 md:items-center">
           <div className="flex h-[100dvh] w-full max-w-[430px] flex-col bg-surface md:h-auto md:max-h-[85dvh] md:rounded-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3">
-              <h2 className="text-base font-bold text-text">Novo post</h2>
+              <h2 className="text-base font-bold text-text">{t("feed.newPost")}</h2>
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false);
                   resetForm();
                 }}
-                aria-label="Fechar"
+                aria-label={t("social.close")}
                 className="text-muted"
               >
                 <X className="h-5 w-5" strokeWidth={2} />
@@ -125,7 +127,7 @@ export function CreatePostButton() {
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value.slice(0, MAX_LENGTH))}
-                placeholder="O que você está assistindo?"
+                placeholder={t("feed.postPlaceholder")}
                 rows={4}
                 autoFocus
                 className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
@@ -145,7 +147,7 @@ export function CreatePostButton() {
                   <button
                     type="button"
                     onClick={handleRemoveImage}
-                    aria-label="Remover imagem"
+                    aria-label={t("social.removeImage")}
                     className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-text"
                   >
                     <X className="h-3.5 w-3.5" strokeWidth={2} />
@@ -161,7 +163,7 @@ export function CreatePostButton() {
                 className="mt-2 flex items-center gap-1.5 text-xs text-muted hover:text-text"
               >
                 <ImageIcon className="h-4 w-4" strokeWidth={2} />
-                {imagePreviewUrl ? "Trocar imagem" : "Anexar imagem ou GIF"}
+                {imagePreviewUrl ? t("feed.changeImage") : t("social.attachImage")}
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
             </div>
@@ -173,7 +175,7 @@ export function CreatePostButton() {
                 disabled={(!body.trim() && !imageFile) || busy}
                 className="w-full rounded-lg bg-primary py-3 text-sm font-bold text-background disabled:opacity-40"
               >
-                {uploadPending ? "Enviando imagem..." : createPost.isPending ? "Publicando..." : "Publicar"}
+                {uploadPending ? t("feed.uploadingImage") : createPost.isPending ? t("feed.publishing") : t("social.publish")}
               </button>
             </div>
           </div>

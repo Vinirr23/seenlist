@@ -18,8 +18,8 @@ import { PollBlock } from "./PollBlock";
 import { hapticTick } from "@/lib/haptics";
 import { cn } from "@seenlist/utils";
 import { tmdbImage } from "@/lib/tmdb/image";
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 function initials(name: string): string {
   return name
@@ -86,6 +86,13 @@ export function PostCard({
   const deletePost = useDeletePost(post.id);
   const toast = useToast();
   const isOwner = currentUser?.id === post.userId;
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   function goToDetail() {
     if (detail) return;
@@ -112,7 +119,7 @@ export function PostCard({
     if (!trimmed) return;
     editPost.mutate(trimmed, {
       onSuccess: () => {
-        toast.success("Post editado");
+        toast.success(t("feed.postEdited"));
         setEditing(false);
       },
     });
@@ -121,13 +128,13 @@ export function PostCard({
   function handleDelete(event: React.MouseEvent) {
     event.stopPropagation();
     hapticTick();
-    if (!window.confirm("Apagar este post? Não dá pra desfazer.")) {
+    if (!window.confirm(t("feed.confirmDeletePost"))) {
       setMenuOpen(false);
       return;
     }
     deletePost.mutate(undefined, {
       onSuccess: () => {
-        toast.success("Post apagado");
+        toast.success(t("feed.postDeleted"));
         if (detail) router.push("/feed");
       },
     });
@@ -157,10 +164,10 @@ export function PostCard({
     const url = `${window.location.origin}/explore/posts/${post.id}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copiado");
+      toast.success(t("social.linkCopied"));
     } catch (error) {
       console.error("[posts] Falha ao copiar link", error);
-      toast.error("Não foi possível copiar o link.");
+      toast.error(t("social.linkCopyError"));
     }
     setMenuOpen(false);
   }
@@ -197,7 +204,7 @@ export function PostCard({
             e.stopPropagation();
             setMenuOpen((v) => !v);
           }}
-          aria-label="Mais opções"
+          aria-label={t("feed.moreOptions")}
           className="p-1 text-muted"
         >
           <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
@@ -209,7 +216,7 @@ export function PostCard({
           >
             <button type="button" onClick={handleShare} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-text">
               <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
-              Compartilhar
+              {t("social.share")}
             </button>
             <button
               type="button"
@@ -217,7 +224,7 @@ export function PostCard({
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-text"
             >
               <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
-              Copiar link
+              {t("social.copyLink")}
             </button>
             {isOwner ? (
               <>
@@ -227,7 +234,7 @@ export function PostCard({
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-text"
                 >
                   <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
-                  Editar
+                  {t("common.edit")}
                 </button>
                 <button
                   type="button"
@@ -235,7 +242,7 @@ export function PostCard({
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-danger"
                 >
                   <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                  Apagar
+                  {t("feed.deletePost")}
                 </button>
               </>
             ) : (
@@ -248,7 +255,7 @@ export function PostCard({
                 disabled={reported}
                 className="block w-full px-3 py-1.5 text-left text-xs text-danger disabled:opacity-50"
               >
-                {reported ? "Denunciado" : "Denunciar"}
+                {reported ? t("feed.reported") : t("feed.report")}
               </button>
             )}
           </div>
@@ -299,7 +306,7 @@ export function PostCard({
               }}
               className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted"
             >
-              Cancelar
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -307,7 +314,7 @@ export function PostCard({
               disabled={!editBody.trim() || editPost.isPending}
               className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-background disabled:opacity-50"
             >
-              Salvar
+              {t("common.save")}
             </button>
           </div>
         </div>
@@ -351,7 +358,7 @@ export function PostCard({
             e.stopPropagation();
             toggleSave.mutate(Boolean(isSaved));
           }}
-          aria-label={isSaved ? "Remover dos salvos" : "Salvar"}
+          aria-label={isSaved ? t("feed.unsave") : t("feed.save")}
           className={cn("ml-auto flex items-center gap-1.5 text-xs", isSaved ? "text-primary" : "text-muted")}
         >
           <Bookmark className="h-4 w-4" strokeWidth={2} fill={isSaved ? "currentColor" : "none"} />
