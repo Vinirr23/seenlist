@@ -45,13 +45,23 @@
         "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
         "backgroundColor": "#0B0E14"
       },
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "extra": {
       "router": {},
       "eas": {
         "projectId": "7131db47-ae2c-4b9a-947a-fe57c238676e"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7131db47-ae2c-4b9a-947a-fe57c238676e"
     }
   }
 }

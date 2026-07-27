@@ -85,6 +85,16 @@ function buildMessage(
         n.group_count > 1 ? `${n.group_count} pessoas curtiram sua review.` : `${actorName ?? "Alguém"} curtiu sua review.`;
       return { title: "⭐ Curtida", body, deepLink: link };
     }
+    case "recommendation": {
+      const mediaType = n.target_media_type; // "movie" | "series"
+      const mediaId = n.target_media_id;
+      const customMessage = typeof n.payload?.message === "string" ? n.payload.message : null;
+      const body = customMessage
+        ? `${actorName ?? "Alguém"}: "${customMessage}"`
+        : `${actorName ?? "Alguém"} recomendou um título pra você.`;
+      const deepLink = mediaId && mediaType ? `/${mediaType === "movie" ? "movies" : "series"}/${mediaId}` : "/profile/recommendations";
+      return { title: "🎁 Nova recomendação", body, deepLink };
+    }
     default:
       return null;
   }
@@ -176,6 +186,7 @@ Deno.serve(async () => {
 
   let sentCount = 0;
   const invalidTokens: string[] = [];
+  const ticketErrors: unknown[] = [];
 
   for (let i = 0; i < expoMessages.length; i += BATCH_SIZE) {
     const batch = expoMessages.slice(i, i + BATCH_SIZE);
@@ -196,6 +207,7 @@ Deno.serve(async () => {
           invalidTokens.push(originalMessage.to);
         } else {
           console.error("[send-push-notifications] Ticket com erro", ticket);
+          ticketErrors.push(ticket);
         }
       });
     } catch (error) {
@@ -219,7 +231,12 @@ Deno.serve(async () => {
   }
 
   return new Response(
-    JSON.stringify({ processed: processedNotificationIds.length, sent: sentCount, invalidTokensRemoved: invalidTokens.length }),
+    JSON.stringify({
+      processed: processedNotificationIds.length,
+      sent: sentCount,
+      invalidTokensRemoved: invalidTokens.length,
+      ticketErrors, // TEMPORÁRIO — debug do bug de push não chegando; remover depois de achar a causa.
+    }),
     { headers: { "Content-Type": "application/json" } }
   );
 });
