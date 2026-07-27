@@ -2,6 +2,8 @@
 
 import { cn } from "@seenlist/utils";
 import { FEED_CATEGORIES, type FeedCategoryKey } from "@/lib/queries/feed-categories";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { translateFeedCategoryLabel } from "@/lib/i18n/feedCategoryLabels";
 
 export interface CategoryPickerProps {
   selected: FeedCategoryKey[];
@@ -9,6 +11,7 @@ export interface CategoryPickerProps {
 }
 
 export function CategoryPicker({ selected, onToggle }: CategoryPickerProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-wrap gap-2">
       {FEED_CATEGORIES.map((category) => {
@@ -24,7 +27,7 @@ export function CategoryPicker({ selected, onToggle }: CategoryPickerProps) {
               isSelected ? "border-primary bg-primary text-background" : "border-border bg-surface text-text"
             )}
           >
-            {category.label}
+            {translateFeedCategoryLabel(category.key, t)}
           </button>
         );
       })}

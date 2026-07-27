@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useSetFeedCategories, type FeedCategoryKey } from "@/lib/queries/feed-categories";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { CategoryPicker } from "./CategoryPicker";
 import { hapticTick } from "@/lib/haptics";
 
@@ -15,6 +16,7 @@ import { hapticTick } from "@/lib/haptics";
 export function FeedOnboarding() {
   const [selected, setSelected] = useState<FeedCategoryKey[]>([]);
   const setCategories = useSetFeedCategories();
+  const { t } = useTranslation();
 
   function toggle(key: FeedCategoryKey) {
     hapticTick();
@@ -23,8 +25,8 @@ export function FeedOnboarding() {
 
   return (
     <div className="px-4 pt-6 pb-24">
-      <h1 className="text-xl font-bold text-text">Quais assuntos você quer acompanhar?</h1>
-      <p className="mt-1 text-sm text-muted">Escolha um ou mais — dá pra mudar depois nas configurações.</p>
+      <h1 className="text-xl font-bold text-text">{t("feed.onboardingTitle")}</h1>
+      <p className="mt-1 text-sm text-muted">{t("feed.onboardingSubtitle")}</p>
 
       <div className="mt-5">
         <CategoryPicker selected={selected} onToggle={toggle} />
@@ -36,7 +38,7 @@ export function FeedOnboarding() {
         disabled={selected.length === 0 || setCategories.isPending}
         className="mt-6 w-full rounded-lg bg-primary py-3 text-sm font-bold text-background disabled:opacity-40"
       >
-        {setCategories.isPending ? "Salvando..." : "Continuar"}
+        {setCategories.isPending ? t("common.saving") : t("common.continue")}
       </button>
     </div>
   );
