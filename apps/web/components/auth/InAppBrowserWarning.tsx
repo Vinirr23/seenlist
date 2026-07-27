@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Copy } from "lucide-react";
 import { useToast } from "@/lib/toast/ToastProvider";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-079 — o Google bloqueia login do Google (erro
@@ -31,6 +32,7 @@ const IN_APP_BROWSER_PATTERNS = [
 export function InAppBrowserWarning() {
   const [appName, setAppName] = useState<string | null>(null);
   const toast = useToast();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const ua = navigator.userAgent;
@@ -43,9 +45,9 @@ export function InAppBrowserWarning() {
   async function handleCopyLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast.success("Link copiado — cola no seu navegador");
+      toast.success(t("auth.linkCopiedPasteBrowser"));
     } catch {
-      toast.error("Não foi possível copiar. Copia o link da barra de endereço manualmente.");
+      toast.error(t("auth.linkCopyManualFallback"));
     }
   }
 
@@ -53,17 +55,14 @@ export function InAppBrowserWarning() {
     <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-warning/40 bg-warning/10 p-3">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" strokeWidth={2} />
       <div className="min-w-0 flex-1">
-        <p className="text-xs leading-relaxed text-text">
-          Você está no navegador interno do {appName}. O login com Google não funciona aqui — abre esta página no
-          navegador do seu aparelho (Chrome, Safari...) pra conseguir entrar.
-        </p>
+        <p className="text-xs leading-relaxed text-text">{t("auth.inAppBrowserWarning", { app: appName })}</p>
         <button
           type="button"
           onClick={handleCopyLink}
           className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-primary"
         >
           <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-          Copiar link da página
+          {t("auth.copyPageLink")}
         </button>
       </div>
     </div>

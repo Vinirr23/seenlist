@@ -8,25 +8,27 @@ import { SubmitButton } from "@/components/auth/SubmitButton";
 import { GoogleButton } from "@/components/auth/GoogleButton";
 import { FormFeedback } from "@/components/auth/FormFeedback";
 import { InAppBrowserWarning } from "@/components/auth/InAppBrowserWarning";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const initialState: AuthActionState = { error: null };
 
 export default function RegisterPage() {
   const [state, formAction] = useActionState(signUpWithEmail, initialState);
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-6">
       <InAppBrowserWarning />
       <div>
-        <h1 className="text-lg font-semibold text-text">Criar conta</h1>
-        <p className="mt-1 text-sm text-muted">Leva menos de um minuto.</p>
+        <h1 className="text-lg font-semibold text-text">{t("auth.createAccount")}</h1>
+        <p className="mt-1 text-sm text-muted">{t("auth.takesLessThanMinute")}</p>
       </div>
 
       <GoogleButton />
 
       <div className="flex items-center gap-3 text-xs text-muted">
         <span className="h-px flex-1 bg-border" />
-        ou
+        {t("auth.or")}
         <span className="h-px flex-1 bg-border" />
       </div>
 
@@ -35,7 +37,7 @@ export default function RegisterPage() {
           id="email"
           name="email"
           type="email"
-          label="E-mail"
+          label={t("auth.email")}
           placeholder="voce@exemplo.com"
           required
           autoComplete="email"
@@ -44,8 +46,8 @@ export default function RegisterPage() {
           id="password"
           name="password"
           type="password"
-          label="Senha"
-          placeholder="Mínimo 8 caracteres"
+          label={t("auth.password")}
+          placeholder={t("auth.minEightChars")}
           required
           autoComplete="new-password"
         />
@@ -53,19 +55,19 @@ export default function RegisterPage() {
           id="confirmPassword"
           name="confirmPassword"
           type="password"
-          label="Confirmar senha"
-          placeholder="Repita a senha"
+          label={t("auth.confirmPassword")}
+          placeholder={t("auth.repeatPassword")}
           required
           autoComplete="new-password"
         />
         <FormFeedback error={state.error} message={state.message} />
-        <SubmitButton>Criar conta</SubmitButton>
+        <SubmitButton>{t("auth.createAccount")}</SubmitButton>
       </form>
 
       <p className="text-center text-sm text-muted">
-        Já tem conta?{" "}
+        {t("auth.alreadyHaveAccount")}{" "}
         <Link href="/login" className="font-medium text-primary hover:opacity-80">
-          Entrar
+          {t("auth.signIn")}
         </Link>
       </p>
     </div>

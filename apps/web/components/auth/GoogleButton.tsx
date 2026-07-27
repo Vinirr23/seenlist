@@ -3,6 +3,7 @@
 import { useFormStatus } from "react-dom";
 import { signInWithGoogle } from "@/lib/actions/auth";
 import { Button } from "@seenlist/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function GoogleButton({ redirectTo }: { redirectTo?: string }) {
   return (
@@ -16,6 +17,7 @@ export function GoogleButton({ redirectTo }: { redirectTo?: string }) {
 /** Precisa ser um componente à parte — `useFormStatus` só funciona dentro do `<form>`, não no componente que o renderiza. */
 function GoogleSubmitButton() {
   const { pending } = useFormStatus();
+  const { t } = useTranslation();
 
   return (
     <Button
@@ -24,11 +26,11 @@ function GoogleSubmitButton() {
       className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? (
-        "Redirecionando…"
+        t("auth.redirecting")
       ) : (
         <>
           <GoogleIcon />
-          Continuar com Google
+          {t("auth.continueWithGoogle")}
         </>
       )}
     </Button>

@@ -3,6 +3,7 @@
 import { useFormStatus } from "react-dom";
 import { Button } from "@seenlist/ui";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function SubmitButton({
   children,
@@ -12,6 +13,7 @@ export function SubmitButton({
   className?: string;
 }) {
   const { pending } = useFormStatus();
+  const { t } = useTranslation();
 
   return (
     <Button
@@ -23,7 +25,7 @@ export function SubmitButton({
         className
       )}
     >
-      {pending ? "Aguarde…" : children}
+      {pending ? t("auth.pleaseWait") : children}
     </Button>
   );
 }
