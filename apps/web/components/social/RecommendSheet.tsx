@@ -8,6 +8,7 @@ import { useFollowList } from "@/lib/queries/follow-list";
 import { useSendRecommendation } from "@/lib/queries/recommendations";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const MAX_MESSAGE_LENGTH = 200;
 
@@ -37,6 +38,7 @@ export function RecommendSheet({
   const { data: following, isLoading } = useFollowList(currentUser?.id ?? null, "following", search);
   const sendRecommendation = useSendRecommendation();
   const toast = useToast();
+  const { t } = useTranslation();
 
   function handleSend() {
     if (!selectedUserId) return;
@@ -45,10 +47,10 @@ export function RecommendSheet({
       { recipientId: selectedUserId, mediaType, mediaId, message },
       {
         onSuccess: () => {
-          toast.success("Recomendação enviada!");
+          toast.success(t("social.recommendationSent"));
           onClose();
         },
-        onError: () => toast.error("Não foi possível enviar agora."),
+        onError: () => toast.error(t("social.recommendationSendError")),
       }
     );
   }
@@ -59,8 +61,8 @@ export function RecommendSheet({
 
       <div className="relative flex max-h-[85dvh] w-full max-w-[430px] flex-col rounded-t-2xl border-t border-border bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-text">Recomendar &quot;{mediaTitle}&quot;</p>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="text-muted">
+          <p className="text-sm font-semibold text-text">{t("social.recommendTitle", { title: mediaTitle })}</p>
+          <button type="button" onClick={onClose} aria-label={t("social.close")} className="text-muted">
             <X className="h-5 w-5" strokeWidth={2} />
           </button>
         </div>
@@ -68,15 +70,15 @@ export function RecommendSheet({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar entre quem você segue..."
+          placeholder={t("social.searchFollowing")}
           className="mb-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
         />
 
         <div className="mb-3 flex-1 overflow-y-auto">
-          {isLoading && <p className="py-4 text-center text-sm text-muted">Carregando...</p>}
+          {isLoading && <p className="py-4 text-center text-sm text-muted">{t("common.loading")}</p>}
           {!isLoading && following && following.length === 0 && (
             <p className="py-4 text-center text-sm text-muted">
-              {search.trim() ? "Ninguém encontrado." : "Você ainda não segue ninguém."}
+              {search.trim() ? t("social.noOneFound") : t("social.notFollowingAnyone")}
             </p>
           )}
           {following?.map((person) => {
@@ -115,7 +117,7 @@ export function RecommendSheet({
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
-          placeholder="Escreva uma mensagem (opcional)"
+          placeholder={t("social.recommendMessagePlaceholder")}
           rows={2}
           className="mb-3 w-full resize-none rounded-lg border border-border bg-background p-3 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
         />
@@ -127,7 +129,7 @@ export function RecommendSheet({
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-bold text-background disabled:opacity-40"
         >
           <Send className="h-4 w-4" strokeWidth={2.25} />
-          {sendRecommendation.isPending ? "Enviando..." : "Enviar recomendação"}
+          {sendRecommendation.isPending ? t("social.sending") : t("social.sendRecommendation")}
         </button>
       </div>
     </div>

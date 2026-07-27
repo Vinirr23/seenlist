@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Send, Image as ImageIcon, X } from "lucide-react";
 import { hapticTick } from "@/lib/haptics";
 import { useCommentImageUpload } from "@/lib/queries/comment-image-upload";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface CommentComposerProps {
   initialBody?: string;
@@ -33,12 +34,15 @@ export function CommentComposer({
   initialBody = "",
   initialSpoiler = false,
   initialImageUrl = null,
-  placeholder = "Escreva um comentário...",
-  submitLabel = "Publicar",
+  placeholder,
+  submitLabel,
   onSubmit,
   onCancel,
   isPending,
 }: CommentComposerProps) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t("social.commentPlaceholder");
+  const resolvedSubmitLabel = submitLabel ?? t("social.publish");
   const [body, setBody] = useState(initialBody);
   const [containsSpoiler, setContainsSpoiler] = useState(initialSpoiler);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -91,7 +95,7 @@ export function CommentComposer({
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         rows={2}
         maxLength={2000}
         className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
@@ -104,7 +108,7 @@ export function CommentComposer({
           <button
             type="button"
             onClick={handleRemoveImage}
-            aria-label="Remover imagem"
+            aria-label={t("social.removeImage")}
             className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-text"
           >
             <X className="h-3.5 w-3.5" strokeWidth={2} />
@@ -123,12 +127,12 @@ export function CommentComposer({
               onChange={(e) => setContainsSpoiler(e.target.checked)}
               className="h-3.5 w-3.5 rounded border-border accent-primary"
             />
-            Contém spoiler
+            {t("social.containsSpoiler")}
           </label>
           <button
             type="button"
             onClick={handlePickImage}
-            aria-label="Anexar imagem ou GIF"
+            aria-label={t("social.attachImage")}
             className="flex items-center gap-1 text-xs text-muted hover:text-text"
           >
             <ImageIcon className="h-4 w-4" strokeWidth={2} />
@@ -138,7 +142,7 @@ export function CommentComposer({
         <div className="flex gap-2">
           {onCancel && (
             <button type="button" onClick={onCancel} className="text-xs font-medium text-muted">
-              Cancelar
+              {t("common.cancel")}
             </button>
           )}
           <button
@@ -148,7 +152,7 @@ export function CommentComposer({
             className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-background disabled:opacity-50"
           >
             <Send className="h-3.5 w-3.5" strokeWidth={2} />
-            {uploadPending ? "Enviando..." : submitLabel}
+            {uploadPending ? t("social.sending") : resolvedSubmitLabel}
           </button>
         </div>
       </div>

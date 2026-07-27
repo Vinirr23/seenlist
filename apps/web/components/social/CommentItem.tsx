@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import type { Comment } from "@/lib/queries/social/comments";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "./LikeButton";
 import { CommentComposer } from "./CommentComposer";
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
 export interface CommentItemProps {
   comment: Comment;
@@ -47,6 +47,8 @@ export function CommentItem({
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
   useEffect(() => {
     if (isHighlighted) {
@@ -64,7 +66,7 @@ export function CommentItem({
           initialBody={comment.body ?? ""}
           initialSpoiler={comment.containsSpoiler}
           initialImageUrl={comment.imageUrl}
-          submitLabel="Salvar"
+          submitLabel={t("common.save")}
           isPending={isMutating}
           onCancel={() => setEditing(false)}
           onSubmit={(body, containsSpoiler, imageUrl) => {
@@ -113,7 +115,7 @@ export function CommentItem({
                 onClick={() => setReplying((v) => !v)}
                 className="text-xs font-medium text-muted hover:text-text"
               >
-                Responder
+                {t("social.reply")}
               </button>
             )}
           </div>
@@ -134,7 +136,7 @@ export function CommentItem({
                   }}
                   className="block w-full px-3 py-1.5 text-left text-xs text-text hover:bg-background"
                 >
-                  Editar
+                  {t("common.edit")}
                 </button>
                 <button
                   type="button"
@@ -144,7 +146,7 @@ export function CommentItem({
                   }}
                   className="block w-full px-3 py-1.5 text-left text-xs text-danger hover:bg-background"
                 >
-                  Excluir
+                  {t("common.delete")}
                 </button>
               </div>
             )}
@@ -155,8 +157,8 @@ export function CommentItem({
       {replying && (
         <div className="ml-4 rounded-lg border border-border bg-background p-3">
           <CommentComposer
-            placeholder="Escreva uma resposta..."
-            submitLabel="Responder"
+            placeholder={t("social.replyPlaceholder")}
+            submitLabel={t("social.reply")}
             isPending={isMutating}
             onCancel={() => setReplying(false)}
             onSubmit={(body, containsSpoiler, imageUrl) => {

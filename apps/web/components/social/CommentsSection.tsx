@@ -8,6 +8,7 @@ import { useCurrentUser } from "@/lib/queries/current-user";
 import { CommentItem } from "./CommentItem";
 import { CommentComposer } from "./CommentComposer";
 import { CommentsSkeleton } from "./CommentsSkeleton";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { EmptyState } from "../search/EmptyState";
 
 interface CommentNode extends Comment {
@@ -51,6 +52,7 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
   const postComment = usePostComment(target);
   const editComment = useEditComment(target);
   const deleteComment = useDeleteComment(target);
+  const { t } = useTranslation();
 
   const spoilerProtection = useSpoilerProtection(
     episodeSpoilerContext?.seriesId ?? 0,
@@ -97,7 +99,7 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
       {isLoading ? (
         <CommentsSkeleton />
       ) : tree.length === 0 ? (
-        <EmptyState message="Nenhum comentário ainda. Seja o primeiro a comentar." />
+        <EmptyState message={t("social.emptyComments")} />
       ) : (
         <div className="space-y-4">{tree.map((node) => renderNode(node, 0))}</div>
       )}

@@ -10,8 +10,8 @@ import { ShareProfileButton } from "./ShareProfileButton";
 import { PublicLibrarySection } from "./PublicLibrarySection";
 import { PublicFavoritesSection } from "./PublicFavoritesSection";
 import { StatsCarousel } from "@/components/profile/StatsCarousel";
-
-const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 function initials(name: string): string {
   return name
@@ -43,6 +43,8 @@ export function PublicProfileView({ username }: { username: string }) {
   const { data: currentUser } = useCurrentUser();
   const { data: counts } = useFollowCounts(profile?.userId ?? null);
   const statsQuery = usePublicStats(profile?.userId ?? null);
+  const { t, locale } = useTranslation();
+  const joinDateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { month: "long", year: "numeric" });
 
   if (isLoading) {
     return (
@@ -56,7 +58,7 @@ export function PublicProfileView({ username }: { username: string }) {
   if (isError) {
     return (
       <div className="flex min-h-[50dvh] items-center justify-center px-6 text-center">
-        <p className="text-sm text-muted">Não foi possível carregar este perfil agora. Tente de novo.</p>
+        <p className="text-sm text-muted">{t("social.errorLoadProfile")}</p>
       </div>
     );
   }
@@ -100,7 +102,7 @@ export function PublicProfileView({ username }: { username: string }) {
         <p className="text-sm text-primary">@{profile.username}</p>
         {profile.bio && <p className="mt-2 text-sm text-text">{profile.bio}</p>}
         <p className="mt-1 text-xs text-muted">
-          {[profile.country, `Entrou em ${joinDateFormatter.format(new Date(profile.createdAt))}`]
+          {[profile.country, t("social.joinedOn", { date: joinDateFormatter.format(new Date(profile.createdAt)) })]
             .filter(Boolean)
             .join(" · ")}
         </p>
@@ -108,15 +110,15 @@ export function PublicProfileView({ username }: { username: string }) {
         <div className="mt-4 flex gap-6">
           <div>
             <p className="text-sm font-bold text-text">{counts?.following ?? 0}</p>
-            <p className="text-xs text-muted">Seguindo</p>
+            <p className="text-xs text-muted">{t("profile.following")}</p>
           </div>
           <div>
             <p className="text-sm font-bold text-text">{counts?.followers ?? 0}</p>
-            <p className="text-xs text-muted">Seguidores</p>
+            <p className="text-xs text-muted">{t("profile.followers")}</p>
           </div>
           <div>
             <p className="text-sm font-bold text-text">0</p>
-            <p className="text-xs text-muted">Comentários</p>
+            <p className="text-xs text-muted">{t("profile.comments")}</p>
           </div>
         </div>
 
@@ -126,7 +128,7 @@ export function PublicProfileView({ username }: { username: string }) {
               href="/profile/edit"
               className="inline-flex items-center justify-center rounded-lg border border-primary bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition-transform active:scale-[0.96]"
             >
-              Editar
+              {t("common.edit")}
             </Link>
           ) : (
             <FollowButton targetUserId={profile.userId} />
