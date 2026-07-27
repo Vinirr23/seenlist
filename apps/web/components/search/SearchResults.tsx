@@ -1,15 +1,17 @@
 "use client";
 
 import { useSearchMedia } from "@/lib/queries/search";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { MediaCard } from "./MediaCard";
 import { LoadingSkeleton } from "./LoadingSkeleton";
 import { EmptyState } from "./EmptyState";
 
 export function SearchResults({ query }: { query: string }) {
   const { data, isLoading, isError } = useSearchMedia(query);
+  const { t } = useTranslation();
 
   if (!query.trim()) {
-    return <EmptyState message="Pesquise um filme ou série" />;
+    return <EmptyState message={t("search.promptSearch")} />;
   }
 
   if (isLoading) {
@@ -17,11 +19,11 @@ export function SearchResults({ query }: { query: string }) {
   }
 
   if (isError) {
-    return <EmptyState message="Não foi possível buscar agora. Tente de novo em instantes." />;
+    return <EmptyState message={t("search.errorSearch")} />;
   }
 
   if (!data || data.length === 0) {
-    return <EmptyState message="Nenhum resultado encontrado" />;
+    return <EmptyState message={t("search.noResults")} />;
   }
 
   return (

@@ -1,8 +1,13 @@
+"use client";
+
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+
 const PLACEHOLDER_COUNT = 6;
 
 export function LoadingSkeleton() {
+  const { t } = useTranslation();
   return (
-    <div className="space-y-3" aria-busy="true" aria-label="Carregando resultados">
+    <div className="space-y-3" aria-busy="true" aria-label={t("search.loadingResults")}>
       {Array.from({ length: PLACEHOLDER_COUNT }).map((_, index) => (
         <div
           key={index}

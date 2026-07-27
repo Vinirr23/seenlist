@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Search, X, Clock } from "lucide-react";
 import { Input } from "@seenlist/ui";
 import { useDebouncedValue } from "@seenlist/hooks";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const DEBOUNCE_MS = 400;
 const HISTORY_KEY = "seenlist:search-history";
@@ -56,6 +57,7 @@ export function SearchBar({ onDebouncedChange }: SearchBarProps) {
   const [history, setHistory] = useState<string[]>([]);
   const debounced = useDebouncedValue(value, DEBOUNCE_MS);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setHistory(readHistory());
@@ -97,12 +99,12 @@ export function SearchBar({ onDebouncedChange }: SearchBarProps) {
           onChange={(event) => setValue(event.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          placeholder="Pesquisar filmes e séries..."
-          aria-label="Pesquisar filmes e séries"
+          placeholder={t("search.placeholder")}
+          aria-label={t("search.ariaLabel")}
           className="w-full bg-transparent text-sm text-text placeholder:text-muted focus:outline-none"
         />
         {value && (
-          <button type="button" onClick={handleClear} aria-label="Limpar pesquisa" className="shrink-0 text-muted hover:text-text">
+          <button type="button" onClick={handleClear} aria-label={t("search.clear")} className="shrink-0 text-muted hover:text-text">
             <X className="h-4 w-4" strokeWidth={2} />
           </button>
         )}
@@ -110,7 +112,7 @@ export function SearchBar({ onDebouncedChange }: SearchBarProps) {
 
       {showHistory && (
         <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-10 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
-          <p className="px-3 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Pesquisas recentes</p>
+          <p className="px-3 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted">{t("search.recentSearches")}</p>
           {history.map((term) => (
             <div key={term} className="flex items-center gap-2 px-3 py-2 hover:bg-background">
               <Clock className="h-3.5 w-3.5 shrink-0 text-muted" strokeWidth={2} />
@@ -130,7 +132,7 @@ export function SearchBar({ onDebouncedChange }: SearchBarProps) {
                   e.preventDefault();
                   handleRemoveHistoryTerm(term);
                 }}
-                aria-label={`Remover "${term}" do histórico`}
+                aria-label={t("search.removeFromHistory", { term })}
                 className="shrink-0 p-0.5 text-muted hover:text-text"
               >
                 <X className="h-3.5 w-3.5" strokeWidth={2} />
