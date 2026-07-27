@@ -6,6 +6,8 @@ import { Clapperboard } from "lucide-react";
 import { useUpcomingEpisodes, type UpcomingBadge } from "@/lib/queries/upcoming-episodes";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { translateDayLabel } from "@/lib/i18n/dayLabels";
 import { HomeEmptyState } from "../media/HomeEmptyState";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
@@ -15,11 +17,17 @@ function isGenericEpisodeName(name: string, episodeNumber: number): boolean {
   return normalized === `episódio ${episodeNumber}` || normalized === `episode ${episodeNumber}`;
 }
 
+const BADGE_LABEL_KEY: Record<Exclude<UpcomingBadge, null>, string> = {
+  premiere: "seriesHome.badge.premiere",
+  novo: "seriesHome.badge.new",
+  "mais-recente": "seriesHome.badge.latest",
+};
+
 /** TASK-053 — mesmas cores do mockup de referência: PREMIERE e MAIS RECENTE em branco/preto, NOVO em amarelo (cor primária do SeenList) — a única das três que usa a identidade de cor da marca, igual o botão "Assistido". */
-const BADGE_CONFIG: Record<Exclude<UpcomingBadge, null>, { label: string; className: string }> = {
-  premiere: { label: "PREMIERE", className: "bg-white text-black" },
-  novo: { label: "NOVO", className: "bg-primary text-background" },
-  "mais-recente": { label: "MAIS RECENTE", className: "bg-white text-black" },
+const BADGE_CLASSNAME: Record<Exclude<UpcomingBadge, null>, string> = {
+  premiere: "bg-white text-black",
+  novo: "bg-primary text-background",
+  "mais-recente": "bg-white text-black",
 };
 
 /**
@@ -39,18 +47,17 @@ const BADGE_CONFIG: Record<Exclude<UpcomingBadge, null>, { label: string; classN
  */
 export function EmBreveSection() {
   const { groups, isLoading, isError } = useUpcomingEpisodes();
+  const { t } = useTranslation();
 
   if (isLoading) return <HomeSkeleton />;
   if (isError) {
-    return (
-      <HomeEmptyState message="Não foi possível carregar os próximos episódios agora. Tente de novo em instantes." />
-    );
+    return <HomeEmptyState message={t("seriesHome.errorLoadUpcoming")} />;
   }
   if (groups.length === 0) {
     return (
       <HomeEmptyState
-        message="Nenhum episódio previsto. Continue acompanhando séries para receber novidades."
-        actionLabel="Explorar séries"
+        message={t("seriesHome.emptyUpcoming")}
+        actionLabel={t("seriesHome.exploreSeries")}
         actionHref="/explore"
       />
     );
@@ -62,13 +69,15 @@ export function EmBreveSection() {
         <section key={group.dateKey}>
           <div className="mb-3 flex justify-center">
             <span className="rounded-full bg-surface px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-muted">
-              {group.label}
+              {translateDayLabel(group.label, t)}
             </span>
           </div>
           <div className="space-y-3">
             {group.episodes.map((episode) => {
               const posterUrl = tmdbImage(episode.posterPath, "w185");
-              const badge = episode.badge ? BADGE_CONFIG[episode.badge] : null;
+              const badge = episode.badge
+                ? { label: t(BADGE_LABEL_KEY[episode.badge]), className: BADGE_CLASSNAME[episode.badge] }
+                : null;
               const network = episode.networks[0] ?? null;
               const episodeCode = `S${String(episode.seasonNumber).padStart(2, "0")}E${String(episode.episodeNumber).padStart(2, "0")}`;
               const hasRealEpisodeName = episode.name && !isGenericEpisodeName(episode.name, episode.episodeNumber);
@@ -108,7 +117,7 @@ export function EmBreveSection() {
                   {episode.daysUntil >= 7 ? (
                     <div className="flex shrink-0 flex-col items-center self-center">
                       <span className="text-xl font-extrabold leading-none text-text">{episode.daysUntil}</span>
-                      <span className="text-[10px] font-bold tracking-wide text-muted">DIAS</span>
+                      <span className="text-[10px] font-bold tracking-wide text-muted">{t("seriesHome.daysUntil")}</span>
                     </div>
                   ) : (
                     network && (

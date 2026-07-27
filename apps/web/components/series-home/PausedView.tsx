@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useMemo } from "react";
 import { useLibraryItems } from "@/lib/queries/library";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ShelfCard } from "./ShelfCard";
 import { EmptyShelf } from "./EmptyShelf";
 
@@ -17,6 +18,7 @@ import { EmptyShelf } from "./EmptyShelf";
  */
 export function PausedView() {
   const { data: items, isLoading, isError } = useLibraryItems();
+  const { t } = useTranslation();
 
   const paused = useMemo(
     () => (items ?? []).filter((item) => item.mediaType === "series" && item.status === "paused"),
@@ -28,16 +30,16 @@ export function PausedView() {
       <div className="mb-4 flex items-center gap-2 px-1">
         <Link
           href="/series"
-          aria-label="Voltar"
+          aria-label={t("common.back")}
           className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface hover:text-text"
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-xl font-bold text-text">Interrompidas</h1>
+        <h1 className="text-xl font-bold text-text">{t("seriesHome.paused")}</h1>
       </div>
 
       {isLoading ? (
-        <div className="flex flex-wrap gap-3" aria-busy="true" aria-label="Carregando">
+        <div className="flex flex-wrap gap-3" aria-busy="true" aria-label={t("common.loading")}>
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="w-36 space-y-2 sm:w-40 md:w-44">
               <div className="aspect-[2/3] w-full animate-pulse rounded-lg bg-surface" />
@@ -46,9 +48,9 @@ export function PausedView() {
           ))}
         </div>
       ) : isError ? (
-        <EmptyShelf message="Não foi possível carregar sua lista agora. Tente de novo em instantes." />
+        <EmptyShelf message={t("seriesHome.errorLoadList")} />
       ) : paused.length === 0 ? (
-        <EmptyShelf message="Nenhuma série interrompida por aqui." actionLabel="Explorar séries" actionHref="/explore" />
+        <EmptyShelf message={t("seriesHome.emptyPaused")} actionLabel={t("seriesHome.exploreSeries")} actionHref="/explore" />
       ) : (
         <div className="flex flex-wrap gap-3">
           {paused.map((item) => (

@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { ContinueWatchingCard } from "./ContinueWatchingCard";
 import { PosterGrid } from "../profile/PosterGrid";
@@ -31,6 +32,7 @@ export function MinhaListaSection() {
   useLibraryRealtimeSync();
   const { data: items, isLoading, isError, error } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("series-library");
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (isError) {
@@ -79,13 +81,13 @@ export function MinhaListaSection() {
   const continueWatching = viewMode === "grid" ? continueWatchingGrid : continueWatchingList;
 
   if (isError) {
-    return <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />;
+    return <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />;
   }
 
   return (
     <>
       <div className="mb-2 flex items-center justify-between">
-        <SectionTitle>Continue assistindo</SectionTitle>
+        <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
 
@@ -93,8 +95,8 @@ export function MinhaListaSection() {
         <HomeSkeleton />
       ) : continueWatching.length === 0 ? (
         <EmptyShelf
-          message="Você ainda não está acompanhando nenhuma série."
-          actionLabel="Explorar séries"
+          message={t("seriesHome.emptyLibrary")}
+          actionLabel={t("seriesHome.exploreSeries")}
           actionHref="/explore"
         />
       ) : viewMode === "grid" ? (

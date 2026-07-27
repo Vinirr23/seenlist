@@ -1,4 +1,5 @@
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-020: generalizado — era `SeriesHomeTabs` (só usado pela aba
@@ -9,14 +10,15 @@ import { cn } from "@seenlist/utils";
  */
 export type HomeTab = "minha-lista" | "em-breve";
 
-const LABELS: Record<HomeTab, string> = {
-  "minha-lista": "Minha Lista",
-  "em-breve": "Em breve",
-};
-
 const ORDER: HomeTab[] = ["minha-lista", "em-breve"];
 
 export function HomeTabs({ active, onChange }: { active: HomeTab; onChange: (tab: HomeTab) => void }) {
+  const { t } = useTranslation();
+  const labels: Record<HomeTab, string> = {
+    "minha-lista": t("seriesHome.tab.myList"),
+    "em-breve": t("seriesHome.tab.upcoming"),
+  };
+
   return (
     <div role="tablist" className="mb-4 flex gap-1 border-b border-border">
       {ORDER.map((tab) => (
@@ -31,7 +33,7 @@ export function HomeTabs({ active, onChange }: { active: HomeTab; onChange: (tab
             active === tab ? "border-primary text-text" : "border-transparent text-muted"
           )}
         >
-          {LABELS[tab]}
+          {labels[tab]}
         </button>
       ))}
     </div>

@@ -12,12 +12,19 @@ import { computeBadge, hasEpisodeAired, type UpcomingBadge } from "@/lib/queries
 import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { EpisodeWatchedButton } from "../series/EpisodeWatchedButton";
 
-const BADGE_CONFIG: Record<Exclude<UpcomingBadge, null>, { label: string; className: string }> = {
-  premiere: { label: "PREMIERE", className: "bg-white text-black" },
-  novo: { label: "NOVO", className: "bg-primary text-background" },
-  "mais-recente": { label: "MAIS RECENTE", className: "bg-white text-black" },
+const BADGE_LABEL_KEY: Record<Exclude<UpcomingBadge, null>, string> = {
+  premiere: "seriesHome.badge.premiere",
+  novo: "seriesHome.badge.new",
+  "mais-recente": "seriesHome.badge.latest",
+};
+
+const BADGE_CLASSNAME: Record<Exclude<UpcomingBadge, null>, string> = {
+  premiere: "bg-white text-black",
+  novo: "bg-primary text-background",
+  "mais-recente": "bg-white text-black",
 };
 
 /**
@@ -55,6 +62,7 @@ function findNextUnwatched(
  * chamar hooks dentro de um .map de um componente só).
  */
 export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
+  const { t } = useTranslation();
   const { data: seriesDetails } = useSeriesDetails(String(item.id));
   const { data: watched } = useWatchedEpisodes(item.id);
   const toggleWatched = useToggleEpisodeWatched(item.id);
@@ -89,7 +97,7 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
           watched
         )
       : null;
-  const badgeConfig = badge ? BADGE_CONFIG[badge] : null;
+  const badgeConfig = badge ? { label: t(BADGE_LABEL_KEY[badge]), className: BADGE_CLASSNAME[badge] } : null;
   /*
    * Ajuste (a pedido): trocado o still do episódio (`episode.stillPath`)
    * pelo pôster da série (`item.posterPath`) — achado real: além de

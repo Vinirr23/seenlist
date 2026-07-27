@@ -7,6 +7,7 @@ import { Clapperboard } from "lucide-react";
 import { cn } from "@seenlist/utils";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ProgressBar } from "../media/ProgressBar";
 import { useLongPress } from "../profile/useLongPress";
 import { SeriesQuickActionsSheet } from "../profile/SeriesQuickActionsSheet";
@@ -33,6 +34,7 @@ export interface ShelfCardProps {
  * reaproveitados sem duplicar nada.
  */
 export function ShelfCard({ item, variant = "compact" }: ShelfCardProps) {
+  const { t } = useTranslation();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const posterUrl = tmdbImage(item.posterPath, "w342");
@@ -92,9 +94,7 @@ export function ShelfCard({ item, variant = "compact" }: ShelfCardProps) {
         <div className="mt-2 space-y-0.5">
           <p className="truncate text-sm font-semibold text-text">{item.title}</p>
           {isContinue ? (
-            <p className="text-xs text-muted">
-              {watched} / {total} episódios
-            </p>
+            <p className="text-xs text-muted">{t("seriesHome.episodeProgress", { watched, total })}</p>
           ) : (
             <p className="text-xs text-muted">{item.year}</p>
           )}
