@@ -1,6 +1,11 @@
+"use client";
+
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+
 export function ReviewsSkeleton({ count = 3 }: { count?: number }) {
+  const { t } = useTranslation();
   return (
-    <div className="space-y-3" aria-busy="true" aria-label="Carregando avaliações">
+    <div className="space-y-3" aria-busy="true" aria-label={t("social.loadingReviews")}>
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} className="space-y-2 rounded-lg border border-border bg-surface p-3">
           <div className="flex items-center justify-between">

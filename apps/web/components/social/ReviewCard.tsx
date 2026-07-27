@@ -1,11 +1,14 @@
 import type { Review } from "@/lib/queries/social/reviews";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "./LikeButton";
 
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
-
 export function ReviewCard({ review }: { review: Review }) {
+  const { locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
+
   return (
     <div className="space-y-2 rounded-lg border border-border bg-surface p-3">
       <div className="flex items-center justify-between">

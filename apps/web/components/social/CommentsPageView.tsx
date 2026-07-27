@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import type { MediaTarget } from "@/lib/queries/social/types";
 import { CommentsSection } from "./CommentsSection";
 import { PageContainer } from "../layout/PageContainer";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface CommentsPageViewProps {
   backHref: string;
@@ -27,11 +28,12 @@ export interface CommentsPageViewProps {
 export function CommentsPageView({ backHref, title, target, episodeSpoilerContext }: CommentsPageViewProps) {
   const searchParams = useSearchParams();
   const highlightCommentId = searchParams.get("highlight") ?? undefined;
+  const { t } = useTranslation();
 
   return (
     <div>
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <Link href={backHref} aria-label="Voltar" className="text-text">
+        <Link href={backHref} aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
         <h1 className="text-base font-semibold text-text">{title}</h1>

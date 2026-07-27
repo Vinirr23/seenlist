@@ -1,6 +1,11 @@
+"use client";
+
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+
 export function CommentsSkeleton({ count = 3 }: { count?: number }) {
+  const { t } = useTranslation();
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Carregando comentários">
+    <div className="space-y-4" aria-busy="true" aria-label={t("social.loadingComments")}>
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} className="space-y-2">
           <div className="flex items-center gap-2">

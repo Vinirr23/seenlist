@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useFollowStatus, useToggleFollow } from "@/lib/queries/follow";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function FollowButton({ targetUserId }: { targetUserId: string }) {
   const { data: isFollowing, isLoading } = useFollowStatus(targetUserId);
   const toggle = useToggleFollow(targetUserId);
   const toast = useToast();
+  const { t } = useTranslation();
   const [pending, setPending] = useState(false);
 
   async function handleClick() {
@@ -37,7 +39,7 @@ export function FollowButton({ targetUserId }: { targetUserId: string }) {
           : "rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-background transition-transform active:scale-[0.96] disabled:opacity-50"
       }
     >
-      {isFollowing ? "Seguindo" : "Seguir"}
+      {isFollowing ? t("social.following") : t("social.follow")}
     </button>
   );
 }

@@ -3,21 +3,23 @@
 import { useState } from "react";
 import { Share2, Check } from "lucide-react";
 import { useToast } from "@/lib/toast/ToastProvider";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function ShareProfileButton({ username, iconOnly = false }: { username: string; iconOnly?: boolean }) {
   const [copied, setCopied] = useState(false);
   const toast = useToast();
+  const { t } = useTranslation();
 
   async function handleShare() {
     const url = `${window.location.origin}/u/${username}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      toast.success("Link copiado");
+      toast.success(t("social.linkCopied"));
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error("[profile] Falha ao copiar link do perfil", error);
-      toast.error("Não foi possível copiar o link.");
+      toast.error(t("social.linkCopyError"));
     }
   }
 
@@ -26,7 +28,7 @@ export function ShareProfileButton({ username, iconOnly = false }: { username: s
       <button
         type="button"
         onClick={handleShare}
-        aria-label="Compartilhar perfil"
+        aria-label={t("social.shareProfile")}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-transform active:scale-90"
       >
         {copied ? <Check className="h-4 w-4 text-success" strokeWidth={2} /> : <Share2 className="h-4 w-4" strokeWidth={2} />}
@@ -45,7 +47,7 @@ export function ShareProfileButton({ username, iconOnly = false }: { username: s
       ) : (
         <Share2 className="h-4 w-4" strokeWidth={2} />
       )}
-      Compartilhar perfil
+      {t("social.shareProfile")}
     </button>
   );
 }
