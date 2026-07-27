@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { HalfStarRating } from "./HalfStarRating";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface EpisodeRatingBottomSheetProps {
   onSubmit: (rating: number) => void;
@@ -20,6 +21,7 @@ export interface EpisodeRatingBottomSheetProps {
 export function EpisodeRatingBottomSheet({ onSubmit, onDismiss, isPending }: EpisodeRatingBottomSheetProps) {
   const [mounted, setMounted] = useState(false);
   const [rating, setRating] = useState(0);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setMounted(true));
@@ -46,7 +48,7 @@ export function EpisodeRatingBottomSheet({ onSubmit, onDismiss, isPending }: Epi
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
 
-        <p className="mb-4 text-center text-sm font-medium text-text">Como você avaliaria este episódio?</p>
+        <p className="mb-4 text-center text-sm font-medium text-text">{t("social.rateEpisodePrompt")}</p>
 
         <div className="mb-5 flex justify-center">
           <HalfStarRating value={rating} onChange={setRating} size="lg" />
@@ -58,7 +60,7 @@ export function EpisodeRatingBottomSheet({ onSubmit, onDismiss, isPending }: Epi
             onClick={() => handleClose(onDismiss)}
             className="flex-1 rounded-lg border border-border py-2.5 text-sm font-medium text-text"
           >
-            Agora não
+            {t("social.notNow")}
           </button>
           <button
             type="button"
@@ -70,7 +72,7 @@ export function EpisodeRatingBottomSheet({ onSubmit, onDismiss, isPending }: Epi
             }}
             className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-semibold text-background disabled:opacity-50"
           >
-            Enviar
+            {t("common.submit")}
           </button>
         </div>
       </div>

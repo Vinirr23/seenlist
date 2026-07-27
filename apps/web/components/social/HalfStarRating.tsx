@@ -1,6 +1,7 @@
 "use client";
 
 import { Star } from "lucide-react";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-056 — avaliação rápida de episódio precisa de meio-passo
@@ -22,6 +23,7 @@ export function HalfStarRating({
 }) {
   const isInput = Boolean(onChange);
   const starSize = size === "lg" ? "h-9 w-9" : size === "sm" ? "h-4 w-4" : "h-6 w-6";
+  const { t } = useTranslation();
 
   function handleClick(starIndex: number, event: React.MouseEvent<HTMLButtonElement>) {
     if (!onChange) return;
@@ -32,7 +34,7 @@ export function HalfStarRating({
   }
 
   return (
-    <div className="flex items-center gap-0.5" role={isInput ? "radiogroup" : undefined} aria-label="Nota de 0 a 5">
+    <div className="flex items-center gap-0.5" role={isInput ? "radiogroup" : undefined} aria-label={t("social.ratingZeroToFive")}>
       {[0, 1, 2, 3, 4].map((starIndex) => {
         const fillAmount = Math.max(0, Math.min(1, value - starIndex));
         return (
@@ -42,7 +44,7 @@ export function HalfStarRating({
             disabled={!isInput}
             onClick={(e) => handleClick(starIndex, e)}
             className={isInput ? "relative p-0.5 active:scale-90 transition-transform" : "relative p-0.5"}
-            aria-label={`${starIndex + 1} estrela${starIndex > 0 ? "s" : ""}`}
+            aria-label={`${starIndex + 1} ${t("social.star")}${starIndex > 0 ? "s" : ""}`}
           >
             <Star className={`${starSize} text-border`} strokeWidth={1.5} />
             {fillAmount > 0 && (

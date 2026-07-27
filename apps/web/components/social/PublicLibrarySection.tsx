@@ -5,6 +5,8 @@ import { usePublicLibraryItems } from "@/lib/queries/public-library";
 import { SERIES_CATEGORIES } from "@/lib/series-categories";
 import { PosterGrid } from "@/components/profile/PosterGrid";
 import { SectionTitle } from "@/components/media/SectionTitle";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { translateCategoryLabel } from "@/lib/i18n/seriesCategoryLabels";
 
 /**
  * TASK-028, item 6 — "somente categorias que possuem conteúdo" pras
@@ -19,6 +21,7 @@ import { SectionTitle } from "@/components/media/SectionTitle";
  */
 export function PublicLibrarySection({ userId }: { userId: string }) {
   const { data: items, isLoading, isError } = usePublicLibraryItems(userId);
+  const { t } = useTranslation();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
   const watchedMovies = useMemo(
@@ -36,7 +39,7 @@ export function PublicLibrarySection({ userId }: { userId: string }) {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-2" aria-busy="true" aria-label="Carregando biblioteca">
+      <div className="grid grid-cols-3 gap-2" aria-busy="true" aria-label={t("social.loadingLibrary")}>
         {Array.from({ length: 6 }).map((_, index) => (
           <div key={index} className="aspect-[2/3] w-full animate-pulse rounded-lg bg-surface" />
         ))}
@@ -45,22 +48,22 @@ export function PublicLibrarySection({ userId }: { userId: string }) {
   }
 
   if (isError) {
-    return <p className="text-sm text-muted">Não foi possível carregar a biblioteca agora.</p>;
+    return <p className="text-sm text-muted">{t("social.errorLoadPublicLibrary")}</p>;
   }
 
   if (nonEmptySeriesCategories.length === 0 && watchedMovies.length === 0) {
-    return <p className="text-sm text-muted">Este perfil ainda não tem biblioteca pública ou está vazia.</p>;
+    return <p className="text-sm text-muted">{t("social.emptyPublicLibrary")}</p>;
   }
 
   return (
     <div className="space-y-6">
       {nonEmptySeriesCategories.length > 0 && (
         <section>
-          <h2 className="mb-4 px-1 text-lg font-bold text-text">Séries</h2>
+          <h2 className="mb-4 px-1 text-lg font-bold text-text">{t("nav.series")}</h2>
           <div className="space-y-6">
             {nonEmptySeriesCategories.map((category) => (
               <div key={category.slug}>
-                <SectionTitle>{category.label}</SectionTitle>
+                <SectionTitle>{translateCategoryLabel(category.slug, category.label, t)}</SectionTitle>
                 <PosterGrid items={category.items} barColorClass={category.barColorClass} interactive={false} />
               </div>
             ))}
@@ -70,8 +73,8 @@ export function PublicLibrarySection({ userId }: { userId: string }) {
 
       {watchedMovies.length > 0 && (
         <section>
-          <h2 className="mb-4 px-1 text-lg font-bold text-text">Filmes</h2>
-          <SectionTitle>Assistidos</SectionTitle>
+          <h2 className="mb-4 px-1 text-lg font-bold text-text">{t("nav.movies")}</h2>
+          <SectionTitle>{t("social.watched")}</SectionTitle>
           <PosterGrid items={watchedMovies} interactive={false} />
         </section>
       )}

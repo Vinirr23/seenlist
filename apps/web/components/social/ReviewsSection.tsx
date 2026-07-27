@@ -4,6 +4,7 @@ import type { MediaTarget } from "@/lib/queries/social/types";
 import { useReviews, useMyReview, useUpsertReview, useDeleteReview } from "@/lib/queries/social/reviews";
 import { useCreatePost } from "@/lib/queries/posts";
 import { useToast } from "@/lib/toast/ToastProvider";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ReviewComposer } from "./ReviewComposer";
 import { ReviewCard } from "./ReviewCard";
 import { ReviewsSkeleton } from "./ReviewsSkeleton";
@@ -22,6 +23,7 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
   const deleteReview = useDeleteReview(target);
   const createPost = useCreatePost();
   const toast = useToast();
+  const { t } = useTranslation();
 
   const othersReviews = reviews.filter((r) => r.id !== myReview?.id);
 
@@ -43,8 +45,8 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
               },
             },
             {
-              onSuccess: () => toast.success("Publicado no Feed"),
-              onError: () => toast.error("Avaliação salva, mas não foi possível publicar no Feed agora."),
+              onSuccess: () => toast.success(t("social.publishedToFeed")),
+              onError: () => toast.error(t("social.publishToFeedError")),
             }
           );
         },
@@ -69,14 +71,14 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
           disabled={deleteReview.isPending}
           className="text-xs font-medium text-danger disabled:opacity-50"
         >
-          Remover minha avaliação
+          {t("social.removeMyReview")}
         </button>
       )}
 
       {isLoading ? (
         <ReviewsSkeleton />
       ) : othersReviews.length === 0 ? (
-        <EmptyState message="Nenhuma outra avaliação ainda." />
+        <EmptyState message={t("social.emptyOtherReviews")} />
       ) : (
         <div className="space-y-3">
           {othersReviews.map((review) => (

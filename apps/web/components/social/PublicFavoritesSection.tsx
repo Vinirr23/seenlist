@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { usePublicFavorites } from "@/lib/queries/favorites";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { FavoriteCard } from "./FavoriteCard";
 import { SectionTitle } from "@/components/media/SectionTitle";
 
@@ -11,13 +12,14 @@ const SCROLL_ROW_CLASS =
 /** Item 6 — "Séries favoritas" e "Filmes favoritos", cada um em carrossel horizontal, separado. */
 export function PublicFavoritesSection({ userId }: { userId: string }) {
   const { data: items, isLoading } = usePublicFavorites(userId);
+  const { t } = useTranslation();
 
   const favoriteSeries = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
   const favoriteMovies = useMemo(() => (items ?? []).filter((item) => item.mediaType === "movie"), [items]);
 
   if (isLoading) {
     return (
-      <div className="flex gap-3 overflow-hidden" aria-busy="true" aria-label="Carregando favoritos">
+      <div className="flex gap-3 overflow-hidden" aria-busy="true" aria-label={t("social.loadingFavorites")}>
         {Array.from({ length: 4 }).map((_, index) => (
           <div key={index} className="h-52 w-36 shrink-0 animate-pulse rounded-lg bg-surface" />
         ))}
@@ -31,7 +33,7 @@ export function PublicFavoritesSection({ userId }: { userId: string }) {
     <div className="space-y-6">
       {favoriteSeries.length > 0 && (
         <section>
-          <SectionTitle>Séries favoritas</SectionTitle>
+          <SectionTitle>{t("profile.section.favoriteSeries")}</SectionTitle>
           <div className={SCROLL_ROW_CLASS}>
             {favoriteSeries.map((item) => (
               <FavoriteCard key={item.id} item={item} />
@@ -42,7 +44,7 @@ export function PublicFavoritesSection({ userId }: { userId: string }) {
 
       {favoriteMovies.length > 0 && (
         <section>
-          <SectionTitle>Filmes favoritos</SectionTitle>
+          <SectionTitle>{t("profile.section.favoriteMovies")}</SectionTitle>
           <div className={SCROLL_ROW_CLASS}>
             {favoriteMovies.map((item) => (
               <FavoriteCard key={item.id} item={item} />

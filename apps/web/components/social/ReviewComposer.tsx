@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { StarRating } from "./StarRating";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface ReviewComposerProps {
   initialRating?: number;
@@ -33,6 +34,7 @@ export function ReviewComposer({
   const [text, setText] = useState(initialText ?? "");
   const [containsSpoiler, setContainsSpoiler] = useState(initialSpoiler);
   const [shareToFeed, setShareToFeed] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
@@ -42,7 +44,7 @@ export function ReviewComposer({
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Escreva uma review (opcional)..."
+        placeholder={t("social.reviewPlaceholder")}
         rows={3}
         maxLength={4000}
         className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
@@ -55,7 +57,7 @@ export function ReviewComposer({
             onChange={(e) => setContainsSpoiler(e.target.checked)}
             className="h-3.5 w-3.5 rounded border-border accent-primary"
           />
-          Contém spoiler
+          {t("social.containsSpoiler")}
         </label>
         <button
           type="button"
@@ -63,7 +65,7 @@ export function ReviewComposer({
           onClick={() => onSubmit(rating, text.trim() || null, containsSpoiler, shareToFeed)}
           className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-background disabled:opacity-50"
         >
-          Salvar avaliação
+          {t("social.saveReview")}
         </button>
       </div>
       {canShareToFeed && (
@@ -74,7 +76,7 @@ export function ReviewComposer({
             onChange={(e) => setShareToFeed(e.target.checked)}
             className="h-3.5 w-3.5 rounded border-border accent-primary"
           />
-          Publicar também no Feed
+          {t("social.shareToFeed")}
         </label>
       )}
     </div>
