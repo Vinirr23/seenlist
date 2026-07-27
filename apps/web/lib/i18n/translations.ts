@@ -291,6 +291,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.post": "Post",
     "feed.errorLoadPost": "Não foi possível carregar este post.",
     "feed.postNoLongerExists": "Este post não existe mais.",
+
+    "feed.emptyFeed": "Ninguém publicou nada ainda. Seja o primeiro — toque no botão + aqui embaixo.",
+    "social.noCommentsYet": "Nenhum comentário ainda.",
+    "social.comment": "Comentário",
+    "social.commentNoLongerExists": "Este comentário não existe mais.",
+    "social.noRepliesYet": "Nenhuma resposta ainda.",
   },
   en: {
     "settings.title": "Settings",
@@ -557,6 +563,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.post": "Post",
     "feed.errorLoadPost": "Couldn't load this post.",
     "feed.postNoLongerExists": "This post no longer exists.",
+
+    "feed.emptyFeed": "No one has posted anything yet. Be the first — tap the + button below.",
+    "social.noCommentsYet": "No comments yet.",
+    "social.comment": "Comment",
+    "social.commentNoLongerExists": "This comment no longer exists.",
+    "social.noRepliesYet": "No replies yet.",
   },
   es: {
     "settings.title": "Configuración",
@@ -823,5 +835,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.post": "Post",
     "feed.errorLoadPost": "No se pudo cargar esta publicación.",
     "feed.postNoLongerExists": "Esta publicación ya no existe.",
+
+    "feed.emptyFeed": "Todavía nadie publicó nada. Sé el primero — toca el botón + aquí abajo.",
+    "social.noCommentsYet": "Todavía no hay comentarios.",
+    "social.comment": "Comentario",
+    "social.commentNoLongerExists": "Este comentario ya no existe.",
+    "social.noRepliesYet": "Todavía no hay respuestas.",
   },
 };

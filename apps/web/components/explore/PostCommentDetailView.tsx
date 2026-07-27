@@ -7,8 +7,8 @@ import { usePostComments, useCreatePostComment } from "@/lib/queries/post-commen
 import { useHasLiked, useLikeCount, useToggleLike } from "@/lib/queries/social/likes";
 import { buildPostCommentTree, findCommentNode, PostCommentItem } from "./PostCommentItem";
 import { cn } from "@seenlist/utils";
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 /**
  * TASK-064 — tela dedicada de comentário: abre ao tocar em
@@ -24,6 +24,8 @@ export function PostCommentDetailView({ postId, commentId }: { postId: string; c
   const { data: comments, isLoading } = usePostComments(postId);
   const createComment = useCreatePostComment(postId);
   const [body, setBody] = useState("");
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
   const tree = useMemo(() => buildPostCommentTree(comments ?? []), [comments]);
   const comment = useMemo(() => findCommentNode(tree, commentId), [tree, commentId]);
@@ -43,17 +45,17 @@ export function PostCommentDetailView({ postId, commentId }: { postId: string; c
   return (
     <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
       <div className="flex items-center gap-3 px-4 pt-4">
-        <Link href={`/explore/posts/${postId}`} aria-label="Voltar" className="text-text">
+        <Link href={`/explore/posts/${postId}`} aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-lg font-bold text-text">Comentário</h1>
+        <h1 className="text-lg font-bold text-text">{t("social.comment")}</h1>
       </div>
 
       <div className="px-4 pt-4">
         {isLoading && <div className="h-24 animate-pulse rounded-xl bg-surface" />}
 
         {!isLoading && !comment && (
-          <p className="text-center text-sm text-muted">Este comentário não existe mais.</p>
+          <p className="text-center text-sm text-muted">{t("social.commentNoLongerExists")}</p>
         )}
 
         {comment && (
@@ -76,7 +78,7 @@ export function PostCommentDetailView({ postId, commentId }: { postId: string; c
 
             <div className="mt-3 border-t border-border pt-2">
               {comment.children.length === 0 ? (
-                <p className="py-2 text-xs text-muted">Nenhuma resposta ainda.</p>
+                <p className="py-2 text-xs text-muted">{t("social.noRepliesYet")}</p>
               ) : (
                 comment.children.map((child) => (
                   <PostCommentItem key={child.id} comment={child} postId={postId} depth={0} />
@@ -88,7 +90,7 @@ export function PostCommentDetailView({ postId, commentId }: { postId: string; c
               <input
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Escreva uma resposta..."
+                placeholder={t("social.replyPlaceholder")}
                 className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
               />
               <button
@@ -97,7 +99,7 @@ export function PostCommentDetailView({ postId, commentId }: { postId: string; c
                 disabled={!body.trim() || createComment.isPending}
                 className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-background disabled:opacity-40"
               >
-                Enviar
+                {t("common.submit")}
               </button>
             </div>
           </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { usePosts } from "@/lib/queries/posts";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { PostCard } from "./PostCard";
 import { CreatePostButton } from "./CreatePostButton";
 import { useLikeInfoBatch } from "@/lib/queries/social/likes";
@@ -36,6 +37,7 @@ import { useCommentCountsBatch } from "@/lib/queries/post-comments";
 export function ExploreFeedTab() {
   const { data: posts, isLoading: postsLoading } = usePosts();
   const postIds = posts?.map((p) => p.id) ?? [];
+  const { t } = useTranslation();
 
   const { data: likeInfoByPostId } = useLikeInfoBatch("post", postIds);
   const { data: savedPostIds } = useSavedStatusesBatch(postIds);
@@ -64,7 +66,7 @@ export function ExploreFeedTab() {
           </div>
         ) : (
           <p className="rounded-xl border border-border bg-surface p-4 text-center text-sm text-muted">
-            Ninguém publicou nada ainda. Seja o primeiro — toque no botão + aqui embaixo.
+            {t("feed.emptyFeed")}
           </p>
         )}
       </div>

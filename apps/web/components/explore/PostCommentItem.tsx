@@ -5,12 +5,12 @@ import { Heart } from "lucide-react";
 import type { PostComment } from "@/lib/queries/post-comments";
 import { useHasLiked, useLikeCount, useToggleLike } from "@/lib/queries/social/likes";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 interface CommentNode extends PostComment {
   children: CommentNode[];
 }
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
 /**
  * TASK-064 — "Responder" agora abre uma tela própria
@@ -32,6 +32,8 @@ export function PostCommentItem({
   const { data: hasLiked } = useHasLiked("post_comment", comment.id);
   const { data: likeCount } = useLikeCount("post_comment", comment.id);
   const toggleLike = useToggleLike("post_comment", comment.id);
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
   return (
     <div className={depth > 0 ? "ml-6 border-l border-border pl-3" : ""}>
@@ -52,7 +54,7 @@ export function PostCommentItem({
           </button>
           {depth < 2 && (
             <Link href={`/explore/posts/${postId}/comment/${comment.id}`} className="text-xs text-muted">
-              Responder
+              {t("social.reply")}
             </Link>
           )}
         </div>
