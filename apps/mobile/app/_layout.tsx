@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { colors } from "@/lib/theme";
 
 const SPLASH_DURATION_MS = 3000;
@@ -96,7 +97,9 @@ export default function RootLayout() {
         <AuthProvider>
           <View style={{ flex: 1, backgroundColor: colors.background }}>
             <StatusBar style="light" />
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+            <ErrorBoundary>
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+            </ErrorBoundary>
           </View>
         </AuthProvider>
       </SafeAreaProvider>

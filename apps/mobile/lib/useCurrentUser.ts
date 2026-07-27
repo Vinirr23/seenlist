@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchCurrentUser, type CurrentUser } from "./currentUser";
 import { fetchProfileSectionCounts, type ProfileSectionCounts } from "./profileSectionCounts";
@@ -35,13 +36,21 @@ export function useProfileSectionCounts(userId: string | null) {
   return counts;
 }
 
+/**
+ * Correção (bug real, mesma causa já corrigida em "Minhas listas" e
+ * nos carrosséis do Perfil) — buscava só na montagem; comentar em
+ * outra tela e voltar pro Perfil nunca atualizava a contagem aqui.
+ * `useFocusEffect` busca de novo toda vez que a tela ganha foco.
+ */
 export function useSocialCounts(userId: string | null) {
   const [counts, setCounts] = useState<SocialCounts | undefined>(undefined);
 
-  useEffect(() => {
-    if (!userId) return;
-    fetchSocialCounts(userId).then(setCounts);
-  }, [userId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      fetchSocialCounts(userId).then(setCounts);
+    }, [userId])
+  );
 
   return counts;
 }

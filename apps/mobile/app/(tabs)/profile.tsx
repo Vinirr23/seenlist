@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { ScrollView, View, Image, Pressable, Share, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useCurrentUser, useSocialCounts } from "@/lib/useCurrentUser";
 import { useFollowCounts } from "@/lib/usePublicProfile";
@@ -59,14 +59,23 @@ export default function ProfileScreen() {
   const favoriteSeries = useFavoriteIds(user?.id ?? null, "series");
   const favoriteMovies = useFavoriteIds(user?.id ?? null, "movie");
 
-  useEffect(() => {
-    fetchEditableProfile().then((profile) => {
-      if (!profile) return;
-      setBannerUrl(profile.bannerUrl);
-      setBio(profile.bio || null);
-      setUsername(profile.username || null);
-    });
-  }, []);
+  /**
+   * Correção (bug real, mesma causa já corrigida em "Minhas listas" e
+   * nos carrosséis do Perfil) — buscava só na montagem; editar
+   * banner/bio/nome de usuário em Configurações e voltar pro Perfil
+   * nunca refletia aqui até reabrir o app. `useFocusEffect` busca de
+   * novo toda vez que a aba ganha foco.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      fetchEditableProfile().then((profile) => {
+        if (!profile) return;
+        setBannerUrl(profile.bannerUrl);
+        setBio(profile.bio || null);
+        setUsername(profile.username || null);
+      });
+    }, [])
+  );
 
   async function handleShare() {
     if (!username) return;

@@ -39,19 +39,29 @@ export function usePublicProfile(username: string) {
   return { profile, isLoading, isError };
 }
 
+/**
+ * Correção (bug real, mesma causa já corrigida em "Minhas listas" e
+ * nos carrosséis do Perfil) — buscava só na montagem; como a tela
+ * fica montada em segundo plano (aba Perfil) ou volta pra pilha sem
+ * remontar (perfil público), seguir/deixar de seguir alguém em outra
+ * tela nunca refletia aqui até reabrir o app. `useFocusEffect` busca
+ * de novo toda vez que a tela ganha foco.
+ */
 export function useFollowCounts(userId: string | null) {
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
 
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    fetchFollowCounts(userId).then((data) => {
-      if (!cancelled) setCounts(data);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      let cancelled = false;
+      fetchFollowCounts(userId).then((data) => {
+        if (!cancelled) setCounts(data);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [userId])
+  );
 
   return counts;
 }
