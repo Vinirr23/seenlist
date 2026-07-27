@@ -3,14 +3,9 @@
 import { Star } from "lucide-react";
 import { cn } from "@seenlist/utils";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-const LEVELS = [
-  { value: 1, label: "RUIM" },
-  { value: 2, label: "OK" },
-  { value: 3, label: "BOM" },
-  { value: 4, label: "ÓTIMO" },
-  { value: 5, label: "UAU" },
-];
+const LEVEL_VALUES = [1, 2, 3, 4, 5];
 
 /**
  * TASK-067 — versão de 5 estrelas inteiras com rótulo embaixo de
@@ -27,17 +22,26 @@ export function EpisodeStarRatingRow({
   value: number;
   onChange: (rating: number) => void;
 }) {
+  const { t } = useTranslation();
+  const labels: Record<number, string> = {
+    1: t("episode.rating.bad"),
+    2: t("episode.rating.ok"),
+    3: t("episode.rating.good"),
+    4: t("episode.rating.great"),
+    5: t("episode.rating.wow"),
+  };
+
   return (
     <div className="flex justify-between gap-1">
-      {LEVELS.map((level) => {
-        const filled = value >= level.value;
+      {LEVEL_VALUES.map((levelValue) => {
+        const filled = value >= levelValue;
         return (
           <button
-            key={level.value}
+            key={levelValue}
             type="button"
             onClick={() => {
               hapticTick();
-              onChange(level.value);
+              onChange(levelValue);
             }}
             className="flex flex-1 flex-col items-center gap-1 rounded-lg py-2 transition-colors hover:bg-surface"
           >
@@ -46,7 +50,7 @@ export function EpisodeStarRatingRow({
               strokeWidth={2}
             />
             <span className={cn("text-[10px] font-bold tracking-wide", filled ? "text-primary" : "text-muted")}>
-              {level.label}
+              {labels[levelValue]}
             </span>
           </button>
         );

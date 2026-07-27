@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { cn } from "@seenlist/utils";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface FavoriteCharacterOption {
   id: number;
@@ -34,6 +35,7 @@ export function EpisodeFavoriteCharacterPicker({
   selectedId: number | null;
   onSelect: (character: FavoriteCharacterOption | null) => void;
 }) {
+  const { t } = useTranslation();
   if (characters.length === 0) return null;
 
   return (
@@ -59,7 +61,7 @@ export function EpisodeFavoriteCharacterPicker({
               {character.imageUrl ? (
                 <Image src={character.imageUrl} alt={character.name} fill sizes="80px" className="object-cover" />
               ) : (
-                <div className="flex h-full items-center justify-center text-[10px] text-muted">Sem foto</div>
+                <div className="flex h-full items-center justify-center text-[10px] text-muted">{t("episode.noPhoto")}</div>
               )}
             </div>
             <p className={cn("mt-1.5 truncate text-xs font-medium", selected ? "text-primary" : "text-text")}>

@@ -6,11 +6,9 @@ import type { WatchProvider } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { cn } from "@seenlist/utils";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-const FIXED_OPTIONS = [
-  { key: "other", label: "Outro" },
-  { key: "unofficial", label: "Não oficial" },
-] as const;
+const FIXED_OPTION_KEYS = ["other", "unofficial"] as const;
 
 /**
  * TASK-067 — "Onde você assistiu?". Os streamings reais vêm do
@@ -30,6 +28,12 @@ export function EpisodeWatchedPlatformPicker({
   value: string | null;
   onChange: (platform: string | null) => void;
 }) {
+  const { t } = useTranslation();
+  const fixedOptionLabels: Record<(typeof FIXED_OPTION_KEYS)[number], string> = {
+    other: t("episode.platform.other"),
+    unofficial: t("episode.platform.unofficial"),
+  };
+
   return (
     <div className="flex gap-3 overflow-x-auto pb-1">
       {providers.map((provider) => {
@@ -60,16 +64,16 @@ export function EpisodeWatchedPlatformPicker({
         );
       })}
 
-      {FIXED_OPTIONS.map((option) => {
-        const selected = value === option.key;
-        const Icon = option.key === "other" ? Ellipsis : ShieldOff;
+      {FIXED_OPTION_KEYS.map((key) => {
+        const selected = value === key;
+        const Icon = key === "other" ? Ellipsis : ShieldOff;
         return (
           <button
-            key={option.key}
+            key={key}
             type="button"
             onClick={() => {
               hapticTick();
-              onChange(selected ? null : option.key);
+              onChange(selected ? null : key);
             }}
             className="w-16 shrink-0 text-center"
           >
@@ -82,7 +86,7 @@ export function EpisodeWatchedPlatformPicker({
               <Icon className="h-5 w-5" strokeWidth={2} />
             </div>
             <p className={cn("mt-1 truncate text-[10px]", selected ? "font-medium text-primary" : "text-muted")}>
-              {option.label}
+              {fixedOptionLabels[key]}
             </p>
           </button>
         );

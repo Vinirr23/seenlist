@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { WatchProvider } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-030 — mesmo visual de components/movie/StreamingProviders.tsx,
@@ -12,11 +13,12 @@ import { tmdbImage } from "@/lib/tmdb/image";
  * que foi decidido antes.
  */
 export function WhereToWatchSection({ providers }: { providers: WatchProvider[] }) {
+  const { t } = useTranslation();
   return (
     <section>
-      <h2 className="mb-2 text-sm font-medium text-text">Onde assistir</h2>
+      <h2 className="mb-2 text-sm font-medium text-text">{t("movie.whereToWatch")}</h2>
       {providers.length === 0 ? (
-        <p className="text-sm text-muted">Não disponível na sua região.</p>
+        <p className="text-sm text-muted">{t("episode.notAvailableInRegion")}</p>
       ) : (
         <div className="flex flex-wrap gap-3">
           {providers.map((provider) => {
