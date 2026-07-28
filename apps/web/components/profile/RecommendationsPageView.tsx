@@ -18,8 +18,8 @@ import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
 import { SectionPageHeader } from "./SectionPageHeader";
 import { EmptyState } from "../search/EmptyState";
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 /**
  * TASK-169 — recomendações recebidas ("fulano recomendou X pra
@@ -43,6 +43,8 @@ export function RecommendationsPageView() {
   const { data: blockedUsers } = useBlockedUsers();
   const toast = useToast();
   const [showBlocked, setShowBlocked] = useState(false);
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
   function handleOpen(rec: ReceivedRecommendation) {
     if (!rec.readAt) markRead.mutate(rec.id);
@@ -55,18 +57,18 @@ export function RecommendationsPageView() {
 
   function handleBlock(rec: ReceivedRecommendation) {
     hapticTick();
-    if (!window.confirm(`Bloquear @${rec.sender.username}? Você não vai mais receber recomendações dessa pessoa.`)) {
+    if (!window.confirm(t("profile.confirmBlockUser", { username: rec.sender.username }))) {
       return;
     }
     blockUser.mutate(rec.sender.userId, {
-      onSuccess: () => toast.success(`@${rec.sender.username} bloqueado.`),
-      onError: () => toast.error("Não foi possível bloquear agora."),
+      onSuccess: () => toast.success(t("profile.userBlocked", { username: rec.sender.username })),
+      onError: () => toast.error(t("profile.errorBlockUser")),
     });
   }
 
   return (
     <div className="w-full px-4 pb-24 pt-4 md:mx-auto md:max-w-[430px]">
-      <SectionPageHeader title="Recomendações" />
+      <SectionPageHeader title={t("profile.section.recommendations")} />
 
       {isLoading && (
         <div className="space-y-3" aria-busy="true">
@@ -77,7 +79,7 @@ export function RecommendationsPageView() {
       )}
 
       {!isLoading && recommendations && recommendations.length === 0 && (
-        <EmptyState message="Ninguém te recomendou nada ainda." />
+        <EmptyState message={t("profile.emptyRecommendations")} />
       )}
 
       {!isLoading && recommendations && recommendations.length > 0 && (
@@ -104,7 +106,7 @@ export function RecommendationsPageView() {
                     <span className="font-semibold text-text">
                       {rec.sender.displayName ?? `@${rec.sender.username}`}
                     </span>{" "}
-                    recomendou
+                    {t("profile.recommendedVerb")}
                   </p>
                   <p className="truncate text-sm font-medium text-text">{rec.title}</p>
                   {rec.message && <p className="mt-0.5 line-clamp-2 text-xs text-muted">&quot;{rec.message}&quot;</p>}
@@ -116,7 +118,7 @@ export function RecommendationsPageView() {
                 <button
                   type="button"
                   onClick={() => handleDismiss(rec.id)}
-                  aria-label="Dispensar"
+                  aria-label={t("profile.dismiss")}
                   className="text-muted hover:text-text"
                 >
                   <X className="h-4 w-4" strokeWidth={2} />
@@ -124,7 +126,7 @@ export function RecommendationsPageView() {
                 <button
                   type="button"
                   onClick={() => handleBlock(rec)}
-                  aria-label={`Bloquear @${rec.sender.username}`}
+                  aria-label={t("profile.blockUserAriaLabel", { username: rec.sender.username })}
                   className="text-muted hover:text-danger"
                 >
                   <ShieldOff className="h-4 w-4" strokeWidth={2} />
@@ -142,7 +144,7 @@ export function RecommendationsPageView() {
             onClick={() => setShowBlocked((v) => !v)}
             className="flex w-full items-center justify-between text-xs font-medium text-muted"
           >
-            Usuários bloqueados ({blockedUsers.length})
+            {t("profile.blockedUsersHeader", { count: blockedUsers.length })}
             {showBlocked ? <ChevronUp className="h-4 w-4" strokeWidth={2} /> : <ChevronDown className="h-4 w-4" strokeWidth={2} />}
           </button>
 
@@ -159,12 +161,12 @@ export function RecommendationsPageView() {
                     onClick={() => {
                       hapticTick();
                       unblockUser.mutate(user.userId, {
-                        onSuccess: () => toast.success(`@${user.username} desbloqueado.`),
+                        onSuccess: () => toast.success(t("profile.userUnblocked", { username: user.username })),
                       });
                     }}
                     className="text-xs font-medium text-primary"
                   >
-                    Desbloquear
+                    {t("profile.unblock")}
                   </button>
                 </div>
               ))}
