@@ -52,8 +52,8 @@ export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own" }:
     );
   }
 
-  const seriesTime = formatWatchDuration(stats.seriesWatchMinutes);
-  const movieTime = formatWatchDuration(stats.movieWatchMinutes);
+  const seriesTime = formatWatchDuration(stats.seriesWatchMinutes, t);
+  const movieTime = formatWatchDuration(stats.movieWatchMinutes, t);
 
   const cards = [
     { icon: Clock, key: "seriesTime", title: t("profile.stats.timeWatchingSeries"), value: seriesTime.primary, subtext: seriesTime.secondary },

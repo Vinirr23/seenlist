@@ -9,10 +9,9 @@ import { useUpcomingEpisodes } from "@/lib/useUpcomingEpisodes";
 import { formatWatchDuration } from "@/lib/profileStats";
 import { BigStatCard } from "./BigStatCard";
 import { WeeklyBarChart } from "./WeeklyBarChart";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, spacing } from "@/lib/theme";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long" });
 
 /**
  * TASK-117 — porta fiel de `StatsSeriesTab.tsx`. Mesma auditoria do
@@ -29,6 +28,9 @@ export function StatsSeriesTab() {
   const [timelineLoading, setTimelineLoading] = useState(true);
   const social = useSocialCounts(session?.user.id ?? null);
   const { groups: upcomingGroups, isLoading: upcomingLoading } = useUpcomingEpisodes();
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "long" });
 
   useEffect(() => {
     fetchEpisodesTimeline()
@@ -47,54 +49,54 @@ export function StatsSeriesTab() {
     );
   }
 
-  const watchTime = formatWatchDuration(stats.seriesWatchMinutes);
+  const watchTime = formatWatchDuration(stats.seriesWatchMinutes, t);
   const upcomingCount = upcomingGroups.reduce((sum, g) => sum + g.episodes.length, 0);
   const estimatedWeeks = timeline && timeline.averagePerWeek > 0 ? Math.ceil(stats.episodesRemaining / timeline.averagePerWeek) : null;
 
   return (
     <View style={styles.list}>
-      <BigStatCard title="Tempo assistindo séries" value={watchTime.primary} subtext={watchTime.secondary} />
+      <BigStatCard title={t("profile.stats.timeWatchingSeriesFull")} value={watchTime.primary} subtext={watchTime.secondary} />
 
       <View style={styles.row2}>
         <View style={styles.flex1}>
-          <BigStatCard title="Episódios assistidos" value={numberFormatter.format(stats.episodesWatched)} />
+          <BigStatCard title={t("profile.stats.episodesWatched")} value={numberFormatter.format(stats.episodesWatched)} />
         </View>
         <View style={styles.flex1}>
-          <BigStatCard title="Episódios restantes" value={numberFormatter.format(stats.episodesRemaining)} />
+          <BigStatCard title={t("profile.stats.episodesRemaining")} value={numberFormatter.format(stats.episodesRemaining)} />
         </View>
       </View>
 
       <View style={styles.row2}>
         <View style={styles.flex1}>
-          <BigStatCard title="Séries adicionadas" value={numberFormatter.format(stats.seriesInLibrary)} />
+          <BigStatCard title={t("profile.stats.seriesAdded")} value={numberFormatter.format(stats.seriesInLibrary)} />
         </View>
         <View style={styles.flex1}>
-          <BigStatCard title="Séries assistidas" value={numberFormatter.format(stats.seriesCompleted)} />
+          <BigStatCard title={t("profile.stats.seriesWatchedCount")} value={numberFormatter.format(stats.seriesCompleted)} />
         </View>
       </View>
 
       <View style={styles.row3}>
         <View style={styles.flex1}>
-          <BigStatCard title="Assistindo" value={numberFormatter.format(stats.seriesWatching + stats.seriesUpToDate)} />
+          <BigStatCard title={t("profile.stats.watching")} value={numberFormatter.format(stats.seriesWatching + stats.seriesUpToDate)} />
         </View>
         <View style={styles.flex1}>
-          <BigStatCard title="Interrompidas" value={numberFormatter.format(stats.seriesPaused)} />
+          <BigStatCard title={t("profile.stats.paused")} value={numberFormatter.format(stats.seriesPaused)} />
         </View>
         <View style={styles.flex1}>
-          <BigStatCard title="Assistir depois" value={numberFormatter.format(stats.seriesWantToWatch)} />
+          <BigStatCard title={t("profile.stats.watchLater")} value={numberFormatter.format(stats.seriesWantToWatch)} />
         </View>
       </View>
 
       {!timelineLoading && timeline && timeline.weeks.some((w) => w.count > 0) && (
-        <BigStatCard title="Episódios por semana (últimas 12 semanas)" value={timeline.averagePerWeek.toFixed(1)} subtext="média por semana">
+        <BigStatCard title={t("profile.stats.episodesPerWeek")} value={timeline.averagePerWeek.toFixed(1)} subtext={t("profile.stats.averagePerWeek")}>
           <WeeklyBarChart weeks={timeline.weeks} />
         </BigStatCard>
       )}
 
       {!timelineLoading && timeline?.biggestBingeDay && (
         <BigStatCard
-          title="Maior maratona"
-          value={`${timeline.biggestBingeDay.count} episódios`}
+          title={t("profile.stats.biggestBinge")}
+          value={t("profile.episodeCount", { count: timeline.biggestBingeDay.count })}
           subtext={dateFormatter.format(new Date(`${timeline.biggestBingeDay.date}T00:00:00`))}
         >
           <Feather name="play-circle" size={18} color={colors.primary} />
@@ -102,13 +104,17 @@ export function StatsSeriesTab() {
       )}
 
       {estimatedWeeks != null && stats.episodesRemaining > 0 && (
-        <BigStatCard title="Ritmo estimado pra ficar em dia" value={`${estimatedWeeks} semana${estimatedWeeks === 1 ? "" : "s"}`} subtext="baseado no seu ritmo médio recente">
+        <BigStatCard
+          title={t("profile.stats.estimatedPace")}
+          value={estimatedWeeks === 1 ? t("profile.weekSingular", { count: estimatedWeeks }) : t("profile.weekPlural", { count: estimatedWeeks })}
+          subtext={t("profile.stats.basedOnRecentPace")}
+        >
           <Feather name="calendar" size={18} color={colors.primary} />
         </BigStatCard>
       )}
 
       {!upcomingLoading && (
-        <BigStatCard title="Próximos episódios anunciados" value={numberFormatter.format(upcomingCount)}>
+        <BigStatCard title={t("profile.stats.upcomingEpisodes")} value={numberFormatter.format(upcomingCount)}>
           <Feather name="tv" size={18} color={colors.primary} />
         </BigStatCard>
       )}
@@ -116,13 +122,13 @@ export function StatsSeriesTab() {
       {!!social && (
         <View style={styles.row3}>
           <View style={styles.flex1}>
-            <BigStatCard title="Avaliações" value={numberFormatter.format(social.reviewsGiven)} />
+            <BigStatCard title={t("profile.stats.reviews")} value={numberFormatter.format(social.reviewsGiven)} />
           </View>
           <View style={styles.flex1}>
-            <BigStatCard title="Curtidas" value={numberFormatter.format(social.likesGiven)} />
+            <BigStatCard title={t("profile.stats.likes")} value={numberFormatter.format(social.likesGiven)} />
           </View>
           <View style={styles.flex1}>
-            <BigStatCard title="Comentários" value={numberFormatter.format(social.commentsGiven)} />
+            <BigStatCard title={t("profile.comments")} value={numberFormatter.format(social.commentsGiven)} />
           </View>
         </View>
       )}

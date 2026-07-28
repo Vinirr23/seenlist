@@ -1,6 +1,7 @@
 import { View, StyleSheet } from "react-native";
 import { useProfileStats } from "@/lib/useProfileStats";
 import { formatWatchDuration } from "@/lib/profileStats";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { BigStatCard } from "./BigStatCard";
 import { colors, spacing } from "@/lib/theme";
 
@@ -14,6 +15,7 @@ const numberFormatter = new Intl.NumberFormat("pt-BR");
  */
 export function StatsMoviesTab() {
   const { stats, isLoading } = useProfileStats();
+  const { t } = useTranslation();
 
   if (isLoading || !stats) {
     return (
@@ -25,7 +27,7 @@ export function StatsMoviesTab() {
     );
   }
 
-  const watchTime = formatWatchDuration(stats.movieWatchMinutes);
+  const watchTime = formatWatchDuration(stats.movieWatchMinutes, t);
 
   return (
     <View style={styles.list}>

@@ -39,8 +39,8 @@ export function StatisticsCard() {
     );
   }
 
-  const seriesTime = formatWatchDuration(stats.seriesWatchMinutes);
-  const movieTime = formatWatchDuration(stats.movieWatchMinutes);
+  const seriesTime = formatWatchDuration(stats.seriesWatchMinutes, t);
+  const movieTime = formatWatchDuration(stats.movieWatchMinutes, t);
 
   const preview = [
     { label: t("stats.episodesWatched"), value: numberFormatter.format(stats.episodesWatched), icon: Tv2 },

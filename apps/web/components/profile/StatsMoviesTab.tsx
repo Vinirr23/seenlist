@@ -36,7 +36,7 @@ export function StatsMoviesTab() {
     );
   }
 
-  const watchTime = formatWatchDuration(stats.movieWatchMinutes);
+  const watchTime = formatWatchDuration(stats.movieWatchMinutes, t);
 
   return (
     <div className="space-y-3 pb-4">

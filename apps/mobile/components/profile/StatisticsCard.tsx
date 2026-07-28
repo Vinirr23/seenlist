@@ -5,9 +5,9 @@ import { Feather } from "@expo/vector-icons";
 import { useProfileStats } from "@/lib/useProfileStats";
 import { formatWatchDuration } from "@/lib/profileStats";
 import { Text, Skeleton } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
 
 /**
  * TASK-116 (correção — Perfil) — porta de `StatisticsCard.tsx`.
@@ -26,6 +26,8 @@ const numberFormatter = new Intl.NumberFormat("pt-BR");
 export function StatisticsCard() {
   const router = useRouter();
   const { stats, isLoading, isError } = useProfileStats();
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
 
   if (isLoading) {
     return (
@@ -47,19 +49,19 @@ export function StatisticsCard() {
   if (isError || !stats) {
     return (
       <View style={[styles.card, styles.cardStatic]}>
-        <Text variant="muted">Não foi possível carregar suas estatísticas agora.</Text>
+        <Text variant="muted">{t("profile.errorLoadStats")}</Text>
       </View>
     );
   }
 
-  const seriesTime = formatWatchDuration(stats.seriesWatchMinutes);
-  const movieTime = formatWatchDuration(stats.movieWatchMinutes);
+  const seriesTime = formatWatchDuration(stats.seriesWatchMinutes, t);
+  const movieTime = formatWatchDuration(stats.movieWatchMinutes, t);
 
   const preview: { label: string; value: string; icon: keyof typeof Feather.glyphMap }[] = [
-    { label: "Episódios assistidos", value: numberFormatter.format(stats.episodesWatched), icon: "tv" },
-    { label: "Filmes assistidos", value: numberFormatter.format(stats.moviesCompleted), icon: "film" },
-    { label: "Tempo vendo séries", value: seriesTime.primary, icon: "clock" },
-    { label: "Tempo vendo filmes", value: movieTime.primary, icon: "video" },
+    { label: t("profile.stats.episodesWatched"), value: numberFormatter.format(stats.episodesWatched), icon: "tv" },
+    { label: t("profile.stats.moviesWatched"), value: numberFormatter.format(stats.moviesCompleted), icon: "film" },
+    { label: t("profile.stats.timeWatchingSeries"), value: seriesTime.primary, icon: "clock" },
+    { label: t("profile.stats.timeWatchingMovies"), value: movieTime.primary, icon: "video" },
   ];
 
   return (
@@ -73,10 +75,10 @@ export function StatisticsCard() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Feather name="bar-chart-2" size={16} color={colors.primary} />
-            <Text variant="label">Estatísticas</Text>
+            <Text variant="label">{t("profile.statistics")}</Text>
           </View>
           <View style={styles.pillButton}>
-            <Text style={styles.pillButtonText}>Ver detalhes</Text>
+            <Text style={styles.pillButtonText}>{t("profile.viewDetails")}</Text>
             <Feather name="chevron-right" size={12} color={colors.background} />
           </View>
         </View>

@@ -83,13 +83,24 @@ export interface FormattedDuration {
   secondary?: string;
 }
 
-function unit(n: number, singular: string, plural: string): string {
-  return `${n} ${n === 1 ? singular : plural}`;
+type TFunction = (key: string, vars?: Record<string, string | number>) => string;
+
+function unit(n: number, t: TFunction, singularKey: string, pluralKey: string): string {
+  return t(n === 1 ? singularKey : pluralKey, { n });
 }
 
-/** Idêntico a formatWatchDuration do web — sempre mostra a maior unidade não-zero, com até duas unidades menores de subtexto. */
-export function formatWatchDuration(totalMinutes: number): FormattedDuration {
-  if (totalMinutes <= 0) return { primary: "0 horas" };
+/**
+ * Idêntico a formatWatchDuration do web — sempre mostra a maior
+ * unidade não-zero, com até duas unidades menores de subtexto.
+ *
+ * Correção (mesmo bug real achado pelo usuário no web, corrigido
+ * aqui de propósito antes mesmo de chegar na tradução do Perfil
+ * mobile) — devolvia "ano"/"mês"/"dia"/"hora" fixos em português,
+ * sem passar pelo `t()`. Agora recebe a função de tradução como
+ * parâmetro, igual o resto dos componentes já traduzidos.
+ */
+export function formatWatchDuration(totalMinutes: number, t: TFunction): FormattedDuration {
+  if (totalMinutes <= 0) return { primary: t("duration.zeroHours") };
 
   const totalHours = Math.round(totalMinutes / 60);
   const totalDays = Math.floor(totalHours / 24);
@@ -100,22 +111,31 @@ export function formatWatchDuration(totalMinutes: number): FormattedDuration {
   const days = remDaysAfterYears % 30;
 
   if (years > 0) {
-    const secondary = [months > 0 ? unit(months, "mês", "meses") : null, days > 0 ? unit(days, "dia", "dias") : null]
+    const secondary = [
+      months > 0 ? unit(months, t, "duration.month", "duration.months") : null,
+      days > 0 ? unit(days, t, "duration.day", "duration.days") : null,
+    ]
       .filter(Boolean)
       .join(" · ");
-    return { primary: unit(years, "ano", "anos"), secondary: secondary || undefined };
+    return { primary: unit(years, t, "duration.year", "duration.years"), secondary: secondary || undefined };
   }
 
   if (months > 0) {
-    const secondary = [days > 0 ? unit(days, "dia", "dias") : null, remHours > 0 ? unit(remHours, "hora", "horas") : null]
+    const secondary = [
+      days > 0 ? unit(days, t, "duration.day", "duration.days") : null,
+      remHours > 0 ? unit(remHours, t, "duration.hour", "duration.hours") : null,
+    ]
       .filter(Boolean)
       .join(" · ");
-    return { primary: unit(months, "mês", "meses"), secondary: secondary || undefined };
+    return { primary: unit(months, t, "duration.month", "duration.months"), secondary: secondary || undefined };
   }
 
   if (totalDays > 0) {
-    return { primary: unit(totalDays, "dia", "dias"), secondary: remHours > 0 ? unit(remHours, "hora", "horas") : undefined };
+    return {
+      primary: unit(totalDays, t, "duration.day", "duration.days"),
+      secondary: remHours > 0 ? unit(remHours, t, "duration.hour", "duration.hours") : undefined,
+    };
   }
 
-  return { primary: unit(totalHours, "hora", "horas") };
+  return { primary: unit(totalHours, t, "duration.hour", "duration.hours") };
 }

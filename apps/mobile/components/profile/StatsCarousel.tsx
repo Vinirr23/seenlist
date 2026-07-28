@@ -3,9 +3,9 @@ import type { ProfileStats } from "@/lib/profileStats";
 import { formatWatchDuration } from "@/lib/profileStats";
 import { StatCard } from "./StatCard";
 import { Text } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { spacing } from "@/lib/theme";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
 
 export interface StatsCarouselProps {
   stats: ProfileStats | undefined;
@@ -22,11 +22,14 @@ export interface StatsCarouselProps {
  * carrossel inteiro — mesma decisão do web.
  */
 export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own" }: StatsCarouselProps) {
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
+
   if (isLoading) {
     return (
       <View style={styles.section}>
         <Text variant="title" style={styles.sectionTitle}>
-          Estatísticas
+          {t("profile.statistics")}
         </Text>
         <View style={styles.loadingRow}>
           {[0, 1, 2].map((i) => (
@@ -41,34 +44,32 @@ export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own" }:
     return (
       <View style={styles.section}>
         <Text variant="title" style={styles.sectionTitle}>
-          Estatísticas
+          {t("profile.statistics")}
         </Text>
         <Text variant="muted">
-          {ownerLabel === "own"
-            ? "Não foi possível carregar suas estatísticas agora."
-            : "Não foi possível carregar as estatísticas deste perfil agora."}
+          {ownerLabel === "own" ? t("profile.errorLoadStats") : t("profile.errorLoadStatsOther")}
         </Text>
       </View>
     );
   }
 
-  const seriesTime = formatWatchDuration(stats.seriesWatchMinutes);
-  const movieTime = formatWatchDuration(stats.movieWatchMinutes);
+  const seriesTime = formatWatchDuration(stats.seriesWatchMinutes, t);
+  const movieTime = formatWatchDuration(stats.movieWatchMinutes, t);
 
   const cards: { icon: React.ComponentProps<typeof StatCard>["icon"]; title: string; value: string; subtext?: string }[] = [
-    { icon: "clock", title: "Tempo vendo séries", value: seriesTime.primary, subtext: seriesTime.secondary },
-    { icon: "film", title: "Episódios assistidos", value: numberFormatter.format(stats.episodesWatched) },
-    { icon: "video", title: "Tempo vendo filmes", value: movieTime.primary, subtext: movieTime.secondary },
-    { icon: "check-circle", title: "Filmes concluídos", value: numberFormatter.format(stats.moviesCompleted) },
-    { icon: "check-circle", title: "Séries concluídas", value: numberFormatter.format(stats.seriesCompleted) },
-    { icon: "tv", title: "Séries na biblioteca", value: numberFormatter.format(stats.seriesInLibrary) },
-    { icon: "film", title: "Filmes na biblioteca", value: numberFormatter.format(stats.moviesInLibrary) },
+    { icon: "clock", title: t("profile.stats.timeWatchingSeries"), value: seriesTime.primary, subtext: seriesTime.secondary },
+    { icon: "film", title: t("profile.stats.episodesWatched"), value: numberFormatter.format(stats.episodesWatched) },
+    { icon: "video", title: t("profile.stats.timeWatchingMovies"), value: movieTime.primary, subtext: movieTime.secondary },
+    { icon: "check-circle", title: t("profile.stats.moviesCompleted"), value: numberFormatter.format(stats.moviesCompleted) },
+    { icon: "check-circle", title: t("profile.stats.seriesCompleted"), value: numberFormatter.format(stats.seriesCompleted) },
+    { icon: "tv", title: t("profile.stats.seriesInLibrary"), value: numberFormatter.format(stats.seriesInLibrary) },
+    { icon: "film", title: t("profile.stats.moviesInLibrary"), value: numberFormatter.format(stats.moviesInLibrary) },
   ];
 
   return (
     <View style={styles.section}>
       <Text variant="title" style={styles.sectionTitle}>
-        Estatísticas
+        {t("profile.statistics")}
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {cards.map((card) => (

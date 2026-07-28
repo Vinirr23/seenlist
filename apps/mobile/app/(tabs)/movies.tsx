@@ -14,23 +14,25 @@ import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, spacing } from "@/lib/theme";
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 function isReleased(releaseDate: string | null | undefined, todayKey: string): boolean {
   if (!releaseDate) return true; // sem data conhecida — trata como já lançado, mesmo padrão de "year: null" já usado no resto do app.
   return releaseDate <= todayKey;
 }
 
-function upcomingLabel(releaseDate: string, todayKey: string): string {
+function upcomingLabel(releaseDate: string, todayKey: string, t: TFunction, dateFormatter: Intl.DateTimeFormat): string {
   const today = new Date(`${todayKey}T00:00:00`);
   const target = new Date(`${releaseDate}T00:00:00`);
   const daysUntil = Math.round((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-  if (daysUntil === 0) return "Estreia hoje";
-  if (daysUntil === 1) return "Estreia amanhã";
-  if (daysUntil <= 30) return `Estreia em ${daysUntil} dias`;
-  return `Estreia em ${DATE_FORMATTER.format(target)}`;
+  if (daysUntil === 0) return t("moviesHome.releasesToday");
+  if (daysUntil === 1) return t("moviesHome.releasesTomorrow");
+  if (daysUntil <= 30) return t("moviesHome.releasesInDays", { days: daysUntil });
+  return t("moviesHome.releasesOn", { date: dateFormatter.format(target) });
 }
 
 /**
@@ -56,6 +58,11 @@ export default function MoviesScreen() {
   const [tab, setTab] = useState<HomeTab>("minha-lista");
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("movies-library");
+  const { t, locale } = useTranslation();
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "long", year: "numeric" }),
+    [locale]
+  );
 
   const todayKey = useMemo(() => todayLocalKey(), []);
 
@@ -90,16 +97,16 @@ export default function MoviesScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
           <View style={styles.sectionHeader}>
-            <Text variant="subtitle">Assistir depois</Text>
+            <Text variant="subtitle">{t("moviesHome.watchlist")}</Text>
             <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
           </View>
 
           {isError ? (
-            <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />
+            <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />
           ) : isLoading ? (
             viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
           ) : wantToWatch.length === 0 ? (
-            <EmptyShelf message="Sua lista está vazia." actionLabel="Explorar filmes" actionHref="/(tabs)/explore" />
+            <EmptyShelf message={t("moviesHome.emptyWatchlist")} actionLabel={t("moviesHome.exploreMovies")} actionHref="/(tabs)/explore" />
           ) : viewMode === "grid" ? (
             <PosterGrid items={wantToWatch} onPressItem={handlePressItem} />
           ) : (
@@ -116,16 +123,16 @@ export default function MoviesScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
           <View style={styles.sectionHeader}>
-            <Text variant="subtitle">Em breve</Text>
+            <Text variant="subtitle">{t("seriesHome.tab.upcoming")}</Text>
             <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
           </View>
 
           {isError ? (
-            <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />
+            <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />
           ) : isLoading ? (
             viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
           ) : upcoming.length === 0 ? (
-            <EmptyShelf message="Nenhum filme da sua lista 'Assistir depois' tem estreia futura conhecida." />
+            <EmptyShelf message={t("moviesHome.emptyUpcoming")} />
           ) : viewMode === "grid" ? (
             <PosterGrid items={upcoming} onPressItem={handlePressItem} />
           ) : (
@@ -135,7 +142,7 @@ export default function MoviesScreen() {
                   key={item.id}
                   item={item}
                   onPress={handlePressItem}
-                  secondaryText={item.releaseDate ? upcomingLabel(item.releaseDate, todayKey) : ""}
+                  secondaryText={item.releaseDate ? upcomingLabel(item.releaseDate, todayKey, t, dateFormatter) : ""}
                 />
               ))}
             </View>

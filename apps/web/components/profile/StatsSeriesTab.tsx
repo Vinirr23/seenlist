@@ -50,7 +50,7 @@ export function StatsSeriesTab() {
     );
   }
 
-  const watchTime = formatWatchDuration(stats.seriesWatchMinutes);
+  const watchTime = formatWatchDuration(stats.seriesWatchMinutes, t);
   const upcomingCount = upcomingGroups.reduce((sum, g) => sum + g.episodes.length, 0);
   const estimatedWeeks =
     timeline && timeline.averagePerWeek > 0 ? Math.ceil(stats.episodesRemaining / timeline.averagePerWeek) : null;
