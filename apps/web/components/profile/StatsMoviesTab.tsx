@@ -4,8 +4,8 @@ import { useProfileStats } from "@/lib/queries/profile-stats";
 import { useSocialCounts } from "@/lib/queries/social-counts";
 import { formatWatchDuration } from "@/lib/format-duration";
 import { BigStatCard } from "./BigStatCard";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 /**
  * TASK-054 — auditoria: moviesCompleted, movieWatchMinutes,
@@ -23,6 +23,8 @@ const numberFormatter = new Intl.NumberFormat("pt-BR");
  */
 export function StatsMoviesTab() {
   const { data: stats, isLoading } = useProfileStats();
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
 
   if (isLoading || !stats) {
     return (
@@ -38,11 +40,11 @@ export function StatsMoviesTab() {
 
   return (
     <div className="space-y-3 pb-4">
-      <BigStatCard title="Tempo assistindo filmes" value={watchTime.primary} subtext={watchTime.secondary} />
+      <BigStatCard title={t("profile.stats.timeWatchingMoviesFull")} value={watchTime.primary} subtext={watchTime.secondary} />
 
       <div className="grid grid-cols-2 gap-3">
-        <BigStatCard title="Filmes assistidos" value={numberFormatter.format(stats.moviesCompleted)} />
-        <BigStatCard title="Filmes na biblioteca" value={numberFormatter.format(stats.moviesInLibrary)} />
+        <BigStatCard title={t("profile.stats.moviesWatched")} value={numberFormatter.format(stats.moviesCompleted)} />
+        <BigStatCard title={t("profile.stats.moviesInLibrary")} value={numberFormatter.format(stats.moviesInLibrary)} />
       </div>
     </div>
   );

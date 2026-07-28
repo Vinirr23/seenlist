@@ -8,9 +8,8 @@ import { useUpcomingEpisodes } from "@/lib/queries/upcoming-episodes";
 import { formatWatchDuration } from "@/lib/format-duration";
 import { BigStatCard } from "./BigStatCard";
 import { WeeklyBarChart } from "./WeeklyBarChart";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long" });
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 /**
  * TASK-054 — auditoria: episodesWatched, seriesWatchMinutes,
@@ -37,6 +36,9 @@ export function StatsSeriesTab() {
   const { data: timeline, isLoading: timelineLoading } = useEpisodesTimeline();
   const { data: social, isLoading: socialLoading } = useSocialCounts();
   const { groups: upcomingGroups, isLoading: upcomingLoading } = useUpcomingEpisodes();
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "long" });
 
   if (statsLoading || !stats) {
     return (
@@ -55,29 +57,29 @@ export function StatsSeriesTab() {
 
   return (
     <div className="space-y-3 pb-4">
-      <BigStatCard title="Tempo assistindo séries" value={watchTime.primary} subtext={watchTime.secondary} />
+      <BigStatCard title={t("profile.stats.timeWatchingSeriesFull")} value={watchTime.primary} subtext={watchTime.secondary} />
 
       <div className="grid grid-cols-2 gap-3">
-        <BigStatCard title="Episódios assistidos" value={numberFormatter.format(stats.episodesWatched)} />
-        <BigStatCard title="Episódios restantes" value={numberFormatter.format(stats.episodesRemaining)} />
+        <BigStatCard title={t("profile.stats.episodesWatched")} value={numberFormatter.format(stats.episodesWatched)} />
+        <BigStatCard title={t("profile.stats.episodesRemaining")} value={numberFormatter.format(stats.episodesRemaining)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <BigStatCard title="Séries adicionadas" value={numberFormatter.format(stats.seriesInLibrary)} />
-        <BigStatCard title="Séries assistidas" value={numberFormatter.format(stats.seriesCompleted)} />
+        <BigStatCard title={t("profile.stats.seriesAdded")} value={numberFormatter.format(stats.seriesInLibrary)} />
+        <BigStatCard title={t("profile.stats.seriesWatchedCount")} value={numberFormatter.format(stats.seriesCompleted)} />
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <BigStatCard title="Assistindo" value={numberFormatter.format(stats.seriesWatching + stats.seriesUpToDate)} />
-        <BigStatCard title="Interrompidas" value={numberFormatter.format(stats.seriesPaused)} />
-        <BigStatCard title="Assistir depois" value={numberFormatter.format(stats.seriesWantToWatch)} />
+        <BigStatCard title={t("media.status.watching")} value={numberFormatter.format(stats.seriesWatching + stats.seriesUpToDate)} />
+        <BigStatCard title={t("media.status.paused")} value={numberFormatter.format(stats.seriesPaused)} />
+        <BigStatCard title={t("seriesHome.watchlist")} value={numberFormatter.format(stats.seriesWantToWatch)} />
       </div>
 
       {!timelineLoading && timeline && timeline.weeks.some((w) => w.count > 0) && (
         <BigStatCard
-          title="Episódios por semana (últimas 12 semanas)"
+          title={t("profile.stats.episodesPerWeek")}
           value={timeline.averagePerWeek.toFixed(1)}
-          subtext="média por semana"
+          subtext={t("profile.stats.averagePerWeek")}
         >
           <WeeklyBarChart weeks={timeline.weeks} />
         </BigStatCard>
@@ -85,8 +87,8 @@ export function StatsSeriesTab() {
 
       {!timelineLoading && timeline?.biggestBingeDay && (
         <BigStatCard
-          title="Maior maratona"
-          value={`${timeline.biggestBingeDay.count} episódios`}
+          title={t("profile.stats.biggestBinge")}
+          value={t("profile.episodeCount", { count: timeline.biggestBingeDay.count })}
           subtext={dateFormatter.format(new Date(`${timeline.biggestBingeDay.date}T00:00:00`))}
         >
           <PlayCircle className="h-5 w-5 text-primary" strokeWidth={2} />
@@ -95,25 +97,25 @@ export function StatsSeriesTab() {
 
       {estimatedWeeks != null && stats.episodesRemaining > 0 && (
         <BigStatCard
-          title="Ritmo estimado pra ficar em dia"
-          value={`${estimatedWeeks} semana${estimatedWeeks === 1 ? "" : "s"}`}
-          subtext="baseado no seu ritmo médio recente"
+          title={t("profile.stats.estimatedPace")}
+          value={estimatedWeeks === 1 ? t("profile.weekSingular", { count: estimatedWeeks }) : t("profile.weekPlural", { count: estimatedWeeks })}
+          subtext={t("profile.stats.basedOnRecentPace")}
         >
           <CalendarDays className="h-5 w-5 text-primary" strokeWidth={2} />
         </BigStatCard>
       )}
 
       {!upcomingLoading && (
-        <BigStatCard title="Próximos episódios anunciados" value={numberFormatter.format(upcomingCount)}>
+        <BigStatCard title={t("profile.stats.upcomingEpisodes")} value={numberFormatter.format(upcomingCount)}>
           <Tv className="h-5 w-5 text-primary" strokeWidth={2} />
         </BigStatCard>
       )}
 
       {!socialLoading && social && (
         <div className="grid grid-cols-3 gap-3">
-          <BigStatCard title="Avaliações" value={numberFormatter.format(social.reviewsGiven)} />
-          <BigStatCard title="Curtidas" value={numberFormatter.format(social.likesGiven)} />
-          <BigStatCard title="Comentários" value={numberFormatter.format(social.commentsGiven)} />
+          <BigStatCard title={t("profile.stats.reviews")} value={numberFormatter.format(social.reviewsGiven)} />
+          <BigStatCard title={t("profile.stats.likes")} value={numberFormatter.format(social.likesGiven)} />
+          <BigStatCard title={t("profile.comments")} value={numberFormatter.format(social.commentsGiven)} />
         </div>
       )}
     </div>

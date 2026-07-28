@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { cn } from "@seenlist/utils";
 import { StatsSeriesTab } from "./StatsSeriesTab";
 import { StatsMoviesTab } from "./StatsMoviesTab";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 type StatsTab = "series" | "movies";
 
@@ -18,14 +19,15 @@ type StatsTab = "series" | "movies";
  */
 export function StatsPageView() {
   const [tab, setTab] = useState<StatsTab>("series");
+  const { t } = useTranslation();
 
   return (
     <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
       <div className="flex items-center gap-3 px-4 pt-4">
-        <Link href="/profile" aria-label="Voltar" className="text-text">
+        <Link href="/profile" aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-lg font-bold text-text">Estatísticas</h1>
+        <h1 className="text-lg font-bold text-text">{t("profile.statistics")}</h1>
       </div>
 
       <div className="mt-4 flex border-b border-border px-4">
@@ -37,7 +39,7 @@ export function StatsPageView() {
             tab === "series" ? "border-primary text-text" : "border-transparent text-muted"
           )}
         >
-          Séries
+          {t("nav.series")}
         </button>
         <button
           type="button"
@@ -47,7 +49,7 @@ export function StatsPageView() {
             tab === "movies" ? "border-primary text-text" : "border-transparent text-muted"
           )}
         >
-          Filmes
+          {t("nav.movies")}
         </button>
       </div>
 
