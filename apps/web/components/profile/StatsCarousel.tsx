@@ -4,8 +4,8 @@ import { Clock, ListVideo, Film, CheckCircle2, Tv } from "lucide-react";
 import { useProfileStats, type ProfileStats } from "@/lib/queries/profile-stats";
 import { formatWatchDuration } from "@/lib/format-duration";
 import { StatCard } from "./StatCard";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 export interface StatsCarouselProps {
   stats: ProfileStats | undefined;
@@ -25,11 +25,14 @@ export interface StatsCarouselProps {
  * concluídos", como pedido explicitamente aqui.
  */
 export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own" }: StatsCarouselProps) {
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
+
   if (isLoading) {
     return (
       <section className="mb-6">
-        <h2 className="mb-3 px-1 text-lg font-bold text-text">Estatísticas</h2>
-        <div className="flex gap-3 overflow-hidden" aria-busy="true" aria-label="Carregando estatísticas">
+        <h2 className="mb-3 px-1 text-lg font-bold text-text">{t("profile.statistics")}</h2>
+        <div className="flex gap-3 overflow-hidden" aria-busy="true" aria-label={t("profile.loadingStats")}>
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="h-32 w-40 shrink-0 animate-pulse rounded-2xl bg-surface" />
           ))}
@@ -41,11 +44,9 @@ export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own" }:
   if (isError || !stats) {
     return (
       <section className="mb-6">
-        <h2 className="mb-3 px-1 text-lg font-bold text-text">Estatísticas</h2>
+        <h2 className="mb-3 px-1 text-lg font-bold text-text">{t("profile.statistics")}</h2>
         <p className="text-sm text-muted">
-          {ownerLabel === "own"
-            ? "Não foi possível carregar suas estatísticas agora."
-            : "Não foi possível carregar as estatísticas deste perfil agora."}
+          {ownerLabel === "own" ? t("profile.errorLoadStats") : t("profile.errorLoadStatsOther")}
         </p>
       </section>
     );
@@ -55,18 +56,18 @@ export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own" }:
   const movieTime = formatWatchDuration(stats.movieWatchMinutes);
 
   const cards = [
-    { icon: Clock, title: "Tempo vendo séries", value: seriesTime.primary, subtext: seriesTime.secondary },
-    { icon: ListVideo, title: "Episódios assistidos", value: numberFormatter.format(stats.episodesWatched) },
-    { icon: Film, title: "Tempo vendo filmes", value: movieTime.primary, subtext: movieTime.secondary },
-    { icon: CheckCircle2, title: "Filmes concluídos", value: numberFormatter.format(stats.moviesCompleted) },
-    { icon: CheckCircle2, title: "Séries concluídas", value: numberFormatter.format(stats.seriesCompleted) },
-    { icon: Tv, title: "Séries na biblioteca", value: numberFormatter.format(stats.seriesInLibrary) },
-    { icon: Film, title: "Filmes na biblioteca", value: numberFormatter.format(stats.moviesInLibrary) },
+    { icon: Clock, key: "seriesTime", title: t("profile.stats.timeWatchingSeries"), value: seriesTime.primary, subtext: seriesTime.secondary },
+    { icon: ListVideo, key: "episodesWatched", title: t("profile.stats.episodesWatched"), value: numberFormatter.format(stats.episodesWatched) },
+    { icon: Film, key: "movieTime", title: t("profile.stats.timeWatchingMovies"), value: movieTime.primary, subtext: movieTime.secondary },
+    { icon: CheckCircle2, key: "moviesCompleted", title: t("profile.stats.moviesCompleted"), value: numberFormatter.format(stats.moviesCompleted) },
+    { icon: CheckCircle2, key: "seriesCompleted", title: t("profile.stats.seriesCompleted"), value: numberFormatter.format(stats.seriesCompleted) },
+    { icon: Tv, key: "seriesInLibrary", title: t("profile.stats.seriesInLibrary"), value: numberFormatter.format(stats.seriesInLibrary) },
+    { icon: Film, key: "moviesInLibrary", title: t("profile.stats.moviesInLibrary"), value: numberFormatter.format(stats.moviesInLibrary) },
   ];
 
   return (
     <section className="mb-6">
-      <h2 className="mb-3 px-1 text-lg font-bold text-text">Estatísticas</h2>
+      <h2 className="mb-3 px-1 text-lg font-bold text-text">{t("profile.statistics")}</h2>
       <div
         className={
           "-mx-4 flex gap-3 overflow-x-auto scroll-smooth px-4 pb-1 snap-x snap-mandatory " +
@@ -74,7 +75,7 @@ export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own" }:
         }
       >
         {cards.map((card) => (
-          <StatCard key={card.title} icon={card.icon} title={card.title} value={card.value} subtext={card.subtext} />
+          <StatCard key={card.key} icon={card.icon} title={card.title} value={card.value} subtext={card.subtext} />
         ))}
       </div>
     </section>

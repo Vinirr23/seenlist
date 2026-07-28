@@ -3,8 +3,8 @@
 import { Film, Tv, CheckCircle2, ListVideo } from "lucide-react";
 import { useProfileStats } from "@/lib/queries/profile-stats";
 import { StatCard } from "./StatCard";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 /**
  * Ajuste — virou carrossel horizontal, mesmo padrão visual e mesmo
@@ -16,13 +16,15 @@ const numberFormatter = new Intl.NumberFormat("pt-BR");
  */
 export function ProfileStatsGrid() {
   const { data: stats, isLoading, isError } = useProfileStats();
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
 
   if (isLoading) {
     return (
       <div
         className="-mx-4 mb-6 flex gap-3 overflow-hidden px-4"
         aria-busy="true"
-        aria-label="Carregando estatísticas"
+        aria-label={t("profile.loadingStats")}
       >
         {Array.from({ length: 5 }).map((_, index) => (
           <div key={index} className="h-28 w-40 shrink-0 animate-pulse rounded-2xl bg-surface" />
@@ -32,15 +34,15 @@ export function ProfileStatsGrid() {
   }
 
   if (isError || !stats) {
-    return <p className="mb-6 text-sm text-muted">Não foi possível carregar suas estatísticas agora.</p>;
+    return <p className="mb-6 text-sm text-muted">{t("profile.errorLoadStats")}</p>;
   }
 
   const cards = [
-    { icon: Film, title: "Filmes na biblioteca", value: numberFormatter.format(stats.moviesInLibrary) },
-    { icon: Tv, title: "Séries na biblioteca", value: numberFormatter.format(stats.seriesInLibrary) },
-    { icon: CheckCircle2, title: "Filmes concluídos", value: numberFormatter.format(stats.moviesCompleted) },
-    { icon: CheckCircle2, title: "Séries concluídas", value: numberFormatter.format(stats.seriesCompleted) },
-    { icon: ListVideo, title: "Episódios assistidos", value: numberFormatter.format(stats.episodesWatched) },
+    { icon: Film, key: "moviesInLibrary", title: t("profile.stats.moviesInLibrary"), value: numberFormatter.format(stats.moviesInLibrary) },
+    { icon: Tv, key: "seriesInLibrary", title: t("profile.stats.seriesInLibrary"), value: numberFormatter.format(stats.seriesInLibrary) },
+    { icon: CheckCircle2, key: "moviesCompleted", title: t("profile.stats.moviesCompleted"), value: numberFormatter.format(stats.moviesCompleted) },
+    { icon: CheckCircle2, key: "seriesCompleted", title: t("profile.stats.seriesCompleted"), value: numberFormatter.format(stats.seriesCompleted) },
+    { icon: ListVideo, key: "episodesWatched", title: t("profile.stats.episodesWatched"), value: numberFormatter.format(stats.episodesWatched) },
   ];
 
   return (
@@ -52,7 +54,7 @@ export function ProfileStatsGrid() {
         }
       >
         {cards.map((card) => (
-          <StatCard key={card.title} icon={card.icon} title={card.title} value={card.value} />
+          <StatCard key={card.key} icon={card.icon} title={card.title} value={card.value} />
         ))}
       </div>
     </div>

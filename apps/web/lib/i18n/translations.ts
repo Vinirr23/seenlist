@@ -495,6 +495,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.blockedUsersHeader": "Usuários bloqueados ({count})",
     "profile.userUnblocked": "@{username} desbloqueado.",
     "profile.unblock": "Desbloquear",
+
+    "profile.stats.moviesInLibrary": "Filmes na biblioteca",
+    "profile.stats.seriesInLibrary": "Séries na biblioteca",
+    "profile.statistics": "Estatísticas",
+    "profile.errorLoadStatsOther": "Não foi possível carregar as estatísticas deste perfil agora.",
+    "profile.stats.timeWatchingSeries": "Tempo vendo séries",
+    "profile.stats.timeWatchingMovies": "Tempo vendo filmes",
   },
   en: {
     "settings.title": "Settings",
@@ -965,6 +972,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.blockedUsersHeader": "Blocked users ({count})",
     "profile.userUnblocked": "@{username} unblocked.",
     "profile.unblock": "Unblock",
+
+    "profile.stats.moviesInLibrary": "Movies in library",
+    "profile.stats.seriesInLibrary": "Shows in library",
+    "profile.statistics": "Statistics",
+    "profile.errorLoadStatsOther": "Couldn't load this profile's stats right now.",
+    "profile.stats.timeWatchingSeries": "Time watching shows",
+    "profile.stats.timeWatchingMovies": "Time watching movies",
   },
   es: {
     "settings.title": "Configuración",
@@ -1435,5 +1449,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.blockedUsersHeader": "Usuarios bloqueados ({count})",
     "profile.userUnblocked": "@{username} desbloqueado.",
     "profile.unblock": "Desbloquear",
+
+    "profile.stats.moviesInLibrary": "Películas en la biblioteca",
+    "profile.stats.seriesInLibrary": "Series en la biblioteca",
+    "profile.statistics": "Estadísticas",
+    "profile.errorLoadStatsOther": "No se pudieron cargar las estadísticas de este perfil ahora.",
+    "profile.stats.timeWatchingSeries": "Tiempo viendo series",
+    "profile.stats.timeWatchingMovies": "Tiempo viendo películas",
   },
 };
