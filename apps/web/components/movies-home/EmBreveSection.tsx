@@ -1,4 +1,7 @@
+"use client";
+
 import { HomeEmptyState } from "../media/HomeEmptyState";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-020, item 1: "A aba Em Breve pode permanecer como
@@ -9,5 +12,6 @@ import { HomeEmptyState } from "../media/HomeEmptyState";
  * real, do mesmo jeito que `series-home/EmBreveSection.tsx`.
  */
 export function EmBreveSection() {
-  return <HomeEmptyState message="Em breve — ainda não disponível para filmes." />;
+  const { t } = useTranslation();
+  return <HomeEmptyState message={t("moviesHome.comingSoonPlaceholder")} />;
 }

@@ -410,6 +410,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "media.status.completed": "Concluído",
     "media.status.paused": "Pausada",
     "media.status.upToDate": "Em dia",
+
+    "moviesHome.comingSoonPlaceholder": "Em breve — ainda não disponível para filmes.",
+    "moviesHome.emptyWatching": "Você ainda não adicionou nenhum filme.",
+    "moviesHome.exploreMovies": "Explorar filmes",
+    "moviesHome.completed": "Concluídos",
+    "moviesHome.emptyCompleted": "Nenhum filme concluído ainda.",
   },
   en: {
     "settings.title": "Settings",
@@ -795,6 +801,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "media.status.completed": "Completed",
     "media.status.paused": "Paused",
     "media.status.upToDate": "Up to date",
+
+    "moviesHome.comingSoonPlaceholder": "Coming soon — not available for movies yet.",
+    "moviesHome.emptyWatching": "You haven't added any movies yet.",
+    "moviesHome.exploreMovies": "Explore movies",
+    "moviesHome.completed": "Completed",
+    "moviesHome.emptyCompleted": "No completed movies yet.",
   },
   es: {
     "settings.title": "Configuración",
@@ -1180,5 +1192,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "media.status.completed": "Completado",
     "media.status.paused": "Pausada",
     "media.status.upToDate": "Al día",
+
+    "moviesHome.comingSoonPlaceholder": "Próximamente — todavía no disponible para películas.",
+    "moviesHome.emptyWatching": "Todavía no agregaste ninguna película.",
+    "moviesHome.exploreMovies": "Explorar películas",
+    "moviesHome.completed": "Completadas",
+    "moviesHome.emptyCompleted": "Ninguna película completada todavía.",
   },
 };

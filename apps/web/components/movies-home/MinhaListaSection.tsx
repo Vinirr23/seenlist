@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { MediaListRow } from "../media/MediaListRow";
 import { PosterGrid } from "../profile/PosterGrid";
@@ -12,6 +13,7 @@ import { HomeEmptyState } from "../media/HomeEmptyState";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
 interface Category {
+  slug: string;
   label: string;
   items: LibraryItem[];
   emptyMessage: string;
@@ -32,6 +34,7 @@ export function MinhaListaSection() {
   useLibraryRealtimeSync();
   const { data: items, isLoading, isError, error } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("movies-library");
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (isError) {
@@ -50,19 +53,20 @@ export function MinhaListaSection() {
 
   if (isLoading) return <HomeSkeleton />;
   if (isError) {
-    return <HomeEmptyState message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />;
+    return <HomeEmptyState message={t("seriesHome.errorLoadLibrary")} />;
   }
 
   const categories: Category[] = [
     {
-      label: "Assistindo",
+      slug: "watching",
+      label: t("media.status.watching"),
       items: watching,
-      emptyMessage: "Você ainda não adicionou nenhum filme.",
-      emptyActionLabel: "Explorar filmes",
+      emptyMessage: t("moviesHome.emptyWatching"),
+      emptyActionLabel: t("moviesHome.exploreMovies"),
       emptyActionHref: "/explore",
     },
-    { label: "Assistir depois", items: wantToWatch, emptyMessage: "Sua lista está vazia." },
-    { label: "Concluídos", items: completed, emptyMessage: "Nenhum filme concluído ainda." },
+    { slug: "watchlist", label: t("seriesHome.watchlist"), items: wantToWatch, emptyMessage: t("seriesHome.emptyWatchlist") },
+    { slug: "completed", label: t("moviesHome.completed"), items: completed, emptyMessage: t("moviesHome.emptyCompleted") },
   ];
 
   return (
@@ -73,7 +77,7 @@ export function MinhaListaSection() {
 
       <div className="space-y-6">
         {categories.map((category) => (
-          <section key={category.label}>
+          <section key={category.slug}>
             <SectionTitle>{category.label}</SectionTitle>
             {category.items.length === 0 ? (
               <HomeEmptyState
