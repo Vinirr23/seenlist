@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-030, item 3 — "somente leitura... botão de copiar ao lado".
@@ -13,6 +14,7 @@ import { cn } from "@seenlist/utils";
  */
 export function UidRow({ uid, last }: { uid: string; last?: boolean }) {
   const [copied, setCopied] = useState(false);
+  const { t } = useTranslation();
 
   async function handleCopy() {
     try {
@@ -32,18 +34,18 @@ export function UidRow({ uid, last }: { uid: string; last?: boolean }) {
         <button
           type="button"
           onClick={handleCopy}
-          aria-label="Copiar UID"
+          aria-label={t("settings.copyUid")}
           className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted transition-colors hover:text-text"
         >
           {copied ? (
             <>
               <Check className="h-3.5 w-3.5 text-success" strokeWidth={2} />
-              Copiado
+              {t("settings.copied")}
             </>
           ) : (
             <>
               <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-              Copiar
+              {t("common.copy")}
             </>
           )}
         </button>

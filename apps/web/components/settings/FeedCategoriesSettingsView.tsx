@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { useMyFeedCategories, useSetFeedCategories, type FeedCategoryKey } from "@/lib/queries/feed-categories";
 import { CategoryPicker } from "@/components/explore/CategoryPicker";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-059 — "depois poderão ser alteradas nas configurações".
@@ -17,6 +18,7 @@ export function FeedCategoriesSettingsView() {
   const { data: current, isLoading } = useMyFeedCategories();
   const setCategories = useSetFeedCategories();
   const [selected, setSelected] = useState<FeedCategoryKey[]>([]);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (current) setSelected(current);
@@ -30,10 +32,10 @@ export function FeedCategoriesSettingsView() {
   return (
     <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
       <div className="flex items-center gap-3 px-4 pt-4">
-        <Link href="/profile/settings" aria-label="Voltar" className="text-text">
+        <Link href="/profile/settings" aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-lg font-bold text-text">Assuntos do Feed</h1>
+        <h1 className="text-lg font-bold text-text">{t("settings.feedTopics")}</h1>
       </div>
 
       <div className="px-4 pt-4">
@@ -48,7 +50,7 @@ export function FeedCategoriesSettingsView() {
               disabled={selected.length === 0 || setCategories.isPending}
               className="mt-6 w-full rounded-lg bg-primary py-3 text-sm font-bold text-background disabled:opacity-40"
             >
-              {setCategories.isPending ? "Salvando..." : "Salvar"}
+              {setCategories.isPending ? t("common.saving") : t("common.save")}
             </button>
           </>
         )}

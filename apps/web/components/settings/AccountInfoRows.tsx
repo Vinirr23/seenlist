@@ -3,6 +3,7 @@
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { SettingsRow } from "./SettingsRow";
 import { UidRow } from "./UidRow";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-030 (ajuste 2) — Nome/Foto saíram daqui de vez. A edição
@@ -13,12 +14,13 @@ import { UidRow } from "./UidRow";
  */
 export function AccountInfoRows() {
   const { data: user } = useCurrentUser();
+  const { t } = useTranslation();
 
   if (!user) return null;
 
   return (
     <>
-      <SettingsRow label="E-mail" value={user.email} />
+      <SettingsRow label={t("auth.email")} value={user.email} />
       <UidRow uid={user.id} />
     </>
   );

@@ -4,14 +4,23 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useNotificationPreferences, useUpdateNotificationPreference, type NotificationPreferences } from "@/lib/queries/notification-preferences";
 import { ToggleRow } from "./ToggleRow";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-const ITEMS: { field: keyof NotificationPreferences; label: string }[] = [
-  { field: "episodeNew", label: "Novo episódio" },
-  { field: "seasonPremiere", label: "Nova temporada" },
-  { field: "commentReply", label: "Respostas aos meus comentários" },
-  { field: "commentLike", label: "Curtidas em comentários" },
-  { field: "reviewLike", label: "Curtidas em reviews" },
+const ITEM_FIELDS: (keyof NotificationPreferences)[] = [
+  "episodeNew",
+  "seasonPremiere",
+  "commentReply",
+  "commentLike",
+  "reviewLike",
 ];
+
+const ITEM_LABEL_KEYS: Record<keyof NotificationPreferences, string> = {
+  episodeNew: "settings.notif.newEpisode",
+  seasonPremiere: "settings.notif.newSeason",
+  commentReply: "settings.notif.commentReplies",
+  commentLike: "settings.notif.commentLikes",
+  reviewLike: "settings.notif.reviewLikes",
+};
 
 /**
  * TASK-052 — os 5 tipos, exatamente como pedido, um switch cada.
@@ -22,32 +31,33 @@ const ITEMS: { field: keyof NotificationPreferences; label: string }[] = [
 export function NotificationPreferencesView() {
   const { data: preferences, isLoading } = useNotificationPreferences();
   const updatePreference = useUpdateNotificationPreference();
+  const { t } = useTranslation();
 
   return (
     <div className="w-full px-4 pb-24 pt-4 md:mx-auto md:max-w-[430px]">
       <div className="mb-4 flex items-center gap-2">
         <Link
           href="/profile/settings"
-          aria-label="Voltar"
+          aria-label={t("common.back")}
           className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface hover:text-text"
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-xl font-bold text-text">Notificações</h1>
+        <h1 className="text-xl font-bold text-text">{t("settings.notifications")}</h1>
       </div>
 
       {isLoading ? (
         <div className="h-64 animate-pulse rounded-lg bg-surface" />
       ) : (
         <div className="rounded-lg border border-border bg-surface">
-          {ITEMS.map((item, index) => (
+          {ITEM_FIELDS.map((field, index) => (
             <ToggleRow
-              key={item.field}
-              label={item.label}
-              checked={preferences?.[item.field] ?? true}
+              key={field}
+              label={t(ITEM_LABEL_KEYS[field])}
+              checked={preferences?.[field] ?? true}
               disabled={updatePreference.isPending}
-              onChange={(value) => updatePreference.mutate({ field: item.field, value })}
-              last={index === ITEMS.length - 1}
+              onChange={(value) => updatePreference.mutate({ field, value })}
+              last={index === ITEM_FIELDS.length - 1}
             />
           ))}
         </div>
