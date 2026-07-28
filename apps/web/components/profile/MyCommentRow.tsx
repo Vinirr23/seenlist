@@ -8,8 +8,8 @@ import type { MyComment } from "@/lib/queries/my-comments";
 import { useDeleteComment } from "@/lib/queries/social/comments";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 /**
  * TASK-056 — cada comentário aqui pode pertencer a uma mídia
@@ -21,6 +21,8 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  */
 export function MyCommentRow({ comment }: { comment: MyComment }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short", year: "numeric" });
   const deleteComment = useDeleteComment({
     mediaType: comment.mediaType,
     mediaId: comment.mediaId,
@@ -53,7 +55,7 @@ export function MyCommentRow({ comment }: { comment: MyComment }) {
           </p>
           <p className="mt-0.5 text-xs text-muted">{dateFormatter.format(new Date(comment.createdAt))}</p>
           <p className="mt-1 line-clamp-3 text-sm text-text">
-            {comment.containsSpoiler ? "Contém spoiler — toque para ver" : comment.body}
+            {comment.containsSpoiler ? t("profile.commentSpoilerGate") : comment.body}
           </p>
         </div>
       </Link>
@@ -61,7 +63,7 @@ export function MyCommentRow({ comment }: { comment: MyComment }) {
       <button
         type="button"
         onClick={() => setMenuOpen((v) => !v)}
-        aria-label="Mais opções"
+        aria-label={t("feed.moreOptions")}
         className="absolute right-3 top-3 p-1 text-muted hover:text-text"
       >
         <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
@@ -74,14 +76,14 @@ export function MyCommentRow({ comment }: { comment: MyComment }) {
             className="block px-3 py-1.5 text-left text-xs text-text hover:bg-background"
             onClick={() => setMenuOpen(false)}
           >
-            Editar
+            {t("common.edit")}
           </Link>
           <button
             type="button"
             onClick={handleDelete}
             className="block w-full px-3 py-1.5 text-left text-xs text-danger hover:bg-background"
           >
-            Excluir
+            {t("common.delete")}
           </button>
         </div>
       )}

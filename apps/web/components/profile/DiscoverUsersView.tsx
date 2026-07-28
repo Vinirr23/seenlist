@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { useUserSearch } from "@/lib/queries/user-search";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { UserListRow } from "./UserListRow";
 
 /**
@@ -14,14 +15,15 @@ import { UserListRow } from "./UserListRow";
 export function DiscoverUsersView() {
   const [search, setSearch] = useState("");
   const { data: users, isLoading, isError } = useUserSearch(search);
+  const { t } = useTranslation();
 
   return (
     <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
       <div className="flex items-center gap-3 px-4 pt-4">
-        <Link href="/profile" aria-label="Voltar" className="text-text">
+        <Link href="/profile" aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-lg font-bold text-text">Descobrir pessoas</h1>
+        <h1 className="text-lg font-bold text-text">{t("profile.discoverPeople")}</h1>
       </div>
 
       <div className="px-4 pt-4">
@@ -30,7 +32,7 @@ export function DiscoverUsersView() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Pesquisar pessoas"
+            placeholder={t("profile.searchPeople")}
             className="w-full rounded-lg border border-border bg-surface py-2.5 pl-9 pr-3 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
           />
         </div>
@@ -38,7 +40,7 @@ export function DiscoverUsersView() {
 
       <div className="mt-2">
         {!search && !isLoading && users && users.length > 0 && (
-          <p className="px-4 pb-1 text-xs font-medium uppercase tracking-wide text-muted">Sugestões</p>
+          <p className="px-4 pb-1 text-xs font-medium uppercase tracking-wide text-muted">{t("profile.suggestions")}</p>
         )}
 
         {isLoading && (
@@ -49,10 +51,10 @@ export function DiscoverUsersView() {
           </div>
         )}
 
-        {isError && <p className="px-4 py-6 text-center text-sm text-muted">Não foi possível carregar agora.</p>}
+        {isError && <p className="px-4 py-6 text-center text-sm text-muted">{t("profile.errorLoadGeneric")}</p>}
 
         {!isLoading && !isError && users?.length === 0 && (
-          <p className="px-4 py-6 text-center text-sm text-muted">Nenhum resultado pra essa busca.</p>
+          <p className="px-4 py-6 text-center text-sm text-muted">{t("profile.noResultsForSearch")}</p>
         )}
 
         {users?.map((user) => (

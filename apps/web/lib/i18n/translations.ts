@@ -447,6 +447,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.stats.seriesCompleted": "Séries concluídas",
     "profile.stats.episodesWatched": "Episódios assistidos",
     "profile.followsYou": "Segue você",
+
+    "profile.discoverPeople": "Descobrir pessoas",
+    "profile.searchPeople": "Pesquisar pessoas",
+    "profile.suggestions": "Sugestões",
+    "profile.errorLoadGeneric": "Não foi possível carregar agora.",
+    "profile.noResultsForSearch": "Nenhum resultado pra essa busca.",
+    "profile.commentSpoilerGate": "Contém spoiler — toque para ver",
+    "profile.errorLoadComments": "Não foi possível carregar seus comentários agora.",
+    "profile.emptyMyComments": "Você ainda não fez nenhum comentário.",
   },
   en: {
     "settings.title": "Settings",
@@ -869,6 +878,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.stats.seriesCompleted": "Shows completed",
     "profile.stats.episodesWatched": "Episodes watched",
     "profile.followsYou": "Follows you",
+
+    "profile.discoverPeople": "Discover people",
+    "profile.searchPeople": "Search people",
+    "profile.suggestions": "Suggestions",
+    "profile.errorLoadGeneric": "Couldn't load right now.",
+    "profile.noResultsForSearch": "No results for that search.",
+    "profile.commentSpoilerGate": "Contains spoiler — tap to view",
+    "profile.errorLoadComments": "Couldn't load your comments right now.",
+    "profile.emptyMyComments": "You haven't commented yet.",
   },
   es: {
     "settings.title": "Configuración",
@@ -1291,5 +1309,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.stats.seriesCompleted": "Series completadas",
     "profile.stats.episodesWatched": "Episodios vistos",
     "profile.followsYou": "Te sigue",
+
+    "profile.discoverPeople": "Descubrir personas",
+    "profile.searchPeople": "Buscar personas",
+    "profile.suggestions": "Sugerencias",
+    "profile.errorLoadGeneric": "No se pudo cargar ahora.",
+    "profile.noResultsForSearch": "No hay resultados para esa búsqueda.",
+    "profile.commentSpoilerGate": "Contiene spoiler — toca para ver",
+    "profile.errorLoadComments": "No se pudieron cargar tus comentarios ahora.",
+    "profile.emptyMyComments": "Todavía no has comentado nada.",
   },
 };
