@@ -10,11 +10,14 @@ import { LibraryMovieCard } from "./LibraryMovieCard";
 import { EmptyLibrary } from "./EmptyLibrary";
 import { LoadingSkeleton } from "../search/LoadingSkeleton";
 import { EmptyState } from "../search/EmptyState";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 export function LibraryView() {
   const [tab, setTab] = useState<LibraryStatus>("watching");
   const [typeFilter, setTypeFilter] = useState<LibraryTypeFilter>("all");
   const [sort, setSort] = useState<LibrarySort>("updated");
+  const { t, locale } = useTranslation();
 
   useLibraryRealtimeSync();
   const { data: items, isLoading, isError } = useLibraryItems();
@@ -25,13 +28,13 @@ export function LibraryView() {
       .filter((item) => typeFilter === "all" || item.mediaType === typeFilter);
 
     const sorted = [...filtered].sort((a, b) => {
-      if (sort === "name") return a.title.localeCompare(b.title, "pt-BR");
+      if (sort === "name") return a.title.localeCompare(b.title, INTL_LOCALES[locale]);
       if (sort === "added") return b.createdAt.localeCompare(a.createdAt);
       return b.updatedAt.localeCompare(a.updatedAt);
     });
 
     return sorted;
-  }, [items, tab, typeFilter, sort]);
+  }, [items, tab, typeFilter, sort, locale]);
 
   return (
     <div className="space-y-4">
@@ -46,9 +49,9 @@ export function LibraryView() {
       {isLoading ? (
         <LoadingSkeleton />
       ) : isError ? (
-        <EmptyState message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />
+        <EmptyState message={t("seriesHome.errorLoadLibrary")} />
       ) : visibleItems.length === 0 ? (
-        <EmptyLibrary message="Nenhum título nesta lista ainda." />
+        <EmptyLibrary message={t("library.emptyThisList")} />
       ) : (
         <div className="space-y-3">
           {visibleItems.map((item) =>

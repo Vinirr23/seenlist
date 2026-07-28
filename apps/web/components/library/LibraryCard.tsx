@@ -5,22 +5,11 @@ import Image from "next/image";
 import { Trash2 } from "lucide-react";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
-import { MEDIA_TYPE_LABEL } from "@/lib/media-labels";
 import { useMoveLibraryItem, useRemoveLibraryItem } from "@/lib/queries/library";
 import { InlineError } from "../media/InlineError";
-
-const STATUS_LABEL: Record<LibraryStatus, string> = {
-  watching: "Assistindo",
-  want_to_watch: "Quero assistir",
-  completed: "Concluído",
-  up_to_date: "Em dia",
-  paused: "Pausada",
-};
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "short",
-});
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { translateMediaType } from "@/lib/i18n/mediaTypeLabels";
 
 export function LibraryCard({
   item,
@@ -31,6 +20,16 @@ export function LibraryCard({
 }) {
   const move = useMoveLibraryItem();
   const remove = useRemoveLibraryItem();
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
+
+  const STATUS_LABEL: Record<LibraryStatus, string> = {
+    watching: t("media.status.watching"),
+    want_to_watch: t("library.tab.wantToWatch"),
+    completed: t("media.status.completed"),
+    up_to_date: t("media.status.upToDate"),
+    paused: t("media.status.paused"),
+  };
 
   const posterUrl = tmdbImage(item.posterPath, "w185");
   const href =
@@ -54,7 +53,7 @@ export function LibraryCard({
           />
         ) : (
           <div className="flex h-full items-center justify-center text-[10px] text-muted">
-            Sem pôster
+            {t("media.noPoster")}
           </div>
         )}
       </Link>
@@ -68,7 +67,7 @@ export function LibraryCard({
         </Link>
 
         <p className="text-xs text-muted">
-          {[MEDIA_TYPE_LABEL[item.mediaType], item.year]
+          {[translateMediaType(item.mediaType, t), item.year]
             .filter(Boolean)
             .join(" · ")}
         </p>
@@ -76,7 +75,7 @@ export function LibraryCard({
         {children}
 
         <p className="text-[11px] text-muted">
-          Atualizado em {dateFormatter.format(new Date(item.updatedAt))}
+          {t("library.updatedOn", { date: dateFormatter.format(new Date(item.updatedAt)) })}
         </p>
 
         <InlineError show={move.isError || remove.isError} />
@@ -92,7 +91,7 @@ export function LibraryCard({
             })
           }
           disabled={remove.isPending}
-          aria-label="Remover da lista"
+          aria-label={t("library.removeFromList")}
           className="rounded-lg p-1.5 text-muted transition-colors hover:bg-background hover:text-danger disabled:opacity-50"
         >
           <Trash2 className="h-4 w-4" strokeWidth={2} />
@@ -108,7 +107,7 @@ export function LibraryCard({
             })
           }
           disabled={move.isPending}
-          aria-label="Mover para"
+          aria-label={t("library.moveTo")}
           className="rounded-lg border border-border bg-background px-1.5 py-1 text-[11px] text-text disabled:opacity-50"
         >
           {(Object.keys(STATUS_LABEL) as LibraryStatus[]).map((status) => (

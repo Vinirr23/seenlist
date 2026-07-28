@@ -1,19 +1,10 @@
+"use client";
+
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export type LibraryTypeFilter = "all" | "movie" | "series";
 export type LibrarySort = "updated" | "name" | "added";
-
-const TYPE_LABELS: Record<LibraryTypeFilter, string> = {
-  all: "Todos",
-  movie: "Filmes",
-  series: "Séries",
-};
-
-const SORT_LABELS: Record<LibrarySort, string> = {
-  updated: "Atualizados recentemente",
-  name: "Nome",
-  added: "Data adicionada",
-};
 
 export interface LibraryFiltersProps {
   typeFilter: LibraryTypeFilter;
@@ -28,6 +19,20 @@ export function LibraryFilters({
   sort,
   onSortChange,
 }: LibraryFiltersProps) {
+  const { t } = useTranslation();
+
+  const TYPE_LABELS: Record<LibraryTypeFilter, string> = {
+    all: t("library.filterAll"),
+    movie: t("nav.movies"),
+    series: t("nav.series"),
+  };
+
+  const SORT_LABELS: Record<LibrarySort, string> = {
+    updated: t("library.sortRecentlyUpdated"),
+    name: t("library.sortName"),
+    added: t("library.sortDateAdded"),
+  };
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex gap-2">
@@ -51,7 +56,7 @@ export function LibraryFilters({
       <select
         value={sort}
         onChange={(event) => onSortChange(event.target.value as LibrarySort)}
-        aria-label="Ordenar biblioteca"
+        aria-label={t("library.sortAriaLabel")}
         className="rounded-lg border border-border bg-surface px-2 py-1 text-xs text-text focus:outline-none"
       >
         {(Object.keys(SORT_LABELS) as LibrarySort[]).map((option) => (
