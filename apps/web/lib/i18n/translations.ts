@@ -456,6 +456,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.commentSpoilerGate": "Contém spoiler — toque para ver",
     "profile.errorLoadComments": "Não foi possível carregar seus comentários agora.",
     "profile.emptyMyComments": "Você ainda não fez nenhum comentário.",
+
+    "profile.emptySeriesCategory": "Nenhuma série nesta categoria.",
+    "profile.emptySeriesLibrary": "Você ainda não tem nenhuma série na sua biblioteca.",
+    "profile.emptyWatchedMovies": "Você ainda não assistiu nenhum filme.",
   },
   en: {
     "settings.title": "Settings",
@@ -887,6 +891,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.commentSpoilerGate": "Contains spoiler — tap to view",
     "profile.errorLoadComments": "Couldn't load your comments right now.",
     "profile.emptyMyComments": "You haven't commented yet.",
+
+    "profile.emptySeriesCategory": "No shows in this category.",
+    "profile.emptySeriesLibrary": "You don't have any shows in your library yet.",
+    "profile.emptyWatchedMovies": "You haven't watched any movies yet.",
   },
   es: {
     "settings.title": "Configuración",
@@ -1318,5 +1326,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.commentSpoilerGate": "Contiene spoiler — toca para ver",
     "profile.errorLoadComments": "No se pudieron cargar tus comentarios ahora.",
     "profile.emptyMyComments": "Todavía no has comentado nada.",
+
+    "profile.emptySeriesCategory": "Ninguna serie en esta categoría.",
+    "profile.emptySeriesLibrary": "Todavía no tienes ninguna serie en tu biblioteca.",
+    "profile.emptyWatchedMovies": "Todavía no has visto ninguna película.",
   },
 };

@@ -7,6 +7,7 @@ import { PosterGrid } from "./PosterGrid";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { MediaListRow } from "../media/MediaListRow";
 import { LoadingSkeleton } from "../search/LoadingSkeleton";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-024 — só filmes "Assistido" (status "completed"), sem
@@ -22,6 +23,7 @@ import { LoadingSkeleton } from "../search/LoadingSkeleton";
 export function ProfileMoviesSection() {
   const { data: items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-movies");
+  const { t } = useTranslation();
 
   const watchedMovies = useMemo(
     () => (items ?? []).filter((item) => item.mediaType === "movie" && item.status === "completed"),
@@ -33,7 +35,7 @@ export function ProfileMoviesSection() {
   }
 
   if (watchedMovies.length === 0) {
-    return <p className="px-1 text-sm text-muted">Você ainda não assistiu nenhum filme.</p>;
+    return <p className="px-1 text-sm text-muted">{t("profile.emptyWatchedMovies")}</p>;
   }
 
   return (

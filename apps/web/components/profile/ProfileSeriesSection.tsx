@@ -10,6 +10,8 @@ import { SectionTitle } from "../media/SectionTitle";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { MediaListRow } from "../media/MediaListRow";
 import { LoadingSkeleton } from "../search/LoadingSkeleton";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { translateCategoryLabel } from "@/lib/i18n/seriesCategoryLabels";
 
 /**
  * TASK-029 — "continuar suportando grade, lista, filtros". As
@@ -31,6 +33,7 @@ import { LoadingSkeleton } from "../search/LoadingSkeleton";
 export function ProfileSeriesSection() {
   const { data: items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-series");
+  const { t } = useTranslation();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
 
@@ -48,7 +51,7 @@ export function ProfileSeriesSection() {
   }
 
   if (nonEmptyCategories.length === 0) {
-    return <p className="px-1 text-sm text-muted">Você ainda não tem nenhuma série na sua biblioteca.</p>;
+    return <p className="px-1 text-sm text-muted">{t("profile.emptySeriesLibrary")}</p>;
   }
 
   return (
@@ -60,7 +63,7 @@ export function ProfileSeriesSection() {
         {nonEmptyCategories.map((category) => (
           <div key={category.slug}>
             <Link href={`/profile/series/${category.slug}`} className="block">
-              <SectionTitle>{category.label}</SectionTitle>
+              <SectionTitle>{translateCategoryLabel(category.slug, category.label, t)}</SectionTitle>
             </Link>
             {viewMode === "grid" ? (
               <PosterGrid items={category.items} barColorClass={category.barColorClass} />
@@ -72,7 +75,7 @@ export function ProfileSeriesSection() {
                     item={item}
                     secondaryText={
                       item.progress && item.progress.totalEpisodes > 0
-                        ? `${item.progress.watchedEpisodes}/${item.progress.totalEpisodes} episódios`
+                        ? t("seriesHome.episodeProgress", { watched: item.progress.watchedEpisodes, total: item.progress.totalEpisodes })
                         : ""
                     }
                   />
