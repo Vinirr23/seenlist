@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Send } from "lucide-react";
 import { useReceivedRecommendations } from "@/lib/queries/recommendations";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-178 — "Recomendações" deixa de ser só "0 >" e ganha prévia de
@@ -16,6 +17,7 @@ import { tmdbImage } from "@/lib/tmdb/image";
  */
 export function ProfileRecommendationsPreview() {
   const { data: recommendations, isLoading } = useReceivedRecommendations();
+  const { t } = useTranslation();
 
   if (isLoading) {
     return (
@@ -32,8 +34,8 @@ export function ProfileRecommendationsPreview() {
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/12">
           <Send className="h-4 w-4 text-primary" strokeWidth={2} />
         </span>
-        <span className="text-sm font-medium text-text">Recomendações</span>
-        <span className="ml-auto text-xs text-muted">Nenhuma ainda</span>
+        <span className="text-sm font-medium text-text">{t("profile.section.recommendations")}</span>
+        <span className="ml-auto text-xs text-muted">{t("profile.noneYet")}</span>
       </Link>
     );
   }
@@ -84,7 +86,11 @@ export function ProfileRecommendationsPreview() {
         {unreadCount > 0 && (
           <span
             className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-surface bg-primary px-1 text-[9px] font-bold leading-none text-background"
-            aria-label={`${unreadCount} recomendação${unreadCount > 1 ? "ões" : ""} não lida${unreadCount > 1 ? "s" : ""}`}
+            aria-label={
+              unreadCount > 1
+                ? t("profile.unreadRecommendationsPlural", { count: unreadCount })
+                : t("profile.unreadRecommendationsSingular", { count: unreadCount })
+            }
           >
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
@@ -105,19 +111,22 @@ export function ProfileRecommendationsPreview() {
          */}
         {extraCount === 0 ? (
           <p className="line-clamp-2 text-sm text-text">
-            <span className="font-semibold">{senderName}</span> recomendou{" "}
-            <span className="font-semibold">&quot;{latest.title}&quot;</span> pra você
+            <span className="font-semibold">{senderName}</span> {t("profile.recommendedVerb")}{" "}
+            <span className="font-semibold">&quot;{latest.title}&quot;</span> {t("profile.forYou")}
           </p>
         ) : uniqueSenderIds.size === 1 ? (
           <p className="line-clamp-2 text-sm text-text">
-            <span className="font-semibold">{senderName}</span> recomendou{" "}
-            <span className="font-semibold">&quot;{latest.title}&quot;</span> e mais {extraCount}{" "}
-            {extraCount === 1 ? "título" : "títulos"}
+            <span className="font-semibold">{senderName}</span> {t("profile.recommendedVerb")}{" "}
+            <span className="font-semibold">&quot;{latest.title}&quot;</span>{" "}
+            {t("profile.andMoreTitles", { count: extraCount, word: extraCount === 1 ? t("profile.title") : t("profile.titles") })}
           </p>
         ) : (
           <p className="line-clamp-2 text-sm text-text">
-            <span className="font-semibold">{senderName}</span> e mais {uniqueSenderIds.size - 1}{" "}
-            {uniqueSenderIds.size - 1 === 1 ? "pessoa" : "pessoas"} te recomendaram títulos
+            <span className="font-semibold">{senderName}</span>{" "}
+            {t("profile.andMorePeopleRecommended", {
+              count: uniqueSenderIds.size - 1,
+              word: uniqueSenderIds.size - 1 === 1 ? t("profile.person") : t("profile.people"),
+            })}
           </p>
         )}
       </div>

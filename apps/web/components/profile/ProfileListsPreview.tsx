@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ListChecks, Plus } from "lucide-react";
 import { useMyListsWithPreview } from "@/lib/queries/lists";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-178 — "Minhas listas" ganha o efeito "baralho" (pôsteres
@@ -15,12 +16,13 @@ import { tmdbImage } from "@/lib/tmdb/image";
  */
 export function ProfileListsPreview() {
   const { data: lists, isLoading } = useMyListsWithPreview();
+  const { t } = useTranslation();
 
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center gap-2 px-1">
         <ListChecks className="h-4 w-4 text-primary" strokeWidth={2} />
-        <h2 className="text-base font-bold text-text">Minhas listas</h2>
+        <h2 className="text-base font-bold text-text">{t("profile.section.lists")}</h2>
       </div>
 
       {isLoading ? (
@@ -35,7 +37,7 @@ export function ProfileListsPreview() {
           className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-surface/40 px-4 py-8 text-center transition-colors hover:border-primary/40"
         >
           <Plus className="h-6 w-6 text-muted" strokeWidth={2} />
-          <p className="text-sm font-semibold text-text">Criar sua primeira lista</p>
+          <p className="text-sm font-semibold text-text">{t("profile.createFirstList")}</p>
         </Link>
       ) : (
         <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
@@ -71,7 +73,7 @@ export function ProfileListsPreview() {
               </div>
               <p className="mt-1.5 truncate text-xs font-medium text-text">{list.name}</p>
               <p className="text-[11px] text-muted">
-                {list.itemCount} {list.itemCount === 1 ? "item" : "itens"}
+                {list.itemCount} {list.itemCount === 1 ? t("profile.item") : t("profile.items")}
               </p>
             </Link>
           ))}
