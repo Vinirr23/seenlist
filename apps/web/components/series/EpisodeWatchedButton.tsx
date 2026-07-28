@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface EpisodeWatchedButtonProps {
   watched: boolean;
@@ -30,6 +31,7 @@ const SIZE_CLASSES: Record<NonNullable<EpisodeWatchedButtonProps["size"]>, { but
  */
 export function EpisodeWatchedButton({ watched, onClick, disabled, size = "md", className, colorClass = "bg-primary" }: EpisodeWatchedButtonProps) {
   const sizes = SIZE_CLASSES[size];
+  const { t } = useTranslation();
 
   return (
     <button
@@ -43,7 +45,7 @@ export function EpisodeWatchedButton({ watched, onClick, disabled, size = "md", 
       }}
       disabled={disabled}
       aria-pressed={watched}
-      aria-label={watched ? "Marcar como não assistido" : "Marcar como assistido"}
+      aria-label={watched ? t("series.markAsNotWatched") : t("series.markAsWatched")}
       className={cn(
         "flex shrink-0 items-center justify-center rounded-full shadow-sm transition-transform active:scale-90 disabled:opacity-50",
         watched ? `${colorClass} text-white` : "bg-white text-black",

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Episode } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
 
 export interface EpisodeCardProps {
@@ -25,6 +26,7 @@ export interface EpisodeCardProps {
  */
 export function EpisodeCard({ seriesId, episode, watched, onToggleWatched, pending, colorClass }: EpisodeCardProps) {
   const stillUrl = tmdbImage(episode.stillPath, "w300");
+  const { t } = useTranslation();
 
   return (
     <Link
@@ -35,12 +37,12 @@ export function EpisodeCard({ seriesId, episode, watched, onToggleWatched, pendi
         {stillUrl ? (
           <Image src={stillUrl} alt={episode.name} fill sizes="96px" className="object-cover" />
         ) : (
-          <div className="flex h-full items-center justify-center text-[10px] text-muted">Sem imagem</div>
+          <div className="flex h-full items-center justify-center text-[10px] text-muted">{t("episode.noImage")}</div>
         )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted">Episódio {episode.episodeNumber}</p>
+        <p className="text-xs text-muted">{t("series.episodeNumber", { number: episode.episodeNumber })}</p>
         <p className="truncate text-sm font-medium text-text">{episode.name}</p>
         <p className="mt-0.5 text-xs text-muted">
           {episode.runtimeMinutes ? `${episode.runtimeMinutes} min` : null}

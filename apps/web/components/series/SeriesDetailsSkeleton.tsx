@@ -1,6 +1,11 @@
+"use client";
+
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+
 export function SeriesDetailsSkeleton() {
+  const { t } = useTranslation();
   return (
-    <div className="w-full animate-pulse md:mx-auto md:max-w-[430px]" aria-busy="true" aria-label="Carregando série">
+    <div className="w-full animate-pulse md:mx-auto md:max-w-[430px]" aria-busy="true" aria-label={t("series.loadingSeries")}>
       <div className="h-56 w-full bg-surface" />
       <div className="-mt-16 flex gap-4 px-4">
         <div className="h-36 w-24 shrink-0 rounded-lg bg-border" />
