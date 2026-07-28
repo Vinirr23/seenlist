@@ -1,11 +1,12 @@
 "use client";
 
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
+
 export interface WeeklyBarChartProps {
   weeks: { weekStart: string; count: number }[];
   colorClass?: string;
 }
-
-const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
 
 /**
  * TASK-054 — gráfico simples em CSS (barras com altura proporcional),
@@ -15,6 +16,8 @@ const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", mont
  */
 export function WeeklyBarChart({ weeks, colorClass = "bg-primary" }: WeeklyBarChartProps) {
   const max = Math.max(1, ...weeks.map((w) => w.count));
+  const { t, locale } = useTranslation();
+  const weekdayFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "2-digit" });
 
   return (
     <div className="flex h-24 items-end gap-1.5">
@@ -26,7 +29,11 @@ export function WeeklyBarChart({ weeks, colorClass = "bg-primary" }: WeeklyBarCh
               <div
                 className={`w-full rounded-t ${week.count > 0 ? colorClass : "bg-border"}`}
                 style={{ height: `${heightPercent}%` }}
-                title={`${week.count} episódio${week.count === 1 ? "" : "s"} na semana de ${weekdayFormatter.format(new Date(`${week.weekStart}T00:00:00`))}`}
+                title={t("profile.weeklyChartTooltip", {
+                  count: week.count,
+                  episodeWord: week.count === 1 ? t("profile.episodeSingular") : t("profile.episodePlural"),
+                  date: weekdayFormatter.format(new Date(`${week.weekStart}T00:00:00`)),
+                })}
               />
             </div>
           </div>

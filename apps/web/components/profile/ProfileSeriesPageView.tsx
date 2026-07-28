@@ -1,10 +1,14 @@
+"use client";
+
 import { SectionPageHeader } from "./SectionPageHeader";
 import { ProfileSeriesSection } from "./ProfileSeriesSection";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function ProfileSeriesPageView() {
+  const { t } = useTranslation();
   return (
     <div className="w-full px-4 pb-24 pt-4 md:mx-auto md:max-w-[430px]">
-      <SectionPageHeader title="Séries" />
+      <SectionPageHeader title={t("nav.series")} />
       <ProfileSeriesSection />
     </div>
   );

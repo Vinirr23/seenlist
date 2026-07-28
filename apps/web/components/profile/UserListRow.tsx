@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { FollowListUser } from "@/lib/queries/follow-list";
 import { FollowButton } from "@/components/social/FollowButton";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 function initials(name: string): string {
   return name
@@ -16,6 +17,7 @@ function initials(name: string): string {
 
 export function UserListRow({ user }: { user: FollowListUser }) {
   const displayName = user.displayName || user.username;
+  const { t } = useTranslation();
 
   return (
     <div className="flex items-center gap-3 px-4 py-3">
@@ -31,7 +33,7 @@ export function UserListRow({ user }: { user: FollowListUser }) {
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-text">{displayName}</p>
           <p className="truncate text-xs text-muted">@{user.username}</p>
-          {user.followsViewer && <p className="mt-0.5 text-xs text-primary">Segue você</p>}
+          {user.followsViewer && <p className="mt-0.5 text-xs text-primary">{t("profile.followsYou")}</p>}
         </div>
       </Link>
       <FollowButton targetUserId={user.userId} />
