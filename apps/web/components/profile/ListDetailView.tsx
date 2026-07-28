@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Trash2, X, Clapperboard } from "lucide-react";
 import { useMyLists, useListItems, useRemoveFromList, useDeleteList } from "@/lib/queries/lists";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { EmptyState } from "../search/EmptyState";
 
 /**
@@ -22,6 +23,7 @@ export function ListDetailView({ listId }: { listId: string }) {
   const removeFromList = useRemoveFromList(listId);
   const deleteList = useDeleteList();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const { t } = useTranslation();
 
   const list = lists?.find((l) => l.id === listId);
 
@@ -36,16 +38,16 @@ export function ListDetailView({ listId }: { listId: string }) {
       <div className="mb-4 flex items-center gap-2">
         <Link
           href="/profile/lists"
-          aria-label="Voltar"
+          aria-label={t("common.back")}
           className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface hover:text-text"
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="flex-1 truncate text-xl font-bold text-text">{list?.name ?? "Lista"}</h1>
+        <h1 className="flex-1 truncate text-xl font-bold text-text">{list?.name ?? t("profile.list")}</h1>
         <button
           type="button"
           onClick={() => setConfirmingDelete(true)}
-          aria-label="Apagar lista"
+          aria-label={t("profile.deleteList")}
           className="rounded-lg p-1.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
         >
           <Trash2 className="h-5 w-5" strokeWidth={2} />
@@ -54,14 +56,14 @@ export function ListDetailView({ listId }: { listId: string }) {
 
       {confirmingDelete && (
         <div className="mb-4 rounded-lg border border-danger/40 bg-danger/10 p-3">
-          <p className="mb-3 text-sm text-text">Apagar essa lista? Os itens dentro dela somem junto (sua biblioteca não é afetada).</p>
+          <p className="mb-3 text-sm text-text">{t("profile.confirmDeleteList")}</p>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setConfirmingDelete(false)}
               className="flex-1 rounded-lg border border-border py-2 text-sm font-medium text-text"
             >
-              Cancelar
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -69,7 +71,7 @@ export function ListDetailView({ listId }: { listId: string }) {
               disabled={deleteList.isPending}
               className="flex-1 rounded-lg bg-danger py-2 text-sm font-semibold text-background disabled:opacity-50"
             >
-              {deleteList.isPending ? "Apagando..." : "Apagar"}
+              {deleteList.isPending ? t("profile.deleting") : t("feed.deletePost")}
             </button>
           </div>
         </div>
@@ -84,7 +86,7 @@ export function ListDetailView({ listId }: { listId: string }) {
       )}
 
       {!isLoading && items && items.length === 0 && (
-        <EmptyState message='Essa lista ainda não tem nada. Adicione pelo menu "..." na página de uma série ou filme.' />
+        <EmptyState message={t("profile.emptyListItems")} />
       )}
 
       {items && items.length > 0 && (
@@ -108,7 +110,7 @@ export function ListDetailView({ listId }: { listId: string }) {
                 <button
                   type="button"
                   onClick={() => removeFromList.mutate(item.id)}
-                  aria-label={`Remover ${item.title} da lista`}
+                  aria-label={t("profile.removeFromList", { title: item.title })}
                   className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white"
                 >
                   <X className="h-3.5 w-3.5" strokeWidth={2.5} />
