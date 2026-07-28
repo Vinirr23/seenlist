@@ -6,15 +6,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { colors } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const UNREAD_POLL_INTERVAL_MS = 30_000;
 
-const ROUTE_META: Record<string, { icon: keyof typeof Feather.glyphMap; label: string; title: string }> = {
-  series: { icon: "tv", label: "Séries", title: "Séries" },
-  movies: { icon: "film", label: "Filmes", title: "Filmes" },
-  feed: { icon: "rss", label: "Feed", title: "Feed" },
-  explore: { icon: "compass", label: "Explorar", title: "Explorar" },
-  profile: { icon: "user", label: "Perfil", title: "Perfil" },
+const ROUTE_ICON: Record<string, keyof typeof Feather.glyphMap> = {
+  series: "tv",
+  movies: "film",
+  feed: "rss",
+  explore: "compass",
+  profile: "user",
+};
+
+const ROUTE_LABEL_KEY: Record<string, string> = {
+  series: "nav.series",
+  movies: "nav.movies",
+  feed: "nav.feed",
+  explore: "nav.explore",
+  profile: "nav.profile",
 };
 
 /**
@@ -70,11 +79,14 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     };
   }, []);
 
+  const { t } = useTranslation();
+
   return (
     <View style={[styles.tabBar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}>
       {state.routes.map((route, index) => {
-        const meta = ROUTE_META[route.name];
-        if (!meta) return null;
+        const icon = ROUTE_ICON[route.name];
+        const labelKey = ROUTE_LABEL_KEY[route.name];
+        if (!icon || !labelKey) return null;
         const focused = state.index === index;
 
         function handlePress() {
@@ -88,14 +100,14 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           <Pressable key={route.key} onPress={handlePress} style={styles.tabItem}>
             {focused ? (
               <View style={styles.activePill}>
-                <Feather name={meta.icon} color={colors.background} size={15} />
+                <Feather name={icon} color={colors.background} size={15} />
                 <RNText style={styles.activePillLabel} numberOfLines={1}>
-                  {meta.label}
+                  {t(labelKey)}
                 </RNText>
               </View>
             ) : (
               <View style={styles.iconWrapper}>
-                <Feather name={meta.icon} color={colors.muted} size={20} />
+                <Feather name={icon} color={colors.muted} size={20} />
                 {route.name === "profile" && unreadCount > 0 && (
                   <View style={styles.badge}>
                     <RNText style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</RNText>

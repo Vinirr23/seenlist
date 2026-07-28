@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { colors } from "@/lib/theme";
 
@@ -94,14 +95,16 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <StatusBar style="light" />
-            <ErrorBoundary>
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
-            </ErrorBoundary>
-          </View>
-        </AuthProvider>
+        <LocaleProvider>
+          <AuthProvider>
+            <View style={{ flex: 1, backgroundColor: colors.background }}>
+              <StatusBar style="light" />
+              <ErrorBoundary>
+                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+              </ErrorBoundary>
+            </View>
+          </AuthProvider>
+        </LocaleProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

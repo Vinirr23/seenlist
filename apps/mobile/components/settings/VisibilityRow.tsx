@@ -1,14 +1,15 @@
 import { useState } from "react";
 import type { ProfileVisibility } from "@/lib/settings";
 import { updateVisibility } from "@/lib/settings";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { SettingsRow } from "./SettingsRow";
 import { OptionSheet } from "./OptionSheet";
 
 const OPTIONS: ProfileVisibility[] = ["public", "followers", "private"];
-const LABELS: Record<ProfileVisibility, string> = {
-  public: "Público",
-  followers: "Apenas seguidores",
-  private: "Privado",
+const LABEL_KEYS: Record<ProfileVisibility, string> = {
+  public: "settings.visibility.public",
+  followers: "settings.visibility.followersOnly",
+  private: "settings.visibility.private",
 };
 
 export function VisibilityRow({
@@ -25,6 +26,7 @@ export function VisibilityRow({
   onChanged: (value: ProfileVisibility) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
 
   async function handlePick(option: ProfileVisibility) {
     setOpen(false);
@@ -35,13 +37,13 @@ export function VisibilityRow({
 
   return (
     <>
-      <SettingsRow label={label} value={LABELS[value]} onPress={() => setOpen(true)} last={last} />
+      <SettingsRow label={label} value={t(LABEL_KEYS[value])} onPress={() => setOpen(true)} last={last} />
       {open && (
         <OptionSheet
           title={label}
           onDismiss={() => setOpen(false)}
           actions={OPTIONS.map((option) => ({
-            label: LABELS[option],
+            label: t(LABEL_KEYS[option]),
             active: option === value,
             onPress: () => handlePick(option),
           }))}
