@@ -12,6 +12,7 @@ import { InlineError } from "../media/InlineError";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
 import { barColorClassToTextColorClass } from "@/lib/series-categories";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import {
   isEpisodeWatched,
   useToggleEpisodeWatched,
@@ -53,6 +54,7 @@ export function SeasonAccordion({
   const [dialog, setDialog] = useState<PendingDialog>(null);
   const [watchedActionsEpisode, setWatchedActionsEpisode] = useState<number | null>(null);
   const toast = useToast();
+  const { t } = useTranslation();
 
   const toggleWatched = useToggleEpisodeWatched(seriesId);
   const markEpisodes = useMarkEpisodesWatched(seriesId);
@@ -86,8 +88,8 @@ export function SeasonAccordion({
       toggleWatched.mutate(
         { seasonNumber: season.seasonNumber, episodeNumber, watched: false },
         {
-          onSuccess: () => toast.success("Episódio marcado"),
-          onError: () => toast.error("Erro de conexão"),
+          onSuccess: () => toast.success(t("series.episodeMarked")),
+          onError: () => toast.error(t("series.connectionError")),
         }
       );
     }
@@ -98,8 +100,8 @@ export function SeasonAccordion({
       .filter((episode) => episode.episodeNumber <= episodeNumber)
       .map((episode) => ({ seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber }));
     markEpisodes.mutate(episodes, {
-      onSuccess: () => toast.success("Episódio marcado"),
-      onError: () => toast.error("Erro de conexão"),
+      onSuccess: () => toast.success(t("series.episodeMarked")),
+      onError: () => toast.error(t("series.connectionError")),
     });
     setDialog(null);
   }
@@ -107,7 +109,7 @@ export function SeasonAccordion({
   function markOnlyThisEpisode(episodeNumber: number) {
     toggleWatched.mutate(
       { seasonNumber: season.seasonNumber, episodeNumber, watched: false },
-      { onSuccess: () => toast.success("Episódio marcado"), onError: () => toast.error("Erro de conexão") }
+      { onSuccess: () => toast.success(t("series.episodeMarked")), onError: () => toast.error(t("series.connectionError")) }
     );
     setDialog(null);
   }
@@ -120,7 +122,7 @@ export function SeasonAccordion({
   function confirmSeasonToggle() {
     hapticTick();
     if (allWatched) {
-      unmarkSeason.mutate(season.seasonNumber, { onError: () => toast.error("Erro de conexão") });
+      unmarkSeason.mutate(season.seasonNumber, { onError: () => toast.error(t("series.connectionError")) });
     } else {
       markEpisodes.mutate(
         season.episodes.map((episode) => ({
@@ -128,8 +130,8 @@ export function SeasonAccordion({
           episodeNumber: episode.episodeNumber,
         })),
         {
-          onSuccess: () => toast.success("Temporada concluída"),
-          onError: () => toast.error("Erro de conexão"),
+          onSuccess: () => toast.success(t("series.seasonCompleted")),
+          onError: () => toast.error(t("series.connectionError")),
         }
       );
     }
@@ -160,7 +162,7 @@ export function SeasonAccordion({
             type="button"
             onClick={handleSeasonButtonClick}
             disabled={isBusy}
-            aria-label={allWatched ? "Desmarcar temporada" : "Marcar temporada como assistida"}
+            aria-label={allWatched ? t("series.unmarkSeason") : t("series.markSeasonAsWatched")}
             className="shrink-0 text-muted transition-colors hover:text-primary disabled:opacity-50"
           >
             {allWatched ? (
@@ -176,7 +178,7 @@ export function SeasonAccordion({
         <div className="space-y-2 border-t border-border p-3">
           <InlineError show={toggleWatched.isError || markEpisodes.isError || unmarkSeason.isError} />
           {season.episodes.length === 0 ? (
-            <EmptyState message="Nenhum episódio encontrado para esta temporada." />
+            <EmptyState message={t("series.noEpisodesFound")} />
           ) : (
             season.episodes.map((episode) => {
               const watched = isEpisodeWatched(watchedEpisodes, episode.seasonNumber, episode.episodeNumber);
@@ -198,33 +200,29 @@ export function SeasonAccordion({
 
       {dialog?.type === "mark-previous" && (
         <ConfirmDialog
-          title="Marcar episódios anteriores?"
-          message="Você deseja marcar também todos os episódios anteriores como assistidos?"
+          title={t("series.markPreviousEpisodesTitle")}
+          message={t("series.markPreviousEpisodesMessage")}
           onDismiss={() => setDialog(null)}
           actions={[
-            { label: "Sim", variant: "primary", onClick: () => markUpToEpisode(dialog.episodeNumber) },
-            { label: "Não", variant: "default", onClick: () => markOnlyThisEpisode(dialog.episodeNumber) },
-            { label: "Cancelar", variant: "default", onClick: () => setDialog(null) },
+            { label: t("common.yes"), variant: "primary", onClick: () => markUpToEpisode(dialog.episodeNumber) },
+            { label: t("common.no"), variant: "default", onClick: () => markOnlyThisEpisode(dialog.episodeNumber) },
+            { label: t("common.cancel"), variant: "default", onClick: () => setDialog(null) },
           ]}
         />
       )}
 
       {dialog?.type === "season-toggle" && (
         <ConfirmDialog
-          title={allWatched ? "Desmarcar toda a temporada?" : "Marcar temporada como assistida?"}
-          message={
-            allWatched
-              ? "Todos os episódios desta temporada voltarão para não assistido."
-              : "Todos os episódios desta temporada serão marcados como assistidos."
-          }
+          title={allWatched ? t("series.confirmUnmarkSeasonTitle") : t("series.confirmMarkSeasonTitle")}
+          message={allWatched ? t("series.confirmUnmarkSeasonMessage") : t("series.confirmMarkSeasonMessage")}
           onDismiss={() => setDialog(null)}
           actions={[
             {
-              label: allWatched ? "Desmarcar" : "Marcar",
+              label: allWatched ? t("series.unmarkAction") : t("series.markAction"),
               variant: allWatched ? "danger" : "primary",
               onClick: confirmSeasonToggle,
             },
-            { label: "Cancelar", variant: "default", onClick: () => setDialog(null) },
+            { label: t("common.cancel"), variant: "default", onClick: () => setDialog(null) },
           ]}
         />
       )}
@@ -235,15 +233,15 @@ export function SeasonAccordion({
             onUnwatch: () => {
               toggleWatched.mutate(
                 { seasonNumber: season.seasonNumber, episodeNumber: watchedActionsEpisode, watched: true },
-                { onError: () => toast.error("Erro de conexão") }
+                { onError: () => toast.error(t("series.connectionError")) }
               );
             },
             onRewatch: () => {
               incrementRewatch.mutate(
                 { seasonNumber: season.seasonNumber, episodeNumber: watchedActionsEpisode },
                 {
-                  onSuccess: () => toast.success("Reassistido"),
-                  onError: () => toast.error("Erro de conexão"),
+                  onSuccess: () => toast.success(t("media.rewatched")),
+                  onError: () => toast.error(t("series.connectionError")),
                 }
               );
             },

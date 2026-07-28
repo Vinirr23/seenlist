@@ -8,6 +8,7 @@ import type { SeasonWithEpisodes, Episode } from "@seenlist/types";
 import { useWatchedEpisodes, useToggleEpisodeWatched, isEpisodeWatched, type WatchedEpisodeKey } from "@/lib/queries/watched-episodes";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
 
 interface EpisodeRef {
@@ -71,6 +72,7 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
   const toggleWatched = useToggleEpisodeWatched(seriesId);
   const containerRef = useRef<HTMLDivElement>(null);
   const hasUserScrolledRef = useRef(false);
+  const { t } = useTranslation();
 
   const items = useMemo(
     () => resolveCarouselEpisodes(category, seasons, watched),
@@ -121,7 +123,7 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
 
   return (
     <section>
-      <h2 className="mb-2 text-sm font-medium text-text">Episódios</h2>
+      <h2 className="mb-2 text-sm font-medium text-text">{t("series.episodes")}</h2>
       <div
         ref={containerRef}
         onScroll={() => {
