@@ -5,27 +5,29 @@ import Image from "next/image";
 import { ArrowLeft, Clapperboard } from "lucide-react";
 import { useDiscoverList, type DiscoverListKey } from "@/lib/queries/discover";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { AddToLibraryButton } from "./AddToLibraryButton";
 
-const TITLES: Record<DiscoverListKey, string> = {
-  trending_series: "Séries em alta",
-  trending_movies: "Filmes em alta",
-  popular_series: "Séries populares",
-  popular_movies: "Filmes populares",
-  upcoming_movies: "Lançamentos recentes",
-  on_the_air_series: "Em breve",
+const TITLE_KEYS: Record<DiscoverListKey, string> = {
+  trending_series: "explore.discover.trendingSeries",
+  trending_movies: "explore.discover.trendingMovies",
+  popular_series: "explore.discover.popularSeries",
+  popular_movies: "explore.discover.popularMovies",
+  upcoming_movies: "explore.discover.upcomingMovies",
+  on_the_air_series: "explore.discover.onTheAir",
 };
 
 export function DiscoverAllView({ list }: { list: DiscoverListKey }) {
   const { data, isLoading } = useDiscoverList(list);
+  const { t } = useTranslation();
 
   return (
     <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
       <div className="flex items-center gap-3 px-4 pt-4">
-        <Link href="/explore" aria-label="Voltar" className="text-text">
+        <Link href="/explore" aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-lg font-bold text-text">{TITLES[list]}</h1>
+        <h1 className="text-lg font-bold text-text">{t(TITLE_KEYS[list])}</h1>
       </div>
 
       {isLoading ? (

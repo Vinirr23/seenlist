@@ -7,6 +7,7 @@ import { useMovieStatus } from "@/lib/queries/movie-status-state";
 import { useSetMovieStatus } from "@/lib/queries/movie-status-mutations";
 import { hapticTick } from "@/lib/haptics";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface AddToLibraryButtonProps {
   mediaType: "movie" | "series";
@@ -25,6 +26,7 @@ export function AddToLibraryButton({ mediaType, mediaId, className }: AddToLibra
   const movieStatus = useMovieStatus(mediaType === "movie" ? mediaId : -1);
   const setSeriesStatus = useSetSeriesStatus(mediaId);
   const setMovieStatus = useSetMovieStatus(mediaId);
+  const { t } = useTranslation();
 
   const currentStatus = mediaType === "series" ? seriesStatus.data : movieStatus.data;
   const isAdded = currentStatus != null;
@@ -47,7 +49,7 @@ export function AddToLibraryButton({ mediaType, mediaId, className }: AddToLibra
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      aria-label={isAdded ? "Já está na biblioteca" : "Adicionar à biblioteca"}
+      aria-label={isAdded ? t("explore.alreadyInLibrary") : t("explore.addToLibrary")}
       className={cn(
         "flex h-7 w-7 items-center justify-center rounded border-2 border-primary bg-background/80 text-primary backdrop-blur-sm transition-transform active:scale-90 disabled:opacity-60",
         className

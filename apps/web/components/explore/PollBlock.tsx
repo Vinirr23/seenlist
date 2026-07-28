@@ -3,6 +3,7 @@
 import { CheckCircle2 } from "lucide-react";
 import { usePollData, useVotePoll } from "@/lib/queries/social/polls";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-163 (porta pro web) — mesmo comportamento do `PollBlock`
@@ -13,6 +14,7 @@ import { cn } from "@seenlist/utils";
 export function PollBlock({ postId }: { postId: string }) {
   const { data, isLoading } = usePollData(postId, true);
   const vote = useVotePoll(postId);
+  const { t } = useTranslation();
 
   if (isLoading || !data || data.options.length === 0) return null;
 
@@ -63,7 +65,7 @@ export function PollBlock({ postId }: { postId: string }) {
 
       {hasVoted && (
         <p className="text-[11px] text-muted">
-          {data.totalVotes} {data.totalVotes === 1 ? "voto" : "votos"}
+          {data.totalVotes} {data.totalVotes === 1 ? t("explore.vote") : t("explore.votes")}
         </p>
       )}
     </div>

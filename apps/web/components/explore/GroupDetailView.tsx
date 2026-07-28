@@ -6,9 +6,8 @@ import { useState } from "react";
 import { ArrowLeft, Users, MessageSquare, AlertTriangle, Heart } from "lucide-react";
 import { getMockGroup, getMockPosts } from "@/lib/mock-groups";
 import { SpoilerGate } from "@/components/social/SpoilerGate";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 /**
  * TASK-058 — "não implementar funcionalidades sociais completas.
@@ -19,13 +18,16 @@ export function GroupDetailView({ slug }: { slug: string }) {
   const group = getMockGroup(slug);
   const posts = getMockPosts(slug);
   const [joined, setJoined] = useState(false);
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
   if (!group) {
     return (
       <div className="px-4 pt-6 text-center text-sm text-muted">
-        Grupo não encontrado.{" "}
+        {t("explore.groupNotFound")}{" "}
         <Link href="/explore" className="text-primary underline">
-          Voltar
+          {t("common.back")}
         </Link>
       </div>
     );
@@ -38,7 +40,7 @@ export function GroupDetailView({ slug }: { slug: string }) {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
         <Link
           href="/explore"
-          aria-label="Voltar"
+          aria-label={t("common.back")}
           className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={2.25} />
@@ -59,7 +61,7 @@ export function GroupDetailView({ slug }: { slug: string }) {
                 : "rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-background"
             }
           >
-            {joined ? "Participando" : "Entrar"}
+            {joined ? t("explore.joined") : t("explore.join")}
           </button>
           <span className="flex items-center gap-1 text-xs text-muted">
             <Users className="h-3.5 w-3.5" strokeWidth={2} />
@@ -74,7 +76,7 @@ export function GroupDetailView({ slug }: { slug: string }) {
         {group.hasSpoilers && (
           <div className="mt-4 flex items-start gap-2 rounded-lg bg-primary/10 px-3 py-2.5 text-xs text-primary">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
-            Spoilers a seguir! Este grupo discute todos os títulos relacionados e pode conter spoilers.
+            {t("explore.groupSpoilerWarning")}
           </div>
         )}
       </div>
