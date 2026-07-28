@@ -1,14 +1,16 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing } from "@/lib/theme";
 
 export type HomeTab = "minha-lista" | "em-breve";
 
 export function HomeTabs({ active, onChange }: { active: HomeTab; onChange: (tab: HomeTab) => void }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.tabs}>
-      <TabButton label="Minha lista" active={active === "minha-lista"} onPress={() => onChange("minha-lista")} />
-      <TabButton label="Em breve" active={active === "em-breve"} onPress={() => onChange("em-breve")} />
+      <TabButton label={t("seriesHome.tab.myList")} active={active === "minha-lista"} onPress={() => onChange("minha-lista")} />
+      <TabButton label={t("seriesHome.tab.upcoming")} active={active === "em-breve"} onPress={() => onChange("em-breve")} />
     </View>
   );
 }

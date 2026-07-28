@@ -4,14 +4,22 @@ import { Feather } from "@expo/vector-icons";
 import type { UpcomingEpisodeWithBadge, UpcomingBadge } from "@/lib/upcomingEpisodes";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /** Mesmas cores do web: PREMIERE e MAIS RECENTE em branco/preto, NOVO em amarelo (única das três que usa a cor da marca). */
-const BADGE_CONFIG: Record<Exclude<UpcomingBadge, null>, { label: string; background: string; text: string }> = {
-  premiere: { label: "PREMIERE", background: "#FFFFFF", text: "#000000" },
-  novo: { label: "NOVO", background: colors.primary, text: colors.background },
-  "mais-recente": { label: "MAIS RECENTE", background: "#FFFFFF", text: "#000000" },
-  "em-breve": { label: "EM BREVE", background: colors.secondary, text: colors.background },
+const BADGE_LABEL_KEY: Record<Exclude<UpcomingBadge, null>, string> = {
+  premiere: "seriesHome.badge.premiere",
+  novo: "seriesHome.badge.new",
+  "mais-recente": "seriesHome.badge.latest",
+  "em-breve": "seriesHome.badge.comingSoon",
+};
+
+const BADGE_COLORS: Record<Exclude<UpcomingBadge, null>, { background: string; text: string }> = {
+  premiere: { background: "#FFFFFF", text: "#000000" },
+  novo: { background: colors.primary, text: colors.background },
+  "mais-recente": { background: "#FFFFFF", text: "#000000" },
+  "em-breve": { background: colors.secondary, text: colors.background },
 };
 
 function isGenericEpisodeName(name: string, episodeNumber: number): boolean {
@@ -21,8 +29,9 @@ function isGenericEpisodeName(name: string, episodeNumber: number): boolean {
 
 export function UpcomingEpisodeCard({ episode }: { episode: UpcomingEpisodeWithBadge }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const posterUrl = tmdbImageUrl(episode.posterPath, "w185");
-  const badge = episode.badge ? BADGE_CONFIG[episode.badge] : null;
+  const badge = episode.badge ? { label: t(BADGE_LABEL_KEY[episode.badge]), ...BADGE_COLORS[episode.badge] } : null;
   const network = episode.networks[0] ?? null;
   const episodeCode = `S${String(episode.seasonNumber).padStart(2, "0")}E${String(episode.episodeNumber).padStart(2, "0")}`;
   const hasRealEpisodeName = !!episode.name && !isGenericEpisodeName(episode.name, episode.episodeNumber);
@@ -58,7 +67,7 @@ export function UpcomingEpisodeCard({ episode }: { episode: UpcomingEpisodeWithB
         <View style={styles.daysBlock}>
           <Text style={styles.daysNumber}>{episode.daysUntil}</Text>
           <Text variant="muted" style={styles.daysLabel}>
-            DIAS
+            {t("seriesHome.daysUntil")}
           </Text>
         </View>
       ) : (

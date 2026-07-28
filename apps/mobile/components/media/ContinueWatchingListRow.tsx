@@ -8,13 +8,21 @@ import { toggleEpisodeWatched } from "@/lib/seriesDetails";
 import { tmdbImageUrl } from "@/lib/library";
 import { EpisodeWatchedButton } from "@/components/series-detail/EpisodeWatchedButton";
 import { Text } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
-const BADGE_CONFIG: Record<"premiere" | "novo" | "mais-recente" | "em-breve", { label: string; background: string; text: string }> = {
-  premiere: { label: "PREMIERE", background: "#FFFFFF", text: "#000000" },
-  novo: { label: "NOVO", background: colors.primary, text: colors.background },
-  "mais-recente": { label: "MAIS RECENTE", background: "#FFFFFF", text: "#000000" },
-  "em-breve": { label: "EM BREVE", background: colors.secondary, text: colors.background },
+const BADGE_LABEL_KEY: Record<"premiere" | "novo" | "mais-recente" | "em-breve", string> = {
+  premiere: "seriesHome.badge.premiere",
+  novo: "seriesHome.badge.new",
+  "mais-recente": "seriesHome.badge.latest",
+  "em-breve": "seriesHome.badge.comingSoon",
+};
+
+const BADGE_COLORS: Record<"premiere" | "novo" | "mais-recente" | "em-breve", { background: string; text: string }> = {
+  premiere: { background: "#FFFFFF", text: "#000000" },
+  novo: { background: colors.primary, text: colors.background },
+  "mais-recente": { background: "#FFFFFF", text: "#000000" },
+  "em-breve": { background: colors.secondary, text: colors.background },
 };
 
 /**
@@ -34,9 +42,10 @@ export function ContinueWatchingListRow({
 }) {
   const router = useRouter();
   const [marking, setMarking] = useState(false);
+  const { t } = useTranslation();
   const posterUrl = tmdbImageUrl(item.posterPath, "w185");
   const code = `T${nextEpisode.seasonNumber} | E${String(nextEpisode.episodeNumber).padStart(2, "0")}`;
-  const badge = nextEpisode.badge ? BADGE_CONFIG[nextEpisode.badge] : null;
+  const badge = nextEpisode.badge ? { label: t(BADGE_LABEL_KEY[nextEpisode.badge]), ...BADGE_COLORS[nextEpisode.badge] } : null;
 
   async function handleMarkWatched() {
     if (marking) return;

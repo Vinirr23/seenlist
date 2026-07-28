@@ -20,6 +20,8 @@ import { UpcomingEpisodeCardSkeleton } from "@/components/media/UpcomingEpisodeC
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { translateDayLabel } from "@/lib/i18n/dayLabels";
 import { colors, spacing, radius } from "@/lib/theme";
 
 const CONTINUE_LIMIT = 8;
@@ -44,6 +46,7 @@ export default function SeriesHomeScreen() {
   const { items, isLoading, isError, refreshing, refetch, refetchSilently } = useLibraryItems();
   const upcoming = useUpcomingEpisodes();
   const { viewMode, setViewMode } = useViewModePreference("series-library");
+  const { t } = useTranslation();
 
   /**
    * TASK-143/151 — toda vez que a aba Séries ganha foco, recalcula
@@ -122,12 +125,12 @@ export default function SeriesHomeScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
           <View style={styles.sectionHeader}>
-            <Text variant="subtitle">Continue assistindo</Text>
+            <Text variant="subtitle">{t("seriesHome.continueWatching")}</Text>
             <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
           </View>
 
           {isError ? (
-            <EmptyShelf message="Não foi possível carregar sua biblioteca agora. Tente de novo em instantes." />
+            <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />
           ) : isLoading ? (
             viewMode === "grid" ? (
               <LibraryGridSkeleton />
@@ -136,8 +139,8 @@ export default function SeriesHomeScreen() {
             )
           ) : continueWatching.length === 0 ? (
             <EmptyShelf
-              message="Você ainda não está acompanhando nenhuma série."
-              actionLabel="Explorar séries"
+              message={t("seriesHome.emptyLibrary")}
+              actionLabel={t("seriesHome.exploreSeries")}
               actionHref="/(tabs)/explore"
             />
           ) : viewMode === "grid" ? (
@@ -165,7 +168,7 @@ export default function SeriesHomeScreen() {
                     onPress={handlePressItem}
                     secondaryText={
                       item.progress && item.progress.totalEpisodes > 0
-                        ? `${item.progress.watchedEpisodes}/${item.progress.totalEpisodes} episódios`
+                        ? t("seriesHome.episodeProgress", { watched: item.progress.watchedEpisodes, total: item.progress.totalEpisodes })
                         : ""
                     }
                   />
@@ -176,7 +179,7 @@ export default function SeriesHomeScreen() {
 
           <View style={styles.linkList}>
             <ListLinkButton
-              label='Ver todas da lista "Assistir depois"'
+              label={t("seriesHome.viewAllWatchlistShort")}
               onPress={() => router.push("/(tabs)/series/watchlist")}
             />
           </View>
@@ -186,11 +189,11 @@ export default function SeriesHomeScreen() {
           {upcoming.isLoading ? (
             <UpcomingEpisodeCardSkeleton />
           ) : upcoming.isError ? (
-            <EmptyShelf message="Não foi possível carregar os próximos episódios agora. Tente de novo em instantes." />
+            <EmptyShelf message={t("seriesHome.errorLoadUpcoming")} />
           ) : upcoming.groups.length === 0 ? (
             <EmptyShelf
-              message="Nenhum episódio previsto. Continue acompanhando séries para receber novidades."
-              actionLabel="Explorar séries"
+              message={t("seriesHome.emptyUpcoming")}
+              actionLabel={t("seriesHome.exploreSeries")}
               actionHref="/(tabs)/explore"
             />
           ) : (
@@ -199,7 +202,7 @@ export default function SeriesHomeScreen() {
                 <View key={group.dateKey}>
                   <View style={styles.dayPillWrapper}>
                     <View style={styles.dayPill}>
-                      <Text style={styles.dayPillText}>{group.label}</Text>
+                      <Text style={styles.dayPillText}>{translateDayLabel(group.label, t)}</Text>
                     </View>
                   </View>
                   <View style={styles.episodeList}>
