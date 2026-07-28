@@ -8,6 +8,7 @@ import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { PosterGrid } from "./PosterGrid";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { MediaListRow } from "../media/MediaListRow";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-029 — reaproveita `usePublicFavorites` (já existia, usado no
@@ -25,6 +26,7 @@ export function FavoritesLibraryView({ mediaType, viewModeScope }: { mediaType: 
   const { data: user } = useCurrentUser();
   const { data: favorites, isLoading, isError } = usePublicFavorites(user?.id ?? null);
   const { viewMode, setViewMode } = useViewModePreference(viewModeScope);
+  const { t } = useTranslation();
 
   const items = useMemo(
     () => (favorites ?? []).filter((item) => item.mediaType === mediaType),
@@ -42,15 +44,13 @@ export function FavoritesLibraryView({ mediaType, viewModeScope }: { mediaType: 
   }
 
   if (isError) {
-    return <p className="px-1 text-sm text-muted">Não foi possível carregar seus favoritos agora.</p>;
+    return <p className="px-1 text-sm text-muted">{t("profile.errorLoadFavorites")}</p>;
   }
 
   if (items.length === 0) {
     return (
       <p className="px-1 text-sm text-muted">
-        {mediaType === "series"
-          ? "Você ainda não favoritou nenhuma série."
-          : "Você ainda não favoritou nenhum filme."}
+        {mediaType === "series" ? t("profile.emptyFavoriteSeries") : t("profile.emptyFavoriteMovies")}
       </p>
     );
   }

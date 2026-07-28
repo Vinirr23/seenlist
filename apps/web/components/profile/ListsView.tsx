@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Plus, ListChecks, ChevronRight } from "lucide-react";
 import { useMyLists, useCreateList } from "@/lib/queries/lists";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-029, item 1 — "botão sempre visível, não escondido no menu".
@@ -14,6 +15,7 @@ export function ListsView() {
   const createList = useCreateList();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
+  const { t } = useTranslation();
 
   function handleCreate(event: React.FormEvent) {
     event.preventDefault();
@@ -35,7 +37,7 @@ export function ListsView() {
         className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-background transition-transform active:scale-[0.98]"
       >
         <Plus className="h-4 w-4" strokeWidth={2.5} />
-        Criar nova lista
+        {t("profile.createNewList")}
       </button>
 
       {showForm && (
@@ -44,7 +46,7 @@ export function ListsView() {
             autoFocus
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Nome da lista"
+            placeholder={t("profile.listName")}
             maxLength={80}
             className="flex-1 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
           />
@@ -53,7 +55,7 @@ export function ListsView() {
             disabled={!name.trim() || createList.isPending}
             className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-background disabled:opacity-50"
           >
-            {createList.isPending ? "Criando…" : "Salvar"}
+            {createList.isPending ? t("profile.creating") : t("common.save")}
           </button>
         </form>
       )}
@@ -66,10 +68,10 @@ export function ListsView() {
         </div>
       )}
 
-      {isError && <p className="text-sm text-muted">Não foi possível carregar suas listas agora.</p>}
+      {isError && <p className="text-sm text-muted">{t("profile.errorLoadLists")}</p>}
 
       {!isLoading && !isError && lists && lists.length === 0 && (
-        <p className="px-1 text-sm text-muted">Você ainda não criou nenhuma lista.</p>
+        <p className="px-1 text-sm text-muted">{t("profile.emptyLists")}</p>
       )}
 
       {lists && lists.length > 0 && (

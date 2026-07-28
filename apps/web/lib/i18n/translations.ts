@@ -460,6 +460,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.emptySeriesCategory": "Nenhuma série nesta categoria.",
     "profile.emptySeriesLibrary": "Você ainda não tem nenhuma série na sua biblioteca.",
     "profile.emptyWatchedMovies": "Você ainda não assistiu nenhum filme.",
+
+    "profile.errorLoadFavorites": "Não foi possível carregar seus favoritos agora.",
+    "profile.emptyFavoriteSeries": "Você ainda não favoritou nenhuma série.",
+    "profile.emptyFavoriteMovies": "Você ainda não favoritou nenhum filme.",
+    "profile.createNewList": "Criar nova lista",
+    "profile.listName": "Nome da lista",
+    "profile.creating": "Criando…",
+    "profile.errorLoadLists": "Não foi possível carregar suas listas agora.",
+    "profile.emptyLists": "Você ainda não criou nenhuma lista.",
   },
   en: {
     "settings.title": "Settings",
@@ -895,6 +904,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.emptySeriesCategory": "No shows in this category.",
     "profile.emptySeriesLibrary": "You don't have any shows in your library yet.",
     "profile.emptyWatchedMovies": "You haven't watched any movies yet.",
+
+    "profile.errorLoadFavorites": "Couldn't load your favorites right now.",
+    "profile.emptyFavoriteSeries": "You haven't favorited any shows yet.",
+    "profile.emptyFavoriteMovies": "You haven't favorited any movies yet.",
+    "profile.createNewList": "Create new list",
+    "profile.listName": "List name",
+    "profile.creating": "Creating…",
+    "profile.errorLoadLists": "Couldn't load your lists right now.",
+    "profile.emptyLists": "You haven't created any lists yet.",
   },
   es: {
     "settings.title": "Configuración",
@@ -1330,5 +1348,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.emptySeriesCategory": "Ninguna serie en esta categoría.",
     "profile.emptySeriesLibrary": "Todavía no tienes ninguna serie en tu biblioteca.",
     "profile.emptyWatchedMovies": "Todavía no has visto ninguna película.",
+
+    "profile.errorLoadFavorites": "No se pudieron cargar tus favoritos ahora.",
+    "profile.emptyFavoriteSeries": "Todavía no marcaste ninguna serie como favorita.",
+    "profile.emptyFavoriteMovies": "Todavía no marcaste ninguna película como favorita.",
+    "profile.createNewList": "Crear nueva lista",
+    "profile.listName": "Nombre de la lista",
+    "profile.creating": "Creando…",
+    "profile.errorLoadLists": "No se pudieron cargar tus listas ahora.",
+    "profile.emptyLists": "Todavía no has creado ninguna lista.",
   },
 };
