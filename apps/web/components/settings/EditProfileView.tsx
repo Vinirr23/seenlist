@@ -11,6 +11,7 @@ import { useAvatarUpload } from "@/lib/queries/avatar-upload";
 import { useBannerUpload } from "@/lib/queries/banner-upload";
 import { updateName } from "@/lib/actions/account";
 import { useToast } from "@/lib/toast/ToastProvider";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 function initials(name: string): string {
   return name
@@ -53,6 +54,7 @@ export function EditProfileView() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { t } = useTranslation();
 
   // Nome e perfil chegam de duas queries separadas, em momentos
   // diferentes — sincroniza o formulário uma vez só, quando os dois
@@ -102,7 +104,7 @@ export function EditProfileView() {
     }
 
     queryClient.invalidateQueries({ queryKey: ["current-user"] });
-    toast.success("Perfil atualizado");
+    toast.success(t("settings.profileUpdated"));
     router.push("/profile");
   }
 
@@ -118,7 +120,7 @@ export function EditProfileView() {
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-xl font-bold text-text">Editar Perfil</h1>
+        <h1 className="text-xl font-bold text-text">{t("settings.editProfile")}</h1>
       </div>
 
       <div className="relative -mt-2 mb-14 h-28 w-full bg-surface">
@@ -132,7 +134,7 @@ export function EditProfileView() {
           disabled={uploadingBanner}
           className="absolute right-3 top-3 rounded-lg border border-border bg-background/80 px-3 py-1.5 text-xs font-medium text-text backdrop-blur transition-transform active:scale-[0.96] disabled:opacity-50"
         >
-          {uploadingBanner ? "Enviando…" : "Alterar banner"}
+          {uploadingBanner ? t("settings.uploading") : t("settings.changeBanner")}
         </button>
         <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
 
@@ -153,14 +155,14 @@ export function EditProfileView() {
           disabled={uploadingAvatar}
           className="mb-6 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text transition-transform active:scale-[0.96] disabled:opacity-50"
         >
-          {uploadingAvatar ? "Enviando…" : "Alterar foto"}
+          {uploadingAvatar ? t("settings.uploading") : t("settings.changePhoto")}
         </button>
         <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
 
         <div className="space-y-4">
           <div>
             <label htmlFor="profile-name" className="mb-1 block text-xs text-muted">
-              Nome
+              {t("settings.name")}
             </label>
             <input
               id="profile-name"
@@ -173,7 +175,7 @@ export function EditProfileView() {
 
           <div>
             <label htmlFor="profile-username" className="mb-1 block text-xs text-muted">
-              Username
+              {t("settings.username")}
             </label>
             <div className="flex items-center rounded-lg border border-border bg-surface px-3 focus-within:border-primary">
               <span className="text-sm text-muted">@</span>
@@ -189,7 +191,7 @@ export function EditProfileView() {
 
           <div>
             <label htmlFor="profile-bio" className="mb-1 block text-xs text-muted">
-              Bio
+              {t("settings.bio")}
             </label>
             <textarea
               id="profile-bio"
@@ -203,14 +205,14 @@ export function EditProfileView() {
 
           <div>
             <label htmlFor="profile-country" className="mb-1 block text-xs text-muted">
-              País (opcional)
+              {t("settings.countryOptional")}
             </label>
             <input
               id="profile-country"
               type="text"
               value={country}
               onChange={(event) => setCountry(event.target.value)}
-              placeholder="Brasil"
+              placeholder={t("settings.countryPlaceholder")}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
             />
           </div>
@@ -228,7 +230,7 @@ export function EditProfileView() {
           disabled={saving || name.trim().length === 0 || username.trim().length === 0}
           className="mt-6 w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-background transition-transform active:scale-[0.96] disabled:opacity-50"
         >
-          {saving ? "Salvando…" : "Salvar"}
+          {saving ? t("common.saving") : t("common.save")}
         </button>
       </div>
     </div>

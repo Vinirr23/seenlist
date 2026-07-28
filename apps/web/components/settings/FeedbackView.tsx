@@ -6,11 +6,12 @@ import { ArrowLeft, Check, Bug, Lightbulb, MessageSquare } from "lucide-react";
 import { cn } from "@seenlist/utils";
 import { useSendFeedback, type FeedbackType } from "@/lib/queries/feedback";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-const TYPES: { value: FeedbackType; label: string; icon: typeof Bug }[] = [
-  { value: "bug", label: "Achei um bug", icon: Bug },
-  { value: "suggestion", label: "Tenho uma sugestão", icon: Lightbulb },
-  { value: "other", label: "Outro assunto", icon: MessageSquare },
+const TYPE_VALUES: { value: FeedbackType; icon: typeof Bug }[] = [
+  { value: "bug", icon: Bug },
+  { value: "suggestion", icon: Lightbulb },
+  { value: "other", icon: MessageSquare },
 ];
 
 /**
@@ -25,6 +26,13 @@ export function FeedbackView() {
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
   const sendFeedback = useSendFeedback();
+  const { t } = useTranslation();
+
+  const TYPE_LABEL_KEYS: Record<FeedbackType, string> = {
+    bug: "settings.feedback.foundBug",
+    suggestion: "settings.feedback.haveSuggestion",
+    other: "settings.feedback.other",
+  };
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -48,12 +56,12 @@ export function FeedbackView() {
       <div className="mb-4 flex items-center gap-2">
         <Link
           href="/profile/settings"
-          aria-label="Voltar"
+          aria-label={t("common.back")}
           className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface hover:text-text"
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-xl font-bold text-text">Enviar feedback</h1>
+        <h1 className="text-xl font-bold text-text">{t("settings.sendFeedback")}</h1>
       </div>
 
       {sent ? (
@@ -61,22 +69,22 @@ export function FeedbackView() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
             <Check className="h-6 w-6" strokeWidth={2.5} />
           </div>
-          <p className="text-sm font-semibold text-text">Feedback enviado, valeu!</p>
-          <p className="text-xs text-muted">Toda opinião ajuda a deixar o SeenList melhor pra beta.</p>
+          <p className="text-sm font-semibold text-text">{t("settings.feedback.sentThanks")}</p>
+          <p className="text-xs text-muted">{t("settings.feedback.helpsBeta")}</p>
           <button
             type="button"
             onClick={() => setSent(false)}
             className="mt-2 text-xs font-medium text-primary underline"
           >
-            Enviar outro
+            {t("settings.feedback.sendAnother")}
           </button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Sobre o quê?</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t("settings.feedback.aboutWhat")}</p>
             <div className="flex flex-col gap-2">
-              {TYPES.map((option) => {
+              {TYPE_VALUES.map((option) => {
                 const selected = type === option.value;
                 return (
                   <button
@@ -89,7 +97,7 @@ export function FeedbackView() {
                     )}
                   >
                     <option.icon className="h-4 w-4" strokeWidth={2} />
-                    {option.label}
+                    {t(TYPE_LABEL_KEYS[option.value])}
                   </button>
                 );
               })}
@@ -98,7 +106,7 @@ export function FeedbackView() {
 
           <div>
             <label htmlFor="feedback-message" className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted">
-              Conta com detalhes
+              {t("settings.feedback.tellDetails")}
             </label>
             <textarea
               id="feedback-message"
@@ -106,7 +114,7 @@ export function FeedbackView() {
               onChange={(e) => setMessage(e.target.value)}
               rows={6}
               maxLength={2000}
-              placeholder="O que aconteceu, o que você esperava que acontecesse, em qual tela..."
+              placeholder={t("settings.feedback.placeholder")}
               className="w-full resize-none rounded-lg border border-border bg-surface p-3 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
             />
             <p className="mt-1 text-right text-xs text-muted">{message.length}/2000</p>
@@ -117,7 +125,7 @@ export function FeedbackView() {
             disabled={!message.trim() || sendFeedback.isPending}
             className="w-full rounded-lg bg-primary py-3 text-sm font-bold text-background disabled:opacity-40"
           >
-            {sendFeedback.isPending ? "Enviando..." : "Enviar feedback"}
+            {sendFeedback.isPending ? t("settings.feedback.sending") : t("settings.sendFeedback")}
           </button>
         </form>
       )}

@@ -6,13 +6,14 @@ import { useMyProfile, useUpdateMyProfile, type UpdateProfileInput } from "@/lib
 import { useToast } from "@/lib/toast/ToastProvider";
 import { ConfirmDialog } from "../series/ConfirmDialog";
 import { SettingsRow } from "./SettingsRow";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const OPTIONS: ProfileVisibility[] = ["public", "followers", "private"];
 
-const LABELS: Record<ProfileVisibility, string> = {
-  public: "Público",
-  followers: "Apenas seguidores",
-  private: "Privado",
+const LABEL_KEYS: Record<ProfileVisibility, string> = {
+  public: "settings.visibility.public",
+  followers: "settings.visibility.followersOnly",
+  private: "settings.visibility.private",
 };
 
 export interface VisibilityRowProps {
@@ -34,6 +35,7 @@ export function VisibilityRow({ label, field, value, last }: VisibilityRowProps)
   const [open, setOpen] = useState(false);
   const updateProfile = useUpdateMyProfile();
   const toast = useToast();
+  const { t } = useTranslation();
 
   async function handlePick(option: ProfileVisibility) {
     setOpen(false);
@@ -41,24 +43,24 @@ export function VisibilityRow({ label, field, value, last }: VisibilityRowProps)
     if (result.error) {
       toast.error(result.error);
     } else {
-      toast.success("Privacidade atualizada");
+      toast.success(t("settings.privacyUpdated"));
     }
   }
 
   return (
     <>
-      <SettingsRow label={label} value={LABELS[value]} onClick={() => setOpen(true)} last={last} />
+      <SettingsRow label={label} value={t(LABEL_KEYS[value])} onClick={() => setOpen(true)} last={last} />
       {open && (
         <ConfirmDialog
           title={label}
           onDismiss={() => setOpen(false)}
           actions={[
             ...OPTIONS.map((option) => ({
-              label: LABELS[option],
+              label: t(LABEL_KEYS[option]),
               variant: option === value ? ("primary" as const) : ("default" as const),
               onClick: () => handlePick(option),
             })),
-            { label: "Cancelar", variant: "default" as const, onClick: () => setOpen(false) },
+            { label: t("common.cancel"), variant: "default" as const, onClick: () => setOpen(false) },
           ]}
         />
       )}
@@ -69,13 +71,14 @@ export function VisibilityRow({ label, field, value, last }: VisibilityRowProps)
 /** Agrupa as 3 linhas — usado direto pela tela de Configurações. */
 export function PrivacySection() {
   const { data: profile } = useMyProfile();
+  const { t } = useTranslation();
   if (!profile) return null;
 
   return (
     <>
-      <VisibilityRow label="Perfil" field="profileVisibility" value={profile.profileVisibility} />
-      <VisibilityRow label="Biblioteca" field="libraryVisibility" value={profile.libraryVisibility} />
-      <VisibilityRow label="Favoritos" field="favoritesVisibility" value={profile.favoritesVisibility} last />
+      <VisibilityRow label={t("nav.profile")} field="profileVisibility" value={profile.profileVisibility} />
+      <VisibilityRow label={t("settings.library")} field="libraryVisibility" value={profile.libraryVisibility} />
+      <VisibilityRow label={t("settings.favorites")} field="favoritesVisibility" value={profile.favoritesVisibility} last />
     </>
   );
 }
