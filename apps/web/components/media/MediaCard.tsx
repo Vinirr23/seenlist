@@ -5,6 +5,8 @@ import { cn } from "@seenlist/utils";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { ProgressBar } from "./ProgressBar";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 export interface MediaCardProps {
   item: LibraryItem;
@@ -13,15 +15,13 @@ export interface MediaCardProps {
   showMeta?: boolean;
 }
 
-const STATUS_LABEL: Record<LibraryStatus, string> = {
-  watching: "Assistindo",
-  want_to_watch: "Assistir depois",
-  completed: "Concluído",
-  paused: "Pausada",
-  up_to_date: "Em dia",
+const STATUS_LABEL_KEY: Record<LibraryStatus, string> = {
+  watching: "media.status.watching",
+  want_to_watch: "media.status.wantToWatch",
+  completed: "media.status.completed",
+  paused: "media.status.paused",
+  up_to_date: "media.status.upToDate",
 };
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
 /**
  * TASK-017: pôster real do TMDB. TASK-020: generalizado pra filme e
@@ -34,6 +34,8 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
 export function MediaCard({ item, size = "default", showMeta = false }: MediaCardProps) {
   const posterUrl = tmdbImage(item.posterPath, "w342");
   const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
   return (
     <Link
@@ -73,7 +75,7 @@ export function MediaCard({ item, size = "default", showMeta = false }: MediaCar
         <p className="text-xs text-muted">{item.year}</p>
         {showMeta && (
           <p className="truncate text-[11px] text-muted">
-            {STATUS_LABEL[item.status]} · {dateFormatter.format(new Date(item.updatedAt))}
+            {t(STATUS_LABEL_KEY[item.status])} · {dateFormatter.format(new Date(item.updatedAt))}
           </p>
         )}
       </div>

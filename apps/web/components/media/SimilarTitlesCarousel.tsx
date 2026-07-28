@@ -2,12 +2,14 @@ import Link from "next/link";
 import Image from "next/image";
 import type { MediaSearchResult } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 function hrefFor(item: MediaSearchResult): string {
   return item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
 }
 
 export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] }) {
+  const { t } = useTranslation();
   if (items.length === 0) return null;
 
   return (
@@ -21,7 +23,7 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
                 <Image src={posterUrl} alt={item.title} fill sizes="112px" className="object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-[10px] text-muted">
-                  Sem pôster
+                  {t("media.noPoster")}
                 </div>
               )}
             </div>

@@ -1,8 +1,10 @@
 import Image from "next/image";
 import type { CastMember } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function CastCarousel({ cast }: { cast: CastMember[] }) {
+  const { t } = useTranslation();
   if (cast.length === 0) return null;
 
   return (
@@ -16,7 +18,7 @@ export function CastCarousel({ cast }: { cast: CastMember[] }) {
                 <Image src={photoUrl} alt={member.name} fill sizes="80px" className="object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-[10px] text-muted">
-                  Sem foto
+                  {t("episode.noPhoto")}
                 </div>
               )}
             </div>

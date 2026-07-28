@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Eye, Repeat } from "lucide-react";
 import { hapticTick } from "@/lib/haptics";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface WatchedActionsTarget {
   onUnwatch: () => void;
@@ -30,6 +31,7 @@ export interface WatchedActionsBottomSheetProps {
  */
 export function WatchedActionsBottomSheet({ target, onClose }: WatchedActionsBottomSheetProps) {
   const [mounted, setMounted] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setMounted(true));
@@ -68,7 +70,7 @@ export function WatchedActionsBottomSheet({ target, onClose }: WatchedActionsBot
       >
         <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
 
-        <p className="px-4 pb-2 pt-3 text-center text-sm font-medium text-muted">Marcar como...</p>
+        <p className="px-4 pb-2 pt-3 text-center text-sm font-medium text-muted">{t("media.markAs")}</p>
 
         <div className="border-t border-border">
           <button
@@ -77,7 +79,7 @@ export function WatchedActionsBottomSheet({ target, onClose }: WatchedActionsBot
             className="flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm text-text transition-colors active:bg-background"
           >
             <Eye className="h-5 w-5 text-muted" strokeWidth={2} />
-            Não assistido
+            {t("episode.notWatched")}
           </button>
           <button
             type="button"
@@ -85,7 +87,7 @@ export function WatchedActionsBottomSheet({ target, onClose }: WatchedActionsBot
             className="flex w-full items-center gap-3 border-t border-border px-4 py-3.5 text-left text-sm text-text transition-colors active:bg-background"
           >
             <Repeat className="h-5 w-5 text-muted" strokeWidth={2} />
-            Reassistido
+            {t("media.rewatched")}
           </button>
         </div>
       </div>
