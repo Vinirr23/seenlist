@@ -6,8 +6,15 @@ import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-export function FollowButton({ targetUserId }: { targetUserId: string }) {
-  const { data: isFollowing, isLoading } = useFollowStatus(targetUserId);
+export function FollowButton({
+  targetUserId,
+  initial,
+}: {
+  targetUserId: string;
+  /** AUDITORIA (perf) — quando quem chama já buscou isso em lote (listas de usuário), passa pronto aqui. */
+  initial?: boolean;
+}) {
+  const { data: isFollowing, isLoading } = useFollowStatus(targetUserId, initial);
   const toggle = useToggleFollow(targetUserId);
   const toast = useToast();
   const { t } = useTranslation();

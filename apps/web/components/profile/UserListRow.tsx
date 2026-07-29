@@ -15,7 +15,7 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-export function UserListRow({ user }: { user: FollowListUser }) {
+export function UserListRow({ user, isFollowing }: { user: FollowListUser; isFollowing?: boolean }) {
   const displayName = user.displayName || user.username;
   const { t } = useTranslation();
 
@@ -36,7 +36,7 @@ export function UserListRow({ user }: { user: FollowListUser }) {
           {user.followsViewer && <p className="mt-0.5 text-xs text-primary">{t("profile.followsYou")}</p>}
         </div>
       </Link>
-      <FollowButton targetUserId={user.userId} />
+      <FollowButton targetUserId={user.userId} initial={isFollowing} />
     </div>
   );
 }

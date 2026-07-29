@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { useUserSearch } from "@/lib/queries/user-search";
+import { useFollowStatusBatch } from "@/lib/queries/follow";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { UserListRow } from "./UserListRow";
 
@@ -16,6 +17,10 @@ export function DiscoverUsersView() {
   const [search, setSearch] = useState("");
   const { data: users, isLoading, isError } = useUserSearch(search);
   const { t } = useTranslation();
+
+  /** AUDITORIA (perf) — 1 consulta pra todos os usuários visíveis, não uma por linha. */
+  const userIds = users?.map((u) => u.userId) ?? [];
+  const { data: followingSet } = useFollowStatusBatch(userIds);
 
   return (
     <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
@@ -58,7 +63,7 @@ export function DiscoverUsersView() {
         )}
 
         {users?.map((user) => (
-          <UserListRow key={user.userId} user={user} />
+          <UserListRow key={user.userId} user={user} isFollowing={followingSet?.has(user.userId)} />
         ))}
       </div>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { translations, DEFAULT_LOCALE, type Locale } from "./translations";
 
 const STORAGE_KEY = "seenlist:locale";
@@ -42,7 +42,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     // do perfil, pra um usuário que já escolheu idioma em outro
     // aparelho não cair no padrão aqui.
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+    getCurrentAuthUser(supabase).then(({ data }) => {
       const saved = data.user?.user_metadata?.locale as Locale | undefined;
       if (saved && saved in translations) setLocaleState(saved);
     });

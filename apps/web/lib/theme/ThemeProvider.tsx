@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 
 export type ThemePreference = "dark" | "light" | "system";
 
@@ -52,7 +52,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       applyThemeClass(initial);
     } else {
       const supabase = createClient();
-      supabase.auth.getUser().then(({ data }) => {
+      getCurrentAuthUser(supabase).then(({ data }) => {
         const saved = data.user?.user_metadata?.theme;
         const resolved = isThemePreference(saved) ? saved : DEFAULT_THEME;
         setThemeState(resolved);

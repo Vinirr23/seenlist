@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 
 export type ViewMode = "grid" | "list";
 
@@ -33,7 +33,12 @@ export function useViewModePreference(scope: string) {
       return;
     }
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+    // CORREÇÃO DE PERFORMANCE (achado real, auditoria) — `getUser()`
+    // faz chamada de rede; só roda quando ainda não tem valor salvo
+    // no localStorage (primeira visita a este `scope` no navegador),
+    // então já era pouco frequente, mas `getCurrentAuthUser()` (local,
+    // sem rede) resolve o mesmo dado sem custo nenhum.
+    getCurrentAuthUser(supabase).then(({ data }) => {
       const saved = data.user?.user_metadata?.[metadataKey];
       if (isViewMode(saved)) setViewModeState(saved);
     });

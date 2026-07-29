@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Search, UserPlus } from "lucide-react";
 import { useFollowList } from "@/lib/queries/follow-list";
+import { useFollowStatusBatch } from "@/lib/queries/follow";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { UserListRow } from "./UserListRow";
 
@@ -22,6 +23,15 @@ export function UserListPageView({ userId, direction, title }: UserListPageViewP
   const [search, setSearch] = useState("");
   const { data: users, isLoading, isError } = useFollowList(userId, direction, search);
   const { t } = useTranslation();
+
+  /**
+   * AUDITORIA (perf) — só busca em lote na tela de Seguidores: na de
+   * Seguindo, "eu sigo esta pessoa" já é sempre verdadeiro pra todo
+   * mundo da lista (é literalmente a definição da lista), então uma
+   * consulta a mais aqui só desperdiçaria uma chamada de rede.
+   */
+  const userIds = direction === "followers" ? (users?.map((u) => u.userId) ?? []) : [];
+  const { data: followingSet } = useFollowStatusBatch(userIds);
 
   return (
     <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
@@ -69,7 +79,7 @@ export function UserListPageView({ userId, direction, title }: UserListPageViewP
         )}
 
         {users?.map((user) => (
-          <UserListRow key={user.userId} user={user} />
+          <UserListRow key={user.userId} user={user} isFollowing={direction === "following" ? true : followingSet?.has(user.userId)} />
         ))}
       </div>
     </div>
