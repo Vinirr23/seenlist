@@ -16,9 +16,10 @@ import { PostCommentsSection } from "./PostCommentsSection";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { PollBlock } from "./PollBlock";
 import type { PollData } from "@/lib/social/polls";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 const SITE_URL = "https://seenlist.app";
 
 function initials(name: string): string {
@@ -66,6 +67,13 @@ export function PostCard({
   const { session } = useAuth();
   const posterUrl = post.mediaPosterPath ? tmdbImageUrl(post.mediaPosterPath, "w185") : null;
   const isOwner = session?.user.id === post.userId;
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -104,7 +112,7 @@ export function PostCard({
       setEditing(false);
     } catch (error) {
       console.error("[PostCard] Falha ao editar post", error);
-      Alert.alert("Não foi possível editar agora", "Tente de novo em instantes.");
+      Alert.alert(t("feed.errorEditPost"), t("feed.tryAgainShortly"));
     } finally {
       setSaving(false);
     }
@@ -112,10 +120,10 @@ export function PostCard({
 
   function handleDelete() {
     setMenuOpen(false);
-    Alert.alert("Apagar este post?", "Não dá pra desfazer.", [
-      { text: "Cancelar", style: "cancel" },
+    Alert.alert(t("feed.confirmDeletePostTitle"), t("feed.confirmDeletePostMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Apagar",
+        text: t("common.delete"),
         style: "destructive",
         onPress: async () => {
           try {
@@ -124,7 +132,7 @@ export function PostCard({
             onDeleted?.();
           } catch (error) {
             console.error("[PostCard] Falha ao apagar post", error);
-            Alert.alert("Não foi possível apagar agora", "Tente de novo em instantes.");
+            Alert.alert(t("feed.errorDeletePost"), t("feed.tryAgainShortly"));
           }
         },
       },
@@ -209,11 +217,11 @@ export function PostCard({
           <TextInput value={editBody} onChangeText={setEditBody} multiline maxLength={500} autoFocus style={styles.editInput} />
           <View style={styles.editButtons}>
             <Pressable onPress={() => setEditing(false)} style={styles.editCancelButton}>
-              <Text variant="muted">Cancelar</Text>
+              <Text variant="muted">{t("common.cancel")}</Text>
             </Pressable>
             <View style={styles.editSaveButton}>
               <Button onPress={handleSaveEdit} loading={saving} disabled={!editBody.trim()}>
-                Salvar
+                {t("common.save")}
               </Button>
             </View>
           </View>
@@ -239,13 +247,13 @@ export function PostCard({
           title={post.authorName}
           onDismiss={() => setMenuOpen(false)}
           actions={[
-            { label: "Compartilhar", onPress: handleShare },
+            { label: t("social.share"), onPress: handleShare },
             ...(isOwner
               ? [
-                  { label: "Editar", onPress: handleStartEdit },
-                  { label: "Apagar", danger: true, onPress: handleDelete },
+                  { label: t("common.edit"), onPress: handleStartEdit },
+                  { label: t("common.delete"), danger: true, onPress: handleDelete },
                 ]
-              : [{ label: reported ? "Denunciado" : "Denunciar", danger: true, onPress: handleReport }]),
+              : [{ label: reported ? t("feed.reported") : t("feed.report"), danger: true, onPress: handleReport }]),
           ]}
         />
       )}

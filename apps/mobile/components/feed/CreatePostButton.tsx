@@ -7,6 +7,7 @@ import { createTextPost } from "@/lib/posts";
 import { createPollPost } from "@/lib/social/polls";
 import { pickImageFromLibrary, uploadPostImage } from "@/lib/imageUpload";
 import { Text, Button } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const MAX_LENGTH = 500;
@@ -29,6 +30,7 @@ const MIN_POLL_OPTIONS = 2;
  */
 export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"post" | "poll">("post");
   const [body, setBody] = useState("");
@@ -84,7 +86,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
         onCreated();
       } catch (error) {
         console.error("[CreatePostButton] Falha ao publicar enquete", error);
-        Alert.alert("Não foi possível publicar", "Confira a pergunta e pelo menos 2 opções, e tente de novo.");
+        Alert.alert(t("feed.errorPublish"), t("feed.pollValidationHint"));
       } finally {
         setPosting(false);
       }
@@ -100,7 +102,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
       const result = await uploadPostImage(imageUri, imageMimeType);
       setUploadingImage(false);
       if (result.error || !result.url) {
-        setUploadError(result.error ?? "Não foi possível enviar a imagem agora.");
+        setUploadError(result.error ?? t("feed.errorUploadImage"));
         return;
       }
       uploadedImageUrl = result.url;
@@ -113,7 +115,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
       onCreated();
     } catch (error) {
       console.error("[CreatePostButton] Falha ao publicar", error);
-      Alert.alert("Não foi possível publicar", "Tente de novo em instantes.");
+      Alert.alert(t("feed.errorPublish"), t("feed.tryAgainShortly"));
     } finally {
       setPosting(false);
     }
@@ -136,20 +138,20 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
               <Pressable onPress={() => setOpen(false)} hitSlop={8}>
-                <Text variant="muted">Cancelar</Text>
+                <Text variant="muted">{t("common.cancel")}</Text>
               </Pressable>
-              <Text variant="subtitle">{mode === "poll" ? "Nova enquete" : "Novo post"}</Text>
+              <Text variant="subtitle">{mode === "poll" ? t("feed.newPoll") : t("feed.newPost")}</Text>
               <View style={{ width: 60 }} />
             </View>
 
             <View style={styles.modeToggle}>
               <Pressable style={[styles.modeButton, mode === "post" && styles.modeButtonActive]} onPress={() => setMode("post")}>
                 <Feather name="edit-3" size={14} color={mode === "post" ? colors.background : colors.muted} />
-                <Text style={[styles.modeButtonText, mode === "post" && styles.modeButtonTextActive]}>Post</Text>
+                <Text style={[styles.modeButtonText, mode === "post" && styles.modeButtonTextActive]}>{t("feed.post")}</Text>
               </Pressable>
               <Pressable style={[styles.modeButton, mode === "poll" && styles.modeButtonActive]} onPress={() => setMode("poll")}>
                 <Feather name="bar-chart-2" size={14} color={mode === "poll" ? colors.background : colors.muted} />
-                <Text style={[styles.modeButtonText, mode === "poll" && styles.modeButtonTextActive]}>Enquete</Text>
+                <Text style={[styles.modeButtonText, mode === "poll" && styles.modeButtonTextActive]}>{t("feed.poll")}</Text>
               </Pressable>
             </View>
 
@@ -159,7 +161,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
                   style={styles.textAreaSmall}
                   value={pollQuestion}
                   onChangeText={setPollQuestion}
-                  placeholder="Qual é a pergunta?"
+                  placeholder={t("feed.pollQuestionPlaceholder")}
                   placeholderTextColor={colors.muted}
                   multiline
                   maxLength={140}
@@ -173,7 +175,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
                         style={styles.pollOptionInput}
                         value={option}
                         onChangeText={(value) => handlePollOptionChange(index, value)}
-                        placeholder={`Opção ${index + 1}`}
+                        placeholder={t("feed.pollOptionPlaceholder", { number: index + 1 })}
                         placeholderTextColor={colors.muted}
                         maxLength={60}
                       />
@@ -190,13 +192,13 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
                   <Pressable style={styles.attachButton} onPress={handleAddPollOption}>
                     <Feather name="plus" size={16} color={colors.muted} />
                     <Text variant="muted" style={styles.attachButtonText}>
-                      Adicionar opção
+                      {t("feed.addOption")}
                     </Text>
                   </Pressable>
                 )}
 
                 <Text variant="muted" style={styles.pollHint}>
-                  Voto é definitivo e o resultado só aparece depois de votar.
+                  {t("feed.pollVoteHint")}
                 </Text>
               </>
             ) : (
@@ -205,7 +207,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
                   style={styles.textArea}
                   value={body}
                   onChangeText={setBody}
-                  placeholder="O que você está pensando?"
+                  placeholder={t("feed.postPlaceholder")}
                   placeholderTextColor={colors.muted}
                   multiline
                   maxLength={MAX_LENGTH}
@@ -235,14 +237,14 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
                 <Pressable style={styles.attachButton} onPress={handlePickImage} disabled={busy}>
                   <Feather name="image" size={16} color={colors.muted} />
                   <Text variant="muted" style={styles.attachButtonText}>
-                    {imageUri ? "Trocar imagem" : "Anexar imagem ou GIF"}
+                    {imageUri ? t("feed.changeImage") : t("social.attachImage")}
                   </Text>
                 </Pressable>
               </>
             )}
 
             <Button onPress={handlePublish} loading={busy} disabled={!canPublish}>
-              {uploadingImage ? "Enviando imagem..." : "Publicar"}
+              {uploadingImage ? t("feed.uploadingImage") : t("social.publish")}
             </Button>
           </View>
         </KeyboardAvoidingView>
