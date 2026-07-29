@@ -5,18 +5,15 @@ import type { MediaSearchResult } from "@seenlist/types";
 import { useSearchMedia } from "@/lib/useSearchMedia";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
-
-const MEDIA_TYPE_LABEL: Record<"movie" | "series", string> = {
-  movie: "Filme",
-  series: "Série",
-};
 
 export function SearchResults({ query }: { query: string }) {
   const { data, isLoading, isError } = useSearchMedia(query);
+  const { t } = useTranslation();
 
   if (!query.trim()) {
-    return <EmptyState message="Pesquise um filme ou série" />;
+    return <EmptyState message={t("search.promptSearch")} />;
   }
   if (isLoading) {
     return (
@@ -28,10 +25,10 @@ export function SearchResults({ query }: { query: string }) {
     );
   }
   if (isError) {
-    return <EmptyState message="Não foi possível buscar agora. Tente de novo em instantes." />;
+    return <EmptyState message={t("search.errorSearch")} />;
   }
   if (!data || data.length === 0) {
-    return <EmptyState message="Nenhum resultado encontrado" />;
+    return <EmptyState message={t("search.noResults")} />;
   }
 
   return (
@@ -46,6 +43,7 @@ export function SearchResults({ query }: { query: string }) {
 function ResultCard({ item }: { item: MediaSearchResult }) {
   const router = useRouter();
   const posterUrl = tmdbImageUrl(item.posterPath, "w342");
+  const { t } = useTranslation();
 
   function handlePress() {
     if (item.mediaType === "series") {
@@ -68,7 +66,7 @@ function ResultCard({ item }: { item: MediaSearchResult }) {
       </View>
       <View style={styles.cardInfo}>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>{MEDIA_TYPE_LABEL[item.mediaType]}</Text>
+          <Text style={styles.badgeText}>{item.mediaType === "movie" ? t("media.movie") : t("media.series")}</Text>
         </View>
         <Text numberOfLines={1} style={styles.cardTitle}>
           {item.title}

@@ -10,6 +10,7 @@ import { useDiscoverList } from "@/lib/useDiscoverList";
 import { useActivityFeed } from "@/lib/useActivityFeed";
 import { colors, spacing, radius } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 type ExploreTab = "discover" | "activity";
 
@@ -29,6 +30,7 @@ export default function ExploreScreen() {
   const tabBarClearance = useTabBarClearance();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<ExploreTab>("discover");
+  const { t } = useTranslation();
 
   const trendingSeries = useDiscoverList("trending_series");
   const trendingMovies = useDiscoverList("trending_movies");
@@ -48,16 +50,16 @@ export default function ExploreScreen() {
       ) : (
         <>
           <View style={styles.tabs}>
-            <TabButton label="Descobrir" active={tab === "discover"} onPress={() => setTab("discover")} />
-            <TabButton label="Atividade" active={tab === "activity"} onPress={() => setTab("activity")} />
+            <TabButton label={t("explore.tab.discover")} active={tab === "discover"} onPress={() => setTab("discover")} />
+            <TabButton label={t("explore.tab.activity")} active={tab === "activity"} onPress={() => setTab("activity")} />
           </View>
 
           {tab === "discover" ? (
             <ScrollView contentContainerStyle={[styles.discoverContent, { paddingBottom: tabBarClearance }]}>
-              <DiscoverCarousel title="Séries em alta" items={trendingSeries.items} isLoading={trendingSeries.isLoading} />
-              <DiscoverCarousel title="Filmes em alta" items={trendingMovies.items} isLoading={trendingMovies.isLoading} />
-              <DiscoverCarousel title="Lançamentos recentes" items={upcomingMovies.items} isLoading={upcomingMovies.isLoading} />
-              <DiscoverCarousel title="Em breve" items={onTheAir.items} isLoading={onTheAir.isLoading} />
+              <DiscoverCarousel title={t("explore.discover.trendingSeries")} items={trendingSeries.items} isLoading={trendingSeries.isLoading} />
+              <DiscoverCarousel title={t("explore.discover.trendingMovies")} items={trendingMovies.items} isLoading={trendingMovies.isLoading} />
+              <DiscoverCarousel title={t("explore.discover.upcomingMovies")} items={upcomingMovies.items} isLoading={upcomingMovies.isLoading} />
+              <DiscoverCarousel title={t("explore.discover.onTheAir")} items={onTheAir.items} isLoading={onTheAir.isLoading} />
             </ScrollView>
           ) : (
             <ActivityTabContent />
@@ -71,6 +73,7 @@ export default function ExploreScreen() {
 function ActivityTabContent() {
   const tabBarClearance = useTabBarClearance();
   const { items, isLoading, isError } = useActivityFeed();
+  const { t } = useTranslation();
 
   if (isLoading) {
     return (
@@ -83,7 +86,7 @@ function ActivityTabContent() {
     return (
       <View style={styles.emptyActivity}>
         <Text variant="muted" style={styles.emptyActivityText}>
-          Não foi possível carregar as atividades agora.
+          {t("explore.errorLoadActivity")}
         </Text>
       </View>
     );
@@ -92,7 +95,7 @@ function ActivityTabContent() {
     return (
       <View style={styles.emptyActivity}>
         <Text variant="muted" style={styles.emptyActivityText}>
-          Nenhuma atividade recente de quem você segue. Que tal seguir mais gente?
+          {t("explore.emptyActivityFollowSuggestion")}
         </Text>
       </View>
     );

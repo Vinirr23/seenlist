@@ -4,6 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { useDebouncedValue } from "@seenlist/hooks";
 import { addSearchHistoryTerm, readSearchHistory, removeSearchHistoryTerm } from "@/lib/search";
 import { Text } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const DEBOUNCE_MS = 400;
@@ -20,6 +21,7 @@ export function SearchBar({ onDebouncedChange }: { onDebouncedChange: (value: st
   const [focused, setFocused] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const debounced = useDebouncedValue(value, DEBOUNCE_MS);
+  const { t } = useTranslation();
 
   useEffect(() => {
     readSearchHistory().then(setHistory);
@@ -58,7 +60,7 @@ export function SearchBar({ onDebouncedChange }: { onDebouncedChange: (value: st
           onChangeText={setValue}
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 150)}
-          placeholder="Pesquisar filmes e séries..."
+          placeholder={t("search.placeholder")}
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
         />
@@ -72,7 +74,7 @@ export function SearchBar({ onDebouncedChange }: { onDebouncedChange: (value: st
       {showHistory && (
         <View style={styles.historyBox}>
           <Text variant="muted" style={styles.historyLabel}>
-            PESQUISAS RECENTES
+            {t("search.recentSearches").toUpperCase()}
           </Text>
           {history.map((term) => (
             <View key={term} style={styles.historyRow}>
