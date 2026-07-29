@@ -75,7 +75,19 @@ export function RecommendSheet({
         />
 
         <div className="mb-3 flex-1 overflow-y-auto">
-          {isLoading && <p className="py-4 text-center text-sm text-muted">{t("common.loading")}</p>}
+          {isLoading && (
+            <div className="space-y-1" aria-busy="true" aria-label={t("common.loading")}>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="flex items-center gap-3 px-2 py-2.5">
+                  <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-background" />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="h-3.5 w-1/2 animate-pulse rounded bg-background" />
+                    <div className="h-3 w-1/3 animate-pulse rounded bg-background" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {!isLoading && following && following.length === 0 && (
             <p className="py-4 text-center text-sm text-muted">
               {search.trim() ? t("social.noOneFound") : t("social.notFollowingAnyone")}

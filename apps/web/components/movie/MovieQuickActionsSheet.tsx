@@ -143,7 +143,16 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onClose }: MovieQu
               <p className="truncate text-xs font-medium text-muted">{t("list.addTo", { title: movieTitle })}</p>
             </div>
 
-            {listsLoading && <p className="px-3 py-3 text-sm text-muted">{t("common.loading")}</p>}
+            {listsLoading && (
+              <div className="space-y-1" aria-busy="true" aria-label={t("common.loading")}>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="flex items-center gap-3 px-3 py-3">
+                    <div className="h-4 w-4 shrink-0 animate-pulse rounded bg-surface" />
+                    <div className="h-3.5 w-2/3 animate-pulse rounded bg-surface" />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {!listsLoading && lists && lists.length === 0 && !showNewListForm && (
               <p className="px-3 py-2 text-sm text-muted">{t("list.empty")}</p>
