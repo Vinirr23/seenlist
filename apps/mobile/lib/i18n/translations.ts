@@ -160,6 +160,18 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.emptyWatchlist": "Sua lista está vazia.",
     "moviesHome.exploreMovies": "Explorar filmes",
     "moviesHome.emptyUpcoming": "Nenhum filme da sua lista 'Assistir depois' tem estreia futura conhecida.",
+
+    "feed.errorLoadFeed": "Não foi possível carregar o Feed agora. Tente de novo em instantes.",
+    "feed.emptyFeed": "Ninguém publicou nada ainda. Seja o primeiro — toque no botão + aqui embaixo.",
+
+    "explore.vote": "voto",
+    "explore.votes": "votos",
+    "social.noCommentsYet": "Nenhum comentário ainda.",
+    "social.commentPlaceholder": "Escreva um comentário...",
+    "social.confirmDeleteCommentTitle": "Apagar este comentário?",
+    "social.confirmDeleteCommentMessage": "Não dá pra desfazer.",
+    "social.errorDeleteComment": "Não foi possível apagar",
+    "social.reply": "Responder",
   },
   en: {
     "nav.series": "Shows",
@@ -294,6 +306,18 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.emptyWatchlist": "Your list is empty.",
     "moviesHome.exploreMovies": "Explore movies",
     "moviesHome.emptyUpcoming": "No movies in your 'Watch later' list have a known future release.",
+
+    "feed.errorLoadFeed": "Couldn't load the Feed right now. Try again shortly.",
+    "feed.emptyFeed": "No one has posted anything yet. Be the first — tap the + button below.",
+
+    "explore.vote": "vote",
+    "explore.votes": "votes",
+    "social.noCommentsYet": "No comments yet.",
+    "social.commentPlaceholder": "Write a comment...",
+    "social.confirmDeleteCommentTitle": "Delete this comment?",
+    "social.confirmDeleteCommentMessage": "This can't be undone.",
+    "social.errorDeleteComment": "Couldn't delete",
+    "social.reply": "Reply",
   },
   es: {
     "nav.series": "Series",
@@ -428,5 +452,17 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.emptyWatchlist": "Tu lista está vacía.",
     "moviesHome.exploreMovies": "Explorar películas",
     "moviesHome.emptyUpcoming": "Ninguna película de tu lista 'Ver más tarde' tiene un estreno futuro conocido.",
+
+    "feed.errorLoadFeed": "No se pudo cargar el Feed ahora. Inténtalo de nuevo en un momento.",
+    "feed.emptyFeed": "Todavía nadie publicó nada. Sé el primero — toca el botón + aquí abajo.",
+
+    "explore.vote": "voto",
+    "explore.votes": "votos",
+    "social.noCommentsYet": "Todavía no hay comentarios.",
+    "social.commentPlaceholder": "Escribe un comentario...",
+    "social.confirmDeleteCommentTitle": "¿Eliminar este comentario?",
+    "social.confirmDeleteCommentMessage": "No se puede deshacer.",
+    "social.errorDeleteComment": "No se pudo eliminar",
+    "social.reply": "Responder",
   },
 };

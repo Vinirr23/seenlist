@@ -4,9 +4,9 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import type { CommentNode } from "@/lib/postComments";
 import { LikeButton } from "./LikeButton";
 import { Text } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, spacing } from "@/lib/theme";
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
 /**
  * TASK-102/126/131 — porta de `PostCommentItem.tsx`. Correção
@@ -33,19 +33,21 @@ export function PostCommentItem({
   const router = useRouter();
   const { session } = useAuth();
   const isOwn = session?.user.id === comment.userId;
+  const { t, locale } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
   function handleDelete() {
-    Alert.alert("Apagar este comentário?", "Não dá pra desfazer.", [
-      { text: "Cancelar", style: "cancel" },
+    Alert.alert(t("social.confirmDeleteCommentTitle"), t("social.confirmDeleteCommentMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Apagar",
+        text: t("common.delete"),
         style: "destructive",
         onPress: async () => {
           try {
             await onDelete(comment.id);
           } catch (error) {
             console.error("[PostCommentItem] Falha ao apagar comentário", error);
-            Alert.alert("Não foi possível apagar", error instanceof Error ? error.message : "Tente de novo em instantes.");
+            Alert.alert(t("social.errorDeleteComment"), error instanceof Error ? error.message : t("common.error"));
           }
         },
       },
@@ -67,13 +69,13 @@ export function PostCommentItem({
           {depth < 2 && (
             <Pressable onPress={() => router.push(`/posts/${postId}/comment/${comment.id}`)}>
               <Text variant="muted" style={styles.replyLabel}>
-                Responder
+                {t("social.reply")}
               </Text>
             </Pressable>
           )}
           {isOwn && (
             <Pressable onPress={handleDelete}>
-              <Text style={styles.deleteLabel}>Apagar</Text>
+              <Text style={styles.deleteLabel}>{t("common.delete")}</Text>
             </Pressable>
           )}
         </View>

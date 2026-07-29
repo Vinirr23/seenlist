@@ -3,6 +3,7 @@ import { View, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { fetchPollData, votePoll, type PollData } from "@/lib/social/polls";
 import { Text } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
@@ -17,6 +18,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 export function PollBlock({ postId, initial }: { postId: string; initial?: PollData }) {
   const [data, setData] = useState<PollData | null>(initial ?? null);
   const [voting, setVoting] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (initial) {
@@ -100,7 +102,7 @@ export function PollBlock({ postId, initial }: { postId: string; initial?: PollD
 
       {hasVoted && (
         <Text variant="muted" style={styles.totalText}>
-          {data.totalVotes} {data.totalVotes === 1 ? "voto" : "votos"}
+          {data.totalVotes} {data.totalVotes === 1 ? t("explore.vote") : t("explore.votes")}
         </Text>
       )}
     </View>

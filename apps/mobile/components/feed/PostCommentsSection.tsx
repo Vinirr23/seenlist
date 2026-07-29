@@ -6,6 +6,7 @@ import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { PostCommentItem } from "./PostCommentItem";
 import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /** TASK-153 — achata a árvore inteira numa lista simples de ids, pra buscar curtida de todo mundo de uma vez. */
@@ -27,6 +28,7 @@ function flattenCommentIds(nodes: CommentNode[]): string[] {
 export function PostCommentsSection({ postId }: { postId: string }) {
   const { tree, isLoading, sending, submit, remove } = usePostComments(postId);
   const [body, setBody] = useState("");
+  const { t } = useTranslation();
 
   /** TASK-153 — busca a curtida de TODOS os comentários (em qualquer nível) de uma vez, não um por um. */
   const [likeInfoByCommentId, setLikeInfoByCommentId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
@@ -51,7 +53,7 @@ export function PostCommentsSection({ postId }: { postId: string }) {
         <AvatarRowSkeleton count={3} />
       ) : tree.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
-          Nenhum comentário ainda.
+          {t("social.noCommentsYet")}
         </Text>
       ) : (
         <View>
@@ -65,12 +67,12 @@ export function PostCommentsSection({ postId }: { postId: string }) {
         <TextInput
           value={body}
           onChangeText={setBody}
-          placeholder="Escreva um comentário..."
+          placeholder={t("social.commentPlaceholder")}
           placeholderTextColor={colors.muted}
           style={styles.input}
         />
         <Pressable style={styles.sendButton} onPress={handleSubmit} disabled={!body.trim() || sending}>
-          <Text style={styles.sendButtonText}>Enviar</Text>
+          <Text style={styles.sendButtonText}>{t("common.submit")}</Text>
         </Pressable>
       </View>
     </View>

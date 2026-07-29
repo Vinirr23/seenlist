@@ -10,6 +10,7 @@ import { fetchSavedStatusesFor } from "@/lib/social/savedPosts";
 import { fetchPollDataFor, type PollData } from "@/lib/social/polls";
 import { colors, spacing } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-095/153 — primeira versão do Feed nativo: lista de posts
@@ -26,6 +27,7 @@ import { useTabBarClearance } from "@/lib/useTabBarClearance";
 export default function FeedScreen() {
   const tabBarClearance = useTabBarClearance();
   const { posts, isLoading, isError, refreshing, refetch } = usePosts();
+  const { t } = useTranslation();
 
   const [likeInfoByPostId, setLikeInfoByPostId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
@@ -56,13 +58,13 @@ export default function FeedScreen() {
       >
         {isError ? (
           <Text variant="muted" style={styles.centerText}>
-            Não foi possível carregar o Feed agora. Tente de novo em instantes.
+            {t("feed.errorLoadFeed")}
           </Text>
         ) : isLoading ? (
           <PostCardSkeleton />
         ) : !posts || posts.length === 0 ? (
           <Text variant="muted" style={styles.centerText}>
-            Ninguém publicou nada ainda. Seja o primeiro — toque no botão + aqui embaixo.
+            {t("feed.emptyFeed")}
           </Text>
         ) : (
           <View style={styles.list}>
