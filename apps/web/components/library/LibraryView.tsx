@@ -51,7 +51,7 @@ export function LibraryView() {
       ) : isError ? (
         <EmptyState message={t("seriesHome.errorLoadLibrary")} />
       ) : visibleItems.length === 0 ? (
-        <EmptyLibrary message={t("library.emptyThisList")} />
+        <EmptyLibrary message={t("library.emptyThisList")} actionLabel={t("nav.explore")} actionHref="/explore" />
       ) : (
         <div className="space-y-3">
           {visibleItems.map((item) =>

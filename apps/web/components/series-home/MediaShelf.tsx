@@ -1,7 +1,7 @@
 import { SectionTitle } from "../media/SectionTitle";
 import { ShelfCard } from "./ShelfCard";
 import { LoadingShelf } from "./LoadingShelf";
-import { EmptyShelf } from "./EmptyShelf";
+import { EmptyShelf } from "../media/EmptyShelf";
 import type { LibraryItem } from "@seenlist/types";
 
 export interface MediaShelfProps {

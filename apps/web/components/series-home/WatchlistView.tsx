@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useLibraryItems } from "@/lib/queries/library";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ShelfCard } from "./ShelfCard";
-import { EmptyShelf } from "./EmptyShelf";
+import { EmptyShelf } from "../media/EmptyShelf";
 
 /**
  * TASK-023 (ajuste), item 3: tela dedicada aberta pelo botão da

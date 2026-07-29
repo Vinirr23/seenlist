@@ -8,7 +8,7 @@ import { tmdbImage } from "@/lib/tmdb/image";
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { translateDayLabel } from "@/lib/i18n/dayLabels";
-import { HomeEmptyState } from "../media/HomeEmptyState";
+import { EmptyShelf } from "../media/EmptyShelf";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
 /** TASK-054 — TMDB devolve literalmente "Episódio N"/"Episode N" quando ainda não existe título específico pro episódio — mostrar isso duplica o código T/E que já aparece acima, sem informação nova nenhuma. */
@@ -51,11 +51,11 @@ export function EmBreveSection() {
 
   if (isLoading) return <HomeSkeleton />;
   if (isError) {
-    return <HomeEmptyState message={t("seriesHome.errorLoadUpcoming")} />;
+    return <EmptyShelf message={t("seriesHome.errorLoadUpcoming")} />;
   }
   if (groups.length === 0) {
     return (
-      <HomeEmptyState
+      <EmptyShelf
         message={t("seriesHome.emptyUpcoming")}
         actionLabel={t("seriesHome.exploreSeries")}
         actionHref="/explore"

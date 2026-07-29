@@ -1,6 +1,6 @@
 "use client";
 
-import { HomeEmptyState } from "../media/HomeEmptyState";
+import { EmptyShelf } from "../media/EmptyShelf";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
@@ -13,5 +13,5 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  */
 export function EmBreveSection() {
   const { t } = useTranslation();
-  return <HomeEmptyState message={t("moviesHome.comingSoonPlaceholder")} />;
+  return <EmptyShelf message={t("moviesHome.comingSoonPlaceholder")} />;
 }

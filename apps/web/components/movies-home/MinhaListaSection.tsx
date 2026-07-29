@@ -9,7 +9,7 @@ import { ViewModeToggle } from "../media/ViewModeToggle";
 import { MediaListRow } from "../media/MediaListRow";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
-import { HomeEmptyState } from "../media/HomeEmptyState";
+import { EmptyShelf } from "../media/EmptyShelf";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
 interface Category {
@@ -53,7 +53,7 @@ export function MinhaListaSection() {
 
   if (isLoading) return <HomeSkeleton />;
   if (isError) {
-    return <HomeEmptyState message={t("seriesHome.errorLoadLibrary")} />;
+    return <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />;
   }
 
   const categories: Category[] = [
@@ -80,7 +80,7 @@ export function MinhaListaSection() {
           <section key={category.slug}>
             <SectionTitle>{category.label}</SectionTitle>
             {category.items.length === 0 ? (
-              <HomeEmptyState
+              <EmptyShelf
                 message={category.emptyMessage}
                 actionLabel={category.emptyActionLabel}
                 actionHref={category.emptyActionHref}

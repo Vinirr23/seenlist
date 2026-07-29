@@ -9,7 +9,7 @@ import { ContinueWatchingCard } from "./ContinueWatchingCard";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { WatchlistButton } from "./WatchlistButton";
-import { EmptyShelf } from "./EmptyShelf";
+import { EmptyShelf } from "../media/EmptyShelf";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
 const CONTINUE_ASSISTINDO_LIMIT = 8;

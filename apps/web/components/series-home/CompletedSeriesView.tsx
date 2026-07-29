@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useLibraryItems } from "@/lib/queries/library";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ShelfCard } from "./ShelfCard";
-import { EmptyShelf } from "./EmptyShelf";
+import { EmptyShelf } from "../media/EmptyShelf";
 
 /** TASK-027M — mesmo motivo de PausedView.tsx: faltava caminho pra "Concluídas" a partir da tela principal de Séries. */
 export function CompletedSeriesView() {
