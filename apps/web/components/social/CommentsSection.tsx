@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { MediaTarget } from "@/lib/queries/social/types";
 import { useComments, usePostComment, useEditComment, useDeleteComment, type Comment } from "@/lib/queries/social/comments";
+import { useLikeInfoBatch } from "@/lib/queries/social/likes";
 import { useSpoilerProtection } from "@/lib/queries/social/spoiler-protection";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { CommentItem } from "./CommentItem";
@@ -54,6 +55,18 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
   const deleteComment = useDeleteComment(target);
   const { t } = useTranslation();
 
+  /**
+   * AUDITORIA (perf) — 1 consulta pra todos os comentários visíveis,
+   * não uma por comentário. Antes: `LikeButton` (dentro de cada
+   * `CommentItem`) buscava sozinho, sem nenhum lote — com N
+   * comentários na tela, N×2 consultas de rede, cada uma com sua
+   * própria checagem de usuário. Mesma correção já aplicada ao Feed
+   * (`useLikeInfoBatch`, TASK-153) e ao app mobile, nunca portada
+   * pra comentários do web.
+   */
+  const commentIds = useMemo(() => comments.map((c) => c.id), [comments]);
+  const { data: likeInfoByCommentId } = useLikeInfoBatch("comment", commentIds);
+
   const spoilerProtection = useSpoilerProtection(
     episodeSpoilerContext?.seriesId ?? 0,
     episodeSpoilerContext?.seasonNumber ?? 0,
@@ -74,6 +87,7 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
         currentUserId={currentUser?.id}
         isMutating={isMutating}
         isHighlighted={node.id === highlightCommentId}
+        likeInfo={likeInfoByCommentId?.get(node.id)}
         onReply={(parentId, body, containsSpoiler, imageUrl) =>
           postComment.mutate({ body, parentCommentId: parentId, containsSpoiler, imageUrl })
         }

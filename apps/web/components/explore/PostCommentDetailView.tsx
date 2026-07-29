@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Heart } from "lucide-react";
 import { usePostComments, useCreatePostComment } from "@/lib/queries/post-comments";
-import { useHasLiked, useLikeCount, useToggleLike } from "@/lib/queries/social/likes";
+import { useHasLiked, useLikeCount, useToggleLike, useLikeInfoBatch } from "@/lib/queries/social/likes";
 import { buildPostCommentTree, findCommentNode, PostCommentItem } from "./PostCommentItem";
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -30,8 +30,17 @@ export function PostCommentDetailView({ postId, commentId }: { postId: string; c
   const tree = useMemo(() => buildPostCommentTree(comments ?? []), [comments]);
   const comment = useMemo(() => findCommentNode(tree, commentId), [tree, commentId]);
 
-  const { data: hasLiked } = useHasLiked("post_comment", commentId);
-  const { data: likeCount } = useLikeCount("post_comment", commentId);
+  /**
+   * AUDITORIA (perf) — mesma correção de PostCommentsSection.tsx: 1
+   * consulta pro comentário-pai + todas as respostas visíveis nesta
+   * tela, não uma por comentário.
+   */
+  const threadIds = useMemo(() => (comment ? [comment.id, ...comment.children.map((c) => c.id)] : []), [comment]);
+  const { data: likeInfoByCommentId } = useLikeInfoBatch("post_comment", threadIds);
+  const own = likeInfoByCommentId?.get(commentId);
+
+  const { data: hasLiked } = useHasLiked("post_comment", commentId, own?.hasLiked);
+  const { data: likeCount } = useLikeCount("post_comment", commentId, own?.count);
   const toggleLike = useToggleLike("post_comment", commentId);
 
   function handleSubmit() {
@@ -81,7 +90,7 @@ export function PostCommentDetailView({ postId, commentId }: { postId: string; c
                 <p className="py-2 text-xs text-muted">{t("social.noRepliesYet")}</p>
               ) : (
                 comment.children.map((child) => (
-                  <PostCommentItem key={child.id} comment={child} postId={postId} depth={0} />
+                  <PostCommentItem key={child.id} comment={child} postId={postId} depth={0} likeInfoByCommentId={likeInfoByCommentId} />
                 ))
               )}
             </div>

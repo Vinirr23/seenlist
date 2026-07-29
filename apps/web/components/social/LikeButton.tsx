@@ -11,9 +11,18 @@ import { hapticTick } from "@/lib/haptics";
  * só, parametrizado por `targetType`/`targetId` — a tabela `likes`
  * já é genérica (TASK-031), este componente só reflete isso na UI.
  */
-export function LikeButton({ targetType, targetId }: { targetType: LikeTargetType; targetId: string }) {
-  const { data: count = 0 } = useLikeCount(targetType, targetId);
-  const { data: hasLiked = false } = useHasLiked(targetType, targetId);
+export function LikeButton({
+  targetType,
+  targetId,
+  initial,
+}: {
+  targetType: LikeTargetType;
+  targetId: string;
+  /** AUDITORIA (perf) — quando quem chama já buscou isso em lote (CommentsSection/ReviewsSection), passa pronto aqui, evitando 2 consultas de rede próprias por instância. */
+  initial?: { count: number; hasLiked: boolean };
+}) {
+  const { data: count = 0 } = useLikeCount(targetType, targetId, initial?.count);
+  const { data: hasLiked = false } = useHasLiked(targetType, targetId, initial?.hasLiked);
   const toggleLike = useToggleLike(targetType, targetId);
 
   return (

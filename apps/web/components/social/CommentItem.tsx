@@ -20,6 +20,8 @@ export interface CommentItemProps {
   isMutating: boolean;
   /** TASK-052 — vindo do deep link de notificação (?highlight=id). Rola até este comentário e destaca visualmente por alguns segundos. */
   isHighlighted?: boolean;
+  /** AUDITORIA (perf) — quando quem chama já buscou isso em lote (CommentsSection), passa pronto aqui, evitando 2 consultas próprias por comentário. */
+  likeInfo?: { count: number; hasLiked: boolean };
   children?: React.ReactNode;
 }
 
@@ -41,6 +43,7 @@ export function CommentItem({
   onDelete,
   isMutating,
   isHighlighted,
+  likeInfo,
   children,
 }: CommentItemProps) {
   const [replying, setReplying] = useState(false);
@@ -108,7 +111,7 @@ export function CommentItem({
             </SpoilerGate>
           </div>
           <div className="mt-1.5 flex items-center gap-3">
-            <LikeButton targetType="comment" targetId={comment.id} />
+            <LikeButton targetType="comment" targetId={comment.id} initial={likeInfo} />
             {canReply && (
               <button
                 type="button"

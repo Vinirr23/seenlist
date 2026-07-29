@@ -24,13 +24,17 @@ export function PostCommentItem({
   comment,
   postId,
   depth,
+  likeInfoByCommentId,
 }: {
   comment: CommentNode;
   postId: string;
   depth: number;
+  /** AUDITORIA (perf) — quando quem chama já buscou isso em lote (PostCommentsSection/PostCommentDetailView), passa pronto aqui, evitando 2 consultas de rede próprias por comentário. */
+  likeInfoByCommentId?: Map<string, { count: number; hasLiked: boolean }>;
 }) {
-  const { data: hasLiked } = useHasLiked("post_comment", comment.id);
-  const { data: likeCount } = useLikeCount("post_comment", comment.id);
+  const own = likeInfoByCommentId?.get(comment.id);
+  const { data: hasLiked } = useHasLiked("post_comment", comment.id, own?.hasLiked);
+  const { data: likeCount } = useLikeCount("post_comment", comment.id, own?.count);
   const toggleLike = useToggleLike("post_comment", comment.id);
   const { t, locale } = useTranslation();
   const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
@@ -60,7 +64,7 @@ export function PostCommentItem({
         </div>
       </div>
       {comment.children.map((child) => (
-        <PostCommentItem key={child.id} comment={child} postId={postId} depth={depth + 1} />
+        <PostCommentItem key={child.id} comment={child} postId={postId} depth={depth + 1} likeInfoByCommentId={likeInfoByCommentId} />
       ))}
     </div>
   );

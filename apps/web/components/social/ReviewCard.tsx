@@ -5,7 +5,7 @@ import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "./LikeButton";
 
-export function ReviewCard({ review }: { review: Review }) {
+export function ReviewCard({ review, likeInfo }: { review: Review; likeInfo?: { count: number; hasLiked: boolean } }) {
   const { locale } = useTranslation();
   const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
@@ -23,7 +23,7 @@ export function ReviewCard({ review }: { review: Review }) {
           <p className="text-sm text-text">{review.reviewText}</p>
         </SpoilerGate>
       )}
-      <LikeButton targetType="review" targetId={review.id} />
+      <LikeButton targetType="review" targetId={review.id} initial={likeInfo} />
     </div>
   );
 }

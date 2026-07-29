@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import type { MediaTarget } from "@/lib/queries/social/types";
 import { useReviews, useMyReview, useUpsertReview, useDeleteReview } from "@/lib/queries/social/reviews";
+import { useLikeInfoBatch } from "@/lib/queries/social/likes";
 import { useCreatePost } from "@/lib/queries/posts";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -26,6 +28,10 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
   const { t } = useTranslation();
 
   const othersReviews = reviews.filter((r) => r.id !== myReview?.id);
+
+  /** AUDITORIA (perf) — mesma correção de CommentsSection.tsx: 1 consulta pra todas as reviews visíveis, não uma por review. */
+  const reviewIds = useMemo(() => othersReviews.map((r) => r.id), [othersReviews]);
+  const { data: likeInfoByReviewId } = useLikeInfoBatch("review", reviewIds);
 
   function handleSubmit(rating: number, reviewText: string | null, containsSpoiler: boolean, shareToFeed: boolean) {
     upsertReview.mutate(
@@ -82,7 +88,7 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
       ) : (
         <div className="space-y-3">
           {othersReviews.map((review) => (
-            <ReviewCard key={review.id} review={review} />
+            <ReviewCard key={review.id} review={review} likeInfo={likeInfoByReviewId?.get(review.id)} />
           ))}
         </div>
       )}

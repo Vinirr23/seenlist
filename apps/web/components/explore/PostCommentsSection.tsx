@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { usePostComments, useCreatePostComment } from "@/lib/queries/post-comments";
+import { useLikeInfoBatch } from "@/lib/queries/social/likes";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { PostCommentItem, buildPostCommentTree } from "./PostCommentItem";
 
@@ -13,6 +14,10 @@ export function PostCommentsSection({ postId }: { postId: string }) {
   const { t } = useTranslation();
 
   const tree = useMemo(() => buildPostCommentTree(comments ?? []), [comments]);
+
+  /** AUDITORIA (perf) — 1 consulta pra todos os comentários (incluindo respostas aninhadas) visíveis, não uma por comentário. */
+  const allCommentIds = useMemo(() => (comments ?? []).map((c) => c.id), [comments]);
+  const { data: likeInfoByCommentId } = useLikeInfoBatch("post_comment", allCommentIds);
 
   function handleSubmit() {
     if (!body.trim()) return;
@@ -29,7 +34,7 @@ export function PostCommentsSection({ postId }: { postId: string }) {
       ) : tree.length === 0 ? (
         <p className="py-2 text-xs text-muted">{t("social.noCommentsYet")}</p>
       ) : (
-        tree.map((node) => <PostCommentItem key={node.id} comment={node} postId={postId} depth={0} />)
+        tree.map((node) => <PostCommentItem key={node.id} comment={node} postId={postId} depth={0} likeInfoByCommentId={likeInfoByCommentId} />)
       )}
 
       <div className="mt-2">
