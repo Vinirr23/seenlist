@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchFollowList, type FollowListUser } from "@/lib/followList";
 import { sendRecommendation } from "@/lib/recommendations";
-import { Text } from "@/components/ui";
+import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
 
 const MAX_MESSAGE_LENGTH = 200;
@@ -83,7 +83,19 @@ export function RecommendSheet({
           />
 
           <View style={styles.listWrapper}>
-            {following === null && <Text variant="muted" style={styles.emptyText}>Carregando...</Text>}
+            {following === null && (
+              <View style={{ gap: spacing.xs }}>
+                {[0, 1, 2].map((i) => (
+                  <View key={i} style={styles.personRow}>
+                    <Skeleton width={36} height={36} borderRadius={18} />
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Skeleton width="50%" height={13} />
+                      <Skeleton width="35%" height={11} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
             {following && following.length === 0 && (
               <Text variant="muted" style={styles.emptyText}>
                 {search.trim() ? "Ninguém encontrado." : "Você ainda não segue ninguém."}

@@ -3,7 +3,7 @@ import { ScrollView, View, Image, Pressable, Alert, StyleSheet } from "react-nat
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyLists, fetchListItems, removeFromList, deleteList, type UserList, type ListItem } from "@/lib/lists";
-import { Screen, Text } from "@/components/ui";
+import { Screen, Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
 
 /** TASK-172 — porta de `ListDetailView.tsx` do web. */
@@ -51,7 +51,15 @@ export default function ListDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {items === null && <Text variant="muted">Carregando...</Text>}
+        {items === null && (
+          <View style={styles.grid}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <View key={i} style={styles.posterWrapper}>
+                <Skeleton width="100%" height={160} borderRadius={radius.md} />
+              </View>
+            ))}
+          </View>
+        )}
 
         {items && items.length === 0 && (
           <Text variant="muted" style={styles.centerText}>

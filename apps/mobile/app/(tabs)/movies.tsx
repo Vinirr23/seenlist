@@ -13,6 +13,7 @@ import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
+import { PageError } from "@/components/media/PageError";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
@@ -102,7 +103,7 @@ export default function MoviesScreen() {
           </View>
 
           {isError ? (
-            <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />
+            <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
           ) : isLoading ? (
             viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
           ) : wantToWatch.length === 0 ? (
@@ -128,7 +129,7 @@ export default function MoviesScreen() {
           </View>
 
           {isError ? (
-            <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />
+            <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
           ) : isLoading ? (
             viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
           ) : upcoming.length === 0 ? (

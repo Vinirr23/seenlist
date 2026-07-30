@@ -15,6 +15,7 @@ import { MediaListRow } from "@/components/media/MediaListRow";
 import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
+import { PageError } from "@/components/media/PageError";
 import { UpcomingEpisodeCard } from "@/components/media/UpcomingEpisodeCard";
 import { UpcomingEpisodeCardSkeleton } from "@/components/media/UpcomingEpisodeCardSkeleton";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
@@ -130,7 +131,7 @@ export default function SeriesHomeScreen() {
           </View>
 
           {isError ? (
-            <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />
+            <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
           ) : isLoading ? (
             viewMode === "grid" ? (
               <LibraryGridSkeleton />
@@ -189,7 +190,7 @@ export default function SeriesHomeScreen() {
           {upcoming.isLoading ? (
             <UpcomingEpisodeCardSkeleton />
           ) : upcoming.isError ? (
-            <EmptyShelf message={t("seriesHome.errorLoadUpcoming")} />
+            <PageError message={t("seriesHome.errorLoadUpcoming")} onRetry={() => upcoming.refetch()} />
           ) : upcoming.groups.length === 0 ? (
             <EmptyShelf
               message={t("seriesHome.emptyUpcoming")}

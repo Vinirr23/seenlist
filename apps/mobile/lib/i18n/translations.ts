@@ -214,6 +214,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "search.noResults": "Nenhum resultado encontrado",
     "media.movie": "Filme",
     "media.series": "Série",
+
+    "error.generic": "Algo deu errado. Tente de novo.",
+    "error.tryAgain": "Tentar de novo",
   },
   en: {
     "nav.series": "Shows",
@@ -402,6 +405,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "search.noResults": "No results found",
     "media.movie": "Movie",
     "media.series": "Show",
+
+    "error.generic": "Something went wrong. Please try again.",
+    "error.tryAgain": "Try again",
   },
   es: {
     "nav.series": "Series",
@@ -590,5 +596,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "search.noResults": "No se encontraron resultados",
     "media.movie": "Película",
     "media.series": "Serie",
+
+    "error.generic": "Algo salió mal. Inténtalo de nuevo.",
+    "error.tryAgain": "Intentar de nuevo",
   },
 };

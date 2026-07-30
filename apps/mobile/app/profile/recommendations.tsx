@@ -12,7 +12,7 @@ import {
   type ReceivedRecommendation,
   type BlockedUser,
 } from "@/lib/recommendations";
-import { Screen, Text } from "@/components/ui";
+import { Screen, Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -75,7 +75,20 @@ export default function RecommendationsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {recommendations === null && <Text variant="muted">Carregando...</Text>}
+        {recommendations === null && (
+          <View style={{ gap: spacing.sm }}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={styles.card}>
+                <Skeleton width={56} height={80} borderRadius={radius.sm} />
+                <View style={{ flex: 1, gap: spacing.xs }}>
+                  <Skeleton width="70%" height={12} />
+                  <Skeleton width="50%" height={14} />
+                  <Skeleton width="40%" height={10} />
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         {recommendations && recommendations.length === 0 && (
           <Text variant="muted">Ninguém te recomendou nada ainda.</Text>
