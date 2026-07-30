@@ -5,10 +5,11 @@ import { ArrowLeft } from "lucide-react";
 import { usePost } from "@/lib/queries/posts";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { PostCard } from "./PostCard";
+import { PageError } from "../media/PageError";
 
 /** TASK-073 — `detail` faz o card não navegar pra ele mesmo e mostrar os comentários sempre abertos, rolando a tela pra baixo. */
 export function PostDetailView({ postId }: { postId: string }) {
-  const { data: post, isLoading, isError } = usePost(postId);
+  const { data: post, isLoading, isError, refetch } = usePost(postId);
   const { t } = useTranslation();
 
   return (
@@ -22,7 +23,7 @@ export function PostDetailView({ postId }: { postId: string }) {
 
       <div className="px-4 pt-4">
         {isLoading && <div className="h-32 animate-pulse rounded-xl bg-surface" />}
-        {isError && <p className="text-center text-sm text-muted">{t("feed.errorLoadPost")}</p>}
+        {isError && <PageError message={t("feed.errorLoadPost")} onRetry={() => refetch()} />}
         {!isLoading && !isError && !post && <p className="text-center text-sm text-muted">{t("feed.postNoLongerExists")}</p>}
         {post && <PostCard post={post} detail />}
       </div>

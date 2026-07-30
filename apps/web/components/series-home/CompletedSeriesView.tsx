@@ -6,11 +6,12 @@ import { useMemo } from "react";
 import { useLibraryItems } from "@/lib/queries/library";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ShelfCard } from "./ShelfCard";
+import { PageError } from "../media/PageError";
 import { EmptyShelf } from "../media/EmptyShelf";
 
 /** TASK-027M — mesmo motivo de PausedView.tsx: faltava caminho pra "Concluídas" a partir da tela principal de Séries. */
 export function CompletedSeriesView() {
-  const { data: items, isLoading, isError } = useLibraryItems();
+  const { data: items, isLoading, isError, refetch } = useLibraryItems();
   const { t } = useTranslation();
 
   const completed = useMemo(
@@ -41,7 +42,7 @@ export function CompletedSeriesView() {
           ))}
         </div>
       ) : isError ? (
-        <EmptyShelf message={t("seriesHome.errorLoadList")} />
+        <PageError message={t("seriesHome.errorLoadList")} onRetry={() => refetch()} />
       ) : completed.length === 0 ? (
         <EmptyShelf message={t("seriesHome.emptyCompleted")} actionLabel={t("seriesHome.exploreSeries")} actionHref="/explore" />
       ) : (

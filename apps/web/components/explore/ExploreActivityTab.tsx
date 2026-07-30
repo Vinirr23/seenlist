@@ -6,6 +6,7 @@ import { useActivityFeed } from "@/lib/queries/activity-feed";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { PageError } from "../media/PageError";
 
 function initials(name: string): string {
   return name
@@ -18,7 +19,7 @@ function initials(name: string): string {
 }
 
 export function ExploreActivityTab() {
-  const { data: items, isLoading, isError } = useActivityFeed();
+  const { data: items, isLoading, isError, refetch } = useActivityFeed();
   const { t, locale } = useTranslation();
   const timeFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: "2-digit",
@@ -38,7 +39,7 @@ export function ExploreActivityTab() {
   }
 
   if (isError) {
-    return <p className="px-4 pt-6 text-center text-sm text-muted">{t("explore.errorLoadActivity")}</p>;
+    return <PageError message={t("explore.errorLoadActivity")} onRetry={() => refetch()} />;
   }
 
   if (!items || items.length === 0) {

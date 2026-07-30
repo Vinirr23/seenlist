@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { useMyComments } from "@/lib/queries/my-comments";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { MyCommentRow } from "./MyCommentRow";
+import { PageError } from "../media/PageError";
 
 /**
  * TASK-056 — "todos os comentários publicados pelo usuário". Ao
@@ -13,7 +14,7 @@ import { MyCommentRow } from "./MyCommentRow";
  * rotas de comentários que já existiam (com ?highlight=, TASK-052).
  */
 export function MyCommentsPageView() {
-  const { data: comments, isLoading, isError } = useMyComments();
+  const { data: comments, isLoading, isError, refetch } = useMyComments();
   const { t } = useTranslation();
 
   return (
@@ -34,7 +35,7 @@ export function MyCommentsPageView() {
           </div>
         )}
 
-        {isError && <p className="px-4 py-6 text-center text-sm text-muted">{t("profile.errorLoadComments")}</p>}
+        {isError && <PageError message={t("profile.errorLoadComments")} onRetry={() => refetch()} />}
 
         {!isLoading && !isError && comments?.length === 0 && (
           <p className="px-4 py-6 text-center text-sm text-muted">{t("profile.emptyMyComments")}</p>

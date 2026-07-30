@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { useLibraryItems } from "@/lib/queries/library";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ShelfCard } from "./ShelfCard";
+import { PageError } from "../media/PageError";
 import { EmptyShelf } from "../media/EmptyShelf";
 
 /**
@@ -17,7 +18,7 @@ import { EmptyShelf } from "../media/EmptyShelf";
  * WatchlistView.tsx, trocando o filtro.
  */
 export function PausedView() {
-  const { data: items, isLoading, isError } = useLibraryItems();
+  const { data: items, isLoading, isError, refetch } = useLibraryItems();
   const { t } = useTranslation();
 
   const paused = useMemo(
@@ -48,7 +49,7 @@ export function PausedView() {
           ))}
         </div>
       ) : isError ? (
-        <EmptyShelf message={t("seriesHome.errorLoadList")} />
+        <PageError message={t("seriesHome.errorLoadList")} onRetry={() => refetch()} />
       ) : paused.length === 0 ? (
         <EmptyShelf message={t("seriesHome.emptyPaused")} actionLabel={t("seriesHome.exploreSeries")} actionHref="/explore" />
       ) : (

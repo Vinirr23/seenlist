@@ -7,6 +7,7 @@ import { useUserSearch } from "@/lib/queries/user-search";
 import { useFollowStatusBatch } from "@/lib/queries/follow";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { UserListRow } from "./UserListRow";
+import { PageError } from "../media/PageError";
 
 /**
  * TASK-057 — tela de descoberta de usuários. Reaproveita UserListRow
@@ -15,7 +16,7 @@ import { UserListRow } from "./UserListRow";
  */
 export function DiscoverUsersView() {
   const [search, setSearch] = useState("");
-  const { data: users, isLoading, isError } = useUserSearch(search);
+  const { data: users, isLoading, isError, refetch } = useUserSearch(search);
   const { t } = useTranslation();
 
   /** AUDITORIA (perf) — 1 consulta pra todos os usuários visíveis, não uma por linha. */
@@ -56,7 +57,7 @@ export function DiscoverUsersView() {
           </div>
         )}
 
-        {isError && <p className="px-4 py-6 text-center text-sm text-muted">{t("profile.errorLoadGeneric")}</p>}
+        {isError && <PageError message={t("profile.errorLoadGeneric")} onRetry={() => refetch()} />}
 
         {!isLoading && !isError && users?.length === 0 && (
           <p className="px-4 py-6 text-center text-sm text-muted">{t("profile.noResultsForSearch")}</p>

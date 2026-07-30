@@ -7,6 +7,7 @@ import { PosterGrid } from "@/components/profile/PosterGrid";
 import { SectionTitle } from "@/components/media/SectionTitle";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { translateCategoryLabel } from "@/lib/i18n/seriesCategoryLabels";
+import { PageError } from "@/components/media/PageError";
 
 /**
  * TASK-028, item 6 — "somente categorias que possuem conteúdo" pras
@@ -20,7 +21,7 @@ import { translateCategoryLabel } from "@/lib/i18n/seriesCategoryLabels";
  * query separada e mais leve (`usePublicProfile`), carregada antes.
  */
 export function PublicLibrarySection({ userId }: { userId: string }) {
-  const { data: items, isLoading, isError } = usePublicLibraryItems(userId);
+  const { data: items, isLoading, isError, refetch } = usePublicLibraryItems(userId);
   const { t } = useTranslation();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -48,7 +49,7 @@ export function PublicLibrarySection({ userId }: { userId: string }) {
   }
 
   if (isError) {
-    return <p className="text-sm text-muted">{t("social.errorLoadPublicLibrary")}</p>;
+    return <PageError message={t("social.errorLoadPublicLibrary")} onRetry={() => refetch()} />;
   }
 
   if (nonEmptySeriesCategories.length === 0 && watchedMovies.length === 0) {

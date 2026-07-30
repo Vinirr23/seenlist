@@ -5,13 +5,14 @@ import Link from "next/link";
 import { Plus, ListChecks, ChevronRight } from "lucide-react";
 import { useMyLists, useCreateList } from "@/lib/queries/lists";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { PageError } from "../media/PageError";
 
 /**
  * TASK-029, item 1 — "botão sempre visível, não escondido no menu".
  * Fica fixo no topo da tela, fora de qualquer lista/scroll de menu.
  */
 export function ListsView() {
-  const { data: lists, isLoading, isError } = useMyLists();
+  const { data: lists, isLoading, isError, refetch } = useMyLists();
   const createList = useCreateList();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -68,7 +69,7 @@ export function ListsView() {
         </div>
       )}
 
-      {isError && <p className="text-sm text-muted">{t("profile.errorLoadLists")}</p>}
+      {isError && <PageError message={t("profile.errorLoadLists")} onRetry={() => refetch()} />}
 
       {!isLoading && !isError && lists && lists.length === 0 && (
         <p className="px-1 text-sm text-muted">{t("profile.emptyLists")}</p>

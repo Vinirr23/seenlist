@@ -25,6 +25,7 @@ import { hapticTick } from "@/lib/haptics";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { cn } from "@seenlist/utils";
 import { WhereToWatchSection } from "./WhereToWatchSection";
+import { PageError } from "../media/PageError";
 import { EpisodeWatchedButton } from "../series/EpisodeWatchedButton";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
@@ -98,7 +99,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   const { data: seriesDetails } = useSeriesDetails(seriesId);
   const { data: currentStatus } = useSeriesStatus(seriesIdNum);
   const categoryColorClass = currentStatus ? getSeriesCategoryByStatus(currentStatus)?.barColorClass : undefined;
-  const { data: episodePage, isLoading, isError } = useEpisodeDetails(seriesId, season, episode);
+  const { data: episodePage, isLoading, isError, refetch } = useEpisodeDetails(seriesId, season, episode);
   const { data: watched } = useWatchedEpisodes(seriesIdNum);
   const toggleWatched = useToggleEpisodeWatched(seriesIdNum);
   const { data: commentCount = 0 } = useCommentCount({
@@ -235,12 +236,11 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
 
   if (isError || !episodePage) {
     return (
-      <div className="mx-auto max-w-[430px] px-4 py-16 text-center">
-        <p className="text-sm text-muted">{t("episode.errorLoad")}</p>
-        <Link href={`/series/${seriesId}`} className="mt-4 inline-block text-sm text-primary underline">
-          {t("episode.backToSeries")}
-        </Link>
-      </div>
+      <PageError
+        message={t("episode.errorLoad")}
+        onRetry={() => refetch()}
+        secondaryAction={{ label: t("episode.backToSeries"), href: `/series/${seriesId}` }}
+      />
     );
   }
 

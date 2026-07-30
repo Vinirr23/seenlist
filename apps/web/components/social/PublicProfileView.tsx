@@ -12,6 +12,7 @@ import { PublicFavoritesSection } from "./PublicFavoritesSection";
 import { StatsCarousel } from "@/components/profile/StatsCarousel";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { PageError } from "@/components/media/PageError";
 
 function initials(name: string): string {
   return name
@@ -39,7 +40,7 @@ function initials(name: string): string {
  * usuário vendo a própria página pública (via `useCurrentUser`).
  */
 export function PublicProfileView({ username }: { username: string }) {
-  const { data: profile, isLoading, isError } = usePublicProfile(username);
+  const { data: profile, isLoading, isError, refetch } = usePublicProfile(username);
   const { data: currentUser } = useCurrentUser();
   const { data: counts } = useFollowCounts(profile?.userId ?? null);
   const statsQuery = usePublicStats(profile?.userId ?? null);
@@ -56,11 +57,7 @@ export function PublicProfileView({ username }: { username: string }) {
   }
 
   if (isError) {
-    return (
-      <div className="flex min-h-[50dvh] items-center justify-center px-6 text-center">
-        <p className="text-sm text-muted">{t("social.errorLoadProfile")}</p>
-      </div>
-    );
+    return <PageError message={t("social.errorLoadProfile")} onRetry={() => refetch()} />;
   }
 
   // `null` cobre tanto "não existe" quanto "existe mas é privado" de

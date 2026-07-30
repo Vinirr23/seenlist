@@ -8,6 +8,7 @@ import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { PosterGrid } from "./PosterGrid";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { MediaListRow } from "../media/MediaListRow";
+import { PageError } from "../media/PageError";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
@@ -24,7 +25,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  */
 export function FavoritesLibraryView({ mediaType, viewModeScope }: { mediaType: MediaType; viewModeScope: string }) {
   const { data: user } = useCurrentUser();
-  const { data: favorites, isLoading, isError } = usePublicFavorites(user?.id ?? null);
+  const { data: favorites, isLoading, isError, refetch } = usePublicFavorites(user?.id ?? null);
   const { viewMode, setViewMode } = useViewModePreference(viewModeScope);
   const { t } = useTranslation();
 
@@ -44,7 +45,7 @@ export function FavoritesLibraryView({ mediaType, viewModeScope }: { mediaType: 
   }
 
   if (isError) {
-    return <p className="px-1 text-sm text-muted">{t("profile.errorLoadFavorites")}</p>;
+    return <PageError message={t("profile.errorLoadFavorites")} onRetry={() => refetch()} />;
   }
 
   if (items.length === 0) {

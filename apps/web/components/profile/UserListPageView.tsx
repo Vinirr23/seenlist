@@ -7,6 +7,7 @@ import { useFollowList } from "@/lib/queries/follow-list";
 import { useFollowStatusBatch } from "@/lib/queries/follow";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { UserListRow } from "./UserListRow";
+import { PageError } from "../media/PageError";
 
 export interface UserListPageViewProps {
   userId: string;
@@ -21,7 +22,7 @@ export interface UserListPageViewProps {
  */
 export function UserListPageView({ userId, direction, title }: UserListPageViewProps) {
   const [search, setSearch] = useState("");
-  const { data: users, isLoading, isError } = useFollowList(userId, direction, search);
+  const { data: users, isLoading, isError, refetch } = useFollowList(userId, direction, search);
   const { t } = useTranslation();
 
   /**
@@ -66,7 +67,7 @@ export function UserListPageView({ userId, direction, title }: UserListPageViewP
           </div>
         )}
 
-        {isError && <p className="px-4 py-6 text-center text-sm text-muted">{t("profile.errorLoadGeneric")}</p>}
+        {isError && <PageError message={t("profile.errorLoadGeneric")} onRetry={() => refetch()} />}
 
         {!isLoading && !isError && users?.length === 0 && (
           <p className="px-4 py-6 text-center text-sm text-muted">
