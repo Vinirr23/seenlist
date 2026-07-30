@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { cn } from "@seenlist/utils";
+import { useDialogAnimation } from "@/lib/useDialogAnimation";
 
 export interface ConfirmDialogAction {
   label: string;
@@ -29,19 +30,31 @@ const VARIANT_CLASS: Record<NonNullable<ConfirmDialogAction["variant"]>, string>
  * só muda a lista de `actions`.
  */
 export function ConfirmDialog({ title, message, actions, onDismiss }: ConfirmDialogProps) {
+  const { mounted, handleClose } = useDialogAnimation(onDismiss);
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onDismiss();
+      if (event.key === "Escape") handleClose();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onDismiss]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/60" onClick={onDismiss} aria-hidden="true" />
+      <div
+        className={cn("absolute inset-0 bg-black/60 transition-opacity duration-200", mounted ? "opacity-100" : "opacity-0")}
+        onClick={handleClose}
+        aria-hidden="true"
+      />
 
-      <div className="relative w-full max-w-[380px] rounded-xl border border-border bg-surface p-5">
+      <div
+        className={cn(
+          "relative w-full max-w-[380px] rounded-xl border border-border bg-surface p-5 transition-all duration-200 ease-out",
+          mounted ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-95 opacity-0"
+        )}
+      >
         <h2 className="text-base font-semibold text-text">{title}</h2>
         {message && <p className="mt-2 text-sm text-muted">{message}</p>}
 

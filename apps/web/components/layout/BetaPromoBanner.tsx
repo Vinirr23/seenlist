@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { X, Rocket, Star, MessageSquare, Bot, ArrowUpRight } from "lucide-react";
+import { cn } from "@seenlist/utils";
 
 const DISMISS_KEY = "seenlist:beta-banner-dismissed";
 
@@ -27,25 +28,41 @@ const FEATURES = [
  */
 export function BetaPromoBanner() {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setOpen(sessionStorage.getItem(DISMISS_KEY) !== "1");
+    if (sessionStorage.getItem(DISMISS_KEY) !== "1") setOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
 
   function handleDismiss() {
     sessionStorage.setItem(DISMISS_KEY, "1");
-    setOpen(false);
+    setMounted(false);
+    setTimeout(() => setOpen(false), 200);
   }
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className={cn(
+        "fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 transition-opacity duration-200",
+        mounted ? "opacity-100" : "opacity-0"
+      )}
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-sm rounded-2xl border border-primary/30 bg-surface p-6 shadow-[0_0_60px_-12px_rgba(232,163,61,0.4)]">
+      <div
+        className={cn(
+          "relative w-full max-w-sm rounded-2xl border border-primary/30 bg-surface p-6 shadow-[0_0_60px_-12px_rgba(232,163,61,0.4)] transition-all duration-200 ease-out",
+          mounted ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-95 opacity-0"
+        )}
+      >
         <button
           type="button"
           onClick={handleDismiss}

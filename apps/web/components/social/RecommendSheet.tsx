@@ -9,6 +9,8 @@ import { useSendRecommendation } from "@/lib/queries/recommendations";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useDialogAnimation } from "@/lib/useDialogAnimation";
+import { cn } from "@seenlist/utils";
 
 const MAX_MESSAGE_LENGTH = 200;
 
@@ -32,6 +34,7 @@ export function RecommendSheet({
   onClose: () => void;
 }) {
   const { data: currentUser } = useCurrentUser();
+  const { mounted, handleClose } = useDialogAnimation(onClose);
   const [search, setSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -48,7 +51,7 @@ export function RecommendSheet({
       {
         onSuccess: () => {
           toast.success(t("social.recommendationSent"));
-          onClose();
+          handleClose();
         },
         onError: () => toast.error(t("social.recommendationSendError")),
       }
@@ -57,12 +60,21 @@ export function RecommendSheet({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
+      <div
+        className={cn("absolute inset-0 bg-black/60 transition-opacity duration-200", mounted ? "opacity-100" : "opacity-0")}
+        onClick={handleClose}
+        aria-hidden="true"
+      />
 
-      <div className="relative flex max-h-[85dvh] w-full max-w-[430px] flex-col rounded-t-2xl border-t border-border bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div
+        className={cn(
+          "relative flex max-h-[85dvh] w-full max-w-[430px] flex-col rounded-t-2xl border-t border-border bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-200 ease-out",
+          mounted ? "translate-y-0" : "translate-y-full"
+        )}
+      >
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold text-text">{t("social.recommendTitle", { title: mediaTitle })}</p>
-          <button type="button" onClick={onClose} aria-label={t("social.close")} className="text-muted">
+          <button type="button" onClick={handleClose} aria-label={t("social.close")} className="text-muted">
             <X className="h-5 w-5" strokeWidth={2} />
           </button>
         </div>
