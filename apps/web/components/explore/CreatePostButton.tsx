@@ -7,6 +7,7 @@ import { usePostImageUpload } from "@/lib/queries/post-image-upload";
 import { hapticTick } from "@/lib/haptics";
 import { useHideBottomNav } from "@/lib/layout/bottomNavVisibility";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { cn } from "@seenlist/utils";
 
 const MAX_LENGTH = 500;
 
@@ -22,6 +23,7 @@ const MAX_LENGTH = 500;
  */
 export function CreatePostButton() {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [body, setBody] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -42,6 +44,19 @@ export function CreatePostButton() {
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  // Anima a entrada (o "mount depois de um frame" clássico) — sem
+  // isso o modal já apareceria no lugar final, sem deslizar.
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+
+  function handleClose() {
+    setMounted(false);
+    setTimeout(() => setOpen(false), 200);
+  }
 
   function resetForm() {
     setBody("");
@@ -82,7 +97,7 @@ export function CreatePostButton() {
       {
         onSuccess: () => {
           resetForm();
-          setOpen(false);
+          handleClose();
         },
       }
     );
@@ -106,14 +121,24 @@ export function CreatePostButton() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 md:items-center">
-          <div className="flex h-[100dvh] w-full max-w-[430px] flex-col bg-surface md:h-auto md:max-h-[85dvh] md:rounded-2xl">
+        <div
+          className={cn(
+            "fixed inset-0 z-40 flex items-end justify-center bg-black/50 transition-opacity duration-200 md:items-center",
+            mounted ? "opacity-100" : "opacity-0"
+          )}
+        >
+          <div
+            className={cn(
+              "flex h-[100dvh] w-full max-w-[430px] flex-col bg-surface transition-transform duration-200 ease-out md:h-auto md:max-h-[85dvh] md:rounded-2xl",
+              mounted ? "translate-y-0" : "translate-y-full"
+            )}
+          >
             <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3">
               <h2 className="text-base font-bold text-text">{t("feed.newPost")}</h2>
               <button
                 type="button"
                 onClick={() => {
-                  setOpen(false);
+                  handleClose();
                   resetForm();
                 }}
                 aria-label={t("social.close")}

@@ -10,6 +10,8 @@ import { useMyLists, useCreateList, useAddToList } from "@/lib/queries/lists";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useDialogAnimation } from "@/lib/useDialogAnimation";
+import { cn } from "@seenlist/utils";
 import { RecommendSheet } from "../social/RecommendSheet";
 
 export interface SeriesQuickActionsSheetProps {
@@ -52,6 +54,7 @@ export function SeriesQuickActionsSheet({
   onClose,
 }: SeriesQuickActionsSheetProps) {
   const { t } = useTranslation();
+  const { mounted, handleClose } = useDialogAnimation(onClose);
   const [view, setView] = useState<SheetView>("menu");
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [newListName, setNewListName] = useState("");
@@ -69,11 +72,12 @@ export function SeriesQuickActionsSheet({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") handleClose();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleSetStatus(status: LibraryStatus) {
     hapticTick();
@@ -84,13 +88,13 @@ export function SeriesQuickActionsSheet({
         onError: () => toast.error(t("toast.connectionError")),
       }
     );
-    onClose();
+    handleClose();
   }
 
   function handleToggleFavorite() {
     hapticTick();
     toggleFavorite.mutate(Boolean(isFavorite));
-    onClose();
+    handleClose();
   }
 
   function handleConfirmRemove() {
@@ -102,13 +106,13 @@ export function SeriesQuickActionsSheet({
         onError: () => toast.error(t("toast.connectionError")),
       }
     );
-    onClose();
+    handleClose();
   }
 
   function handleAddToList(listId: string) {
     hapticTick();
     addToList.mutate({ listId, mediaType: "series", mediaId: seriesId });
-    onClose();
+    handleClose();
   }
 
   function handleCreateAndAdd(event: React.FormEvent) {
@@ -129,7 +133,7 @@ export function SeriesQuickActionsSheet({
     if (navigator.share) {
       try {
         await navigator.share({ title: seriesTitle, url });
-        onClose();
+        handleClose();
         return;
       } catch {
         // usuário cancelou o share nativo — cai pro fallback de copiar, não trata como erro
@@ -142,14 +146,23 @@ export function SeriesQuickActionsSheet({
       console.error("[series] Falha ao copiar link da série", error);
       toast.error(t("toast.linkCopyError"));
     }
-    onClose();
+    handleClose();
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
+      <div
+        className={cn("absolute inset-0 bg-black/60 transition-opacity duration-200", mounted ? "opacity-100" : "opacity-0")}
+        onClick={handleClose}
+        aria-hidden="true"
+      />
 
-      <div className="relative w-full max-w-[430px] rounded-t-2xl border-t border-border bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div
+        className={cn(
+          "relative w-full max-w-[430px] rounded-t-2xl border-t border-border bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-200 ease-out",
+          mounted ? "translate-y-0" : "translate-y-full"
+        )}
+      >
         {confirmingRemove ? (
           <div className="space-y-4 text-center">
             <p className="text-sm text-text">{t("removeSeries.confirmTitle")}</p>
@@ -281,7 +294,7 @@ export function SeriesQuickActionsSheet({
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-text hover:bg-background"
             >
               <Send className="h-4 w-4" strokeWidth={2} />
-              Recomendar pra alguém
+              {t("action.recommend")}
             </button>
 
             <button
@@ -313,7 +326,7 @@ export function SeriesQuickActionsSheet({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-border py-3 text-sm font-medium text-muted"
             >
               <X className="h-4 w-4" strokeWidth={2} />
