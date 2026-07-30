@@ -619,6 +619,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "duration.days": "{n} dias",
     "duration.hour": "{n} hora",
     "duration.hours": "{n} horas",
+
+    "error.tryAgain": "Tentar de novo",
+    "error.generic": "Algo deu errado. Tente de novo.",
+    "offline.banner": "Você está offline. Algumas coisas podem não funcionar até a conexão voltar.",
   },
   en: {
     "settings.title": "Settings",
@@ -1213,6 +1217,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "duration.days": "{n} days",
     "duration.hour": "{n} hour",
     "duration.hours": "{n} hours",
+
+    "error.tryAgain": "Try again",
+    "error.generic": "Something went wrong. Please try again.",
+    "offline.banner": "You're offline. Some things may not work until your connection comes back.",
   },
   es: {
     "settings.title": "Configuración",
@@ -1807,5 +1815,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "duration.days": "{n} días",
     "duration.hour": "{n} hora",
     "duration.hours": "{n} horas",
+
+    "error.tryAgain": "Intentar de nuevo",
+    "error.generic": "Algo salió mal. Inténtalo de nuevo.",
+    "offline.banner": "Estás sin conexión. Algunas cosas pueden no funcionar hasta que vuelva la conexión.",
   },
 };

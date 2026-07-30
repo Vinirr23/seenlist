@@ -6,6 +6,7 @@ import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 import { ToastProvider } from "@/lib/toast/ToastProvider";
 import { BottomNavVisibilityProvider } from "@/lib/layout/bottomNavVisibility";
+import { OfflineBanner } from "@/components/layout/OfflineBanner";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -39,7 +40,10 @@ export function Providers({ children }: { children: ReactNode }) {
       <ThemeProvider>
         <LocaleProvider>
           <ToastProvider>
-            <BottomNavVisibilityProvider>{children}</BottomNavVisibilityProvider>
+            <BottomNavVisibilityProvider>
+              <OfflineBanner />
+              {children}
+            </BottomNavVisibilityProvider>
           </ToastProvider>
         </LocaleProvider>
       </ThemeProvider>
