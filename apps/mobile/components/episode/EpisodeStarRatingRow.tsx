@@ -1,6 +1,7 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ui";
+import { hapticSelection } from "@/lib/haptics";
 import { colors, spacing } from "@/lib/theme";
 
 const LEVELS = [
@@ -23,7 +24,14 @@ export function EpisodeStarRatingRow({ value, onChange }: { value: number; onCha
       {LEVELS.map((level) => {
         const filled = value >= level.value;
         return (
-          <Pressable key={level.value} style={styles.button} onPress={() => onChange(level.value)}>
+          <Pressable
+            key={level.value}
+            style={styles.button}
+            onPress={() => {
+              hapticSelection();
+              onChange(level.value);
+            }}
+          >
             <Feather name="star" size={22} color={filled ? colors.primary : colors.muted} />
             <Text style={[styles.label, filled && styles.labelActive]}>{level.label}</Text>
           </Pressable>

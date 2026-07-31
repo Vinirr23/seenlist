@@ -7,6 +7,7 @@ import { PostCommentItem } from "./PostCommentItem";
 import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { hapticTick } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /** TASK-153 — achata a árvore inteira numa lista simples de ids, pra buscar curtida de todo mundo de uma vez. */
@@ -43,6 +44,7 @@ export function PostCommentsSection({ postId }: { postId: string }) {
 
   async function handleSubmit() {
     if (!body.trim()) return;
+    hapticTick();
     const ok = await submit(body, null);
     if (ok) setBody("");
   }

@@ -9,6 +9,7 @@ import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { EpisodeCommentItem } from "./EpisodeCommentItem";
 import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
+import { hapticTick } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /** TASK-153 — achata a árvore inteira (comentário + respostas, em qualquer nível) numa lista simples de ids, pra buscar curtida de todo mundo de uma vez. */
@@ -60,6 +61,7 @@ export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number;
 
   async function handleSubmit() {
     if (!body.trim() && !imageUri) return;
+    hapticTick();
     setUploadError(null);
 
     let uploadedImageUrl: string | null = null;

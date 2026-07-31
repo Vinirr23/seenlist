@@ -1,5 +1,6 @@
 import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
+import { hapticSelection } from "@/lib/haptics";
 import { colors, spacing } from "@/lib/theme";
 
 export interface FavoriteCharacterOption {
@@ -32,7 +33,14 @@ export function EpisodeFavoriteCharacterPicker({
       {characters.map((character) => {
         const selected = selectedId === character.id;
         return (
-          <Pressable key={character.id} style={styles.item} onPress={() => onSelect(selected ? null : character)}>
+          <Pressable
+            key={character.id}
+            style={styles.item}
+            onPress={() => {
+              hapticSelection();
+              onSelect(selected ? null : character);
+            }}
+          >
             <View style={[styles.avatar, selected && styles.avatarSelected]}>
               {character.imageUrl ? (
                 <Image source={{ uri: character.imageUrl }} style={styles.avatarImage} resizeMode="cover" />

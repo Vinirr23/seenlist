@@ -1,5 +1,6 @@
 import { View, Switch, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
+import { hapticSelection } from "@/lib/haptics";
 import { colors, spacing, fontSize } from "@/lib/theme";
 
 export function ToggleRow({
@@ -20,7 +21,10 @@ export function ToggleRow({
       <Text style={styles.label}>{label}</Text>
       <Switch
         value={value}
-        onValueChange={onChange}
+        onValueChange={(next) => {
+          hapticSelection();
+          onChange(next);
+        }}
         disabled={disabled}
         trackColor={{ false: colors.border, true: colors.primary }}
         thumbColor="#FFFFFF"

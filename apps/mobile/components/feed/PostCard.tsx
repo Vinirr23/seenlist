@@ -17,6 +17,7 @@ import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { PollBlock } from "./PollBlock";
 import type { PollData } from "@/lib/social/polls";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -105,6 +106,7 @@ export function PostCard({
   async function handleSaveEdit() {
     const trimmed = editBody.trim();
     if (!trimmed) return;
+    hapticTick();
     setSaving(true);
     try {
       await editPost(post.id, trimmed);
@@ -126,6 +128,7 @@ export function PostCard({
         text: t("common.delete"),
         style: "destructive",
         onPress: async () => {
+          hapticWarning();
           try {
             await deletePost(post.id);
             if (detail) router.replace("/(tabs)/feed");
@@ -141,6 +144,7 @@ export function PostCard({
 
   async function handleReport() {
     setMenuOpen(false);
+    hapticWarning();
     try {
       await reportPost(post.id, "inadequado");
       setReported(true);

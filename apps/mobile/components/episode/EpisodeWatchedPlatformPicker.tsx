@@ -3,6 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import type { WatchProvider } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
+import { hapticSelection } from "@/lib/haptics";
 import { colors, radius, spacing } from "@/lib/theme";
 
 const FIXED_OPTIONS = [
@@ -31,7 +32,14 @@ export function EpisodeWatchedPlatformPicker({
         const logoUrl = tmdbImageUrl(provider.logoPath, "w185");
         const selected = value === provider.name;
         return (
-          <Pressable key={provider.id} style={styles.item} onPress={() => onChange(selected ? null : provider.name)}>
+          <Pressable
+            key={provider.id}
+            style={styles.item}
+            onPress={() => {
+              hapticSelection();
+              onChange(selected ? null : provider.name);
+            }}
+          >
             <View style={[styles.iconWrapper, selected && styles.iconWrapperActive]}>
               {logoUrl && <Image source={{ uri: logoUrl }} style={styles.logo} resizeMode="cover" />}
             </View>
@@ -45,7 +53,14 @@ export function EpisodeWatchedPlatformPicker({
       {FIXED_OPTIONS.map((option) => {
         const selected = value === option.key;
         return (
-          <Pressable key={option.key} style={styles.item} onPress={() => onChange(selected ? null : option.key)}>
+          <Pressable
+            key={option.key}
+            style={styles.item}
+            onPress={() => {
+              hapticSelection();
+              onChange(selected ? null : option.key);
+            }}
+          >
             <View style={[styles.iconWrapper, styles.iconWrapperOutline, selected && styles.iconWrapperActive]}>
               <Feather name={option.icon} size={18} color={selected ? colors.primary : colors.muted} />
             </View>

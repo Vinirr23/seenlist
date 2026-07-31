@@ -1,5 +1,6 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
+import { hapticSelection } from "@/lib/haptics";
 import { colors, radius, spacing } from "@/lib/theme";
 
 const MOODS = [
@@ -27,7 +28,10 @@ export function EpisodeMoodPicker({ value, onChange }: { value: string[]; onChan
           <Pressable
             key={mood.key}
             style={[styles.card, selected && styles.cardActive]}
-            onPress={() => onChange(selected ? value.filter((m) => m !== mood.key) : [...value, mood.key])}
+            onPress={() => {
+              hapticSelection();
+              onChange(selected ? value.filter((m) => m !== mood.key) : [...value, mood.key]);
+            }}
           >
             <Text style={styles.emoji}>{mood.emoji}</Text>
             <Text style={[styles.label, selected && styles.labelActive]} numberOfLines={1}>
