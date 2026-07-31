@@ -41,6 +41,9 @@ importers:
       '@react-native-async-storage/async-storage':
         specifier: ^3.1.1
         version: 3.1.1(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0))(react@19.1.0)
+      '@react-native-community/netinfo':
+        specifier: 11.4.1
+        version: 11.4.1(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0))
       '@seenlist/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -74,6 +77,9 @@ importers:
       expo-file-system:
         specifier: ~19.0.23
         version: 19.0.23(expo@54.0.35)(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0))
+      expo-haptics:
+        specifier: ~15.0.8
+        version: 15.0.8(expo@54.0.35)
       expo-image:
         specifier: ~3.0.11
         version: 3.0.11(expo@54.0.35)(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0))(react@19.1.0)
@@ -1669,6 +1675,11 @@ packages:
       react: 19.1.0
       react-native: '*'
 
+  '@react-native-community/netinfo@11.4.1':
+    resolution: {integrity: sha512-B0BYAkghz3Q2V09BF88RA601XursIEA111tnc2JOaN7axJWmNefmfjZqw/KdSxKZp7CZUuPpjBmz/WCR9uaHYg==}
+    peerDependencies:
+      react-native: '>=0.59'
+
   '@react-native/assets-registry@0.81.4':
     resolution: {integrity: sha512-AMcDadefBIjD10BRqkWw+W/VdvXEomR6aEZ0fhQRAv7igrBzb4PTn4vHKYg+sUK0e3wa74kcMy2DLc/HtnGcMA==}
     engines: {node: '>= 20.19.4'}
@@ -3252,6 +3263,11 @@ packages:
       expo: '*'
       react: 19.1.0
       react-native: '*'
+
+  expo-haptics@15.0.8:
+    resolution: {integrity: sha512-lftutojy8Qs8zaDzzjwM3gKHFZ8bOOEZDCkmh2Ddpe95Ra6kt2izeOfOfKuP/QEh0MZ1j9TfqippyHdRd1ZM9g==}
+    peerDependencies:
+      expo: '*'
 
   expo-image-loader@6.0.0:
     resolution: {integrity: sha512-nKs/xnOGw6ACb4g26xceBD57FKLFkSwEUTDXEDF3Gtcu3MqF3ZIYd3YM+sSb1/z9AKV1dYT7rMSGVNgsveXLIQ==}
@@ -7289,6 +7305,10 @@ snapshots:
       react: 19.1.0
       react-native: 0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0)
 
+  '@react-native-community/netinfo@11.4.1(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0))':
+    dependencies:
+      react-native: 0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0)
+
   '@react-native/assets-registry@0.81.4': {}
 
   '@react-native/babel-plugin-codegen@0.81.5(@babel/core@7.29.7)':
@@ -8888,7 +8908,7 @@ snapshots:
       eslint: 9.13.0(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.10
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.13.0(jiti@1.21.7))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.10.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint@9.13.0(jiti@1.21.7))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.13.0(jiti@1.21.7))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.13.0(jiti@1.21.7))
       eslint-plugin-react: 7.37.5(eslint@9.13.0(jiti@1.21.7))
       eslint-plugin-react-hooks: 5.2.0(eslint@9.13.0(jiti@1.21.7))
@@ -8918,21 +8938,22 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.12.2
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.10.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint@9.13.0(jiti@1.21.7))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.13.0(jiti@1.21.7))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.14.0(@typescript-eslint/parser@8.10.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint-import-resolver-node@0.3.10)(eslint@9.13.0(jiti@1.21.7)):
+  eslint-module-utils@2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@9.13.0(jiti@1.21.7)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
-      '@typescript-eslint/parser': 8.10.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3)
+      '@typescript-eslint/parser': 8.63.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3)
       eslint: 9.13.0(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.10
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.13.0(jiti@1.21.7))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.10.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint@9.13.0(jiti@1.21.7)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.13.0(jiti@1.21.7)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -8943,7 +8964,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.13.0(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.10
-      eslint-module-utils: 2.14.0(@typescript-eslint/parser@8.10.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint-import-resolver-node@0.3.10)(eslint@9.13.0(jiti@1.21.7))
+      eslint-module-utils: 2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@9.13.0(jiti@1.21.7))
       hasown: 2.0.4
       is-core-module: 2.16.2
       is-glob: 4.0.3
@@ -8955,7 +8976,7 @@ snapshots:
       string.prototype.trimend: 1.0.10
       tsconfig-paths: 3.15.0
     optionalDependencies:
-      '@typescript-eslint/parser': 8.10.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3)
+      '@typescript-eslint/parser': 8.63.0(eslint@9.13.0(jiti@1.21.7))(typescript@5.6.3)
     transitivePeerDependencies:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
@@ -9160,6 +9181,10 @@ snapshots:
       fontfaceobserver: 2.3.0
       react: 19.1.0
       react-native: 0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0)
+
+  expo-haptics@15.0.8(expo@54.0.35):
+    dependencies:
+      expo: 54.0.35(@babel/core@7.29.7)(@expo/metro-runtime@6.1.2)(expo-router@6.0.24)(react-native-webview@13.15.0(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0))(react@19.1.0))(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.1.9)(react@19.1.0))(react@19.1.0)(typescript@5.6.3)
 
   expo-image-loader@6.0.0(expo@54.0.35):
     dependencies:

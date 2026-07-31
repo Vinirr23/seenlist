@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import type { SeasonWithEpisodes } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { episodeKey, type WatchedEpisodeKey } from "@/lib/seriesDetails";
+import { hapticTick } from "@/lib/haptics";
 import { Text } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
 import { OptionSheet, type OptionSheetAction } from "@/components/settings/OptionSheet";
@@ -51,6 +52,7 @@ export function SeasonAccordion({
 
   function handleEpisodePress(episodeNumber: number, isWatched: boolean) {
     if (isWatched) {
+      hapticTick();
       setDialog({ type: "watched-actions", episodeNumber });
       return;
     }
@@ -59,13 +61,18 @@ export function SeasonAccordion({
       (ep) => ep.episodeNumber < episodeNumber && !watched.has(episodeKey(season.seasonNumber, ep.episodeNumber))
     );
     if (hasUnwatchedBefore) {
+      hapticTick();
       setDialog({ type: "mark-previous", episodeNumber });
     } else {
+      // Sem haptic aqui de propósito — `onToggleEpisode` é o `toggle`
+      // do hook `useWatchedEpisodes`, que já vibra sozinho. Vibrar
+      // aqui também duplicaria o toque num único gesto.
       onToggleEpisode(season.seasonNumber, episodeNumber);
     }
   }
 
   function markUpToEpisode(episodeNumber: number) {
+    hapticTick();
     const episodes = sortedEpisodes.filter((ep) => ep.episodeNumber <= episodeNumber).map((ep) => ({ seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber }));
     onMarkMany(episodes);
     setDialog(null);
@@ -77,6 +84,7 @@ export function SeasonAccordion({
   }
 
   function confirmSeasonToggle() {
+    hapticTick();
     if (allWatched) {
       onUnmarkSeason(season.seasonNumber);
     } else {

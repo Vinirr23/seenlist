@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { fetchHasLiked, fetchLikeCount, toggleLike, type LikeTargetType } from "@/lib/social/likes";
+import { hapticTick } from "@/lib/haptics";
 import { Text } from "@/components/ui";
 import { colors, spacing } from "@/lib/theme";
 
@@ -44,6 +45,7 @@ export function LikeButton({
 
   async function handlePress() {
     if (busy || count === null) return;
+    hapticTick();
     setBusy(true);
     const wasLiked = hasLiked;
     // Otimista: atualiza a tela antes da resposta do servidor, desfaz se der erro.

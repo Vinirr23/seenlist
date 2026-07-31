@@ -15,6 +15,7 @@ import {
   unmarkSeasonWatched,
   type WatchedEpisodeKey,
 } from "./seriesDetails";
+import { hapticTick } from "./haptics";
 
 export function useSeriesDetails(seriesId: string) {
   const [series, setSeries] = useState<SeriesDetails | null>(null);
@@ -73,6 +74,7 @@ export function useWatchedEpisodes(seriesId: number) {
 
   const toggle = useCallback(
     async (seasonNumber: number, episodeNumber: number) => {
+      hapticTick();
       const key = episodeKey(seasonNumber, episodeNumber);
       const wasWatched = watched.has(key);
 
@@ -171,6 +173,7 @@ export function useSeriesStatus(seriesId: number) {
 
   const changeStatus = useCallback(
     async (newStatus: LibraryStatus) => {
+      hapticTick();
       const previous = status;
       const next = previous === newStatus ? null : newStatus;
       setBusy(true);
@@ -206,6 +209,7 @@ export function useIsFavorite(seriesId: number) {
   }, [seriesId]);
 
   const toggle = useCallback(async () => {
+    hapticTick();
     const previous = isFavorite;
     setBusy(true);
     setIsFavorite(!previous); // otimista

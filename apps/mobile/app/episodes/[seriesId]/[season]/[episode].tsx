@@ -18,6 +18,7 @@ import { EpisodeStarRatingRow } from "@/components/episode/EpisodeStarRatingRow"
 import { EpisodeMoodPicker } from "@/components/episode/EpisodeMoodPicker";
 import { EpisodeWatchedPlatformPicker } from "@/components/episode/EpisodeWatchedPlatformPicker";
 import { EpisodeFavoriteCharacterPicker, type FavoriteCharacterOption } from "@/components/episode/EpisodeFavoriteCharacterPicker";
+import { hapticTick } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 interface EpisodeRef {
@@ -181,6 +182,7 @@ export default function EpisodeDetailScreen() {
   );
 
   async function handleToggleWatched() {
+    hapticTick();
     const previousValue = watched;
     setWatched(!previousValue);
     try {

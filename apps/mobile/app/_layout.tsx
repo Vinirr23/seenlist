@@ -9,6 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { colors } from "@/lib/theme";
 
 const SPLASH_DURATION_MS = 3000;
@@ -99,6 +100,7 @@ export default function RootLayout() {
           <AuthProvider>
             <View style={{ flex: 1, backgroundColor: colors.background }}>
               <StatusBar style="light" />
+              <OfflineBanner />
               <ErrorBoundary>
                 <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
               </ErrorBoundary>

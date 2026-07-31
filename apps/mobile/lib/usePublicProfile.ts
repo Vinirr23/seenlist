@@ -10,6 +10,7 @@ import {
   toggleFollow,
   type UserProfile,
 } from "./publicProfile";
+import { hapticTick } from "./haptics";
 
 export function usePublicProfile(username: string) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -99,6 +100,7 @@ export function useFollow(targetUserId: string | null) {
 
   const toggle = useCallback(async () => {
     if (!targetUserId) return;
+    hapticTick();
     const previous = isFollowing;
     setBusy(true);
     setIsFollowing(!previous); // otimista

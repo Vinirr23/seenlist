@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import type { NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
 import { toggleEpisodeWatched } from "@/lib/seriesDetails";
+import { hapticTick } from "@/lib/haptics";
 import { tmdbImageUrl } from "@/lib/library";
 import { EpisodeWatchedButton } from "@/components/series-detail/EpisodeWatchedButton";
 import { Text } from "@/components/ui";
@@ -49,6 +50,7 @@ export function ContinueWatchingListRow({
 
   async function handleMarkWatched() {
     if (marking) return;
+    hapticTick();
     setMarking(true);
     try {
       await toggleEpisodeWatched(nextEpisode.seriesId, nextEpisode.seasonNumber, nextEpisode.episodeNumber, false);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { fetchIsSaved, toggleSavePost } from "@/lib/social/savedPosts";
+import { hapticTick } from "@/lib/haptics";
 import { colors } from "@/lib/theme";
 
 export function SaveButton({ postId, initial }: { postId: string; initial?: boolean }) {
@@ -31,6 +32,7 @@ export function SaveButton({ postId, initial }: { postId: string; initial?: bool
 
   async function handlePress() {
     if (busy) return;
+    hapticTick();
     setBusy(true);
     const previous = isSaved;
     setIsSaved(!previous); // otimista

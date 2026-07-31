@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { MovieDetails, MovieWatchStatus } from "@seenlist/types";
 import { fetchMovieDetails, fetchMovieStatus, setMovieStatus, fetchIsMovieFavorite, toggleMovieFavorite } from "./movieDetails";
+import { hapticTick } from "./haptics";
 
 export function useMovieDetails(movieId: string) {
   const [movie, setMovie] = useState<MovieDetails | null>(null);
@@ -55,6 +56,7 @@ export function useMovieStatus(movieId: number) {
 
   const changeStatus = useCallback(
     async (newStatus: MovieWatchStatus) => {
+      hapticTick();
       const previous = status;
       const next = previous === newStatus ? null : newStatus;
       setBusy(true);
@@ -91,6 +93,7 @@ export function useIsMovieFavorite(movieId: number) {
   }, [movieId]);
 
   const toggle = useCallback(async () => {
+    hapticTick();
     const previous = isFavorite;
     setBusy(true);
     setIsFavorite(!previous); // otimista
