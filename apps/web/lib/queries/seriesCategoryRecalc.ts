@@ -1,5 +1,139 @@
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { decideWatchingVsUpToDate } from "./airDateCategory";
+import { fetchAllWatchedEpisodeRows } from "./library-state";
+
+const TMDB_EPISODES_CHUNK_SIZE = 20; // mesmo limite de /api/tmdb/series-episodes-at-export (MAX_IDS_PER_REQUEST)
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+async function fetchLiveEpisodesBySeriesId(
+  seriesIds: number[]
+): Promise<Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>> {
+  const result = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>();
+  const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
+  const responses = await Promise.all(
+    chunks.map((idsChunk) =>
+      fetch("/api/tmdb/series-episodes-at-export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seriesIds: idsChunk }),
+      })
+    )
+  );
+  for (const response of responses) {
+    if (!response.ok) continue;
+    const data = (await response.json()) as {
+      series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] }[];
+    };
+    for (const s of data.series) result.set(s.id, s.episodes);
+  }
+  return result;
+}
+
+async function fetchEndedBySeriesId(seriesIds: number[]): Promise<Map<number, boolean>> {
+  const result = new Map<number, boolean>();
+  const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
+  const responses = await Promise.all(
+    chunks.map((idsChunk) =>
+      fetch("/api/tmdb/library-summaries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ movieIds: [], seriesIds: idsChunk }),
+      })
+    )
+  );
+  for (const response of responses) {
+    if (!response.ok) continue;
+    const data = (await response.json()) as { series: { id: number; ended: boolean }[] };
+    for (const s of data.series) result.set(s.id, s.ended);
+  }
+  return result;
+}
+
+/**
+ * CORREÇÃO (bug real, reportado — "série assistindo, mas não aparece
+ * na Home") — porta fiel de `recalculateUpToDateSeriesCategories`
+ * (`apps/mobile/lib/seriesDetails.ts`), que só existia no app nativo
+ * (chamada toda vez que a aba Séries ganha foco). O web nunca teve
+ * essa peça: uma série que virava "Em dia" ficava PRESA nesse status
+ * pra sempre, mesmo depois de sair episódio novo — só era promovida
+ * de volta pra "Assistindo" se o usuário marcasse manualmente um
+ * episódio (o que dispara `recalculateSeriesCategoryAfterEpisodeChange`,
+ * mas só DEPOIS da marcação, não antes — ninguém recalculava
+ * PROATIVAMENTE). Chamada ao carregar a Central de Séries
+ * (`MinhaListaSection.tsx`), mesmo espírito do "toda vez que a tela
+ * abre" do app nativo, adaptado pro web (sem conceito de "foco de
+ * aba" persistente).
+ *
+ * Só mexe em séries que JÁ estão "up_to_date" — nunca em
+ * "watching"/"want_to_watch"/"paused" (essas têm suas próprias regras,
+ * em `recalculateSeriesCategoryAfterEpisodeChange`).
+ */
+export async function recalculateUpToDateSeriesCategories(): Promise<void> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await getCurrentAuthUser(supabase);
+  if (!user) return;
+
+  const { data: statusRows, error: statusError } = await supabase
+    .from("series_status")
+    .select("series_id")
+    .eq("user_id", user.id)
+    .eq("status", "up_to_date");
+  if (statusError || !statusRows || statusRows.length === 0) return;
+
+  const seriesIds = statusRows.map((row) => row.series_id as number);
+
+  let watchedCountBySeriesId: Map<number, number>;
+  let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>;
+  let endedBySeriesId: Map<number, boolean>;
+  try {
+    const [watchedRows, episodesMap, endedMap] = await Promise.all([
+      fetchAllWatchedEpisodeRows(supabase, user.id),
+      fetchLiveEpisodesBySeriesId(seriesIds),
+      fetchEndedBySeriesId(seriesIds),
+    ]);
+    watchedCountBySeriesId = new Map();
+    for (const row of watchedRows) {
+      watchedCountBySeriesId.set(row.series_id, (watchedCountBySeriesId.get(row.series_id) ?? 0) + 1);
+    }
+    episodesBySeriesId = episodesMap;
+    endedBySeriesId = endedMap;
+  } catch (error) {
+    console.error(
+      "[recalculateUpToDateSeriesCategories] Falha ao buscar dados em lote — categorias não recalculadas desta vez.",
+      error
+    );
+    return;
+  }
+
+  const updates: { user_id: string; series_id: number; status: "watching" | "completed"; updated_at: string }[] = [];
+  for (const seriesId of seriesIds) {
+    const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
+    if (liveEpisodes.length === 0) continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
+
+    const watched = watchedCountBySeriesId.get(seriesId) ?? 0;
+    const ended = endedBySeriesId.get(seriesId) ?? false;
+    const allEpisodesWatched = watched >= liveEpisodes.length;
+    const newCategory = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes).category;
+
+    if (newCategory !== "up_to_date") {
+      updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
+    }
+  }
+
+  if (updates.length === 0) return;
+
+  const { error: upsertError } = await supabase.from("series_status").upsert(updates, { onConflict: "user_id,series_id" });
+  if (upsertError) {
+    console.error("[recalculateUpToDateSeriesCategories] Falha ao gravar categorias recalculadas", upsertError);
+  }
+}
 
 /**
  * TASK-043 — achado real (Rancho Dutton, Demolidor, Dexter): marcar

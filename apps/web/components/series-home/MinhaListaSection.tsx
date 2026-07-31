@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
+import { recalculateUpToDateSeriesCategories } from "@/lib/queries/seriesCategoryRecalc";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ViewModeToggle } from "../media/ViewModeToggle";
@@ -10,6 +11,7 @@ import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { WatchlistButton } from "./WatchlistButton";
 import { EmptyShelf } from "../media/EmptyShelf";
+import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
 const CONTINUE_ASSISTINDO_LIMIT = 8;
@@ -30,7 +32,7 @@ const CONTINUE_ASSISTINDO_LIMIT = 8;
  */
 export function MinhaListaSection() {
   useLibraryRealtimeSync();
-  const { data: items, isLoading, isError, error } = useLibraryItems();
+  const { data: items, isLoading, isError, error, refetch } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("series-library");
   const { t } = useTranslation();
 
@@ -39,6 +41,21 @@ export function MinhaListaSection() {
       console.error("[MinhaListaSection] useLibraryItems() falhou", error);
     }
   }, [isError, error]);
+
+  /**
+   * CORREÇÃO (bug real, reportado) — mesmo espírito do
+   * `useFocusEffect` do app nativo: ao abrir a Central de Séries,
+   * recalcula sozinho quaisquer séries "Em dia" que já tenham
+   * episódio novo pendente, promovendo de volta pra "Assistindo"
+   * antes mesmo do usuário interagir. Silencioso — não mostra
+   * spinner nem bloqueia a tela; só atualiza a lista se algo mudou.
+   */
+  useEffect(() => {
+    recalculateUpToDateSeriesCategories()
+      .then(() => refetch())
+      .catch((err) => console.error("[MinhaListaSection] Falha ao recalcular categorias 'Em dia'", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
 
@@ -81,7 +98,7 @@ export function MinhaListaSection() {
   const continueWatching = viewMode === "grid" ? continueWatchingGrid : continueWatchingList;
 
   if (isError) {
-    return <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />;
+    return <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />;
   }
 
   return (
