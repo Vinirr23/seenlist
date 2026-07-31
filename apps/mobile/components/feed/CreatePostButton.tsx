@@ -7,6 +7,7 @@ import { createTextPost } from "@/lib/posts";
 import { createPollPost } from "@/lib/social/polls";
 import { pickImageFromLibrary, uploadPostImage } from "@/lib/imageUpload";
 import { Text, Button } from "@/components/ui";
+import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -53,6 +54,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
   }
 
   function handleOpen() {
+    hapticTick();
     resetForm();
     setOpen(true);
   }
@@ -78,6 +80,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
   }
 
   async function handlePublish() {
+    hapticTick();
     if (mode === "poll") {
       setPosting(true);
       try {

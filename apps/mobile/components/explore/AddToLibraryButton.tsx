@@ -3,6 +3,7 @@ import { View, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { setSeriesStatus } from "@/lib/seriesDetails";
 import { setMovieStatus } from "@/lib/movieDetails";
+import { hapticTick } from "@/lib/haptics";
 import { colors, radius } from "@/lib/theme";
 
 /**
@@ -35,6 +36,7 @@ export function AddToLibraryButton({
 
   async function handlePress() {
     if (isAdded || isPending) return; // já está na biblioteca — "+" não remove, só adiciona (mesmo padrão do TV Time)
+    hapticTick();
     setIsPending(true);
     try {
       if (mediaType === "series") {

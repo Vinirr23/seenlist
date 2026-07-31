@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchFollowList, type FollowListUser } from "@/lib/followList";
 import { sendRecommendation } from "@/lib/recommendations";
+import { hapticTick } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
 
@@ -48,6 +49,7 @@ export function RecommendSheet({
 
   async function handleSend() {
     if (!selectedUserId) return;
+    hapticTick();
     setSending(true);
     try {
       await sendRecommendation(selectedUserId, mediaType, mediaId, message);

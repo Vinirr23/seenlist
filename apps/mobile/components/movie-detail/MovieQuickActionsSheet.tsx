@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useMyLists } from "@/lib/useMyLists";
 import { addToList } from "@/lib/lists";
 import { removeMovieFromLibrary } from "@/lib/movieDetails";
+import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
 import { RecommendSheet } from "../social/RecommendSheet";
@@ -47,6 +48,7 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
   }
 
   async function handleAddToList(listId: string) {
+    hapticTick();
     try {
       await addToList(listId, "movie", movieId);
       setAddedListId(listId);
@@ -57,12 +59,14 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
 
   async function handleCreateAndAdd() {
     if (!newListName.trim()) return;
+    hapticTick();
     const ok = await create(newListName);
     if (ok) setNewListName("");
     setShowNewListForm(false);
   }
 
   async function handleRemove() {
+    hapticWarning();
     setRemoving(true);
     try {
       await removeMovieFromLibrary(movieId);

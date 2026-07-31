@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import type { LibraryStatus } from "@seenlist/types";
 import { useMyLists } from "@/lib/useMyLists";
 import { addToList as addSeriesToList } from "@/lib/lists";
+import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
 import { RecommendSheet } from "../social/RecommendSheet";
@@ -56,6 +57,7 @@ export function SeriesQuickActionsSheet({
   }
 
   async function handleAddToList(listId: string) {
+    hapticTick();
     try {
       await addSeriesToList(listId, "series", seriesId);
       setAddedListId(listId);
@@ -66,6 +68,7 @@ export function SeriesQuickActionsSheet({
 
   async function handleCreateAndAdd() {
     if (!newListName.trim()) return;
+    hapticTick();
     const ok = await create(newListName);
     if (ok) setNewListName("");
     setShowNewListForm(false);
@@ -87,7 +90,13 @@ export function SeriesQuickActionsSheet({
                 <Pressable style={styles.confirmCancelButton} onPress={() => setConfirmingRemove(false)}>
                   <Text>Cancelar</Text>
                 </Pressable>
-                <Pressable style={styles.confirmRemoveButton} onPress={onRemove}>
+                <Pressable
+                  style={styles.confirmRemoveButton}
+                  onPress={() => {
+                    hapticWarning();
+                    onRemove();
+                  }}
+                >
                   <Text style={styles.confirmRemoveText}>Remover</Text>
                 </Pressable>
               </View>
