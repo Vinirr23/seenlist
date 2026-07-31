@@ -39,9 +39,15 @@ export async function fetchWatchedEpisodes(seriesId: number): Promise<Set<Watche
  * `seriesCategoryRecalc.ts` do web. Chamado depois de marcar/
  * desmarcar um episódio: decide se a série deve ser promovida pra
  * "Em dia" ou "Concluída" (ou rebaixada de volta), com base em
- * quantos episódios JÁ NO AR foram assistidos. Só entra em ação
- * quando o status atual é "watching"/"up_to_date"/"want_to_watch" —
- * nunca mexe numa série "paused" (decisão explícita do usuário).
+ * quantos episódios JÁ NO AR foram assistidos.
+ *
+ * MUDANÇA (a pedido, decisão revertida) — "paused" excluía o
+ * recálculo de propósito até aqui. Na prática, isso bloqueava
+ * alguém marcando/desmarcando episódio de propósito pra testar se a
+ * série já estava em dia — ficava presa em "Interrompidas" pra
+ * sempre até trocar o status manualmente. Agora "paused" também
+ * participa do recálculo, igual às outras categorias — mesma
+ * mudança já aplicada no web.
  */
 /**
  * TASK-121 (correção — categoria presa em "Assistindo") — porta de
@@ -303,7 +309,11 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   if (statusError) return;
 
   const currentStatus = statusRow?.status ?? "watching";
-  const eligible = currentStatus === "watching" || currentStatus === "up_to_date" || currentStatus === "want_to_watch";
+  const eligible =
+    currentStatus === "watching" ||
+    currentStatus === "up_to_date" ||
+    currentStatus === "want_to_watch" ||
+    currentStatus === "paused";
 
   // TASK-141 (diagnóstico temporário — série não aparece em Assistindo) — remover depois de descobrir a causa.
   console.log("[recalcularCategoria DIAGNÓSTICO] início", { seriesId, statusRowEncontrada: !!statusRow, currentStatus, eligible });

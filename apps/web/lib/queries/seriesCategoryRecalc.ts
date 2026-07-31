@@ -179,10 +179,18 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
  * relatados: contagem de "assistindo"/stats zerada mesmo com
  * episódios registrados, e série nunca migrando pra "Assistidas".
  *
- * "paused" continua de fora de propósito — é decisão explícita do
- * usuário (pausou a série), diferente de "want_to_watch" (nunca
- * decidiu ativamente começar). Marcar um episódio antigo numa série
- * pausada não deveria tirá-la da pausa sozinha.
+ * MUDANÇA (a pedido, decisão revertida) — "paused" excluía o
+ * recálculo de propósito até aqui: a ideia original era que marcar
+ * um episódio ANTIGO numa série pausada (navegando pelo histórico)
+ * não deveria "reviver" ela sozinha. Na prática, isso também
+ * bloqueava o caso oposto — alguém marcando/desmarcando episódio de
+ * propósito, testando se a série já está em dia, nunca via a
+ * categoria mudar, ficando presa em "Interrompidas" pra sempre até
+ * trocar o status manualmente. Decisão: o benefício de recalcular
+ * de verdade (série pausada que já está em dia/assistida sendo
+ * corretamente promovida) pesa mais que o risco de "reviver" sozinha
+ * ao marcar um episódio antigo — igual como já funciona pras outras
+ * categorias.
  */
 export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: number): Promise<void> {
   const supabase = createClient();
@@ -216,7 +224,11 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
    * já correta).
    */
   const currentStatus = statusRow?.status ?? "watching";
-  const eligibleForRecalc = currentStatus === "watching" || currentStatus === "up_to_date" || currentStatus === "want_to_watch";
+  const eligibleForRecalc =
+    currentStatus === "watching" ||
+    currentStatus === "up_to_date" ||
+    currentStatus === "want_to_watch" ||
+    currentStatus === "paused";
   if (!eligibleForRecalc) return;
 
   const { count: watchedCount } = await supabase
