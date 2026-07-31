@@ -6,6 +6,7 @@ import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { SERIES_CATEGORIES } from "@/lib/seriesCategories";
 import { Screen, Text } from "@/components/ui";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
@@ -52,7 +53,7 @@ export default function ProfileSeriesScreen() {
         {isLoading ? (
           viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
         ) : nonEmptyCategories.length === 0 ? (
-          <Text variant="muted">Você ainda não tem nenhuma série na sua biblioteca.</Text>
+          <EmptyShelf message="Você ainda não tem nenhuma série na sua biblioteca." actionLabel="Explorar" actionHref="/(tabs)/explore" />
         ) : (
           <View style={styles.categoryList}>
             {nonEmptyCategories.map((category) => (

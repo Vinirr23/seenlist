@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { Screen, Text } from "@/components/ui";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
@@ -41,7 +42,7 @@ export default function ProfileMoviesScreen() {
         {isLoading ? (
           viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
         ) : watchedMovies.length === 0 ? (
-          <Text variant="muted">Você ainda não assistiu nenhum filme.</Text>
+          <EmptyShelf message="Você ainda não assistiu nenhum filme." actionLabel="Explorar" actionHref="/(tabs)/explore" />
         ) : viewMode === "grid" ? (
           <PosterGrid items={watchedMovies} onPressItem={handlePress} />
         ) : (
