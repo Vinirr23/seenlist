@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePublicProfile, useFollowCounts, useFollow } from "@/lib/usePublicProfile";
 import { usePublicProfileStats } from "@/lib/useProfileStats";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowButton } from "@/components/profile/FollowButton";
 import { StatsCarousel } from "@/components/profile/StatsCarousel";
@@ -37,7 +38,7 @@ export default function PublicProfileScreen() {
   const username = String(rawUsername);
   const { session } = useAuth();
 
-  const { profile, isLoading, isError } = usePublicProfile(username);
+  const { profile, isLoading, isError, refetch } = usePublicProfile(username);
   const counts = useFollowCounts(profile?.userId ?? null);
   const publicStats = usePublicProfileStats(profile?.userId ?? null);
   const follow = useFollow(profile?.userId ?? null);
@@ -56,9 +57,13 @@ export default function PublicProfileScreen() {
         <Pressable style={styles.backButtonAlone} onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={18} color={colors.text} />
         </Pressable>
-        <Text variant="muted" style={styles.centerText}>
-          {isError ? "Não foi possível carregar este perfil agora. Tente de novo." : "Este perfil não existe ou é privado."}
-        </Text>
+        {isError ? (
+          <PageError message="Não foi possível carregar este perfil agora." onRetry={() => refetch()} />
+        ) : (
+          <Text variant="muted" style={styles.centerText}>
+            Este perfil não existe ou é privado.
+          </Text>
+        )}
       </Screen>
     );
   }
@@ -134,7 +139,13 @@ export default function PublicProfileScreen() {
           </View>
 
           <View style={styles.sections}>
-            <StatsCarousel stats={publicStats.stats} isLoading={publicStats.isLoading} isError={publicStats.isError} ownerLabel="other" />
+            <StatsCarousel
+              stats={publicStats.stats}
+              isLoading={publicStats.isLoading}
+              isError={publicStats.isError}
+              ownerLabel="other"
+              onRetry={() => publicStats.refetch()}
+            />
             <PublicFavoritesSection userId={profile.userId} />
             <PublicLibrarySection userId={profile.userId} />
           </View>

@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useProfileStats } from "@/lib/useProfileStats";
 import { formatWatchDuration } from "@/lib/profileStats";
 import { Text, Skeleton } from "@/components/ui";
+import { PageError } from "../media/PageError";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
@@ -25,7 +26,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  */
 export function StatisticsCard() {
   const router = useRouter();
-  const { stats, isLoading, isError } = useProfileStats();
+  const { stats, isLoading, isError, refetch } = useProfileStats();
   const { t, locale } = useTranslation();
   const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
 
@@ -49,7 +50,7 @@ export function StatisticsCard() {
   if (isError || !stats) {
     return (
       <View style={[styles.card, styles.cardStatic]}>
-        <Text variant="muted">{t("profile.errorLoadStats")}</Text>
+        <PageError message={t("profile.errorLoadStats")} onRetry={() => refetch()} />
       </View>
     );
   }

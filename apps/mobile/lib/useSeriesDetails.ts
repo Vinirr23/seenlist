@@ -20,6 +20,7 @@ export function useSeriesDetails(seriesId: string) {
   const [series, setSeries] = useState<SeriesDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,9 +42,11 @@ export function useSeriesDetails(seriesId: string) {
     return () => {
       cancelled = true;
     };
-  }, [seriesId]);
+  }, [seriesId, reloadToken]);
 
-  return { series, isLoading, isError };
+  const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  return { series, isLoading, isError, refetch };
 }
 
 export function useWatchedEpisodes(seriesId: number) {

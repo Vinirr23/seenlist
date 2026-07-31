@@ -2,6 +2,7 @@ import { ScrollView, View, StyleSheet } from "react-native";
 import type { ProfileStats } from "@/lib/profileStats";
 import { formatWatchDuration } from "@/lib/profileStats";
 import { StatCard } from "./StatCard";
+import { PageError } from "../media/PageError";
 import { Text } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
@@ -13,6 +14,7 @@ export interface StatsCarouselProps {
   isError: boolean;
   /** Perfil próprio mostra "suas estatísticas"; perfil público mostra "as estatísticas deste perfil". */
   ownerLabel?: "own" | "other";
+  onRetry?: () => void;
 }
 
 /**
@@ -21,7 +23,7 @@ export interface StatsCarouselProps {
  * pelo Perfil próprio quanto pelo Perfil Público, sem duplicar o
  * carrossel inteiro — mesma decisão do web.
  */
-export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own" }: StatsCarouselProps) {
+export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own", onRetry }: StatsCarouselProps) {
   const { t, locale } = useTranslation();
   const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
 
@@ -46,9 +48,7 @@ export function StatsCarousel({ stats, isLoading, isError, ownerLabel = "own" }:
         <Text variant="title" style={styles.sectionTitle}>
           {t("profile.statistics")}
         </Text>
-        <Text variant="muted">
-          {ownerLabel === "own" ? t("profile.errorLoadStats") : t("profile.errorLoadStatsOther")}
-        </Text>
+        <PageError message={ownerLabel === "own" ? t("profile.errorLoadStats") : t("profile.errorLoadStatsOther")} onRetry={onRetry} />
       </View>
     );
   }

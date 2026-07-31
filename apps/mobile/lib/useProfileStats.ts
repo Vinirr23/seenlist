@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchLibraryItems } from "@/lib/library";
 import { fetchPublicLibraryItems } from "@/lib/publicProfile";
 import { computeProfileStats, type ProfileStats } from "./profileStats";
@@ -7,9 +7,12 @@ export function useProfileStats() {
   const [stats, setStats] = useState<ProfileStats | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setIsLoading(true);
+    setIsError(false);
     fetchLibraryItems()
       .then((items) => {
         if (!cancelled) setStats(computeProfileStats(items));
@@ -24,19 +27,24 @@ export function useProfileStats() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadToken]);
 
-  return { stats, isLoading, isError };
+  const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  return { stats, isLoading, isError, refetch };
 }
 
 export function usePublicProfileStats(userId: string | null) {
   const [stats, setStats] = useState<ProfileStats | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
+    setIsLoading(true);
+    setIsError(false);
     fetchPublicLibraryItems(userId)
       .then((items) => {
         if (!cancelled) setStats(computeProfileStats(items));
@@ -51,7 +59,9 @@ export function usePublicProfileStats(userId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, reloadToken]);
 
-  return { stats, isLoading, isError };
+  const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  return { stats, isLoading, isError, refetch };
 }

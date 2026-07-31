@@ -15,6 +15,7 @@ export function usePublicProfile(username: string) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,9 +35,11 @@ export function usePublicProfile(username: string) {
     return () => {
       cancelled = true;
     };
-  }, [username]);
+  }, [username, reloadToken]);
 
-  return { profile, isLoading, isError };
+  const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  return { profile, isLoading, isError, refetch };
 }
 
 /**

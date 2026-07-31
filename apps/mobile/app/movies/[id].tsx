@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMovieDetails, useMovieStatus } from "@/lib/useMovieDetails";
 import { dismissRecommendation } from "@/lib/recommendations";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { MovieHeader } from "@/components/movie-detail/MovieHeader";
 import { MovieActions } from "@/components/movie-detail/MovieActions";
@@ -33,7 +34,7 @@ export default function MovieDetailScreen() {
   const [showRecommendationActions, setShowRecommendationActions] = useState(Boolean(recId));
   const [showMoreOptions, setShowMoreOptions] = useState(false);
 
-  const { movie, isLoading, isError } = useMovieDetails(movieId);
+  const { movie, isLoading, isError, refetch } = useMovieDetails(movieId);
   const { status, busy, changeStatus } = useMovieStatus(numericId);
 
   if (isLoading) {
@@ -47,7 +48,7 @@ export default function MovieDetailScreen() {
   if (isError || !movie) {
     return (
       <Screen>
-        <Text variant="muted">Não foi possível carregar este filme agora.</Text>
+        <PageError message="Não foi possível carregar este filme agora." onRetry={() => refetch()} />
       </Screen>
     );
   }

@@ -5,6 +5,7 @@ import { useSeriesDetails, useWatchedEpisodes, useSeriesStatus, useIsFavorite, r
 import { dismissRecommendation } from "@/lib/recommendations";
 import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { SeriesHeader } from "@/components/series-detail/SeriesHeader";
 import { SeriesQuickActionsSheet } from "@/components/series-detail/SeriesQuickActionsSheet";
@@ -38,7 +39,7 @@ export default function SeriesDetailScreen() {
   const [showActions, setShowActions] = useState(false);
   const [showRecommendationActions, setShowRecommendationActions] = useState(Boolean(recId));
 
-  const { series, isLoading, isError } = useSeriesDetails(seriesId);
+  const { series, isLoading, isError, refetch } = useSeriesDetails(seriesId);
   const { watched, busy: episodesBusy, toggle, markMany, unmarkSeason, rewatch } = useWatchedEpisodes(numericId);
   const { status, changeStatus } = useSeriesStatus(numericId);
   const { isFavorite, toggle: toggleFavorite } = useIsFavorite(numericId);
@@ -80,7 +81,7 @@ export default function SeriesDetailScreen() {
   if (isError || !series) {
     return (
       <Screen>
-        <Text variant="muted">Não foi possível carregar esta série agora.</Text>
+        <PageError message="Não foi possível carregar esta série agora." onRetry={() => refetch()} />
       </Screen>
     );
   }

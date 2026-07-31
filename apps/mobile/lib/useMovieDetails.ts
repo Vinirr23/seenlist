@@ -6,6 +6,7 @@ export function useMovieDetails(movieId: string) {
   const [movie, setMovie] = useState<MovieDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,9 +28,11 @@ export function useMovieDetails(movieId: string) {
     return () => {
       cancelled = true;
     };
-  }, [movieId]);
+  }, [movieId, reloadToken]);
 
-  return { movie, isLoading, isError };
+  const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  return { movie, isLoading, isError, refetch };
 }
 
 export function useMovieStatus(movieId: number) {

@@ -11,6 +11,7 @@ import { useEpisodeCommentCount } from "@/lib/social/useEpisodeComments";
 import { getAnimeCharacters } from "@/lib/animeCharacters";
 import { tmdbImageUrl } from "@/lib/library";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { EpisodeWatchedButton } from "@/components/series-detail/EpisodeWatchedButton";
 import { EpisodeStarRatingRow } from "@/components/episode/EpisodeStarRatingRow";
@@ -67,6 +68,7 @@ export default function EpisodeDetailScreen() {
   const [data, setData] = useState<EpisodePageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [seriesDetails, setSeriesDetails] = useState<SeriesDetails | null>(null);
   const [animeCharacters, setAnimeCharacters] = useState<FavoriteCharacterOption[]>([]);
@@ -142,7 +144,7 @@ export default function EpisodeDetailScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seriesIdStr, seasonNumber, episodeNumber]);
+  }, [seriesIdStr, seasonNumber, episodeNumber, reloadToken]);
 
   const { previous, next } = useMemo(() => findAdjacentEpisodes(seriesDetails?.seasons, seasonNumber, episodeNumber), [seriesDetails?.seasons, seasonNumber, episodeNumber]);
 
@@ -265,7 +267,7 @@ export default function EpisodeDetailScreen() {
   if (isError || !data) {
     return (
       <Screen>
-        <Text variant="muted">Não foi possível carregar este episódio agora.</Text>
+        <PageError message="Não foi possível carregar este episódio agora." onRetry={() => setReloadToken((n) => n + 1)} />
       </Screen>
     );
   }
