@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
+import { STALE_TIME_PROFILE } from "@/lib/queryStaleTimes";
 
 export interface CurrentUser {
   id: string;
@@ -55,5 +56,6 @@ export function useCurrentUser() {
   return useQuery({
     queryKey: ["current-user"],
     queryFn: fetchCurrentUser,
+    staleTime: STALE_TIME_PROFILE,
   });
 }

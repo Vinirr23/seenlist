@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { MovieWatchStatus } from "@seenlist/types";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
+import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 
 export function movieStatusQueryKey(movieId: number) {
   return ["movie-status", movieId] as const;
@@ -29,5 +30,6 @@ export function useMovieStatus(movieId: number) {
   return useQuery({
     queryKey: movieStatusQueryKey(movieId),
     queryFn: () => fetchMovieStatus(movieId),
+    staleTime: STALE_TIME_LIBRARY,
   });
 }

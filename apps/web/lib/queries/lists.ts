@@ -3,6 +3,7 @@ import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { fetchDisplaySummaries } from "./library-state";
+import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 
 export interface UserList {
   id: string;
@@ -39,6 +40,7 @@ export function useMyLists() {
 
       return (data ?? []).map((row) => ({ id: row.id, name: row.name, createdAt: row.created_at }));
     },
+    staleTime: STALE_TIME_LIBRARY,
   });
 }
 
@@ -147,6 +149,7 @@ export function useListItems(listId: string | null) {
         };
       });
     },
+    staleTime: STALE_TIME_LIBRARY,
   });
 }
 
@@ -264,5 +267,6 @@ export function useMyListsWithPreview() {
         };
       });
     },
+    staleTime: STALE_TIME_LIBRARY,
   });
 }

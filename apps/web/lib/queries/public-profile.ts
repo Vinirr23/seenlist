@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import type { UserProfile, ProfileVisibility } from "./social-types";
+import { STALE_TIME_PROFILE } from "@/lib/queryStaleTimes";
 
 interface ProfileRow {
   user_id: string;
@@ -61,6 +62,7 @@ export function usePublicProfile(username: string | null) {
       return data ? fromRow(data as ProfileRow) : null;
     },
     enabled: Boolean(username),
+    staleTime: STALE_TIME_PROFILE,
   });
 }
 
@@ -79,5 +81,6 @@ export function useFollowCounts(userId: string | null) {
       return { followers: followers.count ?? 0, following: following.count ?? 0 };
     },
     enabled: Boolean(userId),
+    staleTime: STALE_TIME_PROFILE,
   });
 }

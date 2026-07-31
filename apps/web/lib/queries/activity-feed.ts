@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { fetchDisplaySummaries } from "./library-state";
+import { STALE_TIME_FEED } from "@/lib/queryStaleTimes";
 
 export interface ActivityItem {
   id: string;
@@ -159,5 +160,6 @@ export function useActivityFeed() {
 
       return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 40);
     },
+    staleTime: STALE_TIME_FEED,
   });
 }

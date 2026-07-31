@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
+import { STALE_TIME_PROFILE } from "@/lib/queryStaleTimes";
 
 export interface NotificationPreferences {
   episodeNew: boolean;
@@ -58,6 +59,7 @@ export function useNotificationPreferences() {
         reviewLike: data.review_like,
       };
     },
+    staleTime: STALE_TIME_PROFILE,
   });
 }
 

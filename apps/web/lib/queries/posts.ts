@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
+import { STALE_TIME_FEED } from "@/lib/queryStaleTimes";
 
 export type PostType = "text" | "image" | "review" | "poll";
 
@@ -115,6 +116,7 @@ export function usePosts() {
         })
         .filter((post): post is Post => post !== null);
     },
+    staleTime: STALE_TIME_FEED,
   });
 }
 

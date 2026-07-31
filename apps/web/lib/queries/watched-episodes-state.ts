@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
+import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 
 export type WatchedEpisodeKey = `${number}-${number}`; // `${seasonNumber}-${episodeNumber}`
 
@@ -42,6 +43,7 @@ export function useWatchedEpisodes(seriesId: number) {
   return useQuery({
     queryKey: watchedEpisodesQueryKey(seriesId),
     queryFn: () => fetchWatchedEpisodes(seriesId),
+    staleTime: STALE_TIME_LIBRARY,
   });
 }
 
@@ -87,5 +89,6 @@ export function useMostRecentWatchedEpisode(seriesId: number) {
   return useQuery({
     queryKey: ["watched-episodes", seriesId, "most-recent"],
     queryFn: () => fetchMostRecentWatchedEpisode(seriesId),
+    staleTime: STALE_TIME_LIBRARY,
   });
 }

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 
 export interface WatchedByStats {
   count: number;
@@ -44,5 +45,6 @@ export function useWatchedByStats(mediaType: "movie" | "series", mediaId: number
 
       return { count: count ?? 0, avatars };
     },
+    staleTime: STALE_TIME_LIBRARY,
   });
 }

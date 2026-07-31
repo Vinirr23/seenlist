@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { fetchAllWatchedEpisodeRows } from "./library-state";
+import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 
 export interface ProfileSectionCounts {
   lists: number;
@@ -103,5 +104,6 @@ export function useProfileSectionCounts(userId: string | null) {
       };
     },
     enabled: Boolean(userId),
+    staleTime: STALE_TIME_LIBRARY,
   });
 }

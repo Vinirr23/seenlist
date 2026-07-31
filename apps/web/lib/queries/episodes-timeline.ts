@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
+import { STALE_TIME_PROFILE } from "@/lib/queryStaleTimes";
 
 export interface WeekBucket {
   /** Segunda-feira da semana, formato yyyy-mm-dd — só pra ordenar/rotular. */
@@ -94,5 +95,6 @@ export function useEpisodesTimeline() {
 
       return { weeks, averagePerWeek, biggestBingeDay };
     },
+    staleTime: STALE_TIME_PROFILE,
   });
 }

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { LibraryStatus } from "@seenlist/types";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
+import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 
 export function seriesStatusQueryKey(seriesId: number) {
   return ["series-status", seriesId] as const;
@@ -44,5 +45,6 @@ export function useSeriesStatus(seriesId: number) {
   return useQuery({
     queryKey: seriesStatusQueryKey(seriesId),
     queryFn: () => fetchSeriesStatus(seriesId),
+    staleTime: STALE_TIME_LIBRARY,
   });
 }

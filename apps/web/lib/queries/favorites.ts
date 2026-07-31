@@ -4,6 +4,7 @@ import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { hapticTick } from "@/lib/haptics";
+import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 
 interface FavoriteRow {
   media_type: MediaType;
@@ -73,6 +74,7 @@ export function usePublicFavorites(userId: string | null) {
       return [...movieItems, ...seriesItems];
     },
     enabled: Boolean(userId),
+    staleTime: STALE_TIME_LIBRARY,
   });
 }
 
@@ -99,6 +101,7 @@ export function useIsFavorite(mediaType: MediaType, mediaId: number) {
       }
       return Boolean(data);
     },
+    staleTime: STALE_TIME_LIBRARY,
   });
 }
 

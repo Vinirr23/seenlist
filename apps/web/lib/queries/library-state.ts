@@ -3,6 +3,7 @@ import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import type { MediaSummary } from "@/lib/tmdb/client";
 import { useRealtimeInvalidate } from "@/lib/supabase/useRealtimeInvalidate";
+import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 
 export const LIBRARY_QUERY_KEY = ["library"] as const;
 const LIBRARY_REALTIME_TABLES = ["movie_status", "series_status", "watched_episodes"] as const;
@@ -367,6 +368,7 @@ export function useLibraryItems() {
   return useQuery({
     queryKey: LIBRARY_QUERY_KEY,
     queryFn: fetchLibraryItems,
+    staleTime: STALE_TIME_LIBRARY,
   });
 }
 

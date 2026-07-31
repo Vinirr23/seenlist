@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import type { UserProfile, ProfileVisibility } from "./social-types";
+import { STALE_TIME_PROFILE } from "@/lib/queryStaleTimes";
 
 interface ProfileRow {
   user_id: string;
@@ -62,7 +63,7 @@ async function fetchMyProfile(): Promise<UserProfile | null> {
 }
 
 export function useMyProfile() {
-  return useQuery({ queryKey: MY_PROFILE_QUERY_KEY, queryFn: fetchMyProfile });
+  return useQuery({ queryKey: MY_PROFILE_QUERY_KEY, queryFn: fetchMyProfile, staleTime: STALE_TIME_PROFILE });
 }
 
 export interface UpdateProfileInput {
