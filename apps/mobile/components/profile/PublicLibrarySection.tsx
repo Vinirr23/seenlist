@@ -6,10 +6,11 @@ import { usePublicLibraryItems } from "@/lib/usePublicProfile";
 import { SERIES_CATEGORIES } from "@/lib/seriesCategories";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { spacing } from "@/lib/theme";
 
 export function PublicLibrarySection({ userId }: { userId: string }) {
-  const { items, isLoading, isError } = usePublicLibraryItems(userId);
+  const { items, isLoading, isError, refetch } = usePublicLibraryItems(userId);
   const router = useRouter();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -29,11 +30,7 @@ export function PublicLibrarySection({ userId }: { userId: string }) {
 
   if (isLoading) return null;
   if (isError) {
-    return (
-      <Text variant="muted" style={styles.message}>
-        Não foi possível carregar a biblioteca agora.
-      </Text>
-    );
+    return <PageError message="Não foi possível carregar a biblioteca agora." onRetry={() => refetch()} />;
   }
   if (nonEmptyCategories.length === 0 && watchedMovies.length === 0) {
     return (

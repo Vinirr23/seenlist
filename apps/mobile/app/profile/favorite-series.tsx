@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePublicFavorites } from "@/lib/usePublicProfile";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
@@ -17,7 +18,7 @@ import { colors, spacing } from "@/lib/theme";
 export default function FavoriteSeriesScreen() {
   const router = useRouter();
   const { session } = useAuth();
-  const { items, isLoading } = usePublicFavorites(session?.user.id ?? "");
+  const { items, isLoading, isError, refetch } = usePublicFavorites(session?.user.id ?? "");
   const { viewMode, setViewMode } = useViewModePreference("profile-favorite-series");
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -42,6 +43,8 @@ export default function FavoriteSeriesScreen() {
 
         {isLoading ? (
           viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
+        ) : isError ? (
+          <PageError message="Não foi possível carregar seus favoritos agora." onRetry={() => refetch()} />
         ) : series.length === 0 ? (
           <Text variant="muted">Você ainda não favoritou nenhuma série.</Text>
         ) : viewMode === "grid" ? (

@@ -152,7 +152,7 @@ function usePublicItems(fetcher: (userId: string) => Promise<LibraryItem[]>, use
     }, [userId])
   );
 
-  return { items, isLoading, isError };
+  return { items, isLoading, isError, refetch: load };
 }
 
 export function usePublicFavorites(userId: string) {

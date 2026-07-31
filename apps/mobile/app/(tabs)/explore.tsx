@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { SearchBar } from "@/components/explore/SearchBar";
 import { SearchResults } from "@/components/explore/SearchResults";
@@ -72,7 +73,7 @@ export default function ExploreScreen() {
 
 function ActivityTabContent() {
   const tabBarClearance = useTabBarClearance();
-  const { items, isLoading, isError } = useActivityFeed();
+  const { items, isLoading, isError, refetch } = useActivityFeed();
   const { t } = useTranslation();
 
   if (isLoading) {
@@ -85,9 +86,7 @@ function ActivityTabContent() {
   if (isError) {
     return (
       <View style={styles.emptyActivity}>
-        <Text variant="muted" style={styles.emptyActivityText}>
-          {t("explore.errorLoadActivity")}
-        </Text>
+        <PageError message={t("explore.errorLoadActivity")} onRetry={() => refetch()} />
       </View>
     );
   }

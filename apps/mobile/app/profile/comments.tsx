@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchMyComments, deleteMyComment, type MyComment } from "@/lib/myComments";
 import { tmdbImageUrl } from "@/lib/library";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -77,7 +78,7 @@ export default function MyCommentsScreen() {
         {isLoading ? (
           <AvatarRowSkeleton />
         ) : isError ? (
-          <Text variant="muted">Não foi possível carregar seus comentários agora.</Text>
+          <PageError message="Não foi possível carregar seus comentários agora." onRetry={load} />
         ) : !comments || comments.length === 0 ? (
           <Text variant="muted">Você ainda não fez nenhum comentário.</Text>
         ) : (

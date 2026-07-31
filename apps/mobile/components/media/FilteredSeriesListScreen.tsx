@@ -8,6 +8,7 @@ import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "./PosterGrid";
 import { LibraryGridSkeleton } from "./LibraryGridSkeleton";
 import { EmptyShelf } from "./EmptyShelf";
+import { PageError } from "./PageError";
 import { colors, spacing } from "@/lib/theme";
 
 export function FilteredSeriesListScreen({
@@ -45,7 +46,7 @@ export function FilteredSeriesListScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
       >
         {isError ? (
-          <EmptyShelf message="Não foi possível carregar sua lista agora. Tente de novo em instantes." />
+          <PageError message="Não foi possível carregar sua lista agora. Tente de novo em instantes." onRetry={() => refetch()} />
         ) : isLoading ? (
           <LibraryGridSkeleton />
         ) : filtered.length === 0 ? (

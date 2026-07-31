@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useMyLists } from "@/lib/useMyLists";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -16,7 +17,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  */
 export default function ListsScreen() {
   const router = useRouter();
-  const { lists, isLoading, isError, creating, create } = useMyLists();
+  const { lists, isLoading, isError, creating, create, refetch } = useMyLists();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
 
@@ -65,9 +66,7 @@ export default function ListsScreen() {
           {isLoading ? (
             <AvatarRowSkeleton />
           ) : isError ? (
-            <Text variant="muted" style={styles.centerText}>
-              Não foi possível carregar suas listas agora.
-            </Text>
+            <PageError message="Não foi possível carregar suas listas agora." onRetry={() => refetch()} />
           ) : !lists || lists.length === 0 ? (
             <Text variant="muted" style={styles.centerText}>
               Você ainda não criou nenhuma lista.

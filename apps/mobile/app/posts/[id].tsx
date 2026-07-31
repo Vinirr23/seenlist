@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { usePost } from "@/lib/usePost";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { PostCard } from "@/components/feed/PostCard";
 import { colors, spacing } from "@/lib/theme";
@@ -17,7 +18,7 @@ export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const postId = String(id);
 
-  const { post, isLoading, isError } = usePost(postId);
+  const { post, isLoading, isError, refetch } = usePost(postId);
 
   return (
     <Screen padded={false} bottomInset>
@@ -33,7 +34,7 @@ export default function PostDetailScreen() {
           {isLoading ? (
             <PostCardSkeleton count={1} />
           ) : isError ? (
-            <Text variant="muted">Não foi possível carregar este post.</Text>
+            <PageError message="Não foi possível carregar este post." onRetry={() => refetch()} />
           ) : !post ? (
             <Text variant="muted">Este post não existe mais.</Text>
           ) : (

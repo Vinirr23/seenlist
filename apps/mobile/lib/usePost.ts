@@ -7,9 +7,12 @@ export function usePost(postId: string) {
   const [post, setPost] = useState<Post | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setIsLoading(true);
+    setIsError(false);
     fetchPost(postId)
       .then((data) => {
         if (!cancelled) setPost(data);
@@ -24,9 +27,11 @@ export function usePost(postId: string) {
     return () => {
       cancelled = true;
     };
-  }, [postId]);
+  }, [postId, reloadToken]);
 
-  return { post, isLoading, isError };
+  const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  return { post, isLoading, isError, refetch };
 }
 
 export function usePostComments(postId: string) {

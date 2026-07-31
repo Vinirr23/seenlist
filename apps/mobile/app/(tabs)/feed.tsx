@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { usePosts } from "@/lib/usePosts";
 import { PostCard } from "@/components/feed/PostCard";
@@ -57,9 +58,7 @@ export default function FeedScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
       >
         {isError ? (
-          <Text variant="muted" style={styles.centerText}>
-            {t("feed.errorLoadFeed")}
-          </Text>
+          <PageError message={t("feed.errorLoadFeed")} onRetry={() => refetch()} />
         ) : isLoading ? (
           <PostCardSkeleton />
         ) : !posts || posts.length === 0 ? (

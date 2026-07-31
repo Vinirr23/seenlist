@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useUserSearch } from "@/lib/useUserSearch";
 import { Screen, Text } from "@/components/ui";
+import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowListRow } from "@/components/profile/FollowListRow";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
@@ -16,7 +17,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 export default function DiscoverPeopleScreen() {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const { users, isLoading, isError } = useUserSearch(search);
+  const { users, isLoading, isError, refetch } = useUserSearch(search);
 
   return (
     <Screen padded={false}>
@@ -50,9 +51,7 @@ export default function DiscoverPeopleScreen() {
       {isLoading ? (
         <AvatarRowSkeleton />
       ) : isError ? (
-        <Text variant="muted" style={styles.centerText}>
-          Não foi possível carregar agora.
-        </Text>
+        <PageError message="Não foi possível carregar agora." onRetry={() => refetch()} />
       ) : !users || users.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
           Nenhum resultado pra essa busca.

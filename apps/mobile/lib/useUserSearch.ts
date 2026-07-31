@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDebouncedValue } from "@seenlist/hooks";
 import { fetchUserSearch } from "./userSearch";
 import type { FollowListUser } from "./followList";
@@ -7,6 +7,7 @@ export function useUserSearch(query: string) {
   const [users, setUsers] = useState<FollowListUser[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const debouncedQuery = useDebouncedValue(query, 300);
 
   useEffect(() => {
@@ -29,7 +30,9 @@ export function useUserSearch(query: string) {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery]);
+  }, [debouncedQuery, reloadToken]);
 
-  return { users, isLoading, isError };
+  const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  return { users, isLoading, isError, refetch };
 }
