@@ -17,7 +17,7 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
  * chamar de "client centralizado" e evita duplicar a lógica de
  * montar URL/api_key/idioma em cada função.
  */
-async function tmdbGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+async function tmdbGet<T>(path: string, params: Record<string, string> = {}, revalidateSeconds = 300): Promise<T> {
   const url = new URL(`${TMDB_BASE_URL}${path}`);
   url.searchParams.set("api_key", env.tmdbApiKey());
   url.searchParams.set("language", "pt-BR");
@@ -26,8 +26,10 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}): Pr
   const response = await fetch(url, {
     // TMDB muda pouco de um minuto pro outro — 5 min de cache no
     // fetch do Next complementa (não substitui) o cache de 5 min do
-    // React Query no client.
-    next: { revalidate: 300 },
+    // React Query no client. Alguns dados (gênero, por exemplo) quase
+    // NUNCA mudam — essas chamadas passam um `revalidateSeconds` bem
+    // maior (ver `getGenreMap`), em vez de tratar tudo igual.
+    next: { revalidate: revalidateSeconds },
   });
 
   if (!response.ok) {
@@ -755,11 +757,12 @@ interface TmdbGenreListResponse {
   genres: { id: number; name: string }[];
 }
 
-/** Mapa id→nome de gênero, série + filme juntos (os ids não colidem entre os dois na prática do TMDB). Uma chamada só, cacheada pelo mesmo `next.revalidate` de `tmdbGet`. */
+/** Mapa id→nome de gênero, série + filme juntos (os ids não colidem entre os dois na prática do TMDB). Uma chamada só. Cache de 24h, bem maior que o padrão de 5min — lista de gêneros do TMDB praticamente nunca muda. */
 export async function getGenreMap(): Promise<Record<number, string>> {
+  const ONE_DAY_SECONDS = 24 * 60 * 60;
   const [movieGenres, tvGenres] = await Promise.all([
-    tmdbGet<TmdbGenreListResponse>("/genre/movie/list"),
-    tmdbGet<TmdbGenreListResponse>("/genre/tv/list"),
+    tmdbGet<TmdbGenreListResponse>("/genre/movie/list", {}, ONE_DAY_SECONDS),
+    tmdbGet<TmdbGenreListResponse>("/genre/tv/list", {}, ONE_DAY_SECONDS),
   ]);
   const map: Record<number, string> = {};
   for (const g of [...movieGenres.genres, ...tvGenres.genres]) map[g.id] = g.name;

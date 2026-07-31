@@ -12,7 +12,19 @@ import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useDialogAnimation } from "@/lib/useDialogAnimation";
 import { cn } from "@seenlist/utils";
-import { RecommendSheet } from "../social/RecommendSheet";
+import dynamic from "next/dynamic";
+/**
+ * AUDITORIA (perf) — `RecommendSheet` só aparece quando alguém toca
+ * em "Recomendar pra alguém" dentro deste menu — a maioria de quem
+ * abre o menu de ações rápidas nunca chega a abrir isso. Trocado pra
+ * `dynamic()`: o JS desse componente (e o que ele importa junto,
+ * como a lista de "quem eu sigo") só é baixado na hora que
+ * `showRecommend` vira `true`, não no carregamento inicial da
+ * página de série.
+ */
+const RecommendSheet = dynamic(() => import("../social/RecommendSheet").then((mod) => mod.RecommendSheet), {
+  ssr: false,
+});
 
 export interface SeriesQuickActionsSheetProps {
   seriesId: number;

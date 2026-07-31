@@ -9,7 +9,18 @@ import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useDialogAnimation } from "@/lib/useDialogAnimation";
 import { cn } from "@seenlist/utils";
-import { RecommendSheet } from "../social/RecommendSheet";
+import dynamic from "next/dynamic";
+
+/**
+ * AUDITORIA (perf) — mesma correção de `SeriesQuickActionsSheet.tsx`:
+ * `RecommendSheet` só é usado quando alguém toca em "Recomendar pra
+ * alguém" — a maioria não chega a abrir. `dynamic()` faz o JS desse
+ * componente ser baixado só na hora, não no carregamento da página
+ * do filme.
+ */
+const RecommendSheet = dynamic(() => import("../social/RecommendSheet").then((mod) => mod.RecommendSheet), {
+  ssr: false,
+});
 
 export interface MovieQuickActionsSheetProps {
   movieId: number;

@@ -4,11 +4,21 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@seenlist/utils";
+import dynamic from "next/dynamic";
 import { StatsSeriesTab } from "./StatsSeriesTab";
-import { StatsMoviesTab } from "./StatsMoviesTab";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 type StatsTab = "series" | "movies";
+
+/**
+ * AUDITORIA (perf) — só `StatsMoviesTab` virou `dynamic()`: a aba
+ * "series" é a que abre por padrão, então precisa estar pronta pro
+ * primeiro render — deixar ela `dynamic()` também só atrasaria a
+ * abertura da tela (um "flash" vazio enquanto baixa o JS) sem
+ * economizar nada, já que ela SEMPRE é usada de cara. Já
+ * `StatsMoviesTab` só baixa quando a pessoa de fato troca de aba.
+ */
+const StatsMoviesTab = dynamic(() => import("./StatsMoviesTab").then((mod) => mod.StatsMoviesTab), { ssr: false });
 
 /**
  * TASK-054 — tela dedicada de estatísticas, header simples + abas
