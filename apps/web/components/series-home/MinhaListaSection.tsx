@@ -81,7 +81,30 @@ export function MinhaListaSection() {
     () =>
       series
         .filter((item) => item.status === "watching" || item.status === "up_to_date")
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        /*
+         * CORREÇÃO (bug real, reportado — Tanya the Evil, Daemons do
+         * Reino das Sombras e Rick and Morty sumindo só no modo
+         * lista) — antes ordenava tudo junto por `updatedAt`, sem
+         * diferenciar "watching" (tem episódio pronto pra assistir
+         * AGORA) de "up_to_date" (pode não ter nada pendente, só
+         * está aqui pra eventualmente voltar a mostrar o selo NOVO).
+         * Ao ampliar o filtro pra incluir "up_to_date", o corte de
+         * `CONTINUE_ASSISTINDO_LIMIT` passou a ter mais candidatos
+         * disputando as mesmas vagas — uma série "up_to_date"
+         * mexida recentemente conseguia empurrar pra fora do top-8
+         * uma série "watching" de verdade, mesmo essa tendo algo
+         * pendente pra assistir agora (e cabendo tranquilamente no
+         * modo grade, que não tem esse concorrente extra). Ordenação
+         * em duas camadas: primeiro por status (watching sempre
+         * antes de up_to_date), dentro de cada grupo por
+         * `updatedAt`. Uma série com episódio pendente de verdade
+         * nunca perde vaga pra uma que talvez nem tenha nada pra
+         * mostrar.
+         */
+        .sort((a, b) => {
+          if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
+          return b.updatedAt.localeCompare(a.updatedAt);
+        })
         .slice(0, CONTINUE_ASSISTINDO_LIMIT),
     [series]
   );
