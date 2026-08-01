@@ -465,16 +465,34 @@ const WATCH_PROVIDERS_REGION = "BR";
  * " Standard with Ads") e manter só a entrada de nome mais curto de
  * cada grupo. Exige ESPAÇO logo depois do prefixo (não só qualquer
  * caractere) — sem isso, "Apple TV+" seria tratado como variante de
- * "Apple TV", quando na verdade são dois serviços genuinamente
- * diferentes (loja de compra/aluguel vs. assinatura).
+ * "Apple TV" (só que "Apple TV", sem "+", nem costuma aparecer na
+ * lista de assinatura — normalmente é só compra/aluguel avulso,
+ * outra categoria do TMDB que a gente nem lê).
+ *
+ * CORREÇÃO 2 (bug real, reportado — Paramount+ continuou duplicado)
+ * — achado com a comparação acima sozinha: o TMDB escreve o MESMO
+ * serviço de duas formas diferentes dependendo da variante —
+ * "Paramount Plus" (nome por extenso) vs "Paramount+ Amazon
+ * Channel" (com o símbolo). Nenhuma das duas é prefixo literal da
+ * outra ("Paramount Plus" ≠ início de "Paramount+..."), por isso
+ * passou despercebido antes. Normaliza "+" pra " plus" antes de
+ * comparar — assim as dias formas viram a mesma base ("paramount
+ * plus"), sem precisar de uma lista de marcas conhecidas.
  */
+function normalizeProviderName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\+/g, " plus")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function dedupeWatchProviders<T extends { name: string }>(providers: T[]): T[] {
   const sorted = [...providers].sort((a, b) => a.name.length - b.name.length);
   const kept: T[] = [];
   for (const provider of sorted) {
-    const isVariantOfKept = kept.some((existing) =>
-      provider.name.toLowerCase().startsWith(`${existing.name.toLowerCase()} `)
-    );
+    const normalized = normalizeProviderName(provider.name);
+    const isVariantOfKept = kept.some((existing) => normalized.startsWith(`${normalizeProviderName(existing.name)} `));
     if (!isVariantOfKept) kept.push(provider);
   }
   // Devolve na ordem original do TMDB (só filtrada), não na ordem por tamanho usada pra comparar.
