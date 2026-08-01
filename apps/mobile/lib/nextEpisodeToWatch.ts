@@ -3,7 +3,6 @@ import { fetchLiveEpisodesBySeriesId } from "@/lib/seriesDetails";
 import { computeBadge, type UpcomingBadge } from "@/lib/upcomingEpisodes";
 import { todayLocalKey } from "@/lib/localDate";
 
-const SITE_URL = "https://seenlist.app";
 const WATCHED_KEYS_PAGE_SIZE = 1000;
 
 export interface NextEpisodeToWatch {
@@ -58,25 +57,19 @@ async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: numb
   return bySeriesId;
 }
 
-async function fetchEpisodeName(seriesId: number, seasonNumber: number, episodeNumber: number): Promise<string> {
-  try {
-    const response = await fetch(`${SITE_URL}/api/tmdb/episode/${seriesId}/${seasonNumber}/${episodeNumber}`);
-    if (!response.ok) return `Episódio ${episodeNumber}`;
-    const data = (await response.json()) as { episode: { name: string } };
-    return data.episode?.name ?? `Episódio ${episodeNumber}`;
-  } catch {
-    return `Episódio ${episodeNumber}`;
-  }
-}
-
 /**
  * TASK-145 (a pedido — card de "Continue assistindo" em modo lista)
  * — pra cada série "Assistindo", acha o episódio pendente mais
  * antigo (já foi ao ar, ainda não foi marcado) e conta quantos
  * outros também estão pendentes (`additionalPendingCount`, o "+N"
- * do card). Só busca nome do episódio pras séries realmente
- * visíveis na tela (a lista já vem limitada por quem chama) — não é
- * uma função pra rodar com a biblioteca inteira de uma vez.
+ * do card).
+ *
+ * AUDITORIA (perf, a pedido) — antes fazia uma chamada de rede A
+ * MAIS por série só pra pegar o nome do episódio
+ * (`/api/tmdb/episode/{...}`), depois de já ter buscado os
+ * episódios em lote. A rota de lote já devolve o nome de cada
+ * episódio (mesmo dado, mesma resposta) — sem motivo pra buscar de
+ * novo, um por um. Eliminado.
  */
 export async function fetchNextEpisodesToWatch(seriesIds: number[]): Promise<Map<number, NextEpisodeToWatch>> {
   const result = new Map<number, NextEpisodeToWatch>();
@@ -93,7 +86,7 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[]): Promise<Map
   ]);
 
   const today = todayLocalKey();
-  const pendingBySeriesId = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>();
+  const pendingBySeriesId = new Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[]>();
 
   for (const seriesId of seriesIds) {
     const liveEpisodes = liveEpisodesBySeriesId.get(seriesId) ?? [];
@@ -117,33 +110,30 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[]): Promise<Map
       .filter((e) => e.airDate === null || e.airDate <= today)
       .filter((e) => !watchedKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
       .sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)
-      .map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, airDate: e.airDate }));
+      .map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, name: e.name, airDate: e.airDate }));
 
     if (pending.length > 0) pendingBySeriesId.set(seriesId, pending);
   }
 
-  await Promise.all(
-    [...pendingBySeriesId.entries()].map(async ([seriesId, pending]) => {
-      const next = pending[0];
-      if (!next) return;
-      const watchedKeys = watchedKeysBySeriesId.get(seriesId) ?? new Set<string>();
-      const badgeWatchedSet = new Set([...watchedKeys].map((key) => `${seriesId}-${key}`));
-      const name = await fetchEpisodeName(seriesId, next.seasonNumber, next.episodeNumber);
+  for (const [seriesId, pending] of pendingBySeriesId.entries()) {
+    const next = pending[0];
+    if (!next) continue;
+    const watchedKeys = watchedKeysBySeriesId.get(seriesId) ?? new Set<string>();
+    const badgeWatchedSet = new Set([...watchedKeys].map((key) => `${seriesId}-${key}`));
 
-      result.set(seriesId, {
-        seriesId,
-        seasonNumber: next.seasonNumber,
-        episodeNumber: next.episodeNumber,
-        name,
-        additionalPendingCount: pending.length - 1,
-        // Sem data conhecida = sem selo (NOVO/MAIS RECENTE/PREMIERE
-        // dependem de saber quando saiu) — mesmo padrão do web.
-        badge: next.airDate
-          ? computeBadge({ seriesId, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, airDate: next.airDate }, badgeWatchedSet)
-          : null,
-      });
-    })
-  );
+    result.set(seriesId, {
+      seriesId,
+      seasonNumber: next.seasonNumber,
+      episodeNumber: next.episodeNumber,
+      name: next.name,
+      additionalPendingCount: pending.length - 1,
+      // Sem data conhecida = sem selo (NOVO/MAIS RECENTE/PREMIERE
+      // dependem de saber quando saiu) — mesmo padrão do web.
+      badge: next.airDate
+        ? computeBadge({ seriesId, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, airDate: next.airDate }, badgeWatchedSet)
+        : null,
+    });
+  }
 
   return result;
 }
