@@ -86,8 +86,21 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
    * assistido ainda não tem data de exibição já passada, não mostra
    * o card aqui (a série continua listada normalmente em "Em breve"
    * enquanto isso).
+   *
+   * CORREÇÃO 2 (bug real, reportado — Tanya the Evil e Daemons do
+   * Reino das Sombras, os dois animes em exibição semanal) — o guard
+   * acima tratava "data de exibição desconhecida" (`airDate: null`)
+   * exatamente igual a "com certeza ainda não foi ao ar", escondendo
+   * o card. Na prática, o TMDB às vezes demora a preencher a data do
+   * episódio mais recente de um anime em exibição — o episódio já
+   * tinha saído de verdade (confirmado pelo usuário), só a `airDate`
+   * ainda não tinha chegado no TMDB. Resultado: episódio pendente de
+   * verdade sumia da lista (mas continuava aparecendo na grade, que
+   * não faz essa checagem — foi assim que o bug foi encontrado).
+   * Agora só esconde quando a data É CONHECIDA e está no futuro —
+   * `airDate: null` (desconhecida) não esconde mais.
    */
-  if (!hasEpisodeAired(next.episode.airDate)) return null;
+  if (next.episode.airDate && !hasEpisodeAired(next.episode.airDate)) return null;
 
   const { seasonNumber, episode } = next;
   const badge =

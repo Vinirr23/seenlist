@@ -69,9 +69,16 @@ async function fetchEndedBySeriesId(seriesIds: number[]): Promise<Map<number, bo
  * abre" do app nativo, adaptado pro web (sem conceito de "foco de
  * aba" persistente).
  *
- * Só mexe em séries que JÁ estão "up_to_date" — nunca em
- * "watching"/"want_to_watch"/"paused" (essas têm suas próprias regras,
- * em `recalculateSeriesCategoryAfterEpisodeChange`).
+ * ATUALIZAÇÃO (bug real, reportado — Tanya the Evil presa em
+ * "Assistindo") — ampliado pra bidirecional: antes só promovia
+ * "Em dia" → "Assistindo"/"Concluída"; séries "Assistindo" nunca
+ * eram reavaliadas pra baixo. Uma série que ficasse genuinamente em
+ * dia (assistiu tudo que já saiu, falta só o episódio que ainda vai
+ * sair) ficava presa em "Assistindo" pra sempre, a não ser que o
+ * usuário marcasse/desmarcasse algum episódio manualmente (o que
+ * dispara `recalculateSeriesCategoryAfterEpisodeChange`). Agora
+ * busca "up_to_date" E "watching" juntas, e a mesma lógica de
+ * decisão (`decideWatchingVsUpToDate`) resolve os dois sentidos.
  */
 export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   const supabase = createClient();
@@ -82,11 +89,12 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
 
   const { data: statusRows, error: statusError } = await supabase
     .from("series_status")
-    .select("series_id")
+    .select("series_id, status")
     .eq("user_id", user.id)
-    .eq("status", "up_to_date");
+    .in("status", ["up_to_date", "watching"]);
   if (statusError || !statusRows || statusRows.length === 0) return;
 
+  const currentStatusBySeriesId = new Map(statusRows.map((row) => [row.series_id as number, row.status as "up_to_date" | "watching"]));
   const seriesIds = statusRows.map((row) => row.series_id as number);
 
   let watchedCountBySeriesId: Map<number, number>;
@@ -112,7 +120,7 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     return;
   }
 
-  const updates: { user_id: string; series_id: number; status: "watching" | "completed"; updated_at: string }[] = [];
+  const updates: { user_id: string; series_id: number; status: "watching" | "up_to_date" | "completed"; updated_at: string }[] = [];
   for (const seriesId of seriesIds) {
     const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
     if (liveEpisodes.length === 0) continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
@@ -122,7 +130,7 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     const allEpisodesWatched = watched >= liveEpisodes.length;
     const newCategory = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes).category;
 
-    if (newCategory !== "up_to_date") {
+    if (newCategory !== currentStatusBySeriesId.get(seriesId)) {
       updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
     }
   }

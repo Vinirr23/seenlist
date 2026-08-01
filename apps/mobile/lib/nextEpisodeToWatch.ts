@@ -93,17 +93,31 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[]): Promise<Map
   ]);
 
   const today = todayLocalKey();
-  const pendingBySeriesId = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string }[]>();
+  const pendingBySeriesId = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>();
 
   for (const seriesId of seriesIds) {
     const liveEpisodes = liveEpisodesBySeriesId.get(seriesId) ?? [];
     const watchedKeys = watchedKeysBySeriesId.get(seriesId) ?? new Set<string>();
 
+    /**
+     * CORREÇÃO (bug real, reportado — Tanya the Evil e Daemons do
+     * Reino das Sombras, animes em exibição semanal) — antes,
+     * `e.airDate !== null` excluía de vez qualquer episódio sem data
+     * de exibição conhecida, mesmo que já tivesse ido ao ar de
+     * verdade. O TMDB às vezes demora a preencher a data do episódio
+     * mais recente de um anime em exibição — o episódio existia,
+     * estava disponível, só a `airDate` ainda não tinha chegado.
+     * Resultado: episódio pendente de verdade nunca aparecia como
+     * "próximo a assistir". Agora só EXCLUI quando a data É
+     * CONHECIDA e está no futuro — data desconhecida (`null`) não
+     * exclui mais, mesmo espírito da correção já aplicada no web
+     * (`ContinueWatchingCard.tsx`).
+     */
     const pending = liveEpisodes
-      .filter((e) => e.airDate !== null && e.airDate <= today)
+      .filter((e) => e.airDate === null || e.airDate <= today)
       .filter((e) => !watchedKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
       .sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)
-      .map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, airDate: e.airDate as string }));
+      .map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, airDate: e.airDate }));
 
     if (pending.length > 0) pendingBySeriesId.set(seriesId, pending);
   }
@@ -122,7 +136,11 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[]): Promise<Map
         episodeNumber: next.episodeNumber,
         name,
         additionalPendingCount: pending.length - 1,
-        badge: computeBadge({ seriesId, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, airDate: next.airDate }, badgeWatchedSet),
+        // Sem data conhecida = sem selo (NOVO/MAIS RECENTE/PREMIERE
+        // dependem de saber quando saiu) — mesmo padrão do web.
+        badge: next.airDate
+          ? computeBadge({ seriesId, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, airDate: next.airDate }, badgeWatchedSet)
+          : null,
       });
     })
   );
