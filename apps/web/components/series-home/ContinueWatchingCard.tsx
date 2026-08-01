@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useMemo } from "react";
 import { ChevronRight, Clapperboard } from "lucide-react";
 import type { LibraryItem } from "@seenlist/types";
-import { useSeriesDetails } from "@/lib/queries/series";
+import { useSeriesEpisodesLight, groupBySeason } from "@/lib/queries/seriesEpisodesLight";
 import { useWatchedEpisodes, isEpisodeWatched, type WatchedEpisodeKey } from "@/lib/queries/watched-episodes-state";
 import { useToggleEpisodeWatched } from "@/lib/queries/watched-episodes-mutations";
 import { computeBadge, hasEpisodeAired, type UpcomingBadge } from "@/lib/queries/upcoming-episodes";
@@ -35,7 +35,7 @@ const BADGE_CLASSNAME: Record<Exclude<UpcomingBadge, null>, string> = {
 function findNextUnwatched(
   seasons: {
     seasonNumber: number;
-    episodes: { episodeNumber: number; name: string; stillPath: string | null; airDate: string | null }[];
+    episodes: { episodeNumber: number; name: string; airDate: string | null }[];
   }[],
   watched: Set<WatchedEpisodeKey> | undefined
 ) {
@@ -56,23 +56,30 @@ function findNextUnwatched(
  * do EPISÓDIO (não da série), cápsula com nome da série, código T/E,
  * nome do episódio, badges (mesma regra de "Em breve", reutilizada
  * via `computeBadge`), botão de marcar assistido direto no card.
- * Cada card busca os próprios dados (useSeriesDetails +
- * useWatchedEpisodes) — é a forma correta de fazer isso numa lista
- * de tamanho variável sem violar a regra dos hooks (não dá pra
- * chamar hooks dentro de um .map de um componente só).
+ * Cada card busca os próprios dados — é a forma correta de fazer
+ * isso numa lista de tamanho variável sem violar a regra dos hooks
+ * (não dá pra chamar hooks dentro de um .map de um componente só).
+ *
+ * AUDITORIA (perf, a pedido) — trocado `useSeriesDetails` (elenco,
+ * sinopse, títulos similares, imagens — o mesmo dado pesado da
+ * PÁGINA da série) por `useSeriesEpisodesLight` (só temporada/
+ * episódio/nome/data). Com até 8 cards na lista ao mesmo tempo, isso
+ * é bem menos dado trafegado por card, sem mudar nada do que
+ * aparece na tela — o resto da lógica (achar o próximo não
+ * assistido, badge, checagem de "já foi ao ar") é idêntico.
  */
 export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
   const { t } = useTranslation();
-  const { data: seriesDetails } = useSeriesDetails(String(item.id));
+  const { data: episodes } = useSeriesEpisodesLight(item.id);
   const { data: watched } = useWatchedEpisodes(item.id);
   const toggleWatched = useToggleEpisodeWatched(item.id);
 
   const next = useMemo(() => {
-    if (!seriesDetails) return null;
-    return findNextUnwatched(seriesDetails.seasons, watched);
-  }, [seriesDetails, watched]);
+    if (!episodes) return null;
+    return findNextUnwatched(groupBySeason(episodes), watched);
+  }, [episodes, watched]);
 
-  if (!seriesDetails || !next) return null;
+  if (!episodes || !next) return null;
 
   /*
    * Correção (bug real, reportado): depois de "Continue assistindo"

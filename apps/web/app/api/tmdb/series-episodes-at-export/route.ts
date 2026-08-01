@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   const series: {
     id: number;
-    episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[];
+    episodes: { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[];
   }[] = [];
   settled.forEach((outcome, index) => {
     if (outcome.status === "fulfilled") {
@@ -49,6 +49,7 @@ export async function POST(request: Request) {
         episodes: outcome.value.episodes.map((e) => ({
           seasonNumber: e.seasonNumber,
           episodeNumber: e.episodeNumber,
+          name: e.name,
           airDate: e.airDate,
         })),
       });
