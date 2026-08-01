@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { View, Image, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { SeasonWithEpisodes } from "@seenlist/types";
@@ -147,7 +148,7 @@ export function SeasonAccordion({
                 >
                   <View style={styles.stillWrapper}>
                     {stillUrl ? (
-                      <Image source={{ uri: stillUrl }} style={styles.still} resizeMode="cover" />
+                      <Image source={{ uri: stillUrl }} style={styles.still} contentFit="cover" />
                     ) : (
                       <Feather name="film" size={16} color={colors.muted} />
                     )}

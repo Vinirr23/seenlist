@@ -1,4 +1,5 @@
-import { ScrollView, View, Image, StyleSheet } from "react-native";
+import { ScrollView, View, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { CastMember } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
@@ -16,7 +17,7 @@ export function CastCarousel({ cast }: { cast: CastMember[] }) {
           <View key={member.id} style={styles.card}>
             <View style={styles.photo}>
               {photoUrl ? (
-                <Image source={{ uri: photoUrl }} style={styles.photoImage} resizeMode="cover" />
+                <Image source={{ uri: photoUrl }} style={styles.photoImage} contentFit="cover" />
               ) : (
                 <Feather name="user" size={20} color={colors.muted} />
               )}

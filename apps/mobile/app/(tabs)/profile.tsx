@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
-import { ScrollView, View, Image, Pressable, Share, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, Share, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -102,7 +103,7 @@ export default function ProfileScreen() {
         {!!bannerUrl ? (
           <View style={styles.bannerOuter}>
             <View style={styles.bannerInner}>
-              <Image source={{ uri: bannerUrl }} style={styles.banner} resizeMode="cover" />
+              <Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />
               <LinearGradient
                 colors={["transparent", colors.background]}
                 style={styles.fadeOverlay}

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Image, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
@@ -66,7 +67,7 @@ export function ContinueWatchingListRow({
     <View style={styles.row}>
       <Pressable style={styles.posterWrapper} onPress={() => router.push(`/series/${item.id}`)}>
         {posterUrl ? (
-          <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+          <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
         ) : (
           <Feather name="film" size={20} color={colors.muted} />
         )}

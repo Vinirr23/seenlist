@@ -1,4 +1,5 @@
-import { View, Image, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import type { FollowListUser } from "@/lib/followList";
 import { Text } from "@/components/ui";

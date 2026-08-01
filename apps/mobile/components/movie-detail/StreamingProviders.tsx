@@ -1,4 +1,5 @@
-import { View, Image, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import type { WatchProvider } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
@@ -18,7 +19,7 @@ export function StreamingProviders({ providers }: { providers: WatchProvider[] }
           return (
             <View key={provider.id} style={styles.item}>
               <View style={styles.logoWrapper}>
-                {logoUrl && <Image source={{ uri: logoUrl }} style={styles.logo} resizeMode="cover" />}
+                {logoUrl && <Image source={{ uri: logoUrl }} style={styles.logo} contentFit="cover" />}
               </View>
               <Text numberOfLines={1} variant="muted" style={styles.name}>
                 {provider.name}

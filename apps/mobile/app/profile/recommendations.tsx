@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { ScrollView, View, Image, Pressable, Alert, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, Alert, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import {

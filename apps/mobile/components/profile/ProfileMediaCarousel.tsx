@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Image, Pressable, FlatList, StyleSheet } from "react-native";
+import { View, Pressable, FlatList, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchDisplaySummaries, tmdbImageUrl, type MediaSummary } from "@/lib/library";
@@ -129,7 +130,7 @@ export function ProfileMediaCarousel({
           return (
             <Pressable style={styles.poster} onPress={() => router.push(itemHref)}>
               {posterUrl ? (
-                <Image source={{ uri: posterUrl }} style={styles.posterImage} resizeMode="cover" />
+                <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
               ) : summary ? (
                 <View style={styles.posterPlaceholder}>
                   <Feather name="film" size={18} color={colors.muted} style={{ opacity: 0.4 }} />

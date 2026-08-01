@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Image, TextInput, Pressable, Alert, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, Alert, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { CommentNode } from "@/lib/social/mediaComments";

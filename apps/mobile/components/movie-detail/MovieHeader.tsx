@@ -1,4 +1,5 @@
-import { View, Image, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { MovieDetails } from "@seenlist/types";
@@ -24,7 +25,7 @@ export function MovieHeader({
     <View>
       <View style={styles.backdropWrapper}>
         {backdropUrl ? (
-          <Image source={{ uri: backdropUrl }} style={styles.backdrop} resizeMode="cover" />
+          <Image source={{ uri: backdropUrl }} style={styles.backdrop} contentFit="cover" />
         ) : (
           <View style={[styles.backdrop, styles.backdropFallback]} />
         )}
@@ -43,7 +44,7 @@ export function MovieHeader({
       <View style={styles.headerRow}>
         <View style={styles.posterWrapper}>
           {posterUrl ? (
-            <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+            <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
           ) : (
             <View style={styles.posterFallback}>
               <Feather name="film" size={20} color={colors.muted} />

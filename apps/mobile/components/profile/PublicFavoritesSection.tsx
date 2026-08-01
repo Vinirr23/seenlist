@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
@@ -41,7 +42,7 @@ function FavoritesRow({ title, items }: { title: string; items: LibraryItem[] })
             <Pressable key={`${item.mediaType}-${item.id}`} style={styles.card} onPress={() => router.push(href)}>
               <View style={styles.posterWrapper}>
                 {posterUrl ? (
-                  <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+                  <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
                 ) : (
                   <Feather name="film" size={18} color={colors.muted} />
                 )}

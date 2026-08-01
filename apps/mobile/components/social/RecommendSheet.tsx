@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Modal, Pressable, TextInput, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { View, Modal, Pressable, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";

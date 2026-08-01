@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { View, Image, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchReceivedRecommendations, type ReceivedRecommendation } from "@/lib/recommendations";
@@ -115,7 +116,7 @@ export function ProfileRecommendationsPreview() {
 
       {posterUrl && (
         <View style={styles.poster}>
-          <Image source={{ uri: posterUrl }} style={styles.posterImage} resizeMode="cover" />
+          <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
         </View>
       )}
     </Pressable>

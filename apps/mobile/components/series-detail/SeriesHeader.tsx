@@ -1,4 +1,5 @@
-import { View, Image, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { SeriesDetails } from "@seenlist/types";
@@ -27,7 +28,7 @@ export function SeriesHeader({
   return (
     <View style={styles.wrapper}>
       {backdropUrl ? (
-        <Image source={{ uri: backdropUrl }} style={styles.backdrop} resizeMode="cover" />
+        <Image source={{ uri: backdropUrl }} style={styles.backdrop} contentFit="cover" />
       ) : (
         <View style={[styles.backdrop, styles.backdropFallback]} />
       )}

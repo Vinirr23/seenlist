@@ -1,4 +1,5 @@
-import { View, Image, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { colors } from "@/lib/theme";
@@ -21,7 +22,7 @@ export default function IndexGate() {
   if (loading) {
     return (
       <View style={styles.splash}>
-        <Image source={require("@/assets/images/splash-logo.png")} style={styles.logo} resizeMode="contain" />
+        <Image source={require("@/assets/images/splash-logo.png")} style={styles.logo} contentFit="contain" />
       </View>
     );
   }

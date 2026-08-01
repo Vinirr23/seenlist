@@ -1,4 +1,5 @@
-import { ScrollView, View, Image, Pressable, Share, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, Share, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -83,13 +84,13 @@ export default function PublicProfileScreen() {
     <Screen padded={false} bottomInset>
       <ScrollView>
         <View style={styles.banner}>
-          {profile.bannerUrl && <Image source={{ uri: profile.bannerUrl }} style={styles.bannerImage} resizeMode="cover" />}
+          {profile.bannerUrl && <Image source={{ uri: profile.bannerUrl }} style={styles.bannerImage} contentFit="cover" />}
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
             <Feather name="arrow-left" size={18} color={colors.text} />
           </Pressable>
           <View style={styles.avatar}>
             {profile.avatarUrl ? (
-              <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+              <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} contentFit="cover" />
             ) : (
               <Text style={styles.avatarInitials}>{initials(displayName)}</Text>
             )}

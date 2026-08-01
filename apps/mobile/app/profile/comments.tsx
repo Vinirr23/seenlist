@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View, Image, Pressable, Alert, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, Alert, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyComments, deleteMyComment, type MyComment } from "@/lib/myComments";
@@ -93,7 +94,7 @@ export default function MyCommentsScreen() {
                   <Pressable style={styles.rowContent} onPress={() => handleOpen(comment)}>
                     <View style={styles.posterWrapper}>
                       {posterUrl ? (
-                        <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+                        <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
                       ) : (
                         <Feather name="film" size={16} color={colors.muted} />
                       )}

@@ -1,4 +1,5 @@
-import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { Text } from "@/components/ui";
 import { hapticSelection } from "@/lib/haptics";
 import { colors, spacing } from "@/lib/theme";
@@ -43,7 +44,7 @@ export function EpisodeFavoriteCharacterPicker({
           >
             <View style={[styles.avatar, selected && styles.avatarSelected]}>
               {character.imageUrl ? (
-                <Image source={{ uri: character.imageUrl }} style={styles.avatarImage} resizeMode="cover" />
+                <Image source={{ uri: character.imageUrl }} style={styles.avatarImage} contentFit="cover" />
               ) : (
                 <Text variant="muted" style={styles.noPhoto}>
                   Sem foto

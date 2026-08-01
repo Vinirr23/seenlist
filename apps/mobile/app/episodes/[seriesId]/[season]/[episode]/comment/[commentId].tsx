@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View, Image, TextInput, Pressable, Alert, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { ScrollView, View, TextInput, Pressable, Alert, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Image, TextInput, Pressable, Share, Alert, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, Share, Alert, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { Post } from "@/lib/posts";
@@ -197,7 +198,7 @@ export function PostCard({
         <View style={styles.reviewCard}>
           <View style={styles.reviewPoster}>
             {posterUrl ? (
-              <Image source={{ uri: posterUrl }} style={styles.reviewPosterImage} resizeMode="cover" />
+              <Image source={{ uri: posterUrl }} style={styles.reviewPosterImage} contentFit="cover" />
             ) : (
               <Feather name="film" size={16} color={colors.muted} />
             )}

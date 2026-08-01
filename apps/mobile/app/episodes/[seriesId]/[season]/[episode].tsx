@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View, Image, Pressable, Share, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, Share, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { Gesture, GestureDetector, type GestureStateChangeEvent, type PanGestureHandlerEventPayload } from "react-native-gesture-handler";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -298,7 +299,7 @@ export default function EpisodeDetailScreen() {
         <GestureDetector gesture={swipeGesture}>
           <View style={styles.banner}>
             {stillUrl ? (
-              <Image source={{ uri: stillUrl }} style={styles.bannerImage} resizeMode="cover" />
+              <Image source={{ uri: stillUrl }} style={styles.bannerImage} contentFit="cover" />
             ) : (
               <View style={[styles.bannerImage, styles.bannerFallback]} />
             )}

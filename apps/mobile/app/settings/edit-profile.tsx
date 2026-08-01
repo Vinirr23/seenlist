@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Image, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchEditableProfile, saveEditableProfile } from "@/lib/editProfile";
@@ -95,7 +96,7 @@ export default function EditProfileScreen() {
         <View style={styles.content}>
           <View style={styles.bannerWrapper}>
             {bannerUrl ? (
-              <Image source={{ uri: bannerUrl }} style={styles.banner} resizeMode="cover" />
+              <Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />
             ) : (
               <View style={styles.bannerFallback} />
             )}
@@ -105,7 +106,7 @@ export default function EditProfileScreen() {
 
             <View style={styles.avatarWrapper}>
               {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" />
               ) : (
                 <Text style={styles.avatarInitials}>{initials(name || "?")}</Text>
               )}

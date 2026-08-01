@@ -1,4 +1,5 @@
-import { View, Image, StyleSheet, Pressable, useWindowDimensions } from "react-native";
+import { View, StyleSheet, Pressable, useWindowDimensions } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
@@ -74,7 +75,7 @@ function PosterGridItem({
     <Pressable style={[styles.card, { width: cardWidth }]} onPress={() => onPress?.(item)}>
       <View style={styles.posterWrapper}>
         {posterUrl ? (
-          <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+          <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
         ) : (
           <View style={styles.posterFallback}>
             <Feather name="film" size={24} color={colors.muted} />

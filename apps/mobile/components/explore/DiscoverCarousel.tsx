@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View, Image, Pressable, StyleSheet } from "react-native";
+import { ScrollView, View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { DiscoverItem } from "@/lib/discover";
@@ -75,7 +76,7 @@ function DiscoverCard({ item, status }: { item: DiscoverItem; status: string | n
     <Pressable style={styles.card} onPress={handlePress}>
       <View style={styles.posterWrapper}>
         {posterUrl ? (
-          <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+          <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
         ) : (
           <View style={styles.posterFallback}>
             <Feather name="film" size={20} color={colors.muted} />

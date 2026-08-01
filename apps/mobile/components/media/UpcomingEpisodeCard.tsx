@@ -1,4 +1,5 @@
-import { View, Image, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { UpcomingEpisodeWithBadge, UpcomingBadge } from "@/lib/upcomingEpisodes";
@@ -40,7 +41,7 @@ export function UpcomingEpisodeCard({ episode }: { episode: UpcomingEpisodeWithB
     <Pressable style={styles.card} onPress={() => router.push(`/series/${episode.seriesId}`)}>
       <View style={styles.posterWrapper}>
         {posterUrl ? (
-          <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+          <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
         ) : (
           <Feather name="film" size={20} color={colors.muted} />
         )}

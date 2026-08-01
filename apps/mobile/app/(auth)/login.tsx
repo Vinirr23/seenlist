@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Image, KeyboardAvoidingView, ScrollView, Platform, StyleSheet } from "react-native";
+import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { Link, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Screen, Text, Input, Button } from "@/components/ui";

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { FlatList, View, Image, Pressable, StyleSheet } from "react-native";
+import { FlatList, View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryStatus, SeriesDetails } from "@seenlist/types";
@@ -179,7 +180,7 @@ function EpisodeCarouselCard({
       <Pressable onPress={() => router.push(`/episodes/${seriesId}/${seasonNumber}/${episode.episodeNumber}`)}>
         <View style={styles.stillWrapper}>
           {stillUrl ? (
-            <Image source={{ uri: stillUrl }} style={styles.still} resizeMode="cover" />
+            <Image source={{ uri: stillUrl }} style={styles.still} contentFit="cover" />
           ) : (
             <Feather name="film" size={18} color={colors.muted} />
           )}

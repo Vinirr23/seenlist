@@ -1,4 +1,5 @@
-import { View, Image, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
@@ -13,7 +14,7 @@ export function MediaListRow({ item, secondaryText, onPress }: { item: LibraryIt
     <Pressable style={styles.row} onPress={() => onPress?.(item)}>
       <View style={styles.posterWrapper}>
         {posterUrl ? (
-          <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+          <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
         ) : (
           <Feather name="film" size={18} color={colors.muted} />
         )}

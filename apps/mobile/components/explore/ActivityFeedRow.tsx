@@ -1,4 +1,5 @@
-import { View, Image, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import type { ActivityItem } from "@/lib/activityFeed";
 import { tmdbImageUrl } from "@/lib/library";
@@ -45,7 +46,7 @@ export function ActivityFeedRow({ item }: { item: ActivityItem }) {
 
       {!!posterUrl && (
         <View style={styles.posterWrapper}>
-          <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+          <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
         </View>
       )}
     </Pressable>

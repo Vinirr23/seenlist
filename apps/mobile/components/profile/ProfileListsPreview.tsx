@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { View, Image, Pressable, ScrollView, StyleSheet } from "react-native";
+import { View, Pressable, ScrollView, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyListsWithPreview, type ListWithPreview } from "@/lib/lists";
@@ -91,7 +92,7 @@ export function ProfileListsPreview() {
                           { zIndex, transform: [{ translateY }, { rotate: `${rotation}deg` }] },
                         ]}
                       >
-                        {posterUrl && <Image source={{ uri: posterUrl }} style={styles.deckPosterImage} resizeMode="cover" />}
+                        {posterUrl && <Image source={{ uri: posterUrl }} style={styles.deckPosterImage} contentFit="cover" />}
                       </View>
                     );
                   })
