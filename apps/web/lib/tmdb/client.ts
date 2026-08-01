@@ -451,6 +451,37 @@ interface TmdbMovieDetailsResponse {
 /** Região usada pra "onde assistir" — projeto é pt-BR de ponta a ponta, então fixamos BR. */
 const WATCH_PROVIDERS_REGION = "BR";
 
+/**
+ * CORREÇÃO (bug real, reportado — Netflix e HBO Max aparecendo
+ * "duplicados" em Onde assistir) — não é duplicação de dado: o TMDB
+ * lista planos/produtos diferentes do mesmo serviço como provedores
+ * TECNICAMENTE distintos (ex.: "Netflix" e "Netflix Standard with
+ * Ads" têm `provider_id` diferentes) — visualmente parecem a mesma
+ * marca duas vezes, mas tecnicamente não são "iguais" pro TMDB.
+ *
+ * O TMDB não marca explicitamente qual é a versão "principal" — a
+ * forma prática de identificar isso: agrupar por PREFIXO do nome
+ * (a variante quase sempre é "nome base" + sufixo, ex.: "Netflix" +
+ * " Standard with Ads") e manter só a entrada de nome mais curto de
+ * cada grupo. Exige ESPAÇO logo depois do prefixo (não só qualquer
+ * caractere) — sem isso, "Apple TV+" seria tratado como variante de
+ * "Apple TV", quando na verdade são dois serviços genuinamente
+ * diferentes (loja de compra/aluguel vs. assinatura).
+ */
+function dedupeWatchProviders<T extends { name: string }>(providers: T[]): T[] {
+  const sorted = [...providers].sort((a, b) => a.name.length - b.name.length);
+  const kept: T[] = [];
+  for (const provider of sorted) {
+    const isVariantOfKept = kept.some((existing) =>
+      provider.name.toLowerCase().startsWith(`${existing.name.toLowerCase()} `)
+    );
+    if (!isVariantOfKept) kept.push(provider);
+  }
+  // Devolve na ordem original do TMDB (só filtrada), não na ordem por tamanho usada pra comparar.
+  const keptIds = new Set(kept.map((p) => p.name));
+  return providers.filter((p) => keptIds.has(p.name));
+}
+
 interface TmdbSeriesWatchProvidersResponse {
   results?: Record<string, { flatrate?: { provider_id: number; provider_name: string; logo_path: string | null }[] }>;
 }
@@ -467,11 +498,12 @@ interface TmdbSeriesWatchProvidersResponse {
 export async function getSeriesWatchProviders(seriesId: string): Promise<WatchProvider[]> {
   const data = await tmdbGet<TmdbSeriesWatchProvidersResponse>(`/tv/${seriesId}/watch/providers`);
   const regionProviders = data.results?.[WATCH_PROVIDERS_REGION];
-  return (regionProviders?.flatrate ?? []).map((provider) => ({
+  const providers: WatchProvider[] = (regionProviders?.flatrate ?? []).map((provider) => ({
     id: provider.provider_id,
     name: provider.provider_name,
     logoPath: provider.logo_path,
   }));
+  return dedupeWatchProviders(providers);
 }
 
 /**
@@ -497,11 +529,13 @@ export async function getMovieDetails(movieId: string): Promise<MovieDetails> {
     .map((item) => normalizeSearchItem({ ...item, media_type: "movie" }));
 
   const regionProviders = data["watch/providers"]?.results?.[WATCH_PROVIDERS_REGION];
-  const watchProviders: WatchProvider[] = (regionProviders?.flatrate ?? []).map((provider) => ({
-    id: provider.provider_id,
-    name: provider.provider_name,
-    logoPath: provider.logo_path,
-  }));
+  const watchProviders: WatchProvider[] = dedupeWatchProviders(
+    (regionProviders?.flatrate ?? []).map((provider) => ({
+      id: provider.provider_id,
+      name: provider.provider_name,
+      logoPath: provider.logo_path,
+    }))
+  );
 
   return {
     id: data.id,
