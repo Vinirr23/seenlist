@@ -1,3 +1,9 @@
+import createBundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = createBundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -13,4 +19,4 @@ const nextConfig = {
   transpilePackages: ["@seenlist/ui", "@seenlist/types", "@seenlist/utils", "@seenlist/hooks", "@seenlist/config"],
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

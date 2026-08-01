@@ -33,7 +33,8 @@
           "icon": "./assets/images/adaptive-icon-foreground.png",
           "color": "#E8A33D"
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "ios": {
       "bundleIdentifier": "com.seenlist.app"

@@ -8,6 +8,20 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 
 export const DEFAULT_LOCALE: Locale = "pt-BR";
 
+/**
+ * A PEDIDO — mesma lógica do web (`translations.ts`). Mapeia um
+ * código de idioma no formato BCP 47 (ex.: "pt-BR", "en-US",
+ * "es-MX", "fr-FR") pro idioma suportado mais próximo, olhando só
+ * os 2 primeiros caracteres (a língua em si). Idioma sem suporte
+ * cai em inglês, de propósito — mais neutro internacionalmente.
+ */
+export function matchSupportedLocale(languageCode: string | undefined | null): Locale {
+  const prefix = (languageCode ?? "").toLowerCase().slice(0, 2);
+  if (prefix === "pt") return "pt-BR";
+  if (prefix === "es") return "es";
+  return "en";
+}
+
 /** Mapeia nosso `Locale` pro código BCP-47 que `Intl.DateTimeFormat`/`Intl.NumberFormat` esperam — mesmo padrão do web (`apps/web/lib/i18n/translations.ts`). */
 export const INTL_LOCALES: Record<Locale, string> = {
   "pt-BR": "pt-BR",

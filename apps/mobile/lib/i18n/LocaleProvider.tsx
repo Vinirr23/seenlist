@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { translations, DEFAULT_LOCALE, type Locale } from "./translations";
+import * as Localization from "expo-localization";
+import { translations, DEFAULT_LOCALE, matchSupportedLocale, type Locale } from "./translations";
 
 const STORAGE_KEY = "seenlist:locale";
 
@@ -33,7 +34,14 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       .then((saved) => {
         if (saved === "pt-BR" || saved === "en" || saved === "es") {
           setLocaleState(saved);
+          return;
         }
+        // A PEDIDO — pessoa de verdade nova (nada salvo ainda): usa
+        // o idioma configurado no aparelho em vez de sempre abrir
+        // em pt-BR. `Localization.getLocales()[0]` é a escolha de
+        // verdade da pessoa (o que ela configurou no telefone).
+        const deviceLocale = Localization.getLocales()[0]?.languageTag;
+        setLocaleState(matchSupportedLocale(deviceLocale));
       })
       .finally(() => setIsLoading(false));
   }, []);

@@ -8,6 +8,23 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 
 export const DEFAULT_LOCALE: Locale = "pt-BR";
 
+/**
+ * A PEDIDO — mapeia um código de idioma no formato BCP 47 (ex.:
+ * "pt-BR", "en-US", "es-MX", "fr-FR") pro idioma suportado mais
+ * próximo. Só olha os 2 primeiros caracteres (a língua em si, "pt",
+ * "es", "en") — a região específica não importa aqui: alguém com
+ * "es-MX" cai no mesmo "es" que alguém com "es-ES", não faz sentido
+ * ter uma tradução por país. Idioma sem suporte no app (francês,
+ * alemão, etc.) cai em inglês, de propósito — mais neutro
+ * internacionalmente do que cair em português pra quem não é daqui.
+ */
+export function matchSupportedLocale(languageCode: string | undefined | null): Locale {
+  const prefix = (languageCode ?? "").toLowerCase().slice(0, 2);
+  if (prefix === "pt") return "pt-BR";
+  if (prefix === "es") return "es";
+  return "en";
+}
+
 /** Tradução (4º lote) — mapeia nosso `Locale` pro código BCP-47 que `Intl.DateTimeFormat`/`Intl.NumberFormat` esperam, pra formatação de data/número acompanhar o idioma escolhido (não só os textos fixos). */
 export const INTL_LOCALES: Record<Locale, string> = {
   "pt-BR": "pt-BR",

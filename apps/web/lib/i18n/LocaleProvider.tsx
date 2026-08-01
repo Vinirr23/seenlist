@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
-import { translations, DEFAULT_LOCALE, type Locale } from "./translations";
+import { translations, DEFAULT_LOCALE, matchSupportedLocale, type Locale } from "./translations";
 
 const STORAGE_KEY = "seenlist:locale";
 
@@ -44,7 +44,16 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     const supabase = createClient();
     getCurrentAuthUser(supabase).then(({ data }) => {
       const saved = data.user?.user_metadata?.locale as Locale | undefined;
-      if (saved && saved in translations) setLocaleState(saved);
+      if (saved && saved in translations) {
+        setLocaleState(saved);
+        return;
+      }
+      // A PEDIDO — pessoa de verdade nova (sem preferência salva em
+      // lugar nenhum): usa o idioma configurado no navegador em vez
+      // de sempre abrir em pt-BR. `navigator.language` é a escolha
+      // de verdade da pessoa (o que ela configurou no aparelho), não
+      // uma suposição baseada em onde ela está.
+      setLocaleState(matchSupportedLocale(navigator.language));
     });
   }, []);
 
