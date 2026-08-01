@@ -10,7 +10,9 @@ import { MediaListRow } from "../media/MediaListRow";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyShelf } from "../media/EmptyShelf";
+import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
+import { todayLocalKey, isReleased } from "./release-date";
 
 interface Category {
   slug: string;
@@ -22,17 +24,27 @@ interface Category {
 }
 
 /**
- * Ajuste — mesmo toggle de Séries, escopo próprio
- * (`useViewModePreference("movies-library")`) — nunca afeta Séries
- * nem Perfil. Um botão só, no topo, alterna as 3 seções juntas
- * (Assistindo/Assistir depois/Concluídos), já que são a mesma
- * "biblioteca de filmes" pedida na tarefa.
+ * CORREÇÃO (a pedido, "diverge do web de propósito" — o app nativo
+ * já resolveu isso antes, TASK-099/TASK-148) — duas mudanças, mesma
+ * origem: filme não tem um estado "assistindo" que faça sentido
+ * mostrar como lista própria — diferente de série, não tem
+ * episódio/progresso pra acompanhar aos poucos; um filme é "quero
+ * assistir" ou já foi assistido (o que já muda o status pra
+ * "completed" sozinho). Categoria "Assistindo" removida.
  *
- * Mesmos hooks de sempre — nenhuma mudança de dados ou lógica.
+ * Segunda mudança: um filme em "Assistir depois" com lançamento no
+ * FUTURO saía misturado junto com os já lançados — agora sai daqui
+ * e vai pra "Em breve" (`EmBreveSection.tsx`) automaticamente, sem
+ * precisar de nada manual.
+ *
+ * "Concluídos" continua igual — não fazia parte do pedido.
+ *
+ * Mesmos hooks de sempre — nenhuma mudança de dados ou lógica além
+ * do filtro dessas duas categorias.
  */
 export function MinhaListaSection() {
   useLibraryRealtimeSync();
-  const { data: items, isLoading, isError, error } = useLibraryItems();
+  const { data: items, isLoading, isError, error, refetch } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("movies-library");
   const { t } = useTranslation();
 
@@ -43,28 +55,20 @@ export function MinhaListaSection() {
   }, [isError, error]);
 
   const movies = useMemo(() => (items ?? []).filter((item) => item.mediaType === "movie"), [items]);
+  const todayKey = useMemo(() => todayLocalKey(), []);
 
-  const watching = useMemo(
-    () => movies.filter((item) => item.status === "watching").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    [movies]
+  const wantToWatch = useMemo(
+    () => movies.filter((item) => item.status === "want_to_watch" && isReleased(item.releaseDate, todayKey)),
+    [movies, todayKey]
   );
-  const wantToWatch = useMemo(() => movies.filter((item) => item.status === "want_to_watch"), [movies]);
   const completed = useMemo(() => movies.filter((item) => item.status === "completed"), [movies]);
 
   if (isLoading) return <HomeSkeleton />;
   if (isError) {
-    return <EmptyShelf message={t("seriesHome.errorLoadLibrary")} />;
+    return <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />;
   }
 
   const categories: Category[] = [
-    {
-      slug: "watching",
-      label: t("media.status.watching"),
-      items: watching,
-      emptyMessage: t("moviesHome.emptyWatching"),
-      emptyActionLabel: t("moviesHome.exploreMovies"),
-      emptyActionHref: "/explore",
-    },
     { slug: "watchlist", label: t("seriesHome.watchlist"), items: wantToWatch, emptyMessage: t("seriesHome.emptyWatchlist") },
     { slug: "completed", label: t("moviesHome.completed"), items: completed, emptyMessage: t("moviesHome.emptyCompleted") },
   ];

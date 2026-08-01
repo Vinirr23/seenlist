@@ -275,6 +275,7 @@ export function buildLibraryItemsFromRows(
       title: summary?.title ?? `Filme #${entry.movieId}`,
       year: summary?.year ?? null,
       posterPath: summary?.posterPath ?? null,
+      releaseDate: summary?.releaseDate ?? null,
       runtimeMinutes: summary?.runtimeMinutes,
     };
   });
