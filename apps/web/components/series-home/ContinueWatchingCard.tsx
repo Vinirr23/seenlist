@@ -72,6 +72,29 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
     return findNextUnwatched(seriesDetails.seasons, watched);
   }, [seriesDetails, watched]);
 
+  // DIAGNÓSTICO TEMPORÁRIO — remover depois de identificar a causa.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useMemo(() => {
+    if (typeof window === "undefined") return;
+    if (!seriesDetails) {
+      console.warn(`[DIAGNÓSTICO ContinueWatchingCard] "${item.title}" (id ${item.id}): seriesDetails ainda não carregou (ou falhou).`);
+      return;
+    }
+    if (!next) {
+      console.warn(
+        `[DIAGNÓSTICO ContinueWatchingCard] "${item.title}" (id ${item.id}): findNextUnwatched não achou episódio não assistido. Temporadas recebidas:`,
+        seriesDetails.seasons.map((s) => ({ temporada: s.seasonNumber, totalEpisodios: s.episodes.length })),
+        "Assistidos (watched):",
+        watched ? [...watched] : watched
+      );
+      return;
+    }
+    const aired = !next.episode.airDate || hasEpisodeAired(next.episode.airDate);
+    console.warn(
+      `[DIAGNÓSTICO ContinueWatchingCard] "${item.title}" (id ${item.id}): próximo não assistido = T${next.seasonNumber}E${next.episode.episodeNumber} "${next.episode.name}", airDate=${next.episode.airDate}, considerado no ar? ${aired}`
+    );
+  }, [seriesDetails, next, item.title, item.id, watched]);
+
   if (!seriesDetails || !next) return null;
 
   /*
