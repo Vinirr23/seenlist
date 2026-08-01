@@ -26,7 +26,10 @@ export function ProfileMoviesSection() {
   const { t } = useTranslation();
 
   const watchedMovies = useMemo(
-    () => (items ?? []).filter((item) => item.mediaType === "movie" && item.status === "completed"),
+    () =>
+      (items ?? [])
+        .filter((item) => item.mediaType === "movie" && item.status === "completed")
+        .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)),
     [items]
   );
 

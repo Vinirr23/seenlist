@@ -202,13 +202,17 @@ function buildLibraryItemsFromRows(
     const explicit = explicitSeriesById.get(seriesId);
     const agg = episodeAgg.get(seriesId);
     const watchedCount = agg?.count ?? 0;
+    const updatedAt = explicit?.updated_at ?? agg?.lastWatchedAt ?? new Date(0).toISOString();
 
     return {
       seriesId,
       status: (explicit && explicit.status !== "removed" ? explicit.status : "watching") as LibraryStatus,
       isDerived: !explicit,
       createdAt: explicit?.created_at ?? agg?.lastWatchedAt ?? new Date(0).toISOString(),
-      updatedAt: explicit?.updated_at ?? agg?.lastWatchedAt ?? new Date(0).toISOString(),
+      updatedAt,
+      // Maior entre "categoria mudou" e "episódio marcado" — mesma
+      // correção já aplicada no web (lib/queries/library-state.ts).
+      lastActivityAt: agg?.lastWatchedAt && agg.lastWatchedAt > updatedAt ? agg.lastWatchedAt : updatedAt,
       watchedCount,
       totalWatchEvents: explicit?.total_watch_events ?? null,
     };
@@ -229,6 +233,7 @@ function buildLibraryItemsFromRows(
       status: entry.status,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
+      lastActivityAt: entry.updatedAt,
       title: summary?.title ?? `Filme #${entry.movieId}`,
       year: summary?.year ?? null,
       posterPath: summary?.posterPath ?? null,
@@ -248,6 +253,7 @@ function buildLibraryItemsFromRows(
       status,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
+      lastActivityAt: entry.lastActivityAt,
       title: summary?.title ?? `Série #${entry.seriesId}`,
       year: summary?.year ?? null,
       posterPath: summary?.posterPath ?? null,

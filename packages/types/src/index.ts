@@ -117,6 +117,20 @@ export interface LibraryItem {
   status: LibraryStatus;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Data da atividade mais recente de verdade — pra filme, igual a
+   * `updatedAt`. Pra série, é o mais recente entre `updatedAt` (só
+   * muda quando a CATEGORIA muda, ex. Assistindo → Em dia) e a data
+   * do episódio mais recente marcado (que muda a cada episódio,
+   * mesmo sem trocar de categoria). Achado real (reportado): ordenar
+   * por `updatedAt` puro fazia maratonar vários episódios seguidos
+   * de uma série "Assistindo" não mover ela pra cima em lugar nenhum
+   * — a categoria não mudava, então a data também não. Campo
+   * separado de propósito: `updatedAt` continua servindo pra quem já
+   * depende dele hoje (Central de Séries/Filmes), sem risco de
+   * quebrar o que já funciona.
+   */
+  lastActivityAt: string;
   title: string;
   year: number | null;
   posterPath: string | null;

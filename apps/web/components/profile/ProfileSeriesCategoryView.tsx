@@ -17,7 +17,10 @@ export function ProfileSeriesCategoryView({ slug }: { slug: string }) {
 
   const series = useMemo(() => {
     if (!category) return [];
-    return (items ?? []).filter((item) => item.mediaType === "series").filter(category.filter);
+    return (items ?? [])
+      .filter((item) => item.mediaType === "series")
+      .filter(category.filter)
+      .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
   }, [items, category]);
 
   if (!category) {

@@ -41,7 +41,7 @@ export function ProfileSeriesSection() {
     () =>
       SERIES_CATEGORIES.map((category) => ({
         ...category,
-        items: series.filter(category.filter),
+        items: series.filter(category.filter).sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)),
       })).filter((category) => category.items.length > 0),
     [series]
   );

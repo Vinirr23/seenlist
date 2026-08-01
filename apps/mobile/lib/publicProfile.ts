@@ -123,6 +123,7 @@ export async function fetchPublicFavorites(userId: string): Promise<LibraryItem[
     status: "completed",
     createdAt: now,
     updatedAt: now,
+    lastActivityAt: now,
     title: summary.title,
     year: summary.year,
     posterPath: summary.posterPath,
