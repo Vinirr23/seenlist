@@ -18,6 +18,8 @@ import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { PollBlock } from "./PollBlock";
 import type { PollData } from "@/lib/social/polls";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useNow } from "@/lib/useNow";
+import { formatRelativeTime } from "@/lib/relativeTime";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
@@ -70,6 +72,7 @@ export function PostCard({
   const posterUrl = post.mediaPosterPath ? tmdbImageUrl(post.mediaPosterPath, "w185") : null;
   const isOwner = session?.user.id === post.userId;
   const { t, locale } = useTranslation();
+  const now = useNow(30_000);
   const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: "2-digit",
     month: "short",
@@ -178,7 +181,7 @@ export function PostCard({
               {post.authorName}
             </Text>
             <Text numberOfLines={1} variant="muted" style={styles.meta}>
-              @{post.authorUsername} · {dateFormatter.format(new Date(post.createdAt))}
+              @{post.authorUsername} · {formatRelativeTime(post.createdAt, now, locale, t("feed.justNow")) ?? dateFormatter.format(new Date(post.createdAt))}
             </Text>
           </View>
         </Pressable>

@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react";
-import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View, ScrollView, RefreshControl, Pressable, StyleSheet } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { usePosts } from "@/lib/usePosts";
 import { PostCard } from "@/components/feed/PostCard";
+import { FeedItemEnter } from "@/components/feed/FeedItemEnter";
 import { CreatePostButton } from "@/components/feed/CreatePostButton";
 import { fetchLikeInfoFor, fetchCommentCountsFor } from "@/lib/social/likes";
 import { fetchSavedStatusesFor } from "@/lib/social/savedPosts";
 import { fetchPollDataFor, type PollData } from "@/lib/social/polls";
-import { colors, spacing } from "@/lib/theme";
+import { supabase } from "@/lib/supabase";
+import { colors, spacing, radius } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -24,6 +27,21 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * soltas. Agora busca tudo dos posts visíveis de uma vez (3
  * consultas no total, não 4 por post) assim que a lista chega, e
  * repassa pronto pra cada `PostCard`.
+ *
+ * A PEDIDO — "Feed mais vivo" (mesma implementação do web, porta
+ * fiel):
+ * - Curtida/comentário de QUALQUER pessoa atualiza sozinho — assina
+ *   as tabelas certas no Supabase Realtime e refaz a busca em lote
+ *   (já é barata, 2 consultas) quando algo muda, sem esperar a
+ *   pessoa sair e voltar da aba.
+ * - Post novo NÃO entra sozinho na lista — só aparece um aviso fixo
+ *   no topo, que busca de verdade só quando tocado.
+ *
+ * PRÉ-REQUISITO (fora do código, painel do Supabase) — as tabelas
+ * `likes`, `post_comments` e `posts` precisam ter a replicação em
+ * tempo real ligada (Database > Publications > supabase_realtime) —
+ * sem isso, as assinaturas abaixo simplesmente nunca recebem nada,
+ * sem erro nenhum.
  */
 export default function FeedScreen() {
   const tabBarClearance = useTabBarClearance();
@@ -35,10 +53,13 @@ export default function FeedScreen() {
   const [commentCountByPostId, setCommentCountByPostId] = useState<Map<string, number>>(new Map());
   const [pollDataByPostId, setPollDataByPostId] = useState<Map<string, PollData>>(new Map());
   const [interactionsLoaded, setInteractionsLoaded] = useState(false);
+  const [newPostsCount, setNewPostsCount] = useState(0);
 
-  useEffect(() => {
-    if (!posts || posts.length === 0) return;
-    const postIds = posts.map((p) => p.id);
+  const postIds = posts?.map((p) => p.id) ?? [];
+  const postIdsKey = postIds.join(",");
+
+  const loadInteractions = useCallback(() => {
+    if (postIds.length === 0) return;
     Promise.all([fetchLikeInfoFor("post", postIds), fetchSavedStatusesFor(postIds), fetchCommentCountsFor(postIds), fetchPollDataFor(postIds)])
       .then(([likeInfo, saved, commentCounts, pollData]) => {
         setLikeInfoByPostId(likeInfo);
@@ -49,10 +70,60 @@ export default function FeedScreen() {
       })
       .catch((error) => console.error("[FeedScreen] Falha ao buscar interações em lote", error));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [posts?.map((p) => p.id).join(",")]);
+  }, [postIdsKey]);
+
+  useEffect(() => {
+    loadInteractions();
+  }, [loadInteractions]);
+
+  // Curtida de post de qualquer pessoa (não só a minha) e comentário
+  // novo em qualquer post fazem os números atualizarem sozinhos.
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-feed-interactions")
+      .on("postgres_changes", { event: "*", schema: "public", table: "likes", filter: "target_type=eq.post" }, loadInteractions)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, loadInteractions)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadInteractions]);
+
+  // Post novo de qualquer pessoa NÃO entra sozinho na lista (empurraria
+  // o que a pessoa já está lendo) — só conta, mostra um aviso, e
+  // busca de verdade quando tocado.
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-feed-new-posts")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => {
+        setNewPostsCount((n) => n + 1);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  function handleShowNewPosts() {
+    setNewPostsCount(0);
+    refetch();
+  }
 
   return (
     <Screen padded={false}>
+      {newPostsCount > 0 && (
+        <View style={styles.bannerWrapper}>
+          <Pressable style={styles.banner} onPress={handleShowNewPosts}>
+            <Feather name="arrow-up" size={14} color={colors.background} strokeWidth={2.5} />
+            <Text style={styles.bannerText}>
+              {newPostsCount === 1 ? t("feed.newPostAvailable") : t("feed.newPostsAvailable", { count: newPostsCount })}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
@@ -68,15 +139,16 @@ export default function FeedScreen() {
         ) : (
           <View style={styles.list}>
             {posts.map((post) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                onDeleted={refetch}
-                likeInfo={likeInfoByPostId.get(post.id)}
-                isSaved={interactionsLoaded ? savedPostIds.has(post.id) : undefined}
-                commentCount={commentCountByPostId.get(post.id)}
-                pollInfo={pollDataByPostId.get(post.id)}
-              />
+              <FeedItemEnter key={post.id}>
+                <PostCard
+                  post={post}
+                  onDeleted={refetch}
+                  likeInfo={likeInfoByPostId.get(post.id)}
+                  isSaved={interactionsLoaded ? savedPostIds.has(post.id) : undefined}
+                  commentCount={commentCountByPostId.get(post.id)}
+                  pollInfo={pollDataByPostId.get(post.id)}
+                />
+              </FeedItemEnter>
             ))}
           </View>
         )}
@@ -99,5 +171,32 @@ const styles = StyleSheet.create({
   centerText: {
     textAlign: "center",
     marginTop: spacing.xl,
+  },
+  bannerWrapper: {
+    position: "absolute",
+    top: spacing.sm,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    alignItems: "center",
+  },
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  bannerText: {
+    color: colors.background,
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
