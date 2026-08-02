@@ -1,4 +1,5 @@
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
+import { AndroidAppPromoBanner } from "@/components/layout/AndroidAppPromoBanner";
 
 /**
  * Layout principal — para onde o usuário vai depois do login. Só
@@ -12,9 +13,10 @@ import { BottomNavigation } from "@/components/layout/BottomNavigation";
  * empurrava o conteúdo de cada tela pra baixo sem necessidade (a
  * capa do Perfil, por exemplo, devia começar bem no topo da tela).
  *
- * `BetaPromoBanner` (o pop-up "Participe do nosso beta!") removido a
- * pedido — a fase de convite/teste fechado do Android já não faz
- * mais sentido pra mostrar pra todo mundo que abre o app.
+ * `BetaPromoBanner` (o pop-up "Participe do nosso beta!") removido
+ * antes — a fase de convite/teste fechado do Android já não fazia
+ * mais sentido. No lugar dele, a pedido: `AndroidAppPromoBanner`,
+ * anunciando que o app já está disponível pra valer na Play Store.
  *
  * TASK-014: largura total abaixo de 768px, coluna de ~430px
  * centralizada a partir daí — mesma regra do <PageContainer> e do
@@ -23,6 +25,7 @@ import { BottomNavigation } from "@/components/layout/BottomNavigation";
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-background">
+      <AndroidAppPromoBanner />
       {children}
 
       <BottomNavigation />
