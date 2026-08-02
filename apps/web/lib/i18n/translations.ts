@@ -308,6 +308,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.onboardingSubtitle": "Escolha um ou mais — dá pra mudar depois nas configurações.",
     "common.continue": "Continuar",
     "feed.post": "Post",
+    "feed.justNow": "agora mesmo",
+    "feed.newPostsAvailable": "{count} posts novos",
+    "feed.newPostAvailable": "1 post novo",
     "feed.errorLoadPost": "Não foi possível carregar este post.",
     "feed.postNoLongerExists": "Este post não existe mais.",
 
@@ -912,6 +915,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.onboardingSubtitle": "Pick one or more — you can change this later in settings.",
     "common.continue": "Continue",
     "feed.post": "Post",
+    "feed.justNow": "just now",
+    "feed.newPostsAvailable": "{count} new posts",
+    "feed.newPostAvailable": "1 new post",
     "feed.errorLoadPost": "Couldn't load this post.",
     "feed.postNoLongerExists": "This post no longer exists.",
 
@@ -1516,6 +1522,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.onboardingSubtitle": "Elige uno o más — puedes cambiarlo después en la configuración.",
     "common.continue": "Continuar",
     "feed.post": "Post",
+    "feed.justNow": "ahora mismo",
+    "feed.newPostsAvailable": "{count} publicaciones nuevas",
+    "feed.newPostAvailable": "1 publicación nueva",
     "feed.errorLoadPost": "No se pudo cargar esta publicación.",
     "feed.postNoLongerExists": "Esta publicación ya no existe.",
 

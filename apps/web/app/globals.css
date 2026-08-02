@@ -45,3 +45,27 @@ body {
   background-color: theme("colors.background");
   color: theme("colors.text");
 }
+
+/*
+ * A PEDIDO — "Feed mais vivo", item 4: quando um post entra na
+ * lista, desliza suavemente em vez de só "estar lá do nada". CSS
+ * puro, de propósito — o projeto não tem nenhum plugin de animação
+ * do Tailwind instalado (`tailwindcss-animate`/similar), então em
+ * vez de adicionar uma dependência nova só pra isso, a keyframe mora
+ * aqui, uma classe só (`.feed-item-enter`), reaproveitável em
+ * qualquer lista que precise do mesmo efeito depois.
+ */
+@keyframes feed-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.feed-item-enter {
+  animation: feed-item-enter 300ms ease-out;
+}

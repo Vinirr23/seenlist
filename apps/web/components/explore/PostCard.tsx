@@ -20,6 +20,8 @@ import { cn } from "@seenlist/utils";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { useNow } from "@/lib/useNow";
+import { formatRelativeTime } from "@/lib/relativeTime";
 
 function initials(name: string): string {
   return name
@@ -87,6 +89,7 @@ export function PostCard({
   const toast = useToast();
   const isOwner = currentUser?.id === post.userId;
   const { t, locale } = useTranslation();
+  const now = useNow(30_000);
   const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: "2-digit",
     month: "short",
@@ -194,7 +197,7 @@ export function PostCard({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-text">{post.authorName}</p>
             <p className="truncate text-xs text-muted">
-              @{post.authorUsername} · {dateFormatter.format(new Date(post.createdAt))}
+              @{post.authorUsername} · {formatRelativeTime(post.createdAt, now, locale, t("feed.justNow")) ?? dateFormatter.format(new Date(post.createdAt))}
             </p>
           </div>
         </Link>
