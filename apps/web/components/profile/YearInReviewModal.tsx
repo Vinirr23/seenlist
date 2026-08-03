@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import { X, Trophy, Share2, TrendingUp, Calendar, Flame, Moon, Sunrise, Sun, Sunset, Sparkles, Play, CheckCircle2 } from "lucide-react";
+import { X, Trophy, Share2, TrendingUp, Calendar, Moon, Sunrise, Sun, Sunset, Play, CheckCircle2 } from "lucide-react";
 import { useYearInReview, type YearInReview, type PosterRef } from "@/lib/queries/yearInReview";
 import { usePosterColor } from "@/lib/usePosterColor";
 import { tmdbImage } from "@/lib/tmdb/image";
@@ -10,6 +10,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const DISMISS_KEY_PREFIX = "seenlist:year-in-review-seen:";
 const TOTAL_SLIDES = 12;
+const MONTH_NAMES_SHORT = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
 /**
  * A PEDIDO — segunda reformulação: mudança de FILOSOFIA, não só de
@@ -88,9 +89,9 @@ function CollageBackground({
 }) {
   const filled = posters.filter((p) => p.posterPath).slice(0, 6);
   const rgb = accentColor ?? "232 163 61";
-  const blurClass = intensity === "light" ? "blur-[2px]" : "blur-md";
-  const collageOpacity = intensity === "light" ? "opacity-70" : "opacity-40";
-  const overlayClass = intensity === "light" ? "bg-background/45" : "bg-background/80";
+  const blurClass = intensity === "light" ? "" : "blur-md";
+  const collageOpacity = intensity === "light" ? "opacity-90" : "opacity-40";
+  const overlayClass = intensity === "light" ? "bg-background/25" : "bg-background/80";
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -221,14 +222,23 @@ function YearHeatmap({ dailyActivity, year }: { dailyActivity: YearInReview["dai
   const maxCount = Math.max(1, ...dailyActivity.map((d) => d.count));
   const start = new Date(`${year}-01-01T00:00:00`);
   const startWeekday = start.getDay();
-  const days: { date: string; count: number }[] = [];
-  for (let i = 0; i < startWeekday; i++) days.push({ date: "", count: -1 });
+  const days: { date: string; count: number; month: number }[] = [];
+  for (let i = 0; i < startWeekday; i++) days.push({ date: "", count: -1, month: -1 });
   for (let d = new Date(start); d.getFullYear() === year; d.setDate(d.getDate() + 1)) {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    days.push({ date: key, count: countByDate.get(key) ?? 0 });
+    days.push({ date: key, count: countByDate.get(key) ?? 0, month: d.getMonth() });
   }
-  const weeks: { date: string; count: number }[][] = [];
+  const weeks: { date: string; count: number; month: number }[][] = [];
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+
+  // Rótulo de mês só na semana onde aquele mês COMEÇA — evita repetir o nome em toda coluna.
+  const monthLabelByWeek = weeks.map((week, wi) => {
+    const firstDayOfMonthInWeek = week.find((d) => d.date && Number(d.date.slice(8, 10)) <= 7);
+    if (!firstDayOfMonthInWeek) return null;
+    const isFirstOccurrence = wi === 0 || weeks[wi - 1]?.every((d) => d.month !== firstDayOfMonthInWeek.month);
+    return isFirstOccurrence ? MONTH_NAMES_SHORT[firstDayOfMonthInWeek.month] : null;
+  });
+
   function opacityFor(count: number) {
     if (count < 0) return 0;
     if (count === 0) return 0.08;
@@ -237,7 +247,8 @@ function YearHeatmap({ dailyActivity, year }: { dailyActivity: YearInReview["dai
   return (
     <div className="flex gap-[3px] overflow-hidden">
       {weeks.map((week, wi) => (
-        <div key={wi} className="flex flex-col gap-[3px]">
+        <div key={wi} className="flex flex-col items-center gap-[3px]">
+          <p className="h-3 text-[8px] leading-3 text-muted">{monthLabelByWeek[wi] ?? ""}</p>
           {week.map((day, di) => (
             <div key={di} className="h-[7px] w-[7px] rounded-[2px] bg-primary" style={{ opacity: opacityFor(day.count) }} />
           ))}
@@ -367,17 +378,17 @@ export function YearInReviewModal() {
             {index === 1 && (
               <div className="relative flex w-full flex-col items-center">
                 <Eyebrow>{t("yearInReview.posterWallTitle")}</Eyebrow>
-                <div className="mt-5 grid max-h-[380px] w-full grid-cols-5 gap-1.5 overflow-hidden">
-                  {data.allPosters.slice(0, 30).map((poster) => (
-                    <div key={`${poster.mediaType}-${poster.id}`} className="aspect-[2/3] overflow-hidden rounded-md">
+                <p className="mt-2 max-w-[260px] text-xl font-extrabold leading-tight text-text">{t("yearInReview.posterWallSubtitle")}</p>
+                <div className="mt-6 grid w-full max-w-[300px] grid-cols-3 gap-2">
+                  {data.allPosters.slice(0, 9).map((poster) => (
+                    <div key={`${poster.mediaType}-${poster.id}`} className="aspect-[2/3] overflow-hidden rounded-lg shadow-lg">
                       {poster.posterPath && (
                         // eslint-disable-next-line @next/next/no-img-element -- capturado por html-to-image
-                        <img src={tmdbImage(poster.posterPath, "w185") ?? ""} alt="" className="h-full w-full object-cover" />
+                        <img src={tmdbImage(poster.posterPath, "w300") ?? ""} alt="" className="h-full w-full object-cover" />
                       )}
                     </div>
                   ))}
                 </div>
-                <p className="mt-4 max-w-[260px] text-sm text-muted">{t("yearInReview.posterWallSubtitle")}</p>
               </div>
             )}
 
@@ -431,19 +442,21 @@ export function YearInReviewModal() {
                 <div className="mt-5 flex justify-center overflow-x-auto">
                   <YearHeatmap dailyActivity={data.dailyActivity} year={reviewYear} />
                 </div>
-                {(data.firstWatchedOfYear || data.lastWatchedOfYear) && (
-                  <div className="mt-6 flex w-full items-center justify-center gap-4">
-                    {data.firstWatchedOfYear && (
-                      <div className="flex flex-col items-center">
-                        <PosterThumb poster={data.firstWatchedOfYear} size="sm" />
-                        <p className="mt-1.5 max-w-[80px] truncate text-[10px] text-muted">{t("yearInReview.firstOfYear")}</p>
+                {(data.longestStreakDays > 1 || data.biggestBingeDay) && (
+                  <div className="mt-6 flex w-full gap-3">
+                    {data.longestStreakDays > 1 && (
+                      <div className="flex-1 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
+                        <p className="text-[11px] text-muted">{t("yearInReview.longestStreakLabel")}</p>
+                        <p className="mt-1 text-lg font-extrabold text-text">{t("yearInReview.longestStreak", { days: data.longestStreakDays })}</p>
                       </div>
                     )}
-                    <p className="text-muted">→</p>
-                    {data.lastWatchedOfYear && (
-                      <div className="flex flex-col items-center">
-                        <PosterThumb poster={data.lastWatchedOfYear} size="sm" />
-                        <p className="mt-1.5 max-w-[80px] truncate text-[10px] text-muted">{t("yearInReview.lastOfYear")}</p>
+                    {data.biggestBingeDay && data.biggestBingeDay.count > 1 && (
+                      <div className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
+                        {data.biggestBingeDay.series && <PosterThumb poster={data.biggestBingeDay.series} size="sm" />}
+                        <div className="min-w-0">
+                          <p className="text-[11px] text-muted">{t("yearInReview.biggestDayLabel")}</p>
+                          <p className="text-sm font-extrabold text-text">{t("yearInReview.biggestBinge", { count: data.biggestBingeDay.count })}</p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -542,16 +555,6 @@ export function YearInReviewModal() {
               <div className="relative flex w-full max-w-[300px] flex-col items-center">
                 <Eyebrow>{t("yearInReview.funFactsTitle")}</Eyebrow>
                 <div className="mt-5 flex w-full flex-col gap-2.5">
-                  {data.biggestBingeDay && data.biggestBingeDay.count > 1 && (
-                    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
-                      {data.biggestBingeDay.series && <PosterThumb poster={data.biggestBingeDay.series} size="md" />}
-                      <div className="min-w-0 flex-1">
-                        <Flame className="h-4 w-4 text-primary" strokeWidth={2} />
-                        <p className="mt-1 text-sm font-extrabold text-text">{t("yearInReview.biggestBinge", { count: data.biggestBingeDay.count })}</p>
-                        <p className="truncate text-[11px] text-muted">{data.biggestBingeDay.series?.title ?? t("yearInReview.biggestBingeLabel")}</p>
-                      </div>
-                    </div>
-                  )}
                   {data.favoriteTimeOfDay && TimeIcon && (
                     <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
                       {data.favoriteTimeOfDay.series && <PosterThumb poster={data.favoriteTimeOfDay.series} size="md" />}
@@ -559,15 +562,6 @@ export function YearInReviewModal() {
                         <TimeIcon className="h-4 w-4 text-primary" strokeWidth={2} />
                         <p className="mt-1 text-sm font-extrabold text-text">{t(`yearInReview.timeOfDay.${data.favoriteTimeOfDay.period}`)}</p>
                         <p className="truncate text-[11px] text-muted">{data.favoriteTimeOfDay.series?.title ?? t("yearInReview.favoriteTimeOfDayLabel")}</p>
-                      </div>
-                    </div>
-                  )}
-                  {data.longestStreakDays > 1 && (
-                    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
-                      <Sparkles className="h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
-                      <div>
-                        <p className="text-sm font-extrabold text-text">{t("yearInReview.longestStreak", { days: data.longestStreakDays })}</p>
-                        <p className="text-[11px] text-muted">{t("yearInReview.longestStreakLabel")}</p>
                       </div>
                     </div>
                   )}
