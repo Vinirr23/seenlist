@@ -38,12 +38,7 @@ export function MovieDetailsView({ movieId }: { movieId: string }) {
   }
 
   return (
-    <div className="relative w-full md:mx-auto md:max-w-[430px]">
-      {/* A PEDIDO — mesmo glow de âmbar já aplicado na tela de série (ver SeriesDetailsView.tsx). */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(120%_90%_at_50%_0%,rgb(var(--color-primary)/0.3)_0%,rgb(var(--color-primary)/0.06)_40%,transparent_70%)]"
-        aria-hidden="true"
-      />
+    <div className="w-full md:mx-auto md:max-w-[430px]">
       <MovieHeader movie={movie} watched={status === "watched"} />
 
       <PageContainer>

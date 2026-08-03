@@ -79,7 +79,7 @@ export function SeriesHeader({
       </button>
 
       <div className={`absolute inset-x-4 ${showProgress ? "bottom-7" : "bottom-3"}`}>
-        <h1 className="font-display text-xl font-bold leading-tight text-white drop-shadow">{series.title}</h1>
+        <h1 className="text-xl font-bold leading-tight text-white drop-shadow">{series.title}</h1>
         <p className="mt-1 text-xs text-white/80 drop-shadow">
           {[year, seasonsLabel, series.genres[0]].filter(Boolean).join(" · ")}
         </p>

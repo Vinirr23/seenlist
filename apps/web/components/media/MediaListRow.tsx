@@ -32,7 +32,7 @@ export function MediaListRow({ item, secondaryText }: MediaListRowProps) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-display text-sm font-medium text-text">{item.title}</p>
+        <p className="truncate text-sm font-medium text-text">{item.title}</p>
         {secondaryText && <p className="truncate text-xs text-muted">{secondaryText}</p>}
       </div>
     </Link>

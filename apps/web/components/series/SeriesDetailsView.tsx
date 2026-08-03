@@ -87,21 +87,7 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
   const watchedCount = watchedEpisodes?.size ?? 0;
 
   return (
-    <div className="relative w-full md:mx-auto md:max-w-[430px]">
-      {/*
-       * A PEDIDO — glow sutil de âmbar vazando do banner pro
-       * conteúdo (decidido numa sessão de exploração visual). Fica
-       * ATRÁS de tudo (`-z-10`, `pointer-events-none` — nunca
-       * atrapalha clique em nada) — o próprio banner do
-       * `SeriesHeader` tem fundo opaco (imagem + `bg-surface`) e
-       * cobre a parte de cima sozinho; o glow só fica visível onde
-       * realmente deveria, vazando pro conteúdo logo abaixo do
-       * banner.
-       */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(120%_90%_at_50%_0%,rgb(var(--color-primary)/0.3)_0%,rgb(var(--color-primary)/0.06)_40%,transparent_70%)]"
-        aria-hidden="true"
-      />
+    <div className="w-full md:mx-auto md:max-w-[430px]">
       <SeriesHeader
         series={series}
         seriesId={numericId}

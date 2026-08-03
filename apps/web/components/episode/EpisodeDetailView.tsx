@@ -306,7 +306,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
         </div>
 
         <div className="absolute inset-x-3 bottom-3">
-          <p className="font-display text-xl font-bold text-white">{episodeCode}</p>
+          <p className="text-xl font-bold text-white">{episodeCode}</p>
           <p className="mt-0.5 truncate text-sm text-white/90">{ep.name}</p>
         </div>
       </div>

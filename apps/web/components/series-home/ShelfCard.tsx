@@ -92,7 +92,7 @@ export function ShelfCard({ item, variant = "compact" }: ShelfCardProps) {
         </div>
 
         <div className="mt-2 space-y-0.5">
-          <p className="truncate font-display text-sm font-semibold text-text">{item.title}</p>
+          <p className="truncate text-sm font-semibold text-text">{item.title}</p>
           {isContinue ? (
             <p className="text-xs text-muted">{t("seriesHome.episodeProgress", { watched, total })}</p>
           ) : (

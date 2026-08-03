@@ -3,25 +3,25 @@
 @tailwind utilities;
 
 /**
- * A PEDIDO — nova direção visual, decidida numa sessão de
- * exploração (mockups comparando várias fontes/paletas antes de
- * decidir): âmbar mais vívido (a cor da logo continua intocável,
- * só ficou mais saturada/laranja), azul-marinho no lugar do teal
- * como secundária (usado com intenção — só em elementos "sociais",
- * não espalhado por tudo), e fundo escuro neutro e quente (sem o
- * tom azulado que o `background`/`surface`/`border` tinham antes).
- * Só o tema ESCURO mudou — `.light` continua exatamente como estava
- * (ainda não passou por essa mesma revisão de design).
+ * Ajuste (Configurações — tema): valores reais das cores, em RGB
+ * (formato exigido pelo padrão `<alpha-value>` do Tailwind — ver
+ * packages/config/src/tailwind-tokens.ts). Escuro é o padrão (：root)
+ * e continua sendo exatamente a mesma paleta original do SeenList,
+ * pixel por pixel — nada mudou visualmente pra quem não trocar de
+ * tema. `.light` é a paleta clara nova; foi escolhida pra manter o
+ * mesmo âmbar de destaque e as mesmas cores semânticas
+ * (sucesso/aviso/erro), mas ainda não passou por revisão visual de
+ * design — funciona, mas pode precisar de ajuste fino depois.
  */
 :root,
 .dark {
-  --color-background: 16 14 10;
-  --color-surface: 27 23 18;
-  --color-primary: 245 144 26;
-  --color-secondary: 61 90 158;
-  --color-text: 245 238 224;
-  --color-muted: 140 132 116;
-  --color-border: 42 37 32;
+  --color-background: 11 14 20;
+  --color-surface: 19 24 38;
+  --color-primary: 232 163 61;
+  --color-secondary: 79 209 197;
+  --color-text: 244 241 232;
+  --color-muted: 140 147 168;
+  --color-border: 38 45 64;
   --color-success: 52 199 123;
   --color-warning: 240 180 41;
   --color-danger: 232 87 74;
