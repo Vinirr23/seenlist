@@ -336,9 +336,19 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
   let activityPercentile: number | null = null;
   try {
     const { data: percentileData, error: percentileError } = await supabase.rpc("get_year_activity_percentile", { p_year: year });
-    if (!percentileError && typeof percentileData === "number") activityPercentile = percentileData;
+    // DIAGNÓSTICO TEMPORÁRIO — o Supabase costuma devolver erro como
+    // DADO (não lança exceção), então um erro real passava batido
+    // sem nenhum log antes. Log explícito nos 3 casos possíveis.
+    if (percentileError) {
+      console.error("[computeYearInReview] RPC get_year_activity_percentile devolveu erro (sem lançar exceção)", percentileError);
+    } else if (typeof percentileData !== "number") {
+      console.warn("[computeYearInReview] RPC get_year_activity_percentile devolveu valor inesperado", percentileData);
+    } else {
+      console.log("[computeYearInReview] RPC get_year_activity_percentile OK", percentileData);
+      activityPercentile = percentileData;
+    }
   } catch (error) {
-    console.error("[computeYearInReview] Falha ao calcular percentil de atividade", error);
+    console.error("[computeYearInReview] Falha ao calcular percentil de atividade (exceção)", error);
   }
 
   const topSeriesRanking = top5SeriesIds
