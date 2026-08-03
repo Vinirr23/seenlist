@@ -69,15 +69,33 @@ function ProgressBars({ total, current }: { total: number; current: number }) {
   );
 }
 
-/** Fundo com colagem de pôsteres desfocados — muda de conjunto conforme cada tela. Cai num degradê liso quando não há pôster nenhum. */
-function CollageBackground({ posters, accentColor }: { posters: PosterRef[]; accentColor: string | null }) {
+/**
+ * A PEDIDO — inverter a hierarquia: antes, o fundo desfocado ERA a
+ * "aparição" do pôster (borrado demais, escurecido demais — virava
+ * decoração). Agora, `intensity="light"` (abertura, compartilhamento)
+ * deixa os pôsteres claramente reconhecíveis, com só o escurecimento
+ * mínimo pra legibilidade do texto — o pôster nítido de verdade fica
+ * pro `PosterMosaic` (conteúdo, não fundo).
+ */
+function CollageBackground({
+  posters,
+  accentColor,
+  intensity = "medium",
+}: {
+  posters: PosterRef[];
+  accentColor: string | null;
+  intensity?: "light" | "medium";
+}) {
   const filled = posters.filter((p) => p.posterPath).slice(0, 6);
   const rgb = accentColor ?? "232 163 61";
+  const blurClass = intensity === "light" ? "blur-[2px]" : "blur-md";
+  const collageOpacity = intensity === "light" ? "opacity-70" : "opacity-40";
+  const overlayClass = intensity === "light" ? "bg-background/45" : "bg-background/80";
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
       {filled.length > 0 ? (
-        <div className="absolute inset-0 grid grid-cols-3 gap-0.5 opacity-40 blur-md">
+        <div className={`absolute inset-0 grid grid-cols-3 gap-0.5 ${collageOpacity} ${blurClass}`}>
           {Array.from({ length: 6 }).map((_, i) => {
             const poster = filled[i % filled.length];
             return poster?.posterPath ? (
@@ -89,7 +107,7 @@ function CollageBackground({ posters, accentColor }: { posters: PosterRef[]; acc
           })}
         </div>
       ) : null}
-      <div className="absolute inset-0 bg-background/80" />
+      <div className={`absolute inset-0 ${overlayClass}`} />
       <div
         className="absolute inset-x-0 top-0 h-2/3"
         style={{ background: `radial-gradient(120% 90% at 50% 0%, rgb(${rgb} / 0.35) 0%, rgb(${rgb} / 0.08) 45%, transparent 75%)` }}
@@ -125,6 +143,35 @@ function PosterThumb({ poster, size = "sm" }: { poster: PosterRef; size?: "sm" |
       alt={poster.title}
       className={`${dims} shrink-0 rounded-lg object-cover shadow-lg ring-1 ring-white/10`}
     />
+  );
+}
+
+/**
+ * A PEDIDO — "os pôsteres estão sendo usados só como decoração,
+ * quero inverter a hierarquia". Diferente de `PosterThumb` (miniatura
+ * pequena, ao lado de texto) e de `CollageBackground` (fundo
+ * desfocado) — este é CONTEÚDO de verdade: nítido, grande, ocupa
+ * espaço real na tela. Usado nas telas de horas/mês/gêneros —
+ * lugares que antes só tinham 3-4 miniaturas pequenas competindo com
+ * o texto, agora têm uma faixa de pôsteres que É a resposta visual
+ * ("é POR ISSO que você tem esse número").
+ */
+function PosterMosaic({ posters, count = 5 }: { posters: PosterRef[]; count?: number }) {
+  const filled = posters.filter((p) => p.posterPath).slice(0, count);
+  if (filled.length === 0) return null;
+  return (
+    <div className="flex w-full justify-center gap-1.5 overflow-hidden">
+      {filled.map((poster) => (
+        // eslint-disable-next-line @next/next/no-img-element -- capturado por html-to-image
+        <img
+          key={`${poster.mediaType}-${poster.id}`}
+          src={tmdbImage(poster.posterPath!, "w300") ?? ""}
+          alt={poster.title}
+          className="h-28 flex-1 rounded-lg object-cover shadow-xl ring-1 ring-white/10"
+          style={{ maxWidth: `${100 / filled.length}%` }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -302,7 +349,7 @@ export function YearInReviewModal() {
       ) : (
         <>
           <div ref={slideRef} className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-background px-6 text-center">
-            <CollageBackground posters={collageForSlide} accentColor={extractedColor} />
+            <CollageBackground posters={collageForSlide} accentColor={extractedColor} intensity={index === 0 || index === 11 ? "light" : "medium"} />
 
             {/* 1 — Abertura */}
             {index === 0 && (
@@ -348,10 +395,8 @@ export function YearInReviewModal() {
                 {data.topSeriesRanking.length > 0 && (
                   <>
                     <p className="mt-6 text-xs text-muted">{t("yearInReview.hoursGeneratedBy")}</p>
-                    <div className="mt-3 flex gap-2">
-                      {data.topSeriesRanking.slice(0, 3).map((s) => (
-                        <PosterThumb key={s.id} poster={{ ...s, mediaType: "series" }} size="sm" />
-                      ))}
+                    <div className="mt-3 w-full max-w-[280px]">
+                      <PosterMosaic posters={data.topSeriesRanking.map((s) => ({ ...s, mediaType: "series" }))} count={5} />
                     </div>
                   </>
                 )}
@@ -371,10 +416,8 @@ export function YearInReviewModal() {
                   <MonthlyBarChart monthlyActivity={data.monthlyActivity} />
                 </div>
                 {data.mostActiveMonth && data.mostActiveMonth.posters.length > 0 && (
-                  <div className="mt-5 flex gap-2">
-                    {data.mostActiveMonth.posters.slice(0, 4).map((p) => (
-                      <PosterThumb key={`${p.mediaType}-${p.id}`} poster={p} size="sm" />
-                    ))}
+                  <div className="mt-5 w-full max-w-[280px]">
+                    <PosterMosaic posters={data.mostActiveMonth.posters} count={4} />
                   </div>
                 )}
               </div>
@@ -412,28 +455,38 @@ export function YearInReviewModal() {
             {index === 5 && (
               <div className="relative flex w-full max-w-[300px] flex-col items-center">
                 <Eyebrow color={extractedColor}>{t("yearInReview.topGenresTitle")}</Eyebrow>
-                <div className="mt-6 flex w-full flex-col gap-4">
-                  {data.topGenres.map((genre, i) => {
-                    const max = data.topGenres[0]?.count ?? 1;
-                    return (
-                      <div key={genre.name} className="text-left">
-                        <p className="text-sm font-extrabold text-text">
-                          {i + 1}. {genre.name}
-                        </p>
-                        <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-white/10">
-                          <div className="h-full rounded-full bg-primary" style={{ width: `${(genre.count / max) * 100}%` }} />
-                        </div>
-                        {genre.posters.length > 0 && (
-                          <div className="mt-2 flex gap-1.5">
-                            {genre.posters.slice(0, 4).map((p) => (
-                              <PosterThumb key={`${p.mediaType}-${p.id}`} poster={p} size="sm" />
-                            ))}
+                {data.topGenres[0] && (
+                  <div className="mt-4 w-full">
+                    <p className="text-2xl font-extrabold text-text">{data.topGenres[0].name}</p>
+                    <div className="mt-3 w-full max-w-[280px]">
+                      <PosterMosaic posters={data.topGenres[0].posters} count={4} />
+                    </div>
+                  </div>
+                )}
+                {data.topGenres.length > 1 && (
+                  <div className="mt-6 flex w-full flex-col gap-3">
+                    {data.topGenres.slice(1).map((genre, i) => {
+                      const max = data.topGenres[0]?.count ?? 1;
+                      return (
+                        <div key={genre.name} className="text-left">
+                          <p className="text-sm font-extrabold text-text">
+                            {i + 2}. {genre.name}
+                          </p>
+                          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                            <div className="h-full rounded-full bg-primary" style={{ width: `${(genre.count / max) * 100}%` }} />
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                          {genre.posters.length > 0 && (
+                            <div className="mt-1.5 flex gap-1.5">
+                              {genre.posters.slice(0, 4).map((p) => (
+                                <PosterThumb key={`${p.mediaType}-${p.id}`} poster={p} size="sm" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -491,20 +544,20 @@ export function YearInReviewModal() {
                 <div className="mt-5 flex w-full flex-col gap-2.5">
                   {data.biggestBingeDay && data.biggestBingeDay.count > 1 && (
                     <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
-                      <Flame className="h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
-                      {data.biggestBingeDay.series && <PosterThumb poster={data.biggestBingeDay.series} size="sm" />}
-                      <div className="min-w-0">
-                        <p className="text-sm font-extrabold text-text">{t("yearInReview.biggestBinge", { count: data.biggestBingeDay.count })}</p>
+                      {data.biggestBingeDay.series && <PosterThumb poster={data.biggestBingeDay.series} size="md" />}
+                      <div className="min-w-0 flex-1">
+                        <Flame className="h-4 w-4 text-primary" strokeWidth={2} />
+                        <p className="mt-1 text-sm font-extrabold text-text">{t("yearInReview.biggestBinge", { count: data.biggestBingeDay.count })}</p>
                         <p className="truncate text-[11px] text-muted">{data.biggestBingeDay.series?.title ?? t("yearInReview.biggestBingeLabel")}</p>
                       </div>
                     </div>
                   )}
                   {data.favoriteTimeOfDay && TimeIcon && (
                     <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
-                      <TimeIcon className="h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
-                      {data.favoriteTimeOfDay.series && <PosterThumb poster={data.favoriteTimeOfDay.series} size="sm" />}
-                      <div className="min-w-0">
-                        <p className="text-sm font-extrabold text-text">{t(`yearInReview.timeOfDay.${data.favoriteTimeOfDay.period}`)}</p>
+                      {data.favoriteTimeOfDay.series && <PosterThumb poster={data.favoriteTimeOfDay.series} size="md" />}
+                      <div className="min-w-0 flex-1">
+                        <TimeIcon className="h-4 w-4 text-primary" strokeWidth={2} />
+                        <p className="mt-1 text-sm font-extrabold text-text">{t(`yearInReview.timeOfDay.${data.favoriteTimeOfDay.period}`)}</p>
                         <p className="truncate text-[11px] text-muted">{data.favoriteTimeOfDay.series?.title ?? t("yearInReview.favoriteTimeOfDayLabel")}</p>
                       </div>
                     </div>
@@ -607,30 +660,31 @@ export function YearInReviewModal() {
               </div>
             )}
 
-            {/* 12 — Compartilhamento (wallpaper) */}
+            {/* 12 — Compartilhamento (wallpaper: colagem domina, resumo ancorado embaixo) */}
             {index === 11 && (
-              <div className="relative flex w-full max-w-[300px] flex-col items-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-2xl font-extrabold text-background shadow-lg">
-                  S
+              <div className="relative flex h-full w-full flex-col justify-end px-2 pb-8">
+                <div className="flex flex-col items-center rounded-2xl bg-background/70 p-5 backdrop-blur-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-xl font-extrabold text-background shadow-lg">
+                    S
+                  </div>
+                  <p className="mt-2 text-lg font-extrabold text-text">{t("yearInReview.myYear", { year: reviewYear })}</p>
+                  <div className="mt-4 flex gap-6">
+                    <div>
+                      <p className="text-xl font-extrabold text-primary">{hours}h</p>
+                      <p className="text-[11px] text-muted">{t("yearInReview.hoursWatched")}</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-extrabold text-primary">{data.totalEpisodesWatched}</p>
+                      <p className="text-[11px] text-muted">{t("yearInReview.episodesWatched")}</p>
+                    </div>
+                  </div>
+                  {data.topSeries && (
+                    <div className="mt-4 text-center">
+                      <p className="text-[10px] uppercase tracking-wide text-muted">{t("yearInReview.topSeries")}</p>
+                      <p className="text-sm font-extrabold text-text">{data.topSeries.title}</p>
+                    </div>
+                  )}
                 </div>
-                <p className="mt-3 text-xl font-extrabold text-text">{t("yearInReview.myYear", { year: reviewYear })}</p>
-                <div className="mt-5 flex gap-6">
-                  <div>
-                    <p className="text-xl font-extrabold text-primary">{hours}h</p>
-                    <p className="text-[11px] text-muted">{t("yearInReview.hoursWatched")}</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-extrabold text-primary">{data.totalEpisodesWatched}</p>
-                    <p className="text-[11px] text-muted">{t("yearInReview.episodesWatched")}</p>
-                  </div>
-                </div>
-                {data.topSeries && (
-                  <div className="mt-5">
-                    <p className="text-[10px] uppercase tracking-wide text-muted">{t("yearInReview.topSeries")}</p>
-                    <p className="text-sm font-extrabold text-text">{data.topSeries.title}</p>
-                  </div>
-                )}
-                <p className="mt-6 text-xs text-muted">seenlist</p>
               </div>
             )}
           </div>
