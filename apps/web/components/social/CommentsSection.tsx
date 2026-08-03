@@ -116,6 +116,13 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
         </div>
       )}
 
+      <div className="rounded-lg border border-border bg-surface p-3">
+        <CommentComposer
+          onSubmit={(body, containsSpoiler, imageUrl) => postComment.mutate({ body, containsSpoiler, imageUrl })}
+          isPending={postComment.isPending}
+        />
+      </div>
+
       {isLoading ? (
         <CommentsSkeleton />
       ) : tree.length === 0 ? (
@@ -123,13 +130,6 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
       ) : (
         <div className="space-y-4">{tree.map((node) => renderNode(node, 0))}</div>
       )}
-
-      <div className="rounded-lg border border-border bg-surface p-3">
-        <CommentComposer
-          onSubmit={(body, containsSpoiler, imageUrl) => postComment.mutate({ body, containsSpoiler, imageUrl })}
-          isPending={postComment.isPending}
-        />
-      </div>
     </div>
   );
 }
