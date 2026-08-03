@@ -64,6 +64,8 @@ export interface MovieDetails {
   runtimeMinutes: number | null;
   genres: string[];
   voteAverage: number;
+  /** A PEDIDO — mesmo refinamento já feito na série, agora em filme também. */
+  trailerKey: string | null;
   director: string | null;
   cast: CastMember[];
   studios: string[];

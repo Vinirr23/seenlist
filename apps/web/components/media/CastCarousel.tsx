@@ -16,6 +16,28 @@ function normalizeCharacterName(name: string): string {
 }
 
 /**
+ * A PEDIDO (correção 2, bug real reportado — "Rudeus Greyrat's
+ * Former Self" caindo pro dublador) — o TMDB às vezes acrescenta um
+ * qualificador no nome do personagem que o AniList/MyAnimeList não
+ * usa ("'s Former Self", variações de idade/versão) — correspondência
+ * EXATA nunca bate nesses casos. Achado só depois de ver rodando de
+ * verdade — a correspondência POR PREFIXO (um nome sendo o começo
+ * do outro) resolve isso sem abrir muito risco de casar personagem
+ * errado (diferente de "contém em qualquer posição", que casaria
+ * "Eris" com "Erisabeth" incorretamente, por exemplo).
+ */
+function findCharacterImage(imageByCharacterName: Map<string, string | null>, characterName: string): string | null | undefined {
+  const normalized = normalizeCharacterName(characterName);
+  const exact = imageByCharacterName.get(normalized);
+  if (exact !== undefined) return exact;
+
+  for (const [knownName, imageUrl] of imageByCharacterName) {
+    if (knownName.length >= 4 && (normalized.startsWith(knownName) || knownName.startsWith(normalized))) return imageUrl;
+  }
+  return undefined;
+}
+
+/**
  * A PEDIDO (correção real, confirmada pelo usuário) — "no
  * personagem favorito mostra o personagem, em Sobre mostra o
  * dublador". A causa: `CastMember.profilePath` vem direto do
@@ -42,7 +64,7 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
   return (
     <div className="flex gap-3 overflow-x-auto pb-1">
       {cast.map((member) => {
-        const characterImage = imageByCharacterName.get(normalizeCharacterName(member.character));
+        const characterImage = findCharacterImage(imageByCharacterName, member.character);
         const photoUrl = characterImage ?? tmdbImage(member.profilePath, "w185");
         return (
           <div key={member.id} className="w-24 shrink-0">

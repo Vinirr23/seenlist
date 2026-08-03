@@ -12,6 +12,7 @@ import { StreamingProviders } from "./StreamingProviders";
 import { SimilarMoviesCarousel } from "./SimilarMoviesCarousel";
 import { MovieDetailsSkeleton } from "./MovieDetailsSkeleton";
 import { CastCarousel } from "../media/CastCarousel";
+import { TrailerCard } from "../media/TrailerCard";
 import { EmptyState } from "../search/EmptyState";
 import { PageError } from "../media/PageError";
 import { PageContainer } from "../layout/PageContainer";
@@ -49,6 +50,13 @@ export function MovieDetailsView({ movieId }: { movieId: string }) {
             <EmptyState message={t("movie.noInfo")} />
           ) : (
             <MovieInfo movie={movie} />
+          )}
+
+          {movie.trailerKey && (
+            <section>
+              <h2 className="mb-2 text-sm font-medium text-text">{t("series.trailer")}</h2>
+              <TrailerCard videoKey={movie.trailerKey} />
+            </section>
           )}
 
           <section>

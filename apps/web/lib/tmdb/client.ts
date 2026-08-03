@@ -463,6 +463,7 @@ interface TmdbMovieDetailsResponse {
   };
   similar?: { results: TmdbMultiSearchItem[] };
   "watch/providers"?: TmdbWatchProvidersResponse;
+  videos?: { results: { key: string; site: string; type: string; official?: boolean }[] };
 }
 
 /** Região usada pra "onde assistir" — projeto é pt-BR de ponta a ponta, então fixamos BR. */
@@ -547,7 +548,7 @@ export async function getSeriesWatchProviders(seriesId: string): Promise<WatchPr
  */
 export async function getMovieDetails(movieId: string): Promise<MovieDetails> {
   const data = await tmdbGet<TmdbMovieDetailsResponse>(`/movie/${movieId}`, {
-    append_to_response: "credits,similar,watch/providers",
+    append_to_response: "credits,similar,watch/providers,videos",
   });
 
   const cast: CastMember[] = (data.credits?.cast ?? []).slice(0, 15).map((member) => ({
@@ -572,6 +573,12 @@ export async function getMovieDetails(movieId: string): Promise<MovieDetails> {
     }))
   );
 
+  const videos = data.videos?.results ?? [];
+  const trailer =
+    videos.find((v) => v.site === "YouTube" && v.type === "Trailer" && v.official) ??
+    videos.find((v) => v.site === "YouTube" && v.type === "Trailer") ??
+    videos.find((v) => v.site === "YouTube");
+
   return {
     id: data.id,
     title: data.title,
@@ -583,6 +590,7 @@ export async function getMovieDetails(movieId: string): Promise<MovieDetails> {
     runtimeMinutes: data.runtime,
     genres: data.genres.map((genre) => genre.name),
     voteAverage: data.vote_average,
+    trailerKey: trailer?.key ?? null,
     director,
     cast,
     studios: data.production_companies.map((company) => company.name),
