@@ -161,12 +161,24 @@ export function YearInReviewModal() {
         <div className="flex flex-1 items-center justify-center text-sm text-white/70">{t("common.loading")}</div>
       ) : (
         <>
-          <div ref={slideRef} className="flex flex-1 flex-col items-center justify-center bg-background px-8 text-center">
+          <div
+            ref={slideRef}
+            className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-background px-8 text-center"
+          >
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-2/3 bg-[radial-gradient(120%_90%_at_50%_0%,rgb(var(--color-primary)/0.28)_0%,rgb(var(--color-primary)/0.06)_45%,transparent_75%)]"
+              aria-hidden="true"
+            />
             {index === 0 && (
               <>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("yearInReview.youWatched")}</p>
-                <p className="mt-2 text-7xl font-extrabold leading-none text-primary">{hours}</p>
-                <p className="mt-3 text-lg font-bold text-text">{t("yearInReview.hoursIn", { year: reviewYear })}</p>
+                <p className="relative text-xs font-semibold uppercase tracking-wide text-muted">✦ {t("yearInReview.youWatched")}</p>
+                <p className="relative mt-2 text-8xl font-extrabold leading-none text-primary">{hours}</p>
+                <p className="relative mt-3 text-lg font-bold text-text">{t("yearInReview.hoursIn", { year: reviewYear })}</p>
+                {hours > 0 && (
+                  <p className="relative mt-4 max-w-[240px] text-sm text-muted">
+                    {t("yearInReview.hoursComparison", { days: Math.round(hours / 24) })}
+                  </p>
+                )}
               </>
             )}
             {index === 1 && data.topSeries && (
@@ -176,50 +188,63 @@ export function YearInReviewModal() {
                   <img
                     src={tmdbImage(data.topSeries.posterPath, "w342") ?? ""}
                     alt=""
-                    className="mb-5 h-40 w-28 rounded-xl object-cover shadow-xl"
+                    className="relative mb-5 h-44 w-32 rounded-xl object-cover shadow-2xl ring-1 ring-white/10"
                   />
                 )}
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">{t("yearInReview.topSeries")}</p>
-                <p className="mt-2 text-2xl font-extrabold leading-tight text-text">{data.topSeries.title}</p>
-                <p className="mt-2 text-sm text-muted">{t("yearInReview.episodeCount", { count: data.topSeries.episodeCount })}</p>
+                <p className="relative text-xs font-semibold uppercase tracking-wide text-primary">🏆 {t("yearInReview.topSeries")}</p>
+                <p className="relative mt-2 text-2xl font-extrabold leading-tight text-text">{data.topSeries.title}</p>
+                <p className="relative mt-2 text-sm text-muted">{t("yearInReview.episodeCount", { count: data.topSeries.episodeCount })}</p>
               </>
             )}
             {index === 1 && !data.topSeries && (
               <>
-                <Tv className="h-10 w-10 text-primary" strokeWidth={1.75} />
-                <p className="mt-4 text-lg font-bold text-text">{t("yearInReview.episodesWatched")}</p>
-                <p className="mt-1 text-4xl font-extrabold text-primary">{data.totalEpisodesWatched}</p>
+                <Tv className="relative h-10 w-10 text-primary" strokeWidth={1.75} />
+                <p className="relative mt-4 text-lg font-bold text-text">{t("yearInReview.episodesWatched")}</p>
+                <p className="relative mt-1 text-4xl font-extrabold text-primary">{data.totalEpisodesWatched}</p>
               </>
             )}
             {index === 2 && (
               <>
+                <p className="relative text-xs font-semibold uppercase tracking-wide text-muted">✦ {t("yearInReview.yourPerformance")}</p>
                 <div
-                  className="flex h-32 w-32 items-center justify-center rounded-full"
+                  className="relative mt-4 flex h-36 w-36 items-center justify-center rounded-full"
                   style={{
                     background: `conic-gradient(rgb(var(--color-primary)) ${Math.min(data.activityPercentile ? 100 - data.activityPercentile : 0, 100)}%, rgb(var(--color-surface)) 0)`,
                   }}
                 >
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-background">
+                  <div className="flex h-28 w-28 items-center justify-center rounded-full bg-background">
                     <div>
-                      <p className="text-xl font-extrabold text-text">{hours}h</p>
+                      <p className="text-2xl font-extrabold text-text">{hours}h</p>
                     </div>
                   </div>
                 </div>
                 {percentileLabel ? (
-                  <div className="mt-5 flex items-center gap-1.5 rounded-full border border-primary bg-primary/15 px-4 py-1.5">
+                  <div className="relative mt-5 flex items-center gap-1.5 rounded-full border border-primary bg-primary/15 px-4 py-1.5">
                     <Trophy className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />
                     <p className="text-xs font-bold text-primary">{percentileLabel}</p>
                   </div>
                 ) : (
-                  <p className="mt-5 text-sm text-muted">{t("yearInReview.hoursWatched")}</p>
+                  <p className="relative mt-5 text-sm text-muted">{t("yearInReview.hoursWatched")}</p>
                 )}
               </>
             )}
             {index === 3 && (
               <>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-lg font-extrabold text-background">S</div>
-                <p className="mt-3 text-sm font-bold text-text">seenlist</p>
-                <p className="mt-8 text-sm text-muted">{t("yearInReview.shareCta")}</p>
+                <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-2xl font-extrabold text-background shadow-lg">
+                  S
+                </div>
+                <p className="relative mt-3 text-base font-bold text-text">seenlist</p>
+                <div className="relative mt-6 flex gap-6">
+                  <div>
+                    <p className="text-xl font-extrabold text-primary">{hours}h</p>
+                    <p className="text-[11px] text-muted">{t("yearInReview.hoursWatched")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-extrabold text-primary">{data.totalEpisodesWatched}</p>
+                    <p className="text-[11px] text-muted">{t("yearInReview.episodesWatched")}</p>
+                  </div>
+                </div>
+                <p className="relative mt-8 max-w-[220px] text-sm text-muted">{t("yearInReview.shareCta")}</p>
               </>
             )}
           </div>
