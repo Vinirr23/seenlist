@@ -29,6 +29,7 @@ import { PageError } from "../media/PageError";
 import { EpisodeWatchedButton } from "../series/EpisodeWatchedButton";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { FLOATING_BUTTON_BOTTOM_OFFSET } from "@/lib/layout/bottomNavVisibility";
 
 export interface EpisodeDetailViewProps {
   seriesId: string;
@@ -412,7 +413,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
       <Link
         href={`/series/${seriesIdNum}/season/${season}/episode/${episode}/comments`}
         className="fixed left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-background shadow-lg"
-        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
+        style={{ bottom: FLOATING_BUTTON_BOTTOM_OFFSET }}
       >
         <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
         {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}

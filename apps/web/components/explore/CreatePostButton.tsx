@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Plus } from "lucide-react";
 import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { FLOATING_BUTTON_BOTTOM_OFFSET } from "@/lib/layout/bottomNavVisibility";
 
 /**
  * AUDITORIA (perf, a pedido) — o formulário inteiro (upload de
@@ -41,7 +42,7 @@ export function CreatePostButton() {
         }}
         aria-label={t("feed.createPost")}
         className="fixed right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-background shadow-lg active:scale-95"
-        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
+        style={{ bottom: FLOATING_BUTTON_BOTTOM_OFFSET }}
       >
         <Plus className="h-6 w-6" strokeWidth={2.5} />
       </button>

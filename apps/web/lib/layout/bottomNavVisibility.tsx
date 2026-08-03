@@ -2,6 +2,23 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+/**
+ * CORREÇÃO (bug real, reportado — botão de comentários e botão "+"
+ * do Feed aparecendo POR CIMA da barra de navegação) — os dois
+ * usavam `bottom: calc(5rem + safe-area)` direto, sem checar contra
+ * a altura de verdade da barra (`BottomNavigation.tsx`): `bottom-3`
+ * (12px) + `py-2.5` (20px) + ícone `h-9` (36px) + `gap-1` (4px) +
+ * texto (~14px) ≈ 86px de altura total — MAIOR que os 80px (5rem)
+ * que os botões flutuantes usavam. Como os botões têm `z-50` (maior
+ * que o `z-40` da barra), a sobreposição de ~6px ficava visível por
+ * cima dela, não atrás.
+ *
+ * Constante única, com folga de verdade (não só o mínimo calculado)
+ * — se a altura da barra mudar no futuro, só precisa ajustar aqui,
+ * não caçar cada botão flutuante espalhado pelo app.
+ */
+export const FLOATING_BUTTON_BOTTOM_OFFSET = "calc(6.5rem + env(safe-area-inset-bottom))";
+
 interface BottomNavVisibilityContextValue {
   hidden: boolean;
   setHiddenBy: (id: string, hidden: boolean) => void;
