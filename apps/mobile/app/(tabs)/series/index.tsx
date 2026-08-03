@@ -66,12 +66,42 @@ export default function SeriesHomeScreen() {
     }, [])
   );
 
-  const continueWatching = useMemo(() => {
+  /**
+   * CORREÇÃO (bug real, reportado — "Tanya the Evil assistindo, mas
+   * não aparece na Home") — "Em dia" (`up_to_date`) é um status
+   * PRÓPRIO, separado de "watching". Filtrando só "watching" aqui,
+   * uma série que passou a "Em dia" (episódios em dia com o que já
+   * saiu) sumia de "Continue assistindo" até `recalculateUpToDate-
+   * SeriesCategories` (chamado ao focar a aba) promovê-la de volta
+   * pra "watching" quando saísse episódio novo — nesse meio tempo,
+   * se a série tivesse QUALQUER pendência real (ex.: episódio
+   * lançado mas ainda não processado pelo recálculo), ela ficava
+   * invisível na Home mesmo aparecendo em "Assistindo" no Perfil
+   * (que lista por status puro, sem essa lacuna). Mesma correção já
+   * aplicada no web (`MinhaListaSection.tsx`).
+   *
+   * Ampliado só pro modo LISTA — é o único que mostra o próximo
+   * episódio pendente; sem pendência nenhuma, cai no fallback
+   * `MediaListRow` (só progresso, sem quebrar nada). O modo GRADE
+   * continua só "watching", igual ao web — incluir "Em dia" ali
+   * poluiria a grade com séries sem nada pendente e nenhum
+   * indicativo visual disso.
+   */
+  const continueWatchingList = useMemo(() => {
+    return (items ?? [])
+      .filter((item) => item.mediaType === "series" && (item.status === "watching" || item.status === "up_to_date"))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, CONTINUE_LIMIT);
+  }, [items]);
+
+  const continueWatchingGrid = useMemo(() => {
     return (items ?? [])
       .filter((item) => item.mediaType === "series" && item.status === "watching")
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .slice(0, CONTINUE_LIMIT);
   }, [items]);
+
+  const continueWatching = viewMode === "grid" ? continueWatchingGrid : continueWatchingList;
 
   /**
    * TASK-145 (a pedido) — só busca o "próximo episódio pendente" de
@@ -122,7 +152,7 @@ export default function SeriesHomeScreen() {
 
       {tab === "minha-lista" ? (
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
           <View style={styles.sectionHeader}>
