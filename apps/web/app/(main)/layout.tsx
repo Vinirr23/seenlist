@@ -1,5 +1,6 @@
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { AndroidAppPromoBanner } from "@/components/layout/AndroidAppPromoBanner";
+import { YearInReviewModal } from "@/components/profile/YearInReviewModal";
 
 /**
  * Layout principal — para onde o usuário vai depois do login. Só
@@ -18,6 +19,15 @@ import { AndroidAppPromoBanner } from "@/components/layout/AndroidAppPromoBanner
  * mais sentido. No lugar dele, a pedido: `AndroidAppPromoBanner`,
  * anunciando que o app já está disponível pra valer na Play Store.
  *
+ * `YearInReviewModal` (a pedido, "Seu ano") — só se torna visível
+ * de verdade em dezembro/janeiro (ver o componente). Risco baixo,
+ * mas registrado: como os dois popups usam `position: fixed inset-0`
+ * com o mesmo z-index, se algum dia os dois estiverem "não
+ * dispensados" ao mesmo tempo bem em janeiro, um ficaria por cima do
+ * outro sem hierarquia definida — não resolvido de propósito agora,
+ * já que a chance real disso acontecer é baixa (a maioria de quem
+ * usa o app já dispensou o banner do Android há tempo).
+ *
  * TASK-014: largura total abaixo de 768px, coluna de ~430px
  * centralizada a partir daí — mesma regra do <PageContainer> e do
  * <BottomNavigation>, pra conteúdo/rodapé formarem uma coluna só.
@@ -26,6 +36,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="min-h-dvh bg-background">
       <AndroidAppPromoBanner />
+      <YearInReviewModal />
       {children}
 
       <BottomNavigation />

@@ -612,6 +612,14 @@ export interface MediaSummary {
   runtimeMinutes?: number;
   /** Só preenchido pra filme (TASK-148, app nativo). Formato TMDB (YYYY-MM-DD). */
   releaseDate?: string | null;
+  /**
+   * A PEDIDO — "Seu ano" (gênero favorito). Só os NOMES (não os ids
+   * do TMDB) — pra essa feature só interessa contar frequência por
+   * nome, não precisa do id. Vem do MESMO request que já busca o
+   * resto do resumo (o TMDB já devolve isso por padrão em
+   * `/movie/{id}` e `/tv/{id}`) — nenhuma chamada nova ao TMDB.
+   */
+  genres?: string[];
 }
 
 interface TmdbMovieSummaryResponse {
@@ -620,6 +628,7 @@ interface TmdbMovieSummaryResponse {
   release_date: string | null;
   poster_path: string | null;
   runtime: number | null;
+  genres: { id: number; name: string }[];
 }
 
 export async function getMovieSummary(movieId: number): Promise<MediaSummary> {
@@ -631,6 +640,7 @@ export async function getMovieSummary(movieId: number): Promise<MediaSummary> {
     posterPath: data.poster_path,
     runtimeMinutes: data.runtime ?? undefined,
     releaseDate: data.release_date ?? null,
+    genres: (data.genres ?? []).map((g) => g.name),
   };
 }
 
@@ -645,6 +655,7 @@ interface TmdbSeriesSummaryResponse {
   /** Nem toda série preenche isso no TMDB — por isso o fallback abaixo. */
   episode_run_time: number[];
   seasons: { season_number: number; episode_count: number }[];
+  genres: { id: number; name: string }[];
 }
 
 const DEFAULT_EPISODE_RUNTIME_MINUTES = 45;
@@ -676,6 +687,7 @@ export async function getSeriesSummary(seriesId: number): Promise<MediaSummary> 
     totalEpisodes: totalEpisodesExcludingSpecials || data.number_of_episodes,
     ended: data.status === "Ended" || data.status === "Canceled",
     runtimeMinutes: data.episode_run_time?.[0] || DEFAULT_EPISODE_RUNTIME_MINUTES,
+    genres: (data.genres ?? []).map((g) => g.name),
   };
 }
 
