@@ -14,6 +14,8 @@ export interface MediaSearchResult {
   title: string;
   year: number | null;
   posterPath: string | null;
+  /** A PEDIDO — refinamento da aba Sobre: card de "séries semelhantes" com nota, não só pôster+título. */
+  voteAverage?: number;
   /** Só usado hoje pelo importador do TV Time, como critério de desempate entre candidatos com score parecido. */
   popularity?: number;
   /** Título original do TMDB (original_name/original_title) — usado pelo importador do TV Time pra comparar com o nome que o TV Time guarda, que costuma ser o original, não o localizado. */
@@ -88,6 +90,12 @@ export interface SeriesDetails {
   genres: string[];
   networks: string[];
   voteAverage: number;
+  /** A PEDIDO — refinamento da aba Sobre: "★ 4.8 • 183 mil avaliações" no hero. */
+  voteCount: number;
+  /** Chave do YouTube do trailer oficial mais recente, se o TMDB tiver um cadastrado. `null` quando não tem. */
+  trailerKey: string | null;
+  /** Até 8 imagens de cena (backdrops) — pra seção "Galeria". */
+  gallery: string[];
   cast: CastMember[];
   similar: MediaSearchResult[];
   seasons: SeasonWithEpisodes[];

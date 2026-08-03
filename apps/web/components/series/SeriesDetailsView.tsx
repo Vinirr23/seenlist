@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MessageCircle, ChevronRight } from "lucide-react";
+import { MessageCircle, ChevronRight, Tv, Calendar, Layers, Clapperboard } from "lucide-react";
 import { useSeriesDetails } from "@/lib/queries/series";
 import { useWatchedEpisodes } from "@/lib/queries/watched-episodes";
 import { useSeriesStatus } from "@/lib/queries/series-status";
@@ -18,11 +18,37 @@ import { SeriesCaughtUpCard } from "./SeriesCaughtUpCard";
 import { ConfettiBurst } from "./ConfettiBurst";
 import { CastCarousel } from "../media/CastCarousel";
 import { MetaRow } from "../media/MetaRow";
+import { BackdropGallery } from "../media/BackdropGallery";
+import { TrailerCard } from "../media/TrailerCard";
 import { SimilarSeriesCarousel } from "./SimilarSeriesCarousel";
 import { ReviewsSection } from "../social/ReviewsSection";
 import { EmptyState } from "../search/EmptyState";
 import { PageError } from "../media/PageError";
 import { PageContainer } from "../layout/PageContainer";
+
+/**
+ * A PEDIDO — sinopse com "Ler mais": recolhida por padrão (5
+ * linhas, `line-clamp-5`), só mostra o botão quando o texto passa
+ * um comprimento aproximado que costuma estourar 5 linhas nesse
+ * tamanho de coluna (~220 caracteres) — evita mostrar "Ler mais" à
+ * toa numa sinopse curta que já cabe inteira.
+ */
+function SeriesOverview({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const { t } = useTranslation();
+  const likelyOverflows = text.length > 220;
+
+  return (
+    <div>
+      <p className={`text-sm leading-relaxed text-text ${expanded ? "" : "line-clamp-5"}`}>{text}</p>
+      {likelyOverflows && (
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-1 text-xs font-semibold text-primary">
+          {expanded ? t("series.readLess") : t("series.readMore")}
+        </button>
+      )}
+    </div>
+  );
+}
 
 /** Tradução (5º lote). */
 export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
@@ -102,21 +128,58 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
       <PageContainer>
         {tab === "sobre" && (
           <div className="space-y-6">
-            <p className="text-sm leading-relaxed text-text">{series.overview || t("series.noOverview")}</p>
+            <section>
+              <h2 className="mb-2 text-sm font-semibold text-text">{t("series.overviewTitle")}</h2>
+              <SeriesOverview text={series.overview || t("series.noOverview")} />
+            </section>
 
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <MetaRow label={t("series.status")} value={series.status} />
-              <MetaRow label={t("series.releaseDate")} value={series.firstAirDate ?? "—"} />
-              <MetaRow label={t("series.seasonsLabel")} value={String(series.numberOfSeasons)} />
-              <MetaRow label={t("series.episodesLabel")} value={String(series.numberOfEpisodes)} />
-              <MetaRow label={t("series.network")} value={series.networks.join(", ") || "—"} />
-              <MetaRow label={t("series.genres")} value={series.genres.join(", ") || "—"} />
-            </dl>
+            {series.genres.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {series.genres.map((genre) => (
+                  <span key={genre} className="rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-text">
+                    {genre}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <MetaRow label={t("series.status")} value={series.status} icon={<Layers className="mb-1 h-4 w-4 text-muted" strokeWidth={2} />} />
+              <MetaRow
+                label={t("series.releaseDate")}
+                value={series.firstAirDate?.slice(0, 4) ?? "—"}
+                icon={<Calendar className="mb-1 h-4 w-4 text-muted" strokeWidth={2} />}
+              />
+              <MetaRow
+                label={t("series.seasonsLabel")}
+                value={String(series.numberOfSeasons)}
+                icon={<Tv className="mb-1 h-4 w-4 text-muted" strokeWidth={2} />}
+              />
+              <MetaRow
+                label={t("series.episodesLabel")}
+                value={String(series.numberOfEpisodes)}
+                icon={<Clapperboard className="mb-1 h-4 w-4 text-muted" strokeWidth={2} />}
+              />
+            </div>
+
+            {series.trailerKey && (
+              <section>
+                <h2 className="mb-2 text-sm font-medium text-text">{t("series.trailer")}</h2>
+                <TrailerCard videoKey={series.trailerKey} />
+              </section>
+            )}
 
             <section>
               <h2 className="mb-2 text-sm font-medium text-text">{t("series.mainCast")}</h2>
               <CastCarousel cast={series.cast} />
             </section>
+
+            {series.gallery.length > 0 && (
+              <section>
+                <h2 className="mb-2 text-sm font-medium text-text">{t("series.gallery")}</h2>
+                <BackdropGallery paths={series.gallery} />
+              </section>
+            )}
 
             <section>
               <h2 className="mb-2 text-sm font-medium text-text">{t("series.similarSeries")}</h2>

@@ -2,12 +2,13 @@
 
 import { useMemo } from "react";
 import type { MediaTarget } from "@/lib/queries/social/types";
-import { useReviews, useMyReview, useUpsertReview, useDeleteReview } from "@/lib/queries/social/reviews";
+import { useReviews, useMyReview, useUpsertReview, useDeleteReview, useReviewAggregate } from "@/lib/queries/social/reviews";
 import { useLikeInfoBatch } from "@/lib/queries/social/likes";
 import { useCreatePost } from "@/lib/queries/posts";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ReviewComposer } from "./ReviewComposer";
+import { ReviewSummary } from "./ReviewSummary";
 import { ReviewCard } from "./ReviewCard";
 import { ReviewsSkeleton } from "./ReviewsSkeleton";
 import { EmptyState } from "../search/EmptyState";
@@ -21,6 +22,7 @@ export interface ReviewsSectionProps {
 export function ReviewsSection({ target, media }: ReviewsSectionProps) {
   const { data: reviews = [], isLoading } = useReviews(target);
   const { data: myReview } = useMyReview(target);
+  const { data: aggregate } = useReviewAggregate(target);
   const upsertReview = useUpsertReview(target);
   const deleteReview = useDeleteReview(target);
   const createPost = useCreatePost();
@@ -62,6 +64,7 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
 
   return (
     <div className="space-y-4">
+      {aggregate && <ReviewSummary aggregate={aggregate} />}
       <ReviewComposer
         initialRating={myReview?.rating ?? 0}
         initialText={myReview?.reviewText ?? ""}

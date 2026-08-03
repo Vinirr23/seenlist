@@ -55,6 +55,7 @@ interface TmdbMultiSearchItem {
   first_air_date?: string; // séries
   poster_path: string | null;
   popularity?: number;
+  vote_average?: number;
 }
 
 interface TmdbMultiSearchResponse {
@@ -72,6 +73,7 @@ function normalizeSearchItem(item: TmdbMultiSearchItem): MediaSearchResult {
     title: (item.media_type === "tv" ? item.name : item.title) ?? "Sem título",
     year: dateString ? Number(dateString.slice(0, 4)) || null : null,
     posterPath: item.poster_path,
+    voteAverage: item.vote_average,
     popularity: item.popularity,
     originalTitle: originalTitle && originalTitle.length > 0 ? originalTitle : undefined,
   };
@@ -147,10 +149,13 @@ interface TmdbTvDetailsResponse {
   genres: { id: number; name: string }[];
   networks: { id: number; name: string }[];
   vote_average: number;
+  vote_count: number;
   seasons: { season_number: number; name: string; episode_count: number }[];
   credits?: { cast: { id: number; name: string; character: string; profile_path: string | null }[] };
   similar?: { results: TmdbMultiSearchItem[] };
   alternative_titles?: { results: { iso_3166_1: string; title: string }[] };
+  videos?: { results: { key: string; site: string; type: string; official?: boolean }[] };
+  images?: { backdrops: { file_path: string }[] };
 }
 
 /**
@@ -246,7 +251,7 @@ export async function getSeriesDetails(
 ): Promise<Omit<SeriesDetails, "seasons">> {
   const [data, englishData] = await Promise.all([
     tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, {
-      append_to_response: "credits,similar,alternative_titles",
+      append_to_response: "credits,similar,alternative_titles,videos,images",
     }),
     // TASK-168 (correção 2) — depender só de `alternative_titles` não
     // bastava: muita série/anime não tem uma entrada "US" cadastrada
@@ -271,6 +276,15 @@ export async function getSeriesDetails(
     .slice(0, 12)
     .map((item) => normalizeSearchItem({ ...item, media_type: "tv" }));
 
+  // A PEDIDO — refinamento da aba Sobre: trailer oficial mais recente do YouTube (o TMDB às vezes lista
+  // vários — teaser, clipe, trailer de temporada antiga; prioriza "Trailer" oficial, cai pro primeiro do YouTube se não achar).
+  const videos = data.videos?.results ?? [];
+  const trailer =
+    videos.find((v) => v.site === "YouTube" && v.type === "Trailer" && v.official) ??
+    videos.find((v) => v.site === "YouTube" && v.type === "Trailer") ??
+    videos.find((v) => v.site === "YouTube");
+  const gallery = (data.images?.backdrops ?? []).slice(0, 8).map((img) => img.file_path);
+
   return {
     id: data.id,
     title: data.name,
@@ -285,6 +299,9 @@ export async function getSeriesDetails(
     genres: data.genres.map((genre) => genre.name),
     networks: data.networks.map((network) => network.name),
     voteAverage: data.vote_average,
+    voteCount: data.vote_count,
+    trailerKey: trailer?.key ?? null,
+    gallery,
     cast,
     similar,
   };

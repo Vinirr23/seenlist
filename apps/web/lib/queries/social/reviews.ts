@@ -37,6 +37,15 @@ function myReviewQueryKey(target: MediaTarget) {
 export interface ReviewAggregate {
   average: number | null;
   count: number;
+  /**
+   * A PEDIDO — refinamento da aba Sobre: resumo tipo Letterboxd
+   * ("★★★★★ ████████", "★★★★ ███"...) antes do formulário de
+   * avaliação. 5 baldes fixos (1 a 5) — nota de meio ponto (rating
+   * vai de 0.5 a 5, em passos de 0.5) arredonda pro balde inteiro
+   * mais próximo. Calculado a partir da MESMA consulta que já busca
+   * `rating` pra tirar a média — nenhuma consulta nova ao banco.
+   */
+  distribution: { star: number; count: number }[];
 }
 
 /**
@@ -74,9 +83,13 @@ export function useReviewAggregate(target: MediaTarget) {
       }
 
       const ratings = (data ?? []).map((row) => row.rating as number);
-      if (ratings.length === 0) return { average: null, count: 0 };
+      const distribution = [5, 4, 3, 2, 1].map((star) => ({
+        star,
+        count: ratings.filter((r) => Math.max(1, Math.min(5, Math.round(r))) === star).length,
+      }));
+      if (ratings.length === 0) return { average: null, count: 0, distribution };
       const average = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
-      return { average, count: ratings.length };
+      return { average, count: ratings.length, distribution };
     },
   });
 }

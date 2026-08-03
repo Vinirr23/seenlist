@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Star } from "lucide-react";
 import type { SeriesDetails, LibraryStatus } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
@@ -28,6 +28,14 @@ export interface SeriesHeaderProps {
  * progresso fica colada na borda inferior da imagem, abaixo do
  * texto — nunca como um bloco à parte entre a capa e o conteúdo.
  *
+ * A PEDIDO — refinamento da aba Sobre, item 1 (hero): banner um
+ * pouco mais alto (h-64 → h-72), gradiente mais alto e mais suave
+ * (integra melhor com o fundo escuro do resto da tela, em vez de
+ * cortar seco), título maior (text-xl → text-2xl), e uma segunda
+ * linha com nota da comunidade + quantidade de avaliações — "★ 4.8 •
+ * 183 mil avaliações" — antes da linha de ano/temporadas que já
+ * existia. Nada de excesso: só essas duas linhas, como pedido.
+ *
  * Tradução (5º lote).
  */
 export function SeriesHeader({
@@ -40,7 +48,7 @@ export function SeriesHeader({
   colorClass = "bg-primary",
 }: SeriesHeaderProps) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const backdropUrl = tmdbImage(series.backdropPath, "w1280");
   const year = series.firstAirDate ? series.firstAirDate.slice(0, 4) : null;
@@ -51,11 +59,13 @@ export function SeriesHeader({
     count: series.numberOfSeasons,
     plural: series.numberOfSeasons === 1 ? "" : "s",
   });
+  const voteCountLabel =
+    series.voteCount > 0 ? new Intl.NumberFormat(locale, { notation: "compact" }).format(series.voteCount) : null;
 
   return (
-    <div className="relative h-64 w-full bg-surface">
+    <div className="relative h-72 w-full bg-surface">
       {backdropUrl && <Image src={backdropUrl} alt="" fill sizes="100vw" className="object-cover" priority />}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-black/10" />
 
       <button
         type="button"
@@ -79,10 +89,15 @@ export function SeriesHeader({
       </button>
 
       <div className={`absolute inset-x-4 ${showProgress ? "bottom-7" : "bottom-3"}`}>
-        <h1 className="text-xl font-bold leading-tight text-white drop-shadow">{series.title}</h1>
-        <p className="mt-1 text-xs text-white/80 drop-shadow">
-          {[year, seasonsLabel, series.genres[0]].filter(Boolean).join(" · ")}
-        </p>
+        <h1 className="text-2xl font-extrabold leading-tight text-white drop-shadow">{series.title}</h1>
+        {series.voteAverage > 0 && (
+          <p className="mt-1.5 flex items-center gap-1 text-xs text-white/90 drop-shadow">
+            <Star className="h-3 w-3 fill-primary text-primary" strokeWidth={0} />
+            <span className="font-semibold">{series.voteAverage.toFixed(1)}</span>
+            {voteCountLabel && <span className="text-white/70">• {t("series.ratingsCount", { count: voteCountLabel })}</span>}
+          </p>
+        )}
+        <p className="mt-1 text-xs text-white/80 drop-shadow">{[year, seasonsLabel].filter(Boolean).join(" · ")}</p>
       </div>
 
       {showProgress && (
