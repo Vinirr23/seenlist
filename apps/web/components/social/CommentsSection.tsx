@@ -9,6 +9,7 @@ import { useCurrentUser } from "@/lib/queries/current-user";
 import { CommentItem } from "./CommentItem";
 import { CommentComposer } from "./CommentComposer";
 import { CommentsSkeleton } from "./CommentsSkeleton";
+import { ReviewTextSection } from "./ReviewTextSection";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { EmptyState } from "../search/EmptyState";
 
@@ -38,6 +39,12 @@ export interface CommentsSectionProps {
   episodeSpoilerContext?: { seriesId: number; seasonNumber: number; episodeNumber: number };
   /** TASK-052 — id do comentário vindo do deep link de notificação (?highlight=). */
   highlightCommentId?: string;
+  /**
+   * A PEDIDO — quando passado (só faz sentido pra série/filme
+   * INTEIRO, nunca episódio), mostra a seção de review em texto
+   * (minha + de outras pessoas) antes do comentário comum.
+   */
+  media?: { type: "movie" | "series"; title: string; posterPath: string | null };
 }
 
 /**
@@ -47,7 +54,7 @@ export interface CommentsSectionProps {
  * `episodeSpoilerContext` é passado — comentário de série/filme
  * inteiro continua usando só a flag manual.
  */
-export function CommentsSection({ target, episodeSpoilerContext, highlightCommentId }: CommentsSectionProps) {
+export function CommentsSection({ target, episodeSpoilerContext, highlightCommentId, media }: CommentsSectionProps) {
   const { data: comments = [], isLoading } = useComments(target);
   const { data: currentUser } = useCurrentUser();
   const postComment = usePostComment(target);
@@ -103,6 +110,12 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
 
   return (
     <div className="space-y-4">
+      {media && !target.seasonNumber && !target.episodeNumber && (
+        <div className="border-b border-border pb-4">
+          <ReviewTextSection target={target} media={media} />
+        </div>
+      )}
+
       <div className="rounded-lg border border-border bg-surface p-3">
         <CommentComposer
           onSubmit={(body, containsSpoiler, imageUrl) => postComment.mutate({ body, containsSpoiler, imageUrl })}

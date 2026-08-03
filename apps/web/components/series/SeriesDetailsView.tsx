@@ -171,7 +171,7 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
 
             <section>
               <h2 className="mb-2 text-sm font-medium text-text">{t("series.mainCast")}</h2>
-              <CastCarousel cast={series.cast} />
+              <CastCarousel cast={series.cast} title={series.matchTitle} year={series.firstAirDate ? Number(series.firstAirDate.slice(0, 4)) : null} />
             </section>
 
             {series.gallery.length > 0 && (
@@ -188,10 +188,7 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
 
             <section>
               <h2 className="mb-2 text-sm font-medium text-text">{t("reviews.title")}</h2>
-              <ReviewsSection
-                target={{ mediaType: "series", mediaId: numericId }}
-                media={{ type: "series", title: series.title, posterPath: series.posterPath }}
-              />
+              <ReviewsSection target={{ mediaType: "series", mediaId: numericId }} />
             </section>
 
             <Link

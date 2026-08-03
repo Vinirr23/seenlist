@@ -6,79 +6,37 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface ReviewComposerProps {
   initialRating?: number;
-  initialText?: string | null;
-  initialSpoiler?: boolean;
-  onSubmit: (rating: number, reviewText: string | null, containsSpoiler: boolean, shareToFeed: boolean) => void;
+  onSubmit: (rating: number) => void;
   isPending?: boolean;
-  /** TASK-078 — só mostra a opção "Publicar no Feed" quando a tela sabe pra qual título isso é (série/filme; não faz sentido pra review de episódio/temporada — o Feed mostra o título "pai", não a subdivisão). */
-  canShareToFeed?: boolean;
 }
 
 /**
- * TASK-048 — avaliação rápida (só nota) e review completa (nota + texto) são o mesmo formulário; texto é opcional.
+ * A PEDIDO (correção real, confirmada pelo usuário — "ter review e
+ * comentários é redundante") — só a NOTA fica na aba Sobre; o texto
+ * da review (opcional) e o "contém spoiler"/"publicar no Feed" agora
+ * moram dentro de Comentários (`ReviewTextComposer.tsx`), junto com
+ * as reviews de outras pessoas — não faz mais sentido ter duas
+ * telas separadas mostrando review com texto.
  *
- * TASK-078 — "Publicar também no Feed" é opcional e não marcado por
- * padrão: nem toda avaliação a pessoa quer que vire post público
- * (pode ser só um registro pessoal) — publicar é decisão explícita,
- * a cada vez, não automática.
+ * Continua sendo o MESMO registro na tabela `reviews` — só mudou
+ * ONDE cada parte é editada. `useUpsertReview` já suportava
+ * atualização parcial (só rating, sem tocar no texto) antes disso.
  */
-export function ReviewComposer({
-  initialRating = 0,
-  initialText = "",
-  initialSpoiler = false,
-  onSubmit,
-  isPending,
-  canShareToFeed = false,
-}: ReviewComposerProps) {
+export function ReviewComposer({ initialRating = 0, onSubmit, isPending }: ReviewComposerProps) {
   const [rating, setRating] = useState(initialRating);
-  const [text, setText] = useState(initialText ?? "");
-  const [containsSpoiler, setContainsSpoiler] = useState(initialSpoiler);
-  const [shareToFeed, setShareToFeed] = useState(false);
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
-      <div className="flex items-center justify-center">
-        <StarRating value={rating} onChange={setRating} />
-      </div>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder={t("social.reviewPlaceholder")}
-        rows={3}
-        maxLength={4000}
-        className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
-      />
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-1.5 text-xs text-muted">
-          <input
-            type="checkbox"
-            checked={containsSpoiler}
-            onChange={(e) => setContainsSpoiler(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-border accent-primary"
-          />
-          {t("social.containsSpoiler")}
-        </label>
-        <button
-          type="button"
-          disabled={rating === 0 || isPending}
-          onClick={() => onSubmit(rating, text.trim() || null, containsSpoiler, shareToFeed)}
-          className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-background disabled:opacity-50"
-        >
-          {t("social.saveReview")}
-        </button>
-      </div>
-      {canShareToFeed && (
-        <label className="flex items-center gap-1.5 border-t border-border pt-2.5 text-xs text-muted">
-          <input
-            type="checkbox"
-            checked={shareToFeed}
-            onChange={(e) => setShareToFeed(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-border accent-primary"
-          />
-          {t("social.shareToFeed")}
-        </label>
-      )}
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-3">
+      <StarRating value={rating} onChange={setRating} />
+      <button
+        type="button"
+        disabled={rating === 0 || rating === initialRating || isPending}
+        onClick={() => onSubmit(rating)}
+        className="shrink-0 rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-background disabled:opacity-50"
+      >
+        {t("social.saveReview")}
+      </button>
     </div>
   );
 }

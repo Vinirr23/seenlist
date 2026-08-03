@@ -13,6 +13,8 @@ export interface CommentsPageViewProps {
   title: string;
   target: MediaTarget;
   episodeSpoilerContext?: { seriesId: number; seasonNumber: number; episodeNumber: number };
+  /** A PEDIDO — repassado pra CommentsSection, pra mostrar a seção de review em texto (só faz sentido pra série/filme inteiro). */
+  media?: { type: "movie" | "series"; title: string; posterPath: string | null };
 }
 
 /**
@@ -25,7 +27,7 @@ export interface CommentsPageViewProps {
  * TASK-052 — `?highlight=<id>` (vindo do deep link de notificação de
  * resposta/curtida) rola até o comentário certo e destaca ele.
  */
-export function CommentsPageView({ backHref, title, target, episodeSpoilerContext }: CommentsPageViewProps) {
+export function CommentsPageView({ backHref, title, target, episodeSpoilerContext, media }: CommentsPageViewProps) {
   const searchParams = useSearchParams();
   const highlightCommentId = searchParams.get("highlight") ?? undefined;
   const { t } = useTranslation();
@@ -40,7 +42,7 @@ export function CommentsPageView({ backHref, title, target, episodeSpoilerContex
       </div>
       <PageContainer>
         <div className="py-4">
-          <CommentsSection target={target} episodeSpoilerContext={episodeSpoilerContext} highlightCommentId={highlightCommentId} />
+          <CommentsSection target={target} episodeSpoilerContext={episodeSpoilerContext} highlightCommentId={highlightCommentId} media={media} />
         </div>
       </PageContainer>
     </div>
