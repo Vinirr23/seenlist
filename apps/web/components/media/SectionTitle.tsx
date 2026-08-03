@@ -7,7 +7,7 @@
 export function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-2 flex justify-center">
-      <span className="rounded-full bg-surface px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+      <span className="rounded-full bg-surface px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wide text-muted">
         {children}
       </span>
     </div>

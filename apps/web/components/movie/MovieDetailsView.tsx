@@ -13,6 +13,7 @@ import { SimilarMoviesCarousel } from "./SimilarMoviesCarousel";
 import { MovieDetailsSkeleton } from "./MovieDetailsSkeleton";
 import { CastCarousel } from "../media/CastCarousel";
 import { EmptyState } from "../search/EmptyState";
+import { PageError } from "../media/PageError";
 import { PageContainer } from "../layout/PageContainer";
 import { ReviewsSection } from "../social/ReviewsSection";
 
@@ -21,7 +22,7 @@ export function MovieDetailsView({ movieId }: { movieId: string }) {
   const numericId = Number(movieId);
   const { t } = useTranslation();
 
-  const { data: movie, isLoading, isError } = useMovieDetails(movieId);
+  const { data: movie, isLoading, isError, refetch } = useMovieDetails(movieId);
   const { data: status } = useMovieStatus(numericId);
 
   if (isLoading) {
@@ -31,13 +32,18 @@ export function MovieDetailsView({ movieId }: { movieId: string }) {
   if (isError || !movie) {
     return (
       <PageContainer>
-        <EmptyState message={t("error.loadMovie")} />
+        <PageError message={t("error.loadMovie")} onRetry={() => refetch()} />
       </PageContainer>
     );
   }
 
   return (
-    <div className="w-full md:mx-auto md:max-w-[430px]">
+    <div className="relative w-full md:mx-auto md:max-w-[430px]">
+      {/* A PEDIDO — mesmo glow de âmbar já aplicado na tela de série (ver SeriesDetailsView.tsx). */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(120%_90%_at_50%_0%,rgb(var(--color-primary)/0.3)_0%,rgb(var(--color-primary)/0.06)_40%,transparent_70%)]"
+        aria-hidden="true"
+      />
       <MovieHeader movie={movie} watched={status === "watched"} />
 
       <PageContainer>

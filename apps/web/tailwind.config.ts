@@ -12,6 +12,12 @@ const config: Config = {
   theme: {
     extend: {
       colors,
+      fontFamily: {
+        // A PEDIDO — fonte de exibição (título de série/filme, nome
+        // de seção). Fallback pra sans-serif do sistema caso a
+        // variável não esteja disponível por algum motivo.
+        display: ["var(--font-display)", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+      },
       keyframes: {
         "toast-in": {
           "0%": { opacity: "0", transform: "translateY(8px)" },

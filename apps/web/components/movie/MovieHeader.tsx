@@ -62,7 +62,7 @@ export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: 
         </div>
 
         <div className="flex flex-1 flex-col justify-end gap-1 pb-1">
-          <h1 className="text-lg font-semibold leading-tight text-text">{movie.title}</h1>
+          <h1 className="font-display text-lg font-semibold leading-tight text-text">{movie.title}</h1>
           {movie.originalTitle !== movie.title && (
             <p className="text-xs text-muted">{movie.originalTitle}</p>
           )}

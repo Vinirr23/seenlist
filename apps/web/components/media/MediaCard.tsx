@@ -71,7 +71,7 @@ export function MediaCard({ item, size = "default", showMeta = false }: MediaCar
       </div>
 
       <div className="mt-2 space-y-0.5">
-        <p className="truncate text-base font-semibold text-text">{item.title}</p>
+        <p className="truncate font-display text-base font-semibold text-text">{item.title}</p>
         <p className="text-xs text-muted">{item.year}</p>
         {showMeta && (
           <p className="truncate text-[11px] text-muted">
