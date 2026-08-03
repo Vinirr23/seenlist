@@ -5,8 +5,22 @@ const WATCHED_EPISODES_PAGE_SIZE = 1000;
 const MONTH_NAMES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const WEEKDAY_NAMES_PT = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const DEFAULT_EPISODE_RUNTIME_MINUTES = 45;
+const MAX_POSTERS_PER_GROUP = 4;
 
 type MediaSummaryLite = { id: number; title: string; posterPath: string | null; runtimeMinutes?: number; genres?: string[] };
+
+/**
+ * A PEDIDO — "pôster como protagonista": toda métrica que puder
+ * apontar pra uma série/filme específico, aponta. `PosterRef` é o
+ * formato mínimo que qualquer tela precisa pra mostrar um pôster com
+ * contexto (id, título, caminho do pôster, se é série ou filme).
+ */
+export interface PosterRef {
+  id: number;
+  title: string;
+  posterPath: string | null;
+  mediaType: "series" | "movie";
+}
 
 export interface YearInReview {
   year: number;
@@ -14,31 +28,28 @@ export interface YearInReview {
   totalEpisodesWatched: number;
   totalMoviesWatched: number;
   topSeries: { id: number; title: string; posterPath: string | null; episodeCount: number } | null;
-  /** Top 5 séries por episódios assistidos no ano — inclui a #1 (mesmo dado de `topSeries`, repetido de propósito pra quem só usa o ranking). */
   topSeriesRanking: { id: number; title: string; posterPath: string | null; episodeCount: number }[];
-  /** Os 12 meses, na ordem — pro gráfico de atividade mensal. */
-  monthlyActivity: { name: string; count: number }[];
-  mostActiveMonth: { name: string; count: number } | null;
+  /** Todo pôster único (série + filme) assistido no ano — pra tela "mural". */
+  allPosters: PosterRef[];
+  monthlyActivity: { name: string; count: number; posters: PosterRef[] }[];
+  mostActiveMonth: { name: string; count: number; posters: PosterRef[] } | null;
   favoriteWeekday: { name: string; count: number } | null;
-  /** Top 3 gêneros, por quantas vezes apareceram (1 por episódio assistido, 1 por filme). */
-  topGenres: { name: string; count: number }[];
-  topGenre: { name: string; count: number } | null;
+  topGenres: { name: string; count: number; posters: PosterRef[] }[];
+  topGenre: { name: string; count: number; posters: PosterRef[] } | null;
   activityPercentile: number | null;
-  /**
-   * Um "dia" aqui é uma chave YYYY-MM-DD no fuso local de quem
-   * assistiu — pro heatmap (estilo GitHub) e pra maratona/sequência.
-   */
   dailyActivity: { date: string; count: number }[];
-  /** O dia com mais episódios/filmes assistidos de uma vez só. */
-  biggestBingeDay: { date: string; count: number } | null;
-  /** Maior sequência de dias seguidos com pelo menos 1 atividade. */
+  /** O dia com mais atividade — agora com a série que mais contribuiu naquele dia específico. */
+  biggestBingeDay: { date: string; count: number; series: PosterRef | null } | null;
   longestStreakDays: number;
-  /** Período do dia (madrugada/manhã/tarde/noite) em que mais assistiu, pela hora de `watched_at`. */
-  favoriteTimeOfDay: { period: "dawn" | "morning" | "afternoon" | "night"; count: number } | null;
-  /** Séries que a pessoa começou a assistir pela primeira vez dentro do ano (`series_status.created_at`). */
+  /** Período do dia favorito — agora com a série que mais foi assistida naquele período. */
+  favoriteTimeOfDay: { period: "dawn" | "morning" | "afternoon" | "night"; count: number; series: PosterRef | null } | null;
   seriesStartedCount: number;
-  /** Séries concluídas dentro do ano (`series_status.status = 'completed'`, `updated_at` no ano). */
   seriesCompletedCount: number;
+  /** As séries recém-iniciadas no ano (até um limite) — pra tela "mural" das iniciadas. */
+  startedSeriesPosters: PosterRef[];
+  /** Primeiro e último episódio/filme assistido no ano, cronologicamente. */
+  firstWatchedOfYear: PosterRef | null;
+  lastWatchedOfYear: PosterRef | null;
 }
 
 function emptyYearInReview(year: number): YearInReview {
@@ -49,7 +60,8 @@ function emptyYearInReview(year: number): YearInReview {
     totalMoviesWatched: 0,
     topSeries: null,
     topSeriesRanking: [],
-    monthlyActivity: MONTH_NAMES_PT.map((name) => ({ name, count: 0 })),
+    allPosters: [],
+    monthlyActivity: MONTH_NAMES_PT.map((name) => ({ name, count: 0, posters: [] })),
     mostActiveMonth: null,
     favoriteWeekday: null,
     topGenres: [],
@@ -61,10 +73,12 @@ function emptyYearInReview(year: number): YearInReview {
     favoriteTimeOfDay: null,
     seriesStartedCount: 0,
     seriesCompletedCount: 0,
+    startedSeriesPosters: [],
+    firstWatchedOfYear: null,
+    lastWatchedOfYear: null,
   };
 }
 
-/** Chave YYYY-MM-DD no fuso LOCAL de quem está vendo — não `toISOString()` (isso converteria pra UTC, podendo trocar o dia pra quem está a oeste de Greenwich). */
 function localDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -80,16 +94,13 @@ function timeOfDayPeriod(hour: number): "dawn" | "morning" | "afternoon" | "nigh
 }
 
 /**
- * A PEDIDO — "Seu ano" redesenhado inspirado em Spotify Wrapped/Steam
- * Replay/Letterboxd Year in Review: além dos números que já existiam
- * (horas, episódios, filmes, série do ano, gênero, percentual),
- * calcula tudo que uma experiência de storytelling anual precisa:
- * heatmap dia a dia, maior maratona, sequência mais longa, horário
- * favorito, ranking top 5 (não só #1), gráfico mensal completo, e
- * quantas séries foram iniciadas/concluídas no ano.
- *
- * Continua usando só o que já está no banco — nenhuma tabela nova,
- * nenhuma migration extra (fora a do percentual, já aplicada).
+ * A PEDIDO — mudança de filosofia: de "painel de estatística" pra
+ * "pôster é o protagonista, número conta a história por trás dele".
+ * Toda métrica que faz sentido apontar pra uma série/filme específico
+ * agora carrega isso (`PosterRef`) — maior maratona, horário
+ * favorito, mês mais ativo, gênero favorito, primeiro/último
+ * episódio do ano — nenhuma dessas ficava mais "abstrata" do que
+ * precisava antes.
  */
 export async function computeYearInReview(year: number): Promise<YearInReview> {
   const supabase = createClient();
@@ -134,14 +145,20 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
     .lt("updated_at", yearEnd);
   const watchedMovies = movieRows ?? [];
 
-  // Séries iniciadas/concluídas no ano — consulta separada e leve (só datas, não série inteira).
-  const [{ count: seriesStartedCount }, { count: seriesCompletedCount }] = await Promise.all([
+  const [{ count: seriesStartedCount }, { data: startedRows }, { count: seriesCompletedCount }] = await Promise.all([
     supabase
       .from("series_status")
       .select("series_id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .gte("created_at", yearStart)
       .lt("created_at", yearEnd),
+    supabase
+      .from("series_status")
+      .select("series_id")
+      .eq("user_id", user.id)
+      .gte("created_at", yearStart)
+      .lt("created_at", yearEnd)
+      .limit(24),
     supabase
       .from("series_status")
       .select("series_id", { count: "exact", head: true })
@@ -163,7 +180,7 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
   const top5SeriesIds = seriesRanking.slice(0, 5).map(([id]) => id);
   const topSeriesId = top5SeriesIds[0] ?? null;
 
-  const uniqueSeriesIds = [...episodeCountBySeriesId.keys()];
+  const uniqueSeriesIds = [...new Set([...episodeCountBySeriesId.keys(), ...(startedRows ?? []).map((r) => r.series_id)])];
   const uniqueMovieIds = [...new Set(watchedMovies.map((m) => m.movie_id))];
   let seriesSummaries: MediaSummaryLite[] = [];
   let movieSummaries: MediaSummaryLite[] = [];
@@ -184,6 +201,15 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
   const seriesSummaryById = new Map(seriesSummaries.map((s) => [s.id, s]));
   const movieSummaryById = new Map(movieSummaries.map((m) => [m.id, m]));
 
+  function seriesPoster(id: number): PosterRef | null {
+    const summary = seriesSummaryById.get(id);
+    return summary ? { id, title: summary.title, posterPath: summary.posterPath, mediaType: "series" } : null;
+  }
+  function moviePoster(id: number): PosterRef | null {
+    const summary = movieSummaryById.get(id);
+    return summary ? { id, title: summary.title, posterPath: summary.posterPath, mediaType: "movie" } : null;
+  }
+
   let totalMinutesWatched = 0;
   for (const [seriesId, count] of episodeCountBySeriesId) {
     const runtimeMinutes = seriesSummaryById.get(seriesId)?.runtimeMinutes ?? DEFAULT_EPISODE_RUNTIME_MINUTES;
@@ -193,33 +219,67 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
     totalMinutesWatched += movieSummaryById.get(movieId)?.runtimeMinutes ?? 0;
   }
 
-  // Atividade por mês, por dia da semana, por dia do ano (heatmap), por horário do dia — tudo na mesma varredura.
+  // Varredura única: mês (com quais séries), dia (com quais séries), período do dia (com quais séries), dia da semana.
   const monthCounts = new Array(12).fill(0);
+  const monthSeriesIds: Set<number>[] = Array.from({ length: 12 }, () => new Set());
   const weekdayCounts = new Array(7).fill(0);
   const dailyCounts = new Map<string, number>();
-  const hourCounts = new Array(24).fill(0);
+  const dailySeriesCounts = new Map<string, Map<number, number>>();
+  const periodTotals: Record<"dawn" | "morning" | "afternoon" | "night", number> = { dawn: 0, morning: 0, afternoon: 0, night: 0 };
+  const periodSeriesCounts: Record<"dawn" | "morning" | "afternoon" | "night", Map<number, number>> = {
+    dawn: new Map(),
+    morning: new Map(),
+    afternoon: new Map(),
+    night: new Map(),
+  };
+  let firstEntry: { dateIso: string; seriesId?: number; movieId?: number } | null = null;
+  let lastEntry: { dateIso: string; seriesId?: number; movieId?: number } | null = null;
 
-  function recordActivity(dateIso: string) {
+  function recordActivity(dateIso: string, seriesId?: number, movieId?: number) {
     const date = new Date(dateIso);
     monthCounts[date.getMonth()] += 1;
+    if (seriesId != null) monthSeriesIds[date.getMonth()]?.add(seriesId);
     weekdayCounts[date.getDay()] += 1;
-    hourCounts[date.getHours()] += 1;
-    const key = localDateKey(date);
-    dailyCounts.set(key, (dailyCounts.get(key) ?? 0) + 1);
+
+    const dayKey = localDateKey(date);
+    dailyCounts.set(dayKey, (dailyCounts.get(dayKey) ?? 0) + 1);
+    if (seriesId != null) {
+      const perSeries = dailySeriesCounts.get(dayKey) ?? new Map<number, number>();
+      perSeries.set(seriesId, (perSeries.get(seriesId) ?? 0) + 1);
+      dailySeriesCounts.set(dayKey, perSeries);
+    }
+
+    const period = timeOfDayPeriod(date.getHours());
+    periodTotals[period] += 1;
+    if (seriesId != null) periodSeriesCounts[period].set(seriesId, (periodSeriesCounts[period].get(seriesId) ?? 0) + 1);
+
+    if (!firstEntry || dateIso < firstEntry.dateIso) firstEntry = { dateIso, seriesId, movieId };
+    if (!lastEntry || dateIso > lastEntry.dateIso) lastEntry = { dateIso, seriesId, movieId };
   }
-  for (const row of watchedEpisodes) recordActivity(row.watched_at);
-  for (const row of watchedMovies) recordActivity(row.updated_at);
+  for (const row of watchedEpisodes) recordActivity(row.watched_at, row.series_id, undefined);
+  for (const row of watchedMovies) recordActivity(row.updated_at, undefined, row.movie_id);
 
   const topMonthIndex = monthCounts.indexOf(Math.max(...monthCounts));
   const topWeekdayIndex = weekdayCounts.indexOf(Math.max(...weekdayCounts));
-  const topMonthName = MONTH_NAMES_PT[topMonthIndex] ?? "";
   const topWeekdayName = WEEKDAY_NAMES_PT[topWeekdayIndex] ?? "";
 
-  // Maior maratona (dia com mais atividade) + maior sequência de dias seguidos.
-  const dailyActivity = [...dailyCounts.entries()]
-    .map(([date, count]) => ({ date, count }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const monthlyActivity = MONTH_NAMES_PT.map((name, i) => ({
+    name,
+    count: monthCounts[i],
+    posters: [...(monthSeriesIds[i] ?? [])]
+      .map((id) => seriesPoster(id))
+      .filter((p): p is PosterRef => p !== null)
+      .slice(0, MAX_POSTERS_PER_GROUP),
+  }));
+
+  const dailyActivity = [...dailyCounts.entries()].map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date));
   const biggestBingeEntry = [...dailyCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
+  let biggestBingeSeries: PosterRef | null = null;
+  if (biggestBingeEntry) {
+    const perSeries = dailySeriesCounts.get(biggestBingeEntry[0]);
+    const topId = perSeries ? [...perSeries.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] : null;
+    biggestBingeSeries = topId != null ? seriesPoster(topId) : null;
+  }
 
   let longestStreakDays = 0;
   let currentStreak = 0;
@@ -236,27 +296,42 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
     previousDate = current;
   }
 
-  // Horário favorito — agrupado em período (madrugada/manhã/tarde/noite), mais fácil de contar uma história do que "14h".
-  const periodTotals: Record<"dawn" | "morning" | "afternoon" | "night", number> = { dawn: 0, morning: 0, afternoon: 0, night: 0 };
-  hourCounts.forEach((count, hour) => {
-    periodTotals[timeOfDayPeriod(hour)] += count;
-  });
-  const topPeriodEntry = (Object.entries(periodTotals) as [keyof typeof periodTotals, number][]).sort((a, b) => b[1] - a[1])[0];
+  const topPeriodEntry = (Object.entries(periodTotals) as ["dawn" | "morning" | "afternoon" | "night", number][]).sort((a, b) => b[1] - a[1])[0];
+  let favoriteTimeSeries: PosterRef | null = null;
+  if (topPeriodEntry && topPeriodEntry[1] > 0) {
+    const perSeries = periodSeriesCounts[topPeriodEntry[0]];
+    const topId = [...perSeries.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    favoriteTimeSeries = topId != null ? seriesPoster(topId) : null;
+  }
 
-  // Gêneros — top 3, não só o #1.
   const genreCounts = new Map<string, number>();
-  for (const [seriesId, count] of episodeCountBySeriesId) {
-    for (const genre of seriesSummaryById.get(seriesId)?.genres ?? []) {
-      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + count);
+  const genrePosterIds = new Map<string, Set<string>>(); // "series-123" ou "movie-45"
+  function addGenreHit(genres: string[] | undefined, ref: { key: string }, weight: number) {
+    for (const genre of genres ?? []) {
+      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + weight);
+      const set = genrePosterIds.get(genre) ?? new Set<string>();
+      set.add(ref.key);
+      genrePosterIds.set(genre, set);
     }
+  }
+  for (const [seriesId, count] of episodeCountBySeriesId) {
+    addGenreHit(seriesSummaryById.get(seriesId)?.genres, { key: `series-${seriesId}` }, count);
   }
   for (const movieId of uniqueMovieIds) {
-    for (const genre of movieSummaryById.get(movieId)?.genres ?? []) {
-      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
-    }
+    addGenreHit(movieSummaryById.get(movieId)?.genres, { key: `movie-${movieId}` }, 1);
   }
   const genreRanking = [...genreCounts.entries()].sort((a, b) => b[1] - a[1]);
-  const topGenres = genreRanking.slice(0, 3).map(([name, count]) => ({ name, count }));
+  const topGenres = genreRanking.slice(0, 3).map(([name, count]) => {
+    const posters = [...(genrePosterIds.get(name) ?? [])]
+      .map((key) => {
+        const [kind, idStr] = key.split("-");
+        const id = Number(idStr);
+        return kind === "series" ? seriesPoster(id) : moviePoster(id);
+      })
+      .filter((p): p is PosterRef => p !== null)
+      .slice(0, MAX_POSTERS_PER_GROUP);
+    return { name, count, posters };
+  });
 
   let activityPercentile: number | null = null;
   try {
@@ -274,6 +349,23 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
+  const allPostersMap = new Map<string, PosterRef>();
+  for (const id of uniqueSeriesIds) {
+    const ref = seriesPoster(id);
+    if (ref?.posterPath) allPostersMap.set(`series-${id}`, ref);
+  }
+  for (const id of uniqueMovieIds) {
+    const ref = moviePoster(id);
+    if (ref?.posterPath) allPostersMap.set(`movie-${id}`, ref);
+  }
+
+  const startedSeriesPosters = (startedRows ?? [])
+    .map((row) => seriesPoster(row.series_id))
+    .filter((p): p is PosterRef => p !== null && p.posterPath !== null);
+
+  const firstWatched = firstEntry as { dateIso: string; seriesId?: number; movieId?: number } | null;
+  const lastWatched = lastEntry as { dateIso: string; seriesId?: number; movieId?: number } | null;
+
   return {
     year,
     totalMinutesWatched,
@@ -281,18 +373,27 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
     totalMoviesWatched: watchedMovies.length,
     topSeries: topSeriesRanking[0] ?? null,
     topSeriesRanking,
-    monthlyActivity: MONTH_NAMES_PT.map((name, i) => ({ name, count: monthCounts[i] })),
-    mostActiveMonth: monthCounts[topMonthIndex] > 0 ? { name: topMonthName, count: monthCounts[topMonthIndex] } : null,
+    allPosters: [...allPostersMap.values()],
+    monthlyActivity,
+    mostActiveMonth: monthCounts[topMonthIndex] > 0 ? monthlyActivity[topMonthIndex] ?? null : null,
     favoriteWeekday: weekdayCounts[topWeekdayIndex] > 0 ? { name: topWeekdayName, count: weekdayCounts[topWeekdayIndex] } : null,
     topGenres,
     topGenre: topGenres[0] ?? null,
     activityPercentile,
     dailyActivity,
-    biggestBingeDay: biggestBingeEntry ? { date: biggestBingeEntry[0], count: biggestBingeEntry[1] } : null,
+    biggestBingeDay: biggestBingeEntry ? { date: biggestBingeEntry[0], count: biggestBingeEntry[1], series: biggestBingeSeries } : null,
     longestStreakDays,
-    favoriteTimeOfDay: topPeriodEntry && topPeriodEntry[1] > 0 ? { period: topPeriodEntry[0], count: topPeriodEntry[1] } : null,
+    favoriteTimeOfDay:
+      topPeriodEntry && topPeriodEntry[1] > 0 ? { period: topPeriodEntry[0], count: topPeriodEntry[1], series: favoriteTimeSeries } : null,
     seriesStartedCount: seriesStartedCount ?? 0,
     seriesCompletedCount: seriesCompletedCount ?? 0,
+    startedSeriesPosters,
+    firstWatchedOfYear: firstWatched
+      ? (firstWatched.seriesId != null ? seriesPoster(firstWatched.seriesId) : firstWatched.movieId != null ? moviePoster(firstWatched.movieId) : null)
+      : null,
+    lastWatchedOfYear: lastWatched
+      ? (lastWatched.seriesId != null ? seriesPoster(lastWatched.seriesId) : lastWatched.movieId != null ? moviePoster(lastWatched.movieId) : null)
+      : null,
   };
 }
 
