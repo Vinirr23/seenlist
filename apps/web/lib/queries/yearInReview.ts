@@ -29,6 +29,16 @@ export interface YearInReview {
   mostActiveMonth: { name: string; count: number } | null;
   favoriteWeekday: { name: string; count: number } | null;
   topGenre: { name: string; count: number } | null;
+  /**
+   * A PEDIDO — "top X% da comunidade". `null` quando não dá pra
+   * calcular (usuário sem nenhuma atividade no ano — não faz sentido
+   * comparar "zero" com o resto). Vem de uma função no banco
+   * (`get_year_activity_percentile`, ver migration
+   * 20260803000000_year_in_review_percentile.sql) — não dá pra
+   * calcular isso no navegador, RLS bloqueia ver atividade de outros
+   * usuários de propósito.
+   */
+  activityPercentile: number | null;
 }
 
 /**
@@ -63,6 +73,7 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
       mostActiveMonth: null,
       favoriteWeekday: null,
       topGenre: null,
+      activityPercentile: null,
     };
   }
 
@@ -114,6 +125,7 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
       mostActiveMonth: null,
       favoriteWeekday: null,
       topGenre: null,
+      activityPercentile: null,
     };
   }
 
@@ -190,6 +202,15 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
 
   const topSeriesSummary = topSeriesId != null ? seriesSummaryById.get(topSeriesId) : null;
 
+  // 8. "Top X% da comunidade" — função no banco, ver comentário no tipo YearInReview.
+  let activityPercentile: number | null = null;
+  try {
+    const { data: percentileData, error: percentileError } = await supabase.rpc("get_year_activity_percentile", { p_year: year });
+    if (!percentileError && typeof percentileData === "number") activityPercentile = percentileData;
+  } catch (error) {
+    console.error("[computeYearInReview] Falha ao calcular percentil de atividade", error);
+  }
+
   return {
     year,
     totalMinutesWatched,
@@ -207,6 +228,7 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
     mostActiveMonth: monthCounts[topMonthIndex] > 0 ? { name: topMonthName, count: monthCounts[topMonthIndex] } : null,
     favoriteWeekday: weekdayCounts[topWeekdayIndex] > 0 ? { name: topWeekdayName, count: weekdayCounts[topWeekdayIndex] } : null,
     topGenre: topGenreEntry ? { name: topGenreEntry[0], count: topGenreEntry[1] } : null,
+    activityPercentile,
   };
 }
 
