@@ -22,6 +22,18 @@ export interface CommentItemProps {
   isHighlighted?: boolean;
   /** AUDITORIA (perf) — quando quem chama já buscou isso em lote (CommentsSection), passa pronto aqui, evitando 2 consultas próprias por comentário. */
   likeInfo?: { count: number; hasLiked: boolean };
+  /**
+   * CORREÇÃO (bug real, reportado) — antes, `CommentsSection.tsx`
+   * misturava a proteção automática por progresso DENTRO de
+   * `comment.containsSpoiler` antes de mandar pra cá — isso fazia a
+   * caixinha "Contém spoiler" aparecer marcada ao editar um
+   * comentário que nunca foi marcado como spoiler de verdade (só
+   * escondido porque QUEM VÊ não assistiu o episódio ainda), podendo
+   * gravar o spoiler errado ao salvar. Agora vem separado: `comment`
+   * mantém o valor real (do autor), isso aqui é só pra decidir a
+   * MENSAGEM do aviso.
+   */
+  hiddenByProgress?: boolean;
   children?: React.ReactNode;
 }
 
@@ -44,6 +56,7 @@ export function CommentItem({
   isMutating,
   isHighlighted,
   likeInfo,
+  hiddenByProgress = false,
   children,
 }: CommentItemProps) {
   const [replying, setReplying] = useState(false);
@@ -61,6 +74,7 @@ export function CommentItem({
 
   const isOwn = currentUserId != null && currentUserId === comment.author.userId;
   const canReply = depth < 2;
+  const isHidden = comment.containsSpoiler || hiddenByProgress;
 
   if (editing) {
     return (
@@ -96,7 +110,7 @@ export function CommentItem({
             <span>{dateFormatter.format(new Date(comment.createdAt))}</span>
           </div>
           <div className="mt-1">
-            <SpoilerGate hidden={comment.containsSpoiler}>
+            <SpoilerGate hidden={isHidden} reason={comment.containsSpoiler ? "spoiler" : "unwatched"}>
               <div className="space-y-2">
                 {comment.body && <p className="text-sm text-text">{comment.body}</p>}
                 {comment.imageUrl && (

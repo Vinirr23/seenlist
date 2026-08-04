@@ -96,11 +96,11 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
   const isMutating = postComment.isPending || editComment.isPending || deleteComment.isPending;
 
   function renderNode(node: CommentNode, depth: number): React.ReactNode {
-    const hidden = node.containsSpoiler || autoHide;
     return (
       <CommentItem
         key={node.id}
-        comment={{ ...node, containsSpoiler: hidden }}
+        comment={node}
+        hiddenByProgress={autoHide}
         depth={depth}
         currentUserId={currentUser?.id}
         isMutating={isMutating}
