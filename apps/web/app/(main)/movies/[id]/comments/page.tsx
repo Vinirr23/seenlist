@@ -10,7 +10,7 @@ export default async function MovieCommentsPage({ params }: { params: Promise<{ 
   return (
     <CommentsPageView
       backHref={`/movies/${id}`}
-      title="Comentários"
+      title="Avaliações"
       target={{ mediaType: "movie", mediaId: Number(id) }}
       media={media}
     />

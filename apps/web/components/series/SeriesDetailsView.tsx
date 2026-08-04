@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MessageCircle, ChevronRight, Tv, Calendar, Layers, Clapperboard } from "lucide-react";
+import { Star, ChevronRight, Tv, Calendar, Layers, Clapperboard } from "lucide-react";
 import { useSeriesDetails } from "@/lib/queries/series";
 import { useWatchedEpisodes } from "@/lib/queries/watched-episodes";
 import { useSeriesStatus } from "@/lib/queries/series-status";
@@ -196,8 +196,8 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
               className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-sm font-medium text-text hover:border-primary/40"
             >
               <span className="flex items-center gap-2">
-                <MessageCircle className="h-4 w-4 text-muted" strokeWidth={2} />
-                {t("profile.comments")}
+                <Star className="h-4 w-4 text-muted" strokeWidth={2} />
+                {t("reviews.seeAll")}
               </span>
               <ChevronRight className="h-4 w-4 text-muted" strokeWidth={2} />
             </Link>

@@ -18,7 +18,7 @@ export default async function SeriesCommentsPage({ params }: { params: Promise<{
   return (
     <CommentsPageView
       backHref={`/series/${id}`}
-      title="Comentários"
+      title="Avaliações"
       target={{ mediaType: "series", mediaId: Number(id) }}
       media={media}
     />

@@ -89,9 +89,18 @@ export function useCommentCount(target: MediaTarget) {
  * verdade — evita depender de uma inferência que pode simplesmente
  * não funcionar.
  */
-export function useComments(target: MediaTarget) {
+/**
+ * A PEDIDO — comentário comum deixou de existir no nível de
+ * série/filme inteiro (só review em texto ali agora, ver
+ * `CommentsSection.tsx`); comentário continua existindo normalmente
+ * por episódio. `enabled` evita a consulta de rede à toa quando o
+ * chamador já sabe que não vai mostrar a lista (não afeta os dados já
+ * salvos no banco, só para de buscar/exibir na tela de série/filme).
+ */
+export function useComments(target: MediaTarget, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: commentsQueryKey(target),
+    enabled: options?.enabled ?? true,
     queryFn: async (): Promise<Comment[]> => {
       const supabase = createClient();
       let query = supabase

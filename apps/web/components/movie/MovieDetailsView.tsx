@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MessageCircle, ChevronRight } from "lucide-react";
+import { Star, ChevronRight } from "lucide-react";
 import { useMovieDetails } from "@/lib/queries/movie";
 import { useMovieStatus } from "@/lib/queries/movie-status";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -81,8 +81,8 @@ export function MovieDetailsView({ movieId }: { movieId: string }) {
             className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-sm font-medium text-text hover:border-primary/40"
           >
             <span className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-muted" strokeWidth={2} />
-              {t("profile.comments")}
+              <Star className="h-4 w-4 text-muted" strokeWidth={2} />
+              {t("reviews.seeAll")}
             </span>
             <ChevronRight className="h-4 w-4 text-muted" strokeWidth={2} />
           </Link>

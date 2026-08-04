@@ -41,8 +41,13 @@ export interface CommentsSectionProps {
   highlightCommentId?: string;
   /**
    * A PEDIDO — quando passado (só faz sentido pra série/filme
-   * INTEIRO, nunca episódio), mostra a seção de review em texto
-   * (minha + de outras pessoas) antes do comentário comum.
+   * INTEIRO, nunca episódio), a tela mostra SÓ a review em texto
+   * (minha + de outras pessoas), sem comentário comum — decisão
+   * confirmada: "review e comentários" juntos no nível de
+   * série/filme inteiro era redundante/confuso, comentário comum
+   * agora só existe por episódio (`episodeSpoilerContext` presente).
+   * Comentários antigos que já existiam nesse nível (antes desta
+   * mudança) continuam no banco, só pararam de aparecer aqui.
    */
   media?: { type: "movie" | "series"; title: string; posterPath: string | null };
 }
@@ -53,9 +58,15 @@ export interface CommentsSectionProps {
  * automática por progresso (`useSpoilerProtection`) só entra quando
  * `episodeSpoilerContext` é passado — comentário de série/filme
  * inteiro continua usando só a flag manual.
+ *
+ * `media` presente = página de série/filme inteiro = só review em
+ * texto, sem comentário comum (ver comentário no tipo `media` acima).
+ * `media` ausente = página de episódio = comentário comum normal.
  */
 export function CommentsSection({ target, episodeSpoilerContext, highlightCommentId, media }: CommentsSectionProps) {
-  const { data: comments = [], isLoading } = useComments(target);
+  // Não busca comentário comum quando é página de série/filme inteiro
+  // (não tem por onde aparecer na tela) — evita consulta de rede à toa.
+  const { data: comments = [], isLoading } = useComments(target, { enabled: !media });
   const { data: currentUser } = useCurrentUser();
   const postComment = usePostComment(target);
   const editComment = useEditComment(target);
@@ -108,14 +119,13 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
     );
   }
 
+  // Série/filme inteiro: só review em texto, sem comentário comum (ver docstring do componente).
+  if (media) {
+    return <ReviewTextSection target={target} media={media} />;
+  }
+
   return (
     <div className="space-y-4">
-      {media && !target.seasonNumber && !target.episodeNumber && (
-        <div className="border-b border-border pb-4">
-          <ReviewTextSection target={target} media={media} />
-        </div>
-      )}
-
       <div className="rounded-lg border border-border bg-surface p-3">
         <CommentComposer
           onSubmit={(body, containsSpoiler, imageUrl) => postComment.mutate({ body, containsSpoiler, imageUrl })}
