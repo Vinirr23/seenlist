@@ -51,6 +51,12 @@ interface ProfileRow {
  * (reviews + profiles) em vez de embedding do PostgREST: não existe
  * FK direta entre `reviews` e `profiles`.
  */
+export interface ReviewAggregate {
+  count: number;
+  average: number | null;
+  distribution: { star: number; count: number }[];
+}
+
 export async function fetchReviews(target: ReviewTarget): Promise<Review[]> {
   let query = supabase
     .from("reviews")
@@ -156,9 +162,10 @@ export async function fetchReviewAggregate(target: ReviewTarget): Promise<Review
   if (error) throw error;
 
   const ratings = (data ?? []).map((row) => Number(row.rating));
-  if (ratings.length === 0) return { average: null, count: 0 };
+  if (ratings.length === 0) return { average: null, count: 0, distribution: [5, 4, 3, 2, 1].map((star) => ({ star, count: 0 })) };
   const average = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
-  return { average, count: ratings.length };
+  const distribution = [5, 4, 3, 2, 1].map((star) => ({ star, count: ratings.filter((r) => Math.round(r) === star).length }));
+  return { average, count: ratings.length, distribution };
 }
 
 /**

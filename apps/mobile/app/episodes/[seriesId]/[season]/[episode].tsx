@@ -81,7 +81,7 @@ export default function EpisodeDetailScreen() {
   const [watchedLoading, setWatchedLoading] = useState(true);
 
   const [myReview, setMyReview] = useState<Review | null>(null);
-  const [aggregate, setAggregate] = useState<ReviewAggregate>({ average: null, count: 0 });
+  const [aggregate, setAggregate] = useState<ReviewAggregate>({ average: null, count: 0, distribution: [] });
 
   const target = useMemo(
     () => ({ mediaType: "series" as const, mediaId: seriesIdNum, seasonNumber, episodeNumber }),

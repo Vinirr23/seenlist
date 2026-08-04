@@ -8,31 +8,36 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 export interface ReviewComposerProps {
   initialRating?: number;
   initialText?: string | null;
-  initialSpoiler?: boolean;
+  hasExistingReview?: boolean;
   isPending?: boolean;
   canShareToFeed?: boolean;
-  onSubmit: (rating: number, reviewText: string | null, containsSpoiler: boolean, shareToFeed: boolean) => void;
+  onSubmit: (rating: number, reviewText: string | null, shareToFeed: boolean) => void;
 }
 
 /**
  * TASK-101 (Avaliações) — porta de `ReviewComposer.tsx`. Avaliação
  * rápida (só nota) e review completa (nota + texto) são o mesmo
- * formulário — texto é opcional. "Publicar também no Feed" não vem
- * marcado por padrão, mesma regra do web: publicar é decisão
- * explícita a cada vez, não automática.
+ * formulário — texto é opcional.
+ *
+ * A PEDIDO (implementar tudo igual ao web) — "Contém spoiler" saiu
+ * (review de mídia inteira raramente precisa disso). "Publicar
+ * também no Feed" vem MARCADO por padrão só na PRIMEIRA vez
+ * (`hasExistingReview` false) — reabrir uma review já existente pra
+ * editar vem DESMARCADO, pra não republicar sem querer a cada edição
+ * (mesma correção do bug real "review duplicada no Feed", já
+ * corrigida em `lib/posts.ts`/`createReviewPost`).
  */
 export function ReviewComposer({
   initialRating = 0,
   initialText = "",
-  initialSpoiler = false,
+  hasExistingReview = false,
   isPending,
   canShareToFeed = false,
   onSubmit,
 }: ReviewComposerProps) {
   const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState(initialText ?? "");
-  const [containsSpoiler, setContainsSpoiler] = useState(initialSpoiler);
-  const [shareToFeed, setShareToFeed] = useState(false);
+  const [shareToFeed, setShareToFeed] = useState(!hasExistingReview);
 
   return (
     <View style={styles.card}>
@@ -50,15 +55,6 @@ export function ReviewComposer({
         style={styles.textArea}
       />
 
-      <Pressable style={styles.checkboxRow} onPress={() => setContainsSpoiler((v) => !v)}>
-        <View style={[styles.checkbox, containsSpoiler && styles.checkboxChecked]}>
-          {containsSpoiler && <Feather name="check" size={11} color={colors.background} />}
-        </View>
-        <Text variant="muted" style={styles.checkboxLabel}>
-          Contém spoiler
-        </Text>
-      </Pressable>
-
       {canShareToFeed && (
         <Pressable style={styles.checkboxRow} onPress={() => setShareToFeed((v) => !v)}>
           <View style={[styles.checkbox, shareToFeed && styles.checkboxChecked]}>
@@ -71,7 +67,7 @@ export function ReviewComposer({
       )}
 
       <Button
-        onPress={() => onSubmit(rating, text.trim() || null, containsSpoiler, shareToFeed)}
+        onPress={() => onSubmit(rating, text.trim() || null, shareToFeed)}
         disabled={rating === 0}
         loading={isPending}
       >

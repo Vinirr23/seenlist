@@ -67,5 +67,5 @@ export function useReviews(target: ReviewTarget) {
 
   const othersReviews = reviews.filter((r) => r.id !== myReview?.id);
 
-  return { othersReviews, myReview, isLoading, saving, submit, remove };
+  return { reviews, othersReviews, myReview, isLoading, saving, submit, remove };
 }
