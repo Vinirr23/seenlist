@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, Share2, Calendar, Eye, EyeOff, MessageCircle } from "lucide-react";
-import type { SeriesDetails } from "@seenlist/types";
-import { useSeriesDetails } from "@/lib/queries/series";
+import { useEpisodeSeriesContext, type EpisodeContextSeason } from "@/lib/queries/episode-series-context";
 import { useSeriesStatus } from "@/lib/queries/series-status-state";
 import { getSeriesCategoryByStatus } from "@/lib/series-categories";
 import { useEpisodeDetails } from "@/lib/queries/episode-details";
@@ -44,12 +43,13 @@ interface EpisodeRef {
 }
 
 /**
- * TASK-052 — reaproveitado sem mudança nenhuma (TASK-030): próximo/
- * anterior calculado da mesma lista de temporadas já em cache, sem
- * chamada nova ao TMDB.
+ * TASK-052 — próximo/anterior nunca pula mais de uma temporada de
+ * distância, então só precisa da temporada atual + a vizinha de cada
+ * lado (ver `episode-series-context.ts`/achado de performance) — não
+ * de todas as temporadas da série.
  */
 function findAdjacentEpisodes(
-  seasons: SeriesDetails["seasons"] | undefined,
+  seasons: EpisodeContextSeason[] | undefined,
   season: number,
   episode: number
 ): { previous: EpisodeRef | null; next: EpisodeRef | null } {
@@ -76,7 +76,7 @@ const SWIPE_THRESHOLD_PX = 60;
 /**
  * TASK-052 — redesign completo pra ficar no nível visual/funcional
  * do TV Time (identidade de cor do SeenList preservada). Reaproveita
- * 100% dos hooks de dado já existentes (useSeriesDetails,
+ * 100% dos hooks de dado já existentes (useEpisodeSeriesContext,
  * useEpisodeDetails, useWatchedEpisodes, useToggleEpisodeWatched,
  * WhereToWatchSection) — só a estrutura visual e a navegação por
  * swipe são novas. `useCommentCount` é a única consulta nova (linha
@@ -98,7 +98,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   const router = useRouter();
   const { t, locale } = useTranslation();
   const seriesIdNum = Number(seriesId);
-  const { data: seriesDetails } = useSeriesDetails(seriesId);
+  const { data: seriesContext } = useEpisodeSeriesContext(seriesId, season);
   const { data: currentStatus } = useSeriesStatus(seriesIdNum);
   const categoryColorClass = currentStatus ? getSeriesCategoryByStatus(currentStatus)?.barColorClass : undefined;
   const { data: episodePage, isLoading, isError, refetch } = useEpisodeDetails(seriesId, season, episode);
@@ -121,8 +121,8 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   const toast = useToast();
 
   const { previous, next } = useMemo(
-    () => findAdjacentEpisodes(seriesDetails?.seasons, season, episode),
-    [seriesDetails?.seasons, season, episode]
+    () => findAdjacentEpisodes(seriesContext?.seasons, season, episode),
+    [seriesContext?.seasons, season, episode]
   );
 
   /**
@@ -130,12 +130,12 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
    * (ilustração de verdade via Jikan/MyAnimeList); sem correspondência,
    * cai pro elenco do TMDB (foto do ator/dublador, como já era).
    * `enabled: Boolean(title)` dentro do hook cuida de não disparar
-   * a busca antes de `seriesDetails` carregar.
+   * a busca antes de `seriesContext` carregar.
    *
    * TASK-168 (correção — voltava sempre foto de dublador em animes
    * de verdade, achado real: "That Time I Got Reincarnated as a
-   * Slime") — usa `seriesDetails.matchTitle` (título em inglês, só
-   * pra essa comparação), não `seriesDetails.title` (que vem em
+   * Slime") — usa `seriesContext.matchTitle` (título em inglês, só
+   * pra essa comparação), não `seriesContext.title` (que vem em
    * português, já que toda chamada ao TMDB pede `language=pt-BR` —
    * comparar título em português contra o inglês/romaji que o
    * MyAnimeList usa nunca batia, a busca falhava sempre, silenciosamente.
@@ -151,22 +151,22 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
    * quando a busca RODOU CERTINHO e genuinamente não achou nada
    * (série não é anime, por exemplo — `searchFailed: false`).
    */
-  const seriesYear = seriesDetails?.firstAirDate ? Number(seriesDetails.firstAirDate.slice(0, 4)) : null;
-  const { data: animeResult } = useAnimeCharacters(seriesDetails?.matchTitle, seriesYear);
+  const seriesYear = seriesContext?.firstAirDate ? Number(seriesContext.firstAirDate.slice(0, 4)) : null;
+  const { data: animeResult } = useAnimeCharacters(seriesContext?.matchTitle, seriesYear);
   const favoriteCharacterOptions: FavoriteCharacterOption[] = useMemo(() => {
     if (animeResult && animeResult.characters.length > 0) return animeResult.characters;
     if (animeResult?.searchFailed) return [];
-    return (seriesDetails?.cast ?? []).map((member) => ({
+    return (seriesContext?.cast ?? []).map((member) => ({
       id: member.id,
       name: member.character || member.name,
       imageUrl: tmdbImage(member.profilePath, "w185"),
     }));
-  }, [animeResult, seriesDetails?.cast]);
+  }, [animeResult, seriesContext?.cast]);
 
   const currentSeasonEpisodes = useMemo(() => {
-    const currentSeason = seriesDetails?.seasons.find((s) => s.seasonNumber === season);
+    const currentSeason = seriesContext?.seasons.find((s) => s.seasonNumber === season);
     return currentSeason ? [...currentSeason.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber) : [];
-  }, [seriesDetails?.seasons, season]);
+  }, [seriesContext?.seasons, season]);
 
   const isWatched = isEpisodeWatched(watched, season, episode);
 
@@ -291,12 +291,12 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
 
         <div className="absolute inset-x-3 top-3 flex items-center justify-between">
-          {seriesDetails && (
+          {seriesContext && (
             <Link
               href={`/series/${seriesId}`}
               className="flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-black"
             >
-              {seriesDetails.title}
+              {seriesContext.title}
               <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
             </Link>
           )}
