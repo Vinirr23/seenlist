@@ -80,6 +80,46 @@ async function fetchEndedBySeriesId(seriesIds: number[]): Promise<Map<number, bo
  * busca "up_to_date" E "watching" juntas, e a mesma lógica de
  * decisão (`decideWatchingVsUpToDate`) resolve os dois sentidos.
  */
+const RECALC_STORAGE_KEY = "seenlist:series-recalc-last-run";
+const RECALC_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1x por dia — combinado com o usuário (ver PR/conversa de performance da Home).
+
+/**
+ * A PEDIDO (achado de performance real, confirmado — "Home lenta") —
+ * `recalculateUpToDateSeriesCategories` (abaixo) é cara: pra cada
+ * série "watching"/"up_to_date" faz 1 chamada TMDB de temporadas +
+ * 1 por temporada, e ainda rebusca todo o histórico de episódios
+ * assistidos da conta — tudo isso repetia do zero a CADA vez que a
+ * Home montava (bastava trocar de aba e voltar). `useEffect([])` não
+ * tem noção de "já rodei isso há pouco".
+ *
+ * Guarda em `localStorage` (mesmo padrão do `LocaleProvider`) o
+ * horário da última execução BEM-SUCEDIDA — se rodou há menos de 24h,
+ * pula inteiramente, sem nenhuma chamada de rede. Escolha de 24h
+ * combinada com o usuário: consistente com o `check-new-releases`
+ * (Edge Function que já roda só 1x/dia pra detectar episódio novo pro
+ * push) e não afeta a aba "Em breve" (busca independente, sempre
+ * fresca). O que fica "atrasado" até 24h é só o selo NOVO/promoção
+ * automática de volta pra "Assistindo" numa série que o usuário não
+ * mexeu manualmente — marcar um episódio à mão continua instantâneo
+ * via `recalculateSeriesCategoryAfterEpisodeChange`, que não passa
+ * por aqui.
+ *
+ * Só grava o carimbo em caso de SUCESSO — se a checagem falhar
+ * (rede, TMDB fora do ar), tenta de novo na próxima visita em vez de
+ * esperar 24h por causa de uma falha passageira.
+ */
+export async function recalculateUpToDateSeriesCategoriesThrottled(): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const lastRun = window.localStorage.getItem(RECALC_STORAGE_KEY);
+  if (lastRun && Date.now() - Number(lastRun) < RECALC_MIN_INTERVAL_MS) {
+    return;
+  }
+
+  await recalculateUpToDateSeriesCategories();
+  window.localStorage.setItem(RECALC_STORAGE_KEY, String(Date.now()));
+}
+
 export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   const supabase = createClient();
   const {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
-import { recalculateUpToDateSeriesCategories } from "@/lib/queries/seriesCategoryRecalc";
+import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ViewModeToggle } from "../media/ViewModeToggle";
@@ -49,9 +49,17 @@ export function MinhaListaSection() {
    * episódio novo pendente, promovendo de volta pra "Assistindo"
    * antes mesmo do usuário interagir. Silencioso — não mostra
    * spinner nem bloqueia a tela; só atualiza a lista se algo mudou.
+   *
+   * PERFORMANCE (achado real — "Home lenta") — usa a versão com
+   * limite de 1x/dia (`...Throttled`, ver `seriesCategoryRecalc.ts`)
+   * em vez da função crua: sem isso, essa checagem pesada (uma
+   * chamada TMDB por temporada de CADA série "watching"/"up_to_date"
+   * + rebuscar todo o histórico de episódios assistidos) rodava do
+   * zero toda vez que essa tela montava — bastava sair da aba Séries
+   * e voltar.
    */
   useEffect(() => {
-    recalculateUpToDateSeriesCategories()
+    recalculateUpToDateSeriesCategoriesThrottled()
       .then(() => refetch())
       .catch((err) => console.error("[MinhaListaSection] Falha ao recalcular categorias 'Em dia'", err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
