@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import type { MediaTarget } from "@/lib/queries/social/types";
 import { useReviews, useMyReview, useUpsertReview } from "@/lib/queries/social/reviews";
 import { useLikeInfoBatch } from "@/lib/queries/social/likes";
@@ -67,17 +68,42 @@ export function ReviewTextSection({ target, media }: ReviewTextSectionProps) {
     );
   }
 
+  const hasRating = Boolean(myReview && myReview.rating != null && myReview.rating > 0);
+
+  /**
+   * A PEDIDO (correção real, reportada — "não existe mais opção de
+   * escrever review, só mostra") — desde que o comentário comum saiu
+   * dessa tela (`CommentsSection.tsx`), quem ainda não deu nota em
+   * estrelas na aba Sobre (`ReviewsSection.tsx`) chegava aqui numa
+   * tela em branco — o composer de texto só aparece pra quem já tem
+   * `myReview.rating > 0` (regra que já existia antes, só que antes
+   * o comentário comum embaixo evitava a tela ficar vazia). Link
+   * volta pra página do próprio título — pra série, já pede a aba
+   * Sobre via `?tab=sobre`.
+   */
+  const rateFirstHref =
+    media?.type === "series" ? `/series/${target.mediaId}?tab=sobre` : `/movies/${target.mediaId}`;
+
   return (
     <div className="space-y-4">
-      {myReview && myReview.rating != null && myReview.rating > 0 && (
+      {hasRating ? (
         <ReviewTextComposer
-          myRating={myReview.rating}
-          initialText={myReview.reviewText}
-          initialSpoiler={myReview.containsSpoiler}
+          myRating={myReview!.rating!}
+          initialText={myReview!.reviewText}
+          initialSpoiler={myReview!.containsSpoiler}
           isPending={upsertReview.isPending}
           canShareToFeed={Boolean(media)}
           onSubmit={handleSubmit}
         />
+      ) : (
+        media && (
+          <div className="rounded-lg border border-border bg-surface p-4 text-center">
+            <p className="text-sm text-muted">{t("reviews.rateFirstPrompt")}</p>
+            <Link href={rateFirstHref} className="mt-2 inline-block text-sm font-semibold text-primary">
+              {t("reviews.rateFirstLink")}
+            </Link>
+          </div>
+        )
       )}
 
       {isLoading ? (

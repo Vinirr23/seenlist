@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Star, ChevronRight, Tv, Calendar, Layers, Clapperboard } from "lucide-react";
 import { useSeriesDetails } from "@/lib/queries/series";
 import { useWatchedEpisodes } from "@/lib/queries/watched-episodes";
@@ -52,7 +53,11 @@ function SeriesOverview({ text }: { text: string }) {
 
 /** Tradução (5º lote). */
 export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
-  const [tab, setTab] = useState<SeriesTab>("episodios");
+  const searchParams = useSearchParams();
+  // A PEDIDO — link "Ir dar minha nota" (tela de Avaliações, quando
+  // ainda não deu nota) usa `?tab=sobre` pra já cair na aba certa,
+  // em vez de abrir em Episódios e a pessoa ter que clicar de novo.
+  const [tab, setTab] = useState<SeriesTab>(searchParams.get("tab") === "sobre" ? "sobre" : "episodios");
   const numericId = Number(seriesId);
   const { t } = useTranslation();
 
