@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
@@ -10,6 +11,8 @@ import type { MediaSummary } from "@/lib/tmdb/client";
 import { tmdbImage } from "@/lib/tmdb/image";
 
 const PAGE_SIZE = 20;
+/** Mesma janela do cache de resumo TMDB usado no resto do app (fetch do Next em library-state.ts). */
+const SUMMARY_STALE_TIME = 5 * 60 * 1000;
 
 /**
  * TASK-177 — carrossel horizontal com prévia real dos pôsteres (em
@@ -17,8 +20,15 @@ const PAGE_SIZE = 20;
  * ordenada por atividade (`profile-media-carousel.ts`) e busca
  * resumo (pôster/título) só de quem está visível, em lotes de 20 —
  * carrega mais conforme rola pro fim, em vez de buscar tudo de uma
- * vez (com 427/994 itens, travaria a tela à toa). Cada lote busca só
- * os IDs NOVOS (não refaz busca dos que já carregaram antes).
+ * vez (com 427/994 itens, travaria a tela à toa).
+ *
+ * CORREÇÃO (achado de performance real — "Perfil lento") — antes,
+ * cada lote era buscado com `useEffect` + estado local do próprio
+ * componente: saía do Perfil e voltava, e os 4 carrosséis esqueciam
+ * tudo, buscando os mesmos pôsteres de novo do zero. Agora cada lote
+ * é uma consulta de verdade (`useQueries`, React Query) com chave
+ * estável (`mediaType` + os ids exatos daquele lote) — voltar pro
+ * Perfil pouco depois reaproveita o cache, sem round-trip novo.
  */
 export function ProfileMediaCarousel({
   icon: Icon,
@@ -39,27 +49,41 @@ export function ProfileMediaCarousel({
   emptyLabel?: string;
   emptyHref?: string;
 }) {
-  const [visibleCount, setVisibleCount] = useState(0);
-  const [summaryMap, setSummaryMap] = useState<Record<number, MediaSummary>>({});
-  const fetchedUpTo = useRef(0);
+  const [visibleCount, setVisibleCount] = useState(() => Math.min(PAGE_SIZE, ids.length));
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Reseta a "janela visível" quando a lista de ids muda de verdade
+  // (ex.: resolveu de [] pro valor real, ou a atividade recente
+  // mudou a ordem) — só o tamanho da janela, não o cache de resumos
+  // (esse já cuida de si mesmo via React Query).
   useEffect(() => {
-    fetchedUpTo.current = 0;
-    setSummaryMap({});
     setVisibleCount(Math.min(PAGE_SIZE, ids.length));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids.join(",")]);
 
-  useEffect(() => {
-    if (visibleCount <= fetchedUpTo.current) return;
-    const newIds = ids.slice(fetchedUpTo.current, visibleCount);
-    fetchedUpTo.current = visibleCount;
-    fetchDisplaySummaries(mediaType === "movie" ? newIds : [], mediaType === "series" ? newIds : []).then((result) => {
-      const newMap = mediaType === "movie" ? result.movies : result.series;
-      setSummaryMap((prev) => ({ ...prev, ...newMap }));
-    });
-  }, [visibleCount, ids, mediaType]);
+  const chunks = useMemo(() => {
+    const pageCount = Math.ceil(visibleCount / PAGE_SIZE);
+    return Array.from({ length: pageCount }, (_, i) => ids.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE)).filter(
+      (chunk) => chunk.length > 0
+    );
+  }, [ids, visibleCount]);
+
+  const chunkResults = useQueries({
+    queries: chunks.map((chunkIds) => ({
+      queryKey: ["profile-media-summaries", mediaType, chunkIds.join(",")],
+      queryFn: () => fetchDisplaySummaries(mediaType === "movie" ? chunkIds : [], mediaType === "series" ? chunkIds : []),
+      staleTime: SUMMARY_STALE_TIME,
+    })),
+  });
+
+  const summaryMap = useMemo(() => {
+    const map: Record<number, MediaSummary> = {};
+    for (const result of chunkResults) {
+      if (!result.data) continue;
+      Object.assign(map, mediaType === "movie" ? result.data.movies : result.data.series);
+    }
+    return map;
+  }, [chunkResults, mediaType]);
 
   useEffect(() => {
     const el = scrollRef.current;
