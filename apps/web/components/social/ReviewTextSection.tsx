@@ -41,9 +41,9 @@ export function ReviewTextSection({ target, media }: ReviewTextSectionProps) {
   const reviewIds = useMemo(() => othersReviews.map((r) => r.id), [othersReviews]);
   const { data: likeInfoByReviewId } = useLikeInfoBatch("review", reviewIds);
 
-  function handleSubmit(rating: number, reviewText: string | null, containsSpoiler: boolean, shareToFeed: boolean) {
+  function handleSubmit(rating: number, reviewText: string | null, shareToFeed: boolean) {
     upsertReview.mutate(
-      { rating, reviewText, containsSpoiler },
+      { rating, reviewText },
       {
         onSuccess: () => {
           if (!shareToFeed || !media) return;
@@ -73,7 +73,6 @@ export function ReviewTextSection({ target, media }: ReviewTextSectionProps) {
       <ReviewFullComposer
         initialRating={myReview?.rating ?? 0}
         initialText={myReview?.reviewText}
-        initialSpoiler={myReview?.containsSpoiler}
         hasExistingReview={Boolean(myReview)}
         isPending={upsertReview.isPending}
         isDeleting={deleteReview.isPending}

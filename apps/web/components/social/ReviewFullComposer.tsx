@@ -7,9 +7,8 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 export interface ReviewFullComposerProps {
   initialRating?: number;
   initialText?: string | null;
-  initialSpoiler?: boolean;
   hasExistingReview: boolean;
-  onSubmit: (rating: number, reviewText: string | null, containsSpoiler: boolean, shareToFeed: boolean) => void;
+  onSubmit: (rating: number, reviewText: string | null, shareToFeed: boolean) => void;
   onDelete?: () => void;
   isPending?: boolean;
   isDeleting?: boolean;
@@ -23,8 +22,12 @@ export interface ReviewFullComposerProps {
  * formulário só, num lugar só ("Ver todas as avaliações"). Antes
  * (`ReviewComposer.tsx` + `ReviewTextComposer.tsx`) estavam separados
  * em duas telas — dar nota na aba Sobre, escrever o texto só depois,
- * em Comentários. "Contém spoiler" e "Publicar no Feed" não dependem
- * mais de já existir uma nota salva — aparecem desde a primeira vez.
+ * em Comentários.
+ *
+ * A PEDIDO — "Contém spoiler" saiu (review de mídia inteira raramente
+ * precisa disso; quem quiser avisar spoiler pode escrever no próprio
+ * texto). "Publicar também no Feed" vem MARCADO por padrão — quem não
+ * quiser publicar desmarca, em vez de precisar lembrar de marcar.
  *
  * A aba Sobre continua só com o resumo da comunidade
  * (`ReviewSummary.tsx`, sem interação) — ver `ReviewsSection.tsx`.
@@ -32,7 +35,6 @@ export interface ReviewFullComposerProps {
 export function ReviewFullComposer({
   initialRating = 0,
   initialText,
-  initialSpoiler = false,
   hasExistingReview,
   onSubmit,
   onDelete,
@@ -42,8 +44,7 @@ export function ReviewFullComposer({
 }: ReviewFullComposerProps) {
   const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState(initialText ?? "");
-  const [containsSpoiler, setContainsSpoiler] = useState(initialSpoiler);
-  const [shareToFeed, setShareToFeed] = useState(false);
+  const [shareToFeed, setShareToFeed] = useState(true);
   const { t } = useTranslation();
 
   return (
@@ -59,18 +60,8 @@ export function ReviewFullComposer({
         className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
       />
 
-      <label className="flex items-center gap-1.5 text-xs text-muted">
-        <input
-          type="checkbox"
-          checked={containsSpoiler}
-          onChange={(e) => setContainsSpoiler(e.target.checked)}
-          className="h-3.5 w-3.5 rounded border-border accent-primary"
-        />
-        {t("social.containsSpoiler")}
-      </label>
-
       {canShareToFeed && (
-        <label className="flex items-center gap-1.5 border-t border-border pt-2.5 text-xs text-muted">
+        <label className="flex items-center gap-1.5 text-xs text-muted">
           <input
             type="checkbox"
             checked={shareToFeed}
@@ -97,7 +88,7 @@ export function ReviewFullComposer({
         <button
           type="button"
           disabled={rating === 0 || isPending}
-          onClick={() => onSubmit(rating, text.trim() || null, containsSpoiler, shareToFeed)}
+          onClick={() => onSubmit(rating, text.trim() || null, shareToFeed)}
           className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-background disabled:opacity-50"
         >
           {t("social.saveReview")}
