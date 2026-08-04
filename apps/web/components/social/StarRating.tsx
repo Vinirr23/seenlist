@@ -6,7 +6,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-048 — 1 a 5 estrelas. Um componente só: passando `onChange`
- * vira input (usado no ReviewComposer); sem `onChange`, é só
+ * vira input (usado no ReviewFullComposer); sem `onChange`, é só
  * exibição (usado no ReviewCard). Evita duplicar a mesma renderização
  * de 5 estrelas em dois lugares.
  */
