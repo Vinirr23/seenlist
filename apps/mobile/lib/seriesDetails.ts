@@ -1,4 +1,5 @@
-import type { SeriesDetails, LibraryStatus } from "@seenlist/types";
+import type { SeriesDetails, LibraryStatus, CastMember } from "@seenlist/types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { todayLocalKey } from "@/lib/localDate";
 
@@ -9,6 +10,56 @@ export async function fetchSeriesDetails(seriesId: string): Promise<SeriesDetail
   const response = await fetch(`${SITE_URL}/api/tmdb/series/${seriesId}`);
   if (!response.ok) throw new Error("series details fetch failed");
   return response.json() as Promise<SeriesDetails>;
+}
+
+export interface EpisodeContextEpisode {
+  seasonNumber: number;
+  episodeNumber: number;
+}
+
+export interface EpisodeContextSeason {
+  seasonNumber: number;
+  episodes: EpisodeContextEpisode[];
+}
+
+export interface EpisodeSeriesContext {
+  title: string;
+  matchTitle: string;
+  firstAirDate: string | null;
+  cast: CastMember[];
+  seasons: EpisodeContextSeason[];
+}
+
+/**
+ * ACHADO DE PERFORMANCE (a pedido — mesmo achado já corrigido na
+ * tela de Episódio do web) — a tela de Episódio usava
+ * `fetchSeriesDetails`, a MESMA busca pesada da página da série
+ * inteira (elenco completo, trailer, galeria, títulos parecidos, e o
+ * episódio de TODAS as temporadas) só pra achar "anterior/próximo" e
+ * título/elenco pra personagem de anime. Chama a rota nova já criada
+ * pro web (`/api/tmdb/series/[id]/season/[season]/episode-context`,
+ * o mobile já busca tudo do mesmo backend web) — devolve só o
+ * necessário, e busca no máximo 3 temporadas (atual + vizinhas), não
+ * todas.
+ *
+ * Cache em memória por `[seriesId, season]` (não por episódio) —
+ * maratonar dentro da mesma temporada não busca nada de novo; só
+ * troca ao mudar de temporada. Mesmo espírito do cache de
+ * `fetchDisplaySummariesCached` (`lib/library.ts`).
+ */
+const EPISODE_CONTEXT_TTL_MS = 5 * 60 * 1000;
+const episodeContextCache = new Map<string, { data: EpisodeSeriesContext; expiresAt: number }>();
+
+export async function fetchEpisodeSeriesContext(seriesId: string, season: number): Promise<EpisodeSeriesContext> {
+  const key = `${seriesId}:${season}`;
+  const cached = episodeContextCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  const response = await fetch(`${SITE_URL}/api/tmdb/series/${seriesId}/season/${season}/episode-context`);
+  if (!response.ok) throw new Error("episode series context fetch failed");
+  const data = (await response.json()) as EpisodeSeriesContext;
+  episodeContextCache.set(key, { data, expiresAt: Date.now() + EPISODE_CONTEXT_TTL_MS });
+  return data;
 }
 
 export type WatchedEpisodeKey = `${number}-${number}`;
@@ -184,6 +235,34 @@ async function fetchEndedBySeriesId(seriesIds: number[]): Promise<Map<number, bo
     for (const s of data.series) result.set(s.id, s.ended);
   }
   return result;
+}
+
+const RECALC_STORAGE_KEY = "seenlist:series-recalc-last-run";
+const RECALC_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1x por dia — mesma decisão já aplicada no web.
+
+/**
+ * ACHADO DE PERFORMANCE (a pedido — mesmo achado já corrigido no
+ * web, "Home lenta") — `recalculateUpToDateSeriesCategories`
+ * (abaixo) é cara: pra cada série "up_to_date" faz 1 chamada TMDB de
+ * temporadas + 1 por temporada, e ainda soma o histórico de episódios
+ * assistidos. No mobile isso rodava a CADA foco da aba Séries
+ * (`useFocusEffect`), ainda mais frequente que o "toda montagem" do
+ * web (trocar de aba e voltar já disparava de novo).
+ *
+ * Guarda em `AsyncStorage` (equivalente ao `localStorage` do web) o
+ * horário da última execução BEM-SUCEDIDA — se rodou há menos de
+ * 24h, pula inteiramente. Só grava o carimbo em caso de SUCESSO — se
+ * falhar (rede, TMDB fora do ar), tenta de novo no próximo foco em
+ * vez de esperar 24h por causa de uma falha passageira.
+ */
+export async function recalculateUpToDateSeriesCategoriesThrottled(): Promise<void> {
+  const lastRun = await AsyncStorage.getItem(RECALC_STORAGE_KEY);
+  if (lastRun && Date.now() - Number(lastRun) < RECALC_MIN_INTERVAL_MS) {
+    return;
+  }
+
+  await recalculateUpToDateSeriesCategories();
+  await AsyncStorage.setItem(RECALC_STORAGE_KEY, String(Date.now()));
 }
 
 export async function recalculateUpToDateSeriesCategories(): Promise<void> {

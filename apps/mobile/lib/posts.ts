@@ -128,6 +128,16 @@ export async function deletePost(postId: string): Promise<void> {
  * post de review, publicado pela tela de Avaliações quando a pessoa
  * marca "Publicar também no Feed". Post de imagem/GIF continua de
  * fora (ainda precisa de seletor de imagem + upload).
+ *
+ * CORREÇÃO (bug real, reportado — "review duplicada no Feed", mesmo
+ * bug já corrigido no web) — antes era sempre um INSERT novo, sem
+ * checar se já existia um post dessa review. Reabrir a review pra
+ * editar e salvar de novo com "Publicar também no Feed" marcado
+ * criava um post duplicado. Agora checa primeiro se já existe um
+ * post tipo "review" (não apagado) do usuário pra essa mídia: se
+ * existir, ATUALIZA em vez de inserir de novo. Um índice único no
+ * banco (`posts_one_review_per_media_idx`, já criado — mesmo banco
+ * do web) é a segunda linha de defesa.
  */
 export async function createReviewPost(
   body: string,
@@ -138,16 +148,37 @@ export async function createReviewPost(
   } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
 
-  const { error } = await supabase.from("posts").insert({
-    user_id: user.id,
-    type: "review",
+  const { data: existing, error: findError } = await supabase
+    .from("posts")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("type", "review")
+    .eq("media_type", review.mediaType)
+    .eq("media_id", review.mediaId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (findError) throw findError;
+
+  const payload = {
     body: body.trim() || null,
-    image_url: null,
-    media_type: review.mediaType,
-    media_id: review.mediaId,
     media_title: review.mediaTitle,
     media_poster_path: review.mediaPosterPath,
     rating: review.rating,
+  };
+
+  if (existing) {
+    const { error } = await supabase.from("posts").update(payload).eq("id", existing.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from("posts").insert({
+    user_id: user.id,
+    type: "review",
+    image_url: null,
+    media_type: review.mediaType,
+    media_id: review.mediaId,
+    ...payload,
   });
   if (error) throw error;
 }

@@ -3,7 +3,7 @@ import { View, Pressable, FlatList, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { fetchDisplaySummaries, tmdbImageUrl, type MediaSummary } from "@/lib/library";
+import { fetchDisplaySummariesCached, tmdbImageUrl, type MediaSummary } from "@/lib/library";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -55,7 +55,7 @@ export function ProfileMediaCarousel({
     if (visibleCount <= fetchedUpTo.current) return;
     const newIds = ids.slice(fetchedUpTo.current, visibleCount);
     fetchedUpTo.current = visibleCount;
-    fetchDisplaySummaries(mediaType === "movie" ? newIds : [], mediaType === "series" ? newIds : []).then((result) => {
+    fetchDisplaySummariesCached(mediaType === "movie" ? newIds : [], mediaType === "series" ? newIds : []).then((result) => {
       const newMap = mediaType === "movie" ? result.movies : result.series;
       setSummaryMap((prev) => ({ ...prev, ...newMap }));
     });

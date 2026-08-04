@@ -34,7 +34,6 @@ function initials(name: string): string {
 export function EpisodeCommentItem({
   comment,
   depth,
-  autoHideSpoilers,
   commentsBaseHref,
   onDelete,
   onEdit,
@@ -42,7 +41,6 @@ export function EpisodeCommentItem({
 }: {
   comment: CommentNode;
   depth: number;
-  autoHideSpoilers: boolean;
   commentsBaseHref: string;
   onDelete: (commentId: string) => Promise<void>;
   onEdit: (commentId: string, body: string) => Promise<void>;
@@ -124,7 +122,7 @@ export function EpisodeCommentItem({
             </Text>
           </View>
 
-          <SpoilerGate hidden={comment.containsSpoiler || autoHideSpoilers}>
+          <SpoilerGate hidden={comment.containsSpoiler}>
             <View>
               {!!comment.body && <Text style={styles.body}>{comment.body}</Text>}
               {!!comment.imageUrl && <AdaptiveImage uri={comment.imageUrl} maxHeight={320} />}
@@ -163,7 +161,6 @@ export function EpisodeCommentItem({
               key={child.id}
               comment={child}
               depth={depth + 1}
-              autoHideSpoilers={autoHideSpoilers}
               commentsBaseHref={commentsBaseHref}
               onDelete={onDelete}
               onEdit={onEdit}

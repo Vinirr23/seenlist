@@ -3,7 +3,7 @@ import { View, TextInput, Pressable, StyleSheet } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { MediaTarget, CommentNode } from "@/lib/social/mediaComments";
-import { useEpisodeComments, useEpisodeSpoilerProtection } from "@/lib/social/useEpisodeComments";
+import { useEpisodeComments } from "@/lib/social/useEpisodeComments";
 import { pickImageFromLibrary, uploadCommentImage } from "@/lib/imageUpload";
 import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { EpisodeCommentItem } from "./EpisodeCommentItem";
@@ -24,13 +24,22 @@ function flattenCommentIds(nodes: CommentNode[]): string[] {
 
 /**
  * TASK-122/129/132/133 (episódio, correção) — árvore de respostas +
- * proteção contra spoiler + composer no topo + anexar imagem/GIF
- * (TASK-133, a pedido — mesmo padrão do `CreatePostButton.tsx`:
- * prévia 140×140 com botão de remover, upload só ao publicar).
+ * composer no topo + anexar imagem/GIF (TASK-133, a pedido — mesmo
+ * padrão do `CreatePostButton.tsx`: prévia 140×140 com botão de
+ * remover, upload só ao publicar).
+ *
+ * CORREÇÃO (a pedido — mesma mudança já aplicada no web, "quero um
+ * aviso antes de entrar") — a oclusão automática por progresso
+ * (`useEpisodeSpoilerProtection`) saiu daqui. Antes, cada comentário
+ * de quem ainda não tinha assistido o episódio aparecia escondido
+ * individualmente dizendo "contém spoiler" (mesmo sem ser spoiler de
+ * verdade). Agora o aviso é ÚNICO, ANTES de entrar nessa tela (o
+ * botão "Comentário" na tela do episódio pergunta antes de navegar)
+ * — aqui dentro, só o `containsSpoiler` MANUAL de cada comentário
+ * (marcado por quem escreveu) continua escondendo.
  */
-export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number; target: MediaTarget }) {
+export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
   const { tree, isLoading, sending, submit, remove, edit } = useEpisodeComments(target);
-  const autoHideSpoilers = useEpisodeSpoilerProtection(seriesId, target.seasonNumber ?? 0, target.episodeNumber ?? 0);
   const commentsBaseHref = `/episodes/${target.mediaId}/${target.seasonNumber}/${target.episodeNumber}`;
 
   /** TASK-153 — busca a curtida de TODOS os comentários (em qualquer nível da árvore) de uma vez, não um por um. */
@@ -149,7 +158,6 @@ export function EpisodeCommentsSection({ seriesId, target }: { seriesId: number;
               key={node.id}
               comment={node}
               depth={0}
-              autoHideSpoilers={autoHideSpoilers}
               commentsBaseHref={commentsBaseHref}
               onDelete={remove}
               onEdit={edit}

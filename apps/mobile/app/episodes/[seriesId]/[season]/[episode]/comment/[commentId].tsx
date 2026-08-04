@@ -6,7 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { buildCommentTree, fetchMediaComments, findCommentNode, postMediaComment, type MediaTarget } from "@/lib/social/mediaComments";
-import { useEpisodeComments, useEpisodeSpoilerProtection } from "@/lib/social/useEpisodeComments";
+import { useEpisodeComments } from "@/lib/social/useEpisodeComments";
 import { pickImageFromLibrary, uploadCommentImage } from "@/lib/imageUpload";
 import { EpisodeCommentItem } from "@/components/episode/EpisodeCommentItem";
 import { LikeButton } from "@/components/feed/LikeButton";
@@ -53,7 +53,6 @@ export default function EpisodeCommentDetailScreen() {
   );
 
   const { edit, remove } = useEpisodeComments(target);
-  const autoHideSpoilers = useEpisodeSpoilerProtection(seriesIdNum, seasonNumber, episodeNumber);
 
   const [comment, setComment] = useState<ReturnType<typeof findCommentNode>>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -221,7 +220,7 @@ export default function EpisodeCommentDetailScreen() {
                       {dateFormatter.format(new Date(comment.createdAt))}
                     </Text>
                   </View>
-                  <SpoilerGate hidden={comment.containsSpoiler || autoHideSpoilers}>
+                  <SpoilerGate hidden={comment.containsSpoiler}>
                     <View>
                       {!!comment.body && <Text style={styles.body}>{comment.body}</Text>}
                       {!!comment.imageUrl && <AdaptiveImage uri={comment.imageUrl} maxHeight={320} />}
@@ -262,7 +261,6 @@ export default function EpisodeCommentDetailScreen() {
                     key={child.id}
                     comment={child}
                     depth={0}
-                    autoHideSpoilers={autoHideSpoilers}
                     commentsBaseHref={commentsBaseHref}
                     onDelete={handleDelete}
                     onEdit={handleEdit}

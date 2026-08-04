@@ -18,11 +18,6 @@ interface SeriesStatusRow {
   total_watch_events: number | null;
 }
 
-interface WatchedEpisodeRow {
-  series_id: number;
-  watched_at: string;
-}
-
 export interface MediaSummary {
   id: number;
   title: string;
@@ -40,7 +35,6 @@ interface LibrarySummariesResponse {
   series: MediaSummary[];
 }
 
-const WATCHED_EPISODES_PAGE_SIZE = 1000; // limite padrão de linhas por consulta do Supabase/PostgREST — sem paginação, contas com muito histórico assistido vinham com contagem cortada.
 
 /**
  * TASK-144 (correção — "0/24 episódios" mesmo já tendo assistido
@@ -63,36 +57,25 @@ const WATCHED_EPISODES_PAGE_SIZE = 1000; // limite padrão de linhas por consult
  * necessárias AO MESMO TEMPO (`Promise.all`) — o tempo de rede das
  * páginas se sobrepõe, em vez de somar.
  */
-export async function fetchAllWatchedEpisodeRows(userId: string): Promise<WatchedEpisodeRow[]> {
-  const { count, error: countError } = await supabase
-    .from("watched_episodes")
-    .select("series_id", { count: "exact", head: true })
-    .eq("is_special", false)
-    .eq("user_id", userId);
-  if (countError) throw countError;
+export interface WatchedEpisodeStats {
+  series_id: number;
+  watched_count: number;
+  last_watched_at: string;
+}
 
-  const total = count ?? 0;
-  if (total === 0) return [];
-
-  const pageCount = Math.ceil(total / WATCHED_EPISODES_PAGE_SIZE);
-  const pages = await Promise.all(
-    Array.from({ length: pageCount }, (_, index) => {
-      const from = index * WATCHED_EPISODES_PAGE_SIZE;
-      return supabase
-        .from("watched_episodes")
-        .select("series_id, watched_at")
-        .eq("is_special", false)
-        .eq("user_id", userId)
-        .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
-    })
-  );
-
-  const rows: WatchedEpisodeRow[] = [];
-  for (const page of pages) {
-    if (page.error) throw page.error;
-    rows.push(...((page.data ?? []) as WatchedEpisodeRow[]));
-  }
-  return rows;
+/**
+ * ACHADO DE PERFORMANCE (a pedido — mesmo achado #2 já corrigido no
+ * web) — `fetchAllWatchedEpisodeRows` (linha-por-linha, paginada) baixava CADA linha individual de
+ * `watched_episodes`, paginada, só pra usar duas coisas por série:
+ * contagem e data do mais recente. Agora chama `get_watched_episode_stats`
+ * (RPC já criada no Supabase pra corrigir o mesmo problema no web —
+ * mesmo banco dos dois apps, nenhuma migration nova precisa) — o
+ * Postgres já devolve uma linha por série, com a soma pronta.
+ */
+export async function fetchWatchedEpisodeStats(userId: string): Promise<WatchedEpisodeStats[]> {
+  const { data, error } = await supabase.rpc("get_watched_episode_stats", { p_user_id: userId });
+  if (error) throw error;
+  return (data ?? []) as WatchedEpisodeStats[];
 }
 
 function toLibraryStatus(movieStatus: MovieStatusRow["status"]): LibraryStatus {
@@ -170,22 +153,76 @@ export async function fetchDisplaySummaries(
   };
 }
 
+/**
+ * ACHADO DE PERFORMANCE (a pedido — mesmo achado #3 já corrigido no
+ * Perfil do web, "esquece tudo ao trocar de tela") — o carrossel do
+ * Perfil (`ProfileMediaCarousel.tsx`) buscava pôster/título com
+ * `useEffect` + estado local puro: sair do Perfil e voltar
+ * esquecia tudo, buscando os mesmos pôsteres de novo do zero.
+ *
+ * O mobile não usa React Query (decisão arquitetural do projeto,
+ * mesmo padrão de `useMyLists.ts`) — em vez de um cache de
+ * biblioteca externa, um cache simples em memória, no MÓDULO (não
+ * no componente): sobrevive a montar/desmontar a tela, só se perde
+ * se o app fechar de vez. 5 minutos de validade — mesma janela já
+ * usada no resto do app pra resumo do TMDB.
+ */
+const SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000;
+const summaryCache = new Map<string, { data: MediaSummary; expiresAt: number }>();
+
+export async function fetchDisplaySummariesCached(
+  movieIds: number[],
+  seriesIds: number[]
+): Promise<{ movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }> {
+  const now = Date.now();
+  const movies: Record<number, MediaSummary> = {};
+  const series: Record<number, MediaSummary> = {};
+  const missingMovieIds: number[] = [];
+  const missingSeriesIds: number[] = [];
+
+  for (const id of movieIds) {
+    const cached = summaryCache.get(`movie:${id}`);
+    if (cached && cached.expiresAt > now) {
+      movies[id] = cached.data;
+    } else {
+      missingMovieIds.push(id);
+    }
+  }
+  for (const id of seriesIds) {
+    const cached = summaryCache.get(`series:${id}`);
+    if (cached && cached.expiresAt > now) {
+      series[id] = cached.data;
+    } else {
+      missingSeriesIds.push(id);
+    }
+  }
+
+  if (missingMovieIds.length > 0 || missingSeriesIds.length > 0) {
+    const fetched = await fetchDisplaySummaries(missingMovieIds, missingSeriesIds);
+    const expiresAt = Date.now() + SUMMARY_CACHE_TTL_MS;
+    for (const [id, summary] of Object.entries(fetched.movies)) {
+      summaryCache.set(`movie:${id}`, { data: summary, expiresAt });
+      movies[Number(id)] = summary;
+    }
+    for (const [id, summary] of Object.entries(fetched.series)) {
+      summaryCache.set(`series:${id}`, { data: summary, expiresAt });
+      series[Number(id)] = summary;
+    }
+  }
+
+  return { movies, series };
+}
+
 /** Idêntico a `buildLibraryItemsFromRows` do web (lib/queries/library-state.ts) — mesma regra, sem alteração, só copiada pro lado nativo (os apps não importam código um do outro neste monorepo). */
 function buildLibraryItemsFromRows(
   movieRows: MovieStatusRow[],
   seriesRows: SeriesStatusRow[],
-  episodeRows: WatchedEpisodeRow[],
+  episodeStats: WatchedEpisodeStats[],
   summaries: { movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }
 ): LibraryItem[] {
   const episodeAgg = new Map<number, { count: number; lastWatchedAt: string }>();
-  for (const row of episodeRows) {
-    const entry = episodeAgg.get(row.series_id);
-    if (!entry) {
-      episodeAgg.set(row.series_id, { count: 1, lastWatchedAt: row.watched_at });
-    } else {
-      entry.count += 1;
-      if (row.watched_at > entry.lastWatchedAt) entry.lastWatchedAt = row.watched_at;
-    }
+  for (const stat of episodeStats) {
+    episodeAgg.set(stat.series_id, { count: stat.watched_count, lastWatchedAt: stat.last_watched_at });
   }
 
   const explicitSeriesById = new Map(seriesRows.map((row) => [row.series_id, row]));
@@ -288,13 +325,13 @@ export async function fetchLibraryItems(userId?: string): Promise<LibraryItem[]>
     targetUserId = user.id;
   }
 
-  const [movieResult, seriesResult, episodeRows] = await Promise.all([
+  const [movieResult, seriesResult, episodeStats] = await Promise.all([
     supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", targetUserId),
     supabase
       .from("series_status")
       .select("series_id, status, created_at, updated_at, total_watch_events")
       .eq("user_id", targetUserId),
-    fetchAllWatchedEpisodeRows(targetUserId),
+    fetchWatchedEpisodeStats(targetUserId),
   ]);
 
   if (movieResult.error) throw movieResult.error;
@@ -305,7 +342,7 @@ export async function fetchLibraryItems(userId?: string): Promise<LibraryItem[]>
 
   const validSeriesIds = new Set<number>([
     ...seriesRows.filter((row) => row.status !== "removed").map((row) => row.series_id),
-    ...episodeRows.map((row) => row.series_id),
+    ...episodeStats.map((stat) => stat.series_id),
   ]);
   for (const row of seriesRows) {
     if (row.status === "removed") validSeriesIds.delete(row.series_id);
@@ -316,7 +353,7 @@ export async function fetchLibraryItems(userId?: string): Promise<LibraryItem[]>
     [...validSeriesIds]
   );
 
-  return buildLibraryItemsFromRows(movieRows, seriesRows, episodeRows, summaries);
+  return buildLibraryItemsFromRows(movieRows, seriesRows, episodeStats, summaries);
 }
 
 /** URL de pôster do TMDB — mesma função do web (lib/tmdb/image.ts), só copiada. */

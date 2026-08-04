@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { isEpisodeWatched } from "@/lib/seriesDetails";
 import {
   buildCommentTree,
   deleteMediaComment,
@@ -29,28 +28,13 @@ export function useEpisodeCommentCount(target: MediaTarget) {
 }
 
 /**
- * TASK-122 (episódio) — porta de `useSpoilerProtection`: "assistiu
- * até o episódio 5, abre o episódio 9" → oculta por padrão, porque
- * não assistiu ESTE episódio específico ainda (não precisa
- * reconstruir ordem cronológica, só checar se este episódio já foi
- * marcado). Reaproveita `isEpisodeWatched`, já existente desde a
- * correção do bug de categoria presa.
+ * CORREÇÃO (a pedido — mesma mudança já aplicada no web, "quero um
+ * aviso antes de entrar") — `useEpisodeSpoilerProtection` (oclusão
+ * automática por progresso, comentário por comentário) foi removida.
+ * Virou um aviso único, antes de entrar na tela de Comentários (o
+ * botão "Comentário" na tela do episódio pergunta antes de navegar,
+ * ver `app/episodes/[seriesId]/[season]/[episode].tsx`).
  */
-export function useEpisodeSpoilerProtection(seriesId: number, seasonNumber: number, episodeNumber: number) {
-  const [shouldHideByDefault, setShouldHideByDefault] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    isEpisodeWatched(seriesId, seasonNumber, episodeNumber).then((watched) => {
-      if (!cancelled) setShouldHideByDefault(!watched);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [seriesId, seasonNumber, episodeNumber]);
-
-  return shouldHideByDefault;
-}
 
 export function useEpisodeComments(target: MediaTarget) {
   const [tree, setTree] = useState<CommentNode[]>([]);

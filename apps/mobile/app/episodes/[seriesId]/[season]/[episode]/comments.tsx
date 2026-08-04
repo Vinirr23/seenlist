@@ -28,7 +28,6 @@ export default function EpisodeCommentsScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content}>
           <EpisodeCommentsSection
-            seriesId={seriesIdNum}
             target={{ mediaType: "series", mediaId: seriesIdNum, seasonNumber, episodeNumber }}
           />
         </ScrollView>

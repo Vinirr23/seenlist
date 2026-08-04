@@ -6,7 +6,7 @@ import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useUpcomingEpisodes } from "@/lib/useUpcomingEpisodes";
 import { useViewModePreference } from "@/lib/useViewModePreference";
-import { recalculateUpToDateSeriesCategories } from "@/lib/seriesDetails";
+import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/seriesDetails";
 import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text } from "@/components/ui";
@@ -56,10 +56,16 @@ export default function SeriesHomeScreen() {
    * a biblioteca de novo, EM SILÊNCIO (`refetchSilently`, não
    * `refetch`) — usar `refetch` aqui ativava sem querer o spinner de
    * "puxar pra atualizar", mesmo sem ninguém ter puxado nada.
+   *
+   * PERFORMANCE (achado real, mesmo do web — "Home lenta") — usa a
+   * versão com limite de 1x/dia (`...Throttled`, ver
+   * `lib/seriesDetails.ts`) em vez da função crua: sem isso, essa
+   * checagem pesada rodava do zero a CADA foco da aba, não só ao
+   * montar.
    */
   useFocusEffect(
     useCallback(() => {
-      recalculateUpToDateSeriesCategories()
+      recalculateUpToDateSeriesCategoriesThrottled()
         .then(() => refetchSilently())
         .catch((error) => console.error("[SeriesHomeScreen] Falha ao recalcular categorias em foco", error));
       // eslint-disable-next-line react-hooks/exhaustive-deps

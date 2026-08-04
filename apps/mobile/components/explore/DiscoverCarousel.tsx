@@ -28,14 +28,27 @@ export function DiscoverCarousel({
    * mostrar "+" ou "check", sem atraso individual.
    */
   const [statuses, setStatuses] = useState<Map<string, string>>(new Map());
+  const [statusesLoaded, setStatusesLoaded] = useState(false);
 
   useEffect(() => {
     if (items.length === 0) return;
     fetchLibraryStatusesFor(items.map((item) => ({ mediaType: item.mediaType, id: item.id })))
-      .then(setStatuses)
+      .then((result) => {
+        setStatuses(result);
+        setStatusesLoaded(true);
+      })
       .catch((error) => console.error("[DiscoverCarousel] Falha ao buscar status em lote", error));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.map((i) => `${i.mediaType}-${i.id}`).join(",")]);
+
+  /**
+   * CORREÇÃO (a pedido, mesmo achado já corrigido no Explorar do web
+   * — "por que fica aparecendo coisa que já está marcada?") —
+   * reaproveita o MESMO lote de status já buscado pra mostrar o selo
+   * de "+"/"check" (não dispara consulta nova): qualquer item que já
+   * tenha status na Biblioteca some da lista de descoberta.
+   */
+  const visibleItems = statusesLoaded ? items.filter((item) => !statuses.has(`${item.mediaType}-${item.id}`)) : items;
 
   return (
     <View style={styles.section}>
@@ -51,7 +64,7 @@ export function DiscoverCarousel({
         </View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <DiscoverCard key={`${item.mediaType}-${item.id}`} item={item} status={statuses.get(`${item.mediaType}-${item.id}`) ?? null} />
           ))}
         </ScrollView>

@@ -4,14 +4,13 @@ import { Image } from "expo-image";
 import { Gesture, GestureDetector, type GestureStateChangeEvent, type PanGestureHandlerEventPayload } from "react-native-gesture-handler";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import type { SeriesDetails } from "@seenlist/types";
+import { Screen, Text } from "@/components/ui";
 import { fetchEpisodePage, type EpisodePageData } from "@/lib/episodeDetails";
-import { fetchSeriesDetails, isEpisodeWatched, toggleEpisodeWatched } from "@/lib/seriesDetails";
+import { fetchEpisodeSeriesContext, isEpisodeWatched, toggleEpisodeWatched, type EpisodeSeriesContext, type EpisodeContextSeason } from "@/lib/seriesDetails";
 import { fetchMyReview, fetchReviewAggregate, upsertReview, type Review, type ReviewAggregate } from "@/lib/social/reviews";
 import { useEpisodeCommentCount } from "@/lib/social/useEpisodeComments";
 import { getAnimeCharacters } from "@/lib/animeCharacters";
 import { tmdbImageUrl } from "@/lib/library";
-import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { EpisodeWatchedButton } from "@/components/series-detail/EpisodeWatchedButton";
@@ -19,6 +18,7 @@ import { EpisodeStarRatingRow } from "@/components/episode/EpisodeStarRatingRow"
 import { EpisodeMoodPicker } from "@/components/episode/EpisodeMoodPicker";
 import { EpisodeWatchedPlatformPicker } from "@/components/episode/EpisodeWatchedPlatformPicker";
 import { EpisodeFavoriteCharacterPicker, type FavoriteCharacterOption } from "@/components/episode/EpisodeFavoriteCharacterPicker";
+import { OptionSheet } from "@/components/settings/OptionSheet";
 import { hapticTick } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -29,7 +29,7 @@ interface EpisodeRef {
 
 /** Idêntico a findAdjacentEpisodes do web — mesma lista de temporadas já em cache, sem chamada nova ao TMDB. */
 function findAdjacentEpisodes(
-  seasons: SeriesDetails["seasons"] | undefined,
+  seasons: EpisodeContextSeason[] | undefined,
   season: number,
   episode: number
 ): { previous: EpisodeRef | null; next: EpisodeRef | null } {
@@ -72,11 +72,12 @@ export default function EpisodeDetailScreen() {
   const [isError, setIsError] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
-  const [seriesDetails, setSeriesDetails] = useState<SeriesDetails | null>(null);
+  const [seriesContext, setSeriesContext] = useState<EpisodeSeriesContext | null>(null);
   const [animeCharacters, setAnimeCharacters] = useState<FavoriteCharacterOption[]>([]);
   const [animeSearchFailed, setAnimeSearchFailed] = useState(false);
 
   const [watched, setWatched] = useState(false);
+  const [showUnwatchedCommentWarning, setShowUnwatchedCommentWarning] = useState(false);
   const [watchedLoading, setWatchedLoading] = useState(true);
 
   const [myReview, setMyReview] = useState<Review | null>(null);
@@ -118,9 +119,9 @@ export default function EpisodeDetailScreen() {
       if (!cancelled) setAggregate(value);
     });
 
-    fetchSeriesDetails(seriesIdStr).then((value) => {
+    fetchEpisodeSeriesContext(seriesIdStr, seasonNumber).then((value) => {
       if (cancelled) return;
-      setSeriesDetails(value);
+      setSeriesContext(value);
       const year = value.firstAirDate ? Number(value.firstAirDate.slice(0, 4)) : null;
       // TASK-168 — `value.title` vem em português (a API sempre pede
       // language=pt-BR); o MyAnimeList/Jikan só conhece título em
@@ -148,23 +149,23 @@ export default function EpisodeDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seriesIdStr, seasonNumber, episodeNumber, reloadToken]);
 
-  const { previous, next } = useMemo(() => findAdjacentEpisodes(seriesDetails?.seasons, seasonNumber, episodeNumber), [seriesDetails?.seasons, seasonNumber, episodeNumber]);
+  const { previous, next } = useMemo(() => findAdjacentEpisodes(seriesContext?.seasons, seasonNumber, episodeNumber), [seriesContext?.seasons, seasonNumber, episodeNumber]);
 
   const currentSeasonEpisodes = useMemo(() => {
-    const currentSeason = seriesDetails?.seasons.find((s) => s.seasonNumber === seasonNumber);
+    const currentSeason = seriesContext?.seasons.find((s) => s.seasonNumber === seasonNumber);
     return currentSeason ? [...currentSeason.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber) : [];
-  }, [seriesDetails?.seasons, seasonNumber]);
+  }, [seriesContext?.seasons, seasonNumber]);
 
   /** Anime com correspondência no MyAnimeList: ilustração de verdade do personagem. Busca falhou de verdade (instabilidade externa): esconde a opção, não arrisca mostrar dublador como se fosse personagem. Sem correspondência (rodou certinho, não é anime): cai pro elenco do TMDB. */
   const favoriteCharacterOptions: FavoriteCharacterOption[] = useMemo(() => {
     if (animeCharacters.length > 0) return animeCharacters;
     if (animeSearchFailed) return [];
-    return (seriesDetails?.cast ?? []).map((member) => ({
+    return (seriesContext?.cast ?? []).map((member) => ({
       id: member.id,
       name: member.character || member.name,
       imageUrl: tmdbImageUrl(member.profilePath, "w185"),
     }));
-  }, [animeCharacters, animeSearchFailed, seriesDetails?.cast]);
+  }, [animeCharacters, animeSearchFailed, seriesContext?.cast]);
 
   const swipeGesture = useMemo(
     () =>
@@ -383,9 +384,26 @@ export default function EpisodeDetailScreen() {
             </View>
           )}
 
+          {/*
+           * CORREÇÃO (a pedido — mesma mudança já aplicada no web,
+           * "quero um aviso antes de entrar") — antes, cada
+           * comentário escondido individualmente dizia "você ainda
+           * não assistiu esse episódio". Trocado por um aviso ÚNICO
+           * aqui, antes de entrar: se a pessoa ainda não marcou ESSE
+           * episódio como assistido, mostra confirmação antes de
+           * navegar — depois de confirmar, a tela de Comentários
+           * mostra tudo normalmente (só o "contém spoiler" manual do
+           * autor continua escondendo comentário individual).
+           */}
           <Pressable
             style={styles.commentsButton}
-            onPress={() => router.push(`/episodes/${seriesIdNum}/${seasonNumber}/${episodeNumber}/comments`)}
+            onPress={() => {
+              if (watched) {
+                router.push(`/episodes/${seriesIdNum}/${seasonNumber}/${episodeNumber}/comments`);
+              } else {
+                setShowUnwatchedCommentWarning(true);
+              }
+            }}
           >
             <Feather name="message-circle" size={16} color={colors.text} />
             <Text style={styles.commentsButtonText}>
@@ -395,6 +413,25 @@ export default function EpisodeDetailScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {showUnwatchedCommentWarning && (
+        <OptionSheet
+          title="Você ainda não assistiu esse episódio"
+          message="Os comentários podem conter spoiler. Continuar mesmo assim?"
+          onDismiss={() => setShowUnwatchedCommentWarning(false)}
+          actions={[
+            { label: "Cancelar", onPress: () => setShowUnwatchedCommentWarning(false) },
+            {
+              label: "Continuar",
+              active: true,
+              onPress: () => {
+                setShowUnwatchedCommentWarning(false);
+                router.push(`/episodes/${seriesIdNum}/${seasonNumber}/${episodeNumber}/comments`);
+              },
+            },
+          ]}
+        />
+      )}
     </Screen>
   );
 }
