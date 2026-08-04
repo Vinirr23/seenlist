@@ -3,8 +3,7 @@ import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
-import { Text } from "@/components/ui";
+import { colors, radius, spacing } from "@/lib/theme";
 
 const COLUMNS = 3;
 const GAP = spacing.sm;
@@ -40,6 +39,13 @@ export interface PosterGridProps {
  * específicos, nunca em outros. `Math.floor()` arredonda pra baixo
  * SEMPRE, garantindo que a soma nunca ultrapassa o espaço
  * disponível, em nenhum aparelho.
+ *
+ * CORREÇÃO (a pedido — inconsistência real com o web, "organização"
+ * reportada com print) — título/ano embaixo do pôster foram
+ * removidos daqui. O `PosterGrid.tsx` do web nunca mostra esse texto,
+ * em NENHUM contexto (Séries, Filmes, Perfil) — só pôster, e (no
+ * Perfil) a barra de cor da categoria. O mobile mostrava sempre,
+ * inconsistente com o web em todo lugar que usa este componente.
  */
 export function PosterGrid({ items, onPressItem, barColor }: PosterGridProps) {
   const { width } = useWindowDimensions();
@@ -88,10 +94,6 @@ function PosterGridItem({
         )}
         {!!barColor && <View style={[styles.progressTrack, { height: 5, backgroundColor: barColor }]} />}
       </View>
-      <Text numberOfLines={1} style={styles.title}>
-        {item.title}
-      </Text>
-      {!!item.year && <Text style={styles.year}>{item.year}</Text>}
     </Pressable>
   );
 }
@@ -130,15 +132,5 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     backgroundColor: colors.primary,
-  },
-  title: {
-    marginTop: spacing.xs,
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  year: {
-    fontSize: 11,
-    color: colors.muted,
   },
 });
