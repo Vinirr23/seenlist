@@ -20,7 +20,6 @@ export default async function EpisodeCommentsPage({
         seasonNumber: seasonNum,
         episodeNumber: episodeNum,
       }}
-      episodeSpoilerContext={{ seriesId: seriesIdNum, seasonNumber: seasonNum, episodeNumber: episodeNum }}
     />
   );
 }

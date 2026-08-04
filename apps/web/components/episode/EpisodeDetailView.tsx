@@ -18,6 +18,7 @@ import { HalfStarRating } from "../social/HalfStarRating";
 import { EpisodeStarRatingRow } from "./EpisodeStarRatingRow";
 import { EpisodeMoodPicker } from "./EpisodeMoodPicker";
 import { EpisodeFavoriteCharacterPicker, type FavoriteCharacterOption } from "./EpisodeFavoriteCharacterPicker";
+import { ConfirmDialog } from "../series/ConfirmDialog";
 import { EpisodeWatchedPlatformPicker } from "./EpisodeWatchedPlatformPicker";
 import { useAnimeCharacters } from "@/lib/queries/anime-characters";
 import { tmdbImage } from "@/lib/tmdb/image";
@@ -103,6 +104,9 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   const { data: episodePage, isLoading, isError, refetch } = useEpisodeDetails(seriesId, season, episode);
   const { data: watched } = useWatchedEpisodes(seriesIdNum);
   const toggleWatched = useToggleEpisodeWatched(seriesIdNum);
+  const [showUnwatchedCommentWarning, setShowUnwatchedCommentWarning] = useState(false);
+  const hasWatchedThisEpisode = isEpisodeWatched(watched, season, episode);
+  const commentsHref = `/series/${seriesIdNum}/season/${season}/episode/${episode}/comments`;
   const { data: commentCount = 0 } = useCommentCount({
     mediaType: "series",
     mediaId: seriesIdNum,
@@ -410,15 +414,51 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
       </div>
 
       {/* TASK-067 — botão de comentários flutuante, fixo acima da barra de navegação. */}
-      <Link
-        href={`/series/${seriesIdNum}/season/${season}/episode/${episode}/comments`}
-        className="fixed left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-background shadow-lg"
-        style={{ bottom: FLOATING_BUTTON_BOTTOM_OFFSET }}
-      >
-        <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
-        {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}
-        <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
-      </Link>
+      {/*
+       * CORREÇÃO (a pedido — "não gostei, quero um aviso antes de
+       * entrar") — antes, cada comentário escondido individualmente
+       * dizia "você ainda não assistiu esse episódio" dentro da tela
+       * de Comentários. Trocado por um aviso ÚNICO aqui, antes de
+       * entrar: se a pessoa ainda não marcou ESSE episódio como
+       * assistido, mostra confirmação (`ConfirmDialog`) antes de
+       * navegar — depois de confirmar, a tela de Comentários mostra
+       * tudo normalmente (só o "contém spoiler" manual do autor
+       * continua escondendo comentário individual, isso não mudou).
+       */}
+      {hasWatchedThisEpisode ? (
+        <Link
+          href={commentsHref}
+          className="fixed left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-background shadow-lg"
+          style={{ bottom: FLOATING_BUTTON_BOTTOM_OFFSET }}
+        >
+          <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
+          {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}
+          <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowUnwatchedCommentWarning(true)}
+          className="fixed left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-background shadow-lg"
+          style={{ bottom: FLOATING_BUTTON_BOTTOM_OFFSET }}
+        >
+          <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
+          {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}
+          <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+        </button>
+      )}
+
+      {showUnwatchedCommentWarning && (
+        <ConfirmDialog
+          title={t("episode.unwatchedCommentWarningTitle")}
+          message={t("episode.unwatchedCommentWarningMessage")}
+          onDismiss={() => setShowUnwatchedCommentWarning(false)}
+          actions={[
+            { label: t("common.cancel"), onClick: () => setShowUnwatchedCommentWarning(false) },
+            { label: t("episode.unwatchedCommentWarningContinue"), variant: "primary", onClick: () => router.push(commentsHref) },
+          ]}
+        />
+      )}
     </div>
   );
 }

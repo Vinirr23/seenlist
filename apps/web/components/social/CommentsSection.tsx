@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import type { MediaTarget } from "@/lib/queries/social/types";
 import { useComments, usePostComment, useEditComment, useDeleteComment, type Comment } from "@/lib/queries/social/comments";
 import { useLikeInfoBatch } from "@/lib/queries/social/likes";
-import { useSpoilerProtection } from "@/lib/queries/social/spoiler-protection";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { CommentItem } from "./CommentItem";
 import { CommentComposer } from "./CommentComposer";
@@ -35,8 +34,6 @@ function buildTree(comments: Comment[]): CommentNode[] {
 
 export interface CommentsSectionProps {
   target: MediaTarget;
-  /** Só faz sentido quando o alvo é um episódio — usado pra oclusão automática por progresso (TASK-031). */
-  episodeSpoilerContext?: { seriesId: number; seasonNumber: number; episodeNumber: number };
   /** TASK-052 — id do comentário vindo do deep link de notificação (?highlight=). */
   highlightCommentId?: string;
   /**
@@ -45,25 +42,33 @@ export interface CommentsSectionProps {
    * (minha + de outras pessoas), sem comentário comum — decisão
    * confirmada: "review e comentários" juntos no nível de
    * série/filme inteiro era redundante/confuso, comentário comum
-   * agora só existe por episódio (`episodeSpoilerContext` presente).
-   * Comentários antigos que já existiam nesse nível (antes desta
-   * mudança) continuam no banco, só pararam de aparecer aqui.
+   * agora só existe por episódio. Comentários antigos que já
+   * existiam nesse nível (antes desta mudança) continuam no banco,
+   * só pararam de aparecer aqui.
    */
   media?: { type: "movie" | "series"; title: string; posterPath: string | null };
 }
 
 /**
  * TASK-048 — container único, reutilizado igual pra série, filme e
- * episódio (só muda o `target` passado por quem usa). A oclusão
- * automática por progresso (`useSpoilerProtection`) só entra quando
- * `episodeSpoilerContext` é passado — comentário de série/filme
- * inteiro continua usando só a flag manual.
+ * episódio (só muda o `target` passado por quem usa).
  *
  * `media` presente = página de série/filme inteiro = só review em
  * texto, sem comentário comum (ver comentário no tipo `media` acima).
  * `media` ausente = página de episódio = comentário comum normal.
+ *
+ * CORREÇÃO (a pedido — "não gostei, quero um aviso antes de entrar")
+ * — a oclusão automática por progresso (`episodeSpoilerContext` +
+ * `useSpoilerProtection`, TASK-031) saiu daqui. Antes, cada
+ * comentário de quem ainda não tinha assistido o episódio aparecia
+ * escondido individualmente dizendo "contém spoiler" (mesmo sem ser
+ * spoiler de verdade — bug real corrigido antes disso). Agora o
+ * aviso é ÚNICO, ANTES de entrar nessa tela, em
+ * `EpisodeDetailView.tsx` (o botão "Comentário" pergunta antes de
+ * navegar) — aqui dentro, só o `containsSpoiler` MANUAL de cada
+ * comentário (marcado por quem escreveu) continua escondendo.
  */
-export function CommentsSection({ target, episodeSpoilerContext, highlightCommentId, media }: CommentsSectionProps) {
+export function CommentsSection({ target, highlightCommentId, media }: CommentsSectionProps) {
   // Não busca comentário comum quando é página de série/filme inteiro
   // (não tem por onde aparecer na tela) — evita consulta de rede à toa.
   const { data: comments = [], isLoading } = useComments(target, { enabled: !media });
@@ -85,13 +90,6 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
   const commentIds = useMemo(() => comments.map((c) => c.id), [comments]);
   const { data: likeInfoByCommentId } = useLikeInfoBatch("comment", commentIds);
 
-  const spoilerProtection = useSpoilerProtection(
-    episodeSpoilerContext?.seriesId ?? 0,
-    episodeSpoilerContext?.seasonNumber ?? 0,
-    episodeSpoilerContext?.episodeNumber ?? 0
-  );
-  const autoHide = Boolean(episodeSpoilerContext) && spoilerProtection.shouldHideByDefault;
-
   const tree = useMemo(() => buildTree(comments), [comments]);
   const isMutating = postComment.isPending || editComment.isPending || deleteComment.isPending;
 
@@ -100,7 +98,6 @@ export function CommentsSection({ target, episodeSpoilerContext, highlightCommen
       <CommentItem
         key={node.id}
         comment={node}
-        hiddenByProgress={autoHide}
         depth={depth}
         currentUserId={currentUser?.id}
         isMutating={isMutating}
