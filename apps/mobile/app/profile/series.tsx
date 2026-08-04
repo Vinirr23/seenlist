@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ScrollView, View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet, SectionList } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useLibraryItems } from "@/lib/useLibraryItems";
@@ -7,12 +7,18 @@ import { useViewModePreference } from "@/lib/useViewModePreference";
 import { SERIES_CATEGORIES } from "@/lib/seriesCategories";
 import { Screen, Text } from "@/components/ui";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
-import { PosterGrid } from "@/components/media/PosterGrid";
+import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
+  return rows;
+}
 
 /**
  * TASK-116 (correção — Perfil) — porta de `ProfileSeriesPageView.tsx`
@@ -20,16 +26,44 @@ import { colors, spacing } from "@/lib/theme";
  * alternando grade/lista. Diferente da aba Séries (bottom nav), que
  * só mostra "Continue assistindo" + atalhos — esta tela mostra TUDO,
  * categorizado, de uma vez.
+ *
+ * CORREÇÃO (bug real, reportado — "desço um pouco e trava", mesma
+ * causa de `movies.tsx`/`favorite-series.tsx`/`favorite-movies.tsx`)
+ * — trocado `ScrollView`+`.map()` por `SectionList` virtualizada (o
+ * equivalente do `FlatList` usado nos outros 3, mas com cabeçalho de
+ * categoria — `FlatList` sozinha não suporta seção). Modo grade não
+ * tem suporte nativo a colunas no `SectionList`, então cada "linha"
+ * da lista já vem pré-agrupada em até 3 pôsteres (`chunk`), desenhada
+ * lado a lado — a virtualização continua funcionando normalmente,
+ * só a UNIDADE que ela desenha por vez é "uma fileira de 3", não "um
+ * pôster".
  */
 export default function ProfileSeriesScreen() {
   const router = useRouter();
   const { items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-series");
+  const cardWidth = usePosterCardWidth();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
   const nonEmptyCategories = useMemo(
     () => SERIES_CATEGORIES.map((category) => ({ ...category, items: series.filter(category.filter) })).filter((c) => c.items.length > 0),
     [series]
+  );
+
+  const sections = useMemo(
+    () =>
+      nonEmptyCategories.map((category) => ({
+        slug: category.slug,
+        title: category.label,
+        barColor: category.barColor,
+        // Cada "linha" da lista virtualizada já vem pronta como um
+        // array — 1 item por linha no modo lista, até 3 no modo
+        // grade. Normaliza os dois modos pro MESMO formato de linha
+        // (array), senão o TypeScript não aceita o tipo do
+        // `SectionList` variar entre os dois modos.
+        data: chunk(category.items, viewMode === "grid" ? 3 : 1),
+      })),
+    [nonEmptyCategories, viewMode]
   );
 
   function handlePress(item: { mediaType: "movie" | "series"; id: number }) {
@@ -45,45 +79,61 @@ export default function ProfileSeriesScreen() {
         <Text variant="subtitle">Séries</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.toggleRow}>
-          <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-        </View>
+      <View style={styles.toggleRow}>
+        <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+      </View>
 
-        {isLoading ? (
-          viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
-        ) : nonEmptyCategories.length === 0 ? (
+      {isLoading ? (
+        <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
+      ) : nonEmptyCategories.length === 0 ? (
+        <View style={styles.content}>
           <EmptyShelf message="Você ainda não tem nenhuma série na sua biblioteca." actionLabel="Explorar" actionHref="/(tabs)/explore" />
-        ) : (
-          <View style={styles.categoryList}>
-            {nonEmptyCategories.map((category) => (
-              <View key={category.slug}>
-                <Text variant="subtitle" style={styles.categoryTitle}>
-                  {category.label}
-                </Text>
-                {viewMode === "grid" ? (
-                  <PosterGrid items={category.items} onPressItem={handlePress} barColor={category.barColor} />
-                ) : (
-                  <View style={styles.listRows}>
-                    {category.items.map((item) => (
-                      <MediaListRow
-                        key={item.id}
-                        item={item}
-                        onPress={handlePress}
-                        secondaryText={
-                          item.progress && item.progress.totalEpisodes > 0
-                            ? `${item.progress.watchedEpisodes}/${item.progress.totalEpisodes} episódios`
-                            : ""
-                        }
-                      />
-                    ))}
-                  </View>
-                )}
+        </View>
+      ) : (
+        <SectionList
+          key={viewMode}
+          sections={sections}
+          keyExtractor={(row, index) => row.map((i) => i.id).join("-") + index}
+          contentContainerStyle={styles.content}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => (
+            <Text variant="subtitle" style={styles.categoryTitle}>
+              {section.title}
+            </Text>
+          )}
+          renderItem={({ item: row, section }) =>
+            viewMode === "grid" ? (
+              <View style={styles.gridRow}>
+                {row.map((posterItem) => (
+                  <PosterGridItem
+                    key={`${posterItem.mediaType}-${posterItem.id}`}
+                    item={posterItem}
+                    onPress={handlePress}
+                    barColor={section.barColor}
+                    cardWidth={cardWidth}
+                  />
+                ))}
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+            ) : (
+              <View style={styles.listRowWrapper}>
+                {row.map((rowItem) => (
+                  <MediaListRow
+                    key={`${rowItem.mediaType}-${rowItem.id}`}
+                    item={rowItem}
+                    onPress={handlePress}
+                    secondaryText={
+                      rowItem.progress && rowItem.progress.totalEpisodes > 0
+                        ? `${rowItem.progress.watchedEpisodes}/${rowItem.progress.totalEpisodes} episódios`
+                        : ""
+                    }
+                  />
+                ))}
+              </View>
+            )
+          }
+          SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
+        />
+      )}
     </Screen>
   );
 }
@@ -103,15 +153,22 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     alignItems: "flex-end",
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
-  },
-  categoryList: {
-    gap: spacing.lg,
   },
   categoryTitle: {
     marginBottom: spacing.sm,
+    backgroundColor: colors.background,
   },
-  listRows: {
-    gap: spacing.sm,
+  sectionGap: {
+    height: spacing.lg,
+  },
+  gridRow: {
+    flexDirection: "row",
+    gap: POSTER_GRID_GAP,
+    marginBottom: POSTER_GRID_GAP,
+  },
+  listRowWrapper: {
+    marginBottom: spacing.sm,
   },
 });

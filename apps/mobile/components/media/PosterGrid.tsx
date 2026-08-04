@@ -60,7 +60,16 @@ export function PosterGrid({ items, onPressItem, barColor }: PosterGridProps) {
   );
 }
 
-function PosterGridItem({
+export const POSTER_GRID_COLUMNS = COLUMNS;
+export const POSTER_GRID_GAP = GAP;
+
+/** Calcula a largura do pôster do jeito certo (ver correções TASK-120/139 acima) — reaproveitado pelas versões virtualizadas (`FlatList`/`SectionList`) usadas nas telas "ver tudo" do Perfil, que podem ter centenas de itens. */
+export function usePosterCardWidth(): number {
+  const { width } = useWindowDimensions();
+  return Math.floor((width - spacing.lg * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
+}
+
+export function PosterGridItem({
   item,
   onPress,
   barColor,

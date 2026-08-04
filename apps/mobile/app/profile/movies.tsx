@@ -1,23 +1,37 @@
 import { useMemo } from "react";
-import { ScrollView, View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet, FlatList } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { Screen, Text } from "@/components/ui";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
-import { PosterGrid } from "@/components/media/PosterGrid";
+import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
 
-/** TASK-116 (correção — Perfil) — porta de ProfileMoviesSection.tsx: só filmes "Assistido", sem categorias, sem barra de cor. */
+/**
+ * TASK-116 (correção — Perfil) — porta de ProfileMoviesSection.tsx: só filmes "Assistido", sem categorias, sem barra de cor.
+ *
+ * CORREÇÃO (bug real, reportado — "desço um pouco e trava") — antes,
+ * `ScrollView` + `.map()` desenhava TODOS os filmes assistidos de uma
+ * vez, imagem por imagem, sem nenhuma virtualização — pra biblioteca
+ * grande (centenas de filmes), isso trava a rolagem de verdade.
+ * Mesma causa raiz e mesma correção já aplicada antes ao
+ * `EpisodeCarousel` (`SeasonAccordion.tsx`/`EpisodeCarousel.tsx`):
+ * trocado por `FlatList` de verdade, que só desenha o que está
+ * visível na tela (mais uma margem pequena), soltando o que sai da
+ * tela conforme rola.
+ */
 export default function ProfileMoviesScreen() {
   const router = useRouter();
   const { items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-movies");
+  const cardWidth = usePosterCardWidth();
 
   const watchedMovies = useMemo(() => (items ?? []).filter((item) => item.mediaType === "movie" && item.status === "completed"), [items]);
 
@@ -34,25 +48,37 @@ export default function ProfileMoviesScreen() {
         <Text variant="subtitle">Filmes</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.toggleRow}>
-          <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-        </View>
+      <View style={styles.toggleRow}>
+        <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+      </View>
 
-        {isLoading ? (
-          viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
-        ) : watchedMovies.length === 0 ? (
+      {isLoading ? (
+        <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
+      ) : watchedMovies.length === 0 ? (
+        <View style={styles.content}>
           <EmptyShelf message="Você ainda não assistiu nenhum filme." actionLabel="Explorar" actionHref="/(tabs)/explore" />
-        ) : viewMode === "grid" ? (
-          <PosterGrid items={watchedMovies} onPressItem={handlePress} />
-        ) : (
-          <View style={styles.listRows}>
-            {watchedMovies.map((item) => (
-              <MediaListRow key={item.id} item={item} onPress={handlePress} secondaryText={item.year ? String(item.year) : ""} />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+        </View>
+      ) : viewMode === "grid" ? (
+        <FlatList
+          key="grid"
+          data={watchedMovies}
+          keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          numColumns={3}
+          contentContainerStyle={styles.content}
+          columnWrapperStyle={styles.gridRow}
+          renderItem={({ item }) => <PosterGridItem item={item} onPress={handlePress} cardWidth={cardWidth} />}
+        />
+      ) : (
+        <FlatList
+          key="list"
+          data={watchedMovies}
+          keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          contentContainerStyle={[styles.content, styles.listRows]}
+          renderItem={({ item }) => (
+            <MediaListRow item={item} onPress={handlePress} secondaryText={item.year ? String(item.year) : ""} />
+          )}
+        />
+      )}
     </Screen>
   );
 }
@@ -72,7 +98,12 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     alignItems: "flex-end",
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
+  },
+  gridRow: {
+    gap: POSTER_GRID_GAP,
+    marginBottom: POSTER_GRID_GAP,
   },
   listRows: {
     gap: spacing.sm,

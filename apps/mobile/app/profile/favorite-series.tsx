@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ScrollView, View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet, FlatList } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -7,19 +7,26 @@ import { usePublicFavorites } from "@/lib/usePublicProfile";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
-import { PosterGrid } from "@/components/media/PosterGrid";
+import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
 
-/** TASK-116 (correção — Perfil) — porta de FavoriteSeriesPageView.tsx, reaproveitando usePublicFavorites (já existia, perfil público) com o próprio userId. */
+/**
+ * TASK-116 (correção — Perfil) — porta de FavoriteSeriesPageView.tsx, reaproveitando usePublicFavorites (já existia, perfil público) com o próprio userId.
+ *
+ * CORREÇÃO (bug real, reportado — "desço um pouco e trava", mesma
+ * causa de `movies.tsx`/`series.tsx`) — trocado `ScrollView`+`.map()`
+ * (desenha tudo de uma vez) por `FlatList` de verdade (virtualizada).
+ */
 export default function FavoriteSeriesScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { items, isLoading, isError, refetch } = usePublicFavorites(session?.user.id ?? "");
   const { viewMode, setViewMode } = useViewModePreference("profile-favorite-series");
+  const cardWidth = usePosterCardWidth();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
 
@@ -36,27 +43,41 @@ export default function FavoriteSeriesScreen() {
         <Text variant="subtitle">Séries favoritas</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.toggleRow}>
-          <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-        </View>
+      <View style={styles.toggleRow}>
+        <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+      </View>
 
-        {isLoading ? (
-          viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
-        ) : isError ? (
+      {isLoading ? (
+        <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
+      ) : isError ? (
+        <View style={styles.content}>
           <PageError message="Não foi possível carregar seus favoritos agora." onRetry={() => refetch()} />
-        ) : series.length === 0 ? (
+        </View>
+      ) : series.length === 0 ? (
+        <View style={styles.content}>
           <Text variant="muted">Você ainda não favoritou nenhuma série.</Text>
-        ) : viewMode === "grid" ? (
-          <PosterGrid items={series} onPressItem={handlePress} />
-        ) : (
-          <View style={styles.listRows}>
-            {series.map((item) => (
-              <MediaListRow key={item.id} item={item} onPress={handlePress} secondaryText={item.year ? String(item.year) : ""} />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+        </View>
+      ) : viewMode === "grid" ? (
+        <FlatList
+          key="grid"
+          data={series}
+          keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          numColumns={3}
+          contentContainerStyle={styles.content}
+          columnWrapperStyle={styles.gridRow}
+          renderItem={({ item }) => <PosterGridItem item={item} onPress={handlePress} cardWidth={cardWidth} />}
+        />
+      ) : (
+        <FlatList
+          key="list"
+          data={series}
+          keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          contentContainerStyle={[styles.content, styles.listRows]}
+          renderItem={({ item }) => (
+            <MediaListRow item={item} onPress={handlePress} secondaryText={item.year ? String(item.year) : ""} />
+          )}
+        />
+      )}
     </Screen>
   );
 }
@@ -76,7 +97,12 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     alignItems: "flex-end",
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
+  },
+  gridRow: {
+    gap: POSTER_GRID_GAP,
+    marginBottom: POSTER_GRID_GAP,
   },
   listRows: {
     gap: spacing.sm,
