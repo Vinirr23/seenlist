@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { MediaTarget } from "@/lib/queries/social/types";
 import { useReviews, useMyReview, useUpsertReview, useDeleteReview } from "@/lib/queries/social/reviews";
 import { useLikeInfoBatch } from "@/lib/queries/social/likes";
-import { useCreatePost } from "@/lib/queries/posts";
+import { usePublishReviewToFeed } from "@/lib/queries/posts";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ReviewFullComposer } from "./ReviewFullComposer";
@@ -31,7 +31,7 @@ export function ReviewTextSection({ target, media }: ReviewTextSectionProps) {
   const { data: myReview } = useMyReview(target);
   const upsertReview = useUpsertReview(target);
   const deleteReview = useDeleteReview(target);
-  const createPost = useCreatePost();
+  const publishToFeed = usePublishReviewToFeed();
   const toast = useToast();
   const { t } = useTranslation();
 
@@ -47,7 +47,7 @@ export function ReviewTextSection({ target, media }: ReviewTextSectionProps) {
       {
         onSuccess: () => {
           if (!shareToFeed || !media) return;
-          createPost.mutate(
+          publishToFeed.mutate(
             {
               body: reviewText ?? "",
               review: {

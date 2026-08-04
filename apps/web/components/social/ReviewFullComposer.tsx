@@ -26,8 +26,14 @@ export interface ReviewFullComposerProps {
  *
  * A PEDIDO — "Contém spoiler" saiu (review de mídia inteira raramente
  * precisa disso; quem quiser avisar spoiler pode escrever no próprio
- * texto). "Publicar também no Feed" vem MARCADO por padrão — quem não
- * quiser publicar desmarca, em vez de precisar lembrar de marcar.
+ * texto). "Publicar também no Feed" vem MARCADO por padrão só na
+ * PRIMEIRA vez (`hasExistingReview` false) — reabrir uma review já
+ * existente pra editar vem DESMARCADO, porque senão cada edição
+ * disparava uma republicação no Feed sem a pessoa perceber (bug real,
+ * reportado — "review duplicada no Feed"; a causa de fundo foi
+ * corrigida em `posts.ts`/`usePublishReviewToFeed`, mas o padrão do
+ * checkbox também precisava mudar pra não incentivar o problema de
+ * novo).
  *
  * A aba Sobre continua só com o resumo da comunidade
  * (`ReviewSummary.tsx`, sem interação) — ver `ReviewsSection.tsx`.
@@ -44,7 +50,7 @@ export function ReviewFullComposer({
 }: ReviewFullComposerProps) {
   const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState(initialText ?? "");
-  const [shareToFeed, setShareToFeed] = useState(true);
+  const [shareToFeed, setShareToFeed] = useState(!hasExistingReview);
   const { t } = useTranslation();
 
   return (

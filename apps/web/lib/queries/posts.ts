@@ -209,6 +209,81 @@ export function useCreatePost() {
   });
 }
 
+/**
+ * CORREÇÃO (bug real, reportado — "review duplicada no Feed") —
+ * antes, publicar review no Feed era sempre um INSERT novo em
+ * `posts` (`useCreatePost`), mesmo que a pessoa já tivesse publicado
+ * essa MESMA review antes (ex.: reabriu pra editar/corrigir e salvou
+ * de novo com "Publicar também no Feed" marcado). Isso criava um
+ * post duplicado a cada vez.
+ *
+ * Esta função checa primeiro se já existe um post tipo "review" (não
+ * apagado) desse usuário pra essa mídia: se existir, ATUALIZA
+ * (body/nota/snapshot do título) em vez de inserir de novo; se não
+ * existir, insere. Um índice único no banco
+ * (`posts_one_review_per_media_idx`, migration 20260822000200) é a
+ * segunda linha de defesa, pro caso raro de duas abas/dispositivos
+ * tentando publicar ao mesmo tempo.
+ */
+export function usePublishReviewToFeed() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ body, review }: { body: string; review: ReviewPostPayload }) => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await getCurrentAuthUser(supabase);
+      if (!user) throw new Error("not authenticated");
+
+      const { data: existing, error: findError } = await supabase
+        .from("posts")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("type", "review")
+        .eq("media_type", review.mediaType)
+        .eq("media_id", review.mediaId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (findError) {
+        console.error("[posts] Falha ao checar review já publicada", describeSupabaseError(findError));
+        throw findError;
+      }
+
+      const payload = {
+        body: body.trim() ? body : null,
+        media_title: review.mediaTitle,
+        media_poster_path: review.mediaPosterPath,
+        rating: review.rating,
+      };
+
+      if (existing) {
+        const { error } = await supabase.from("posts").update(payload).eq("id", existing.id);
+        if (error) {
+          console.error("[posts] Falha ao atualizar review publicada", describeSupabaseError(error));
+          throw error;
+        }
+        return;
+      }
+
+      const { error } = await supabase.from("posts").insert({
+        user_id: user.id,
+        type: "review",
+        media_type: review.mediaType,
+        media_id: review.mediaId,
+        ...payload,
+      });
+      if (error) {
+        console.error("[posts] Falha ao publicar review no Feed", describeSupabaseError(error));
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
+}
+
 /** TASK-075 — edita só o texto (a imagem/nota/título, se tiver, continuam os mesmos; trocar isso de um post já publicado fica pra outra hora, fora do pedido original). RLS (`auth.uid() = user_id`) garante que só o dono edita, mesmo que o botão nunca devesse aparecer pra outra pessoa. */
 export function useEditPost(postId: string) {
   const queryClient = useQueryClient();
