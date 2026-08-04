@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Clapperboard } from "lucide-react";
 import { useDiscoverList, type DiscoverListKey } from "@/lib/queries/discover";
+import { useLibraryItems } from "@/lib/queries/library";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { AddToLibraryButton } from "./AddToLibraryButton";
@@ -19,7 +21,20 @@ const TITLE_KEYS: Record<DiscoverListKey, string> = {
 
 export function DiscoverAllView({ list }: { list: DiscoverListKey }) {
   const { data, isLoading } = useDiscoverList(list);
+  const { data: libraryItems } = useLibraryItems();
   const { t } = useTranslation();
+
+  // CORREÇÃO (a pedido, mesmo motivo de ExploreDiscoverTab.tsx) —
+  // "ver todas" não deve mostrar o que já está na Biblioteca.
+  const libraryKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const item of libraryItems ?? []) keys.add(`${item.mediaType}:${item.id}`);
+    return keys;
+  }, [libraryItems]);
+  const items = useMemo(
+    () => (data?.items ?? []).filter((item) => !libraryKeys.has(`${item.mediaType}:${item.id}`)),
+    [data, libraryKeys]
+  );
 
   return (
     <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
@@ -38,7 +53,7 @@ export function DiscoverAllView({ list }: { list: DiscoverListKey }) {
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-3 px-4 pt-4">
-          {data?.items.map((item) => {
+          {items.map((item) => {
             const posterUrl = tmdbImage(item.posterPath, "w342");
             const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
             return (
