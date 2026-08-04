@@ -244,10 +244,7 @@ export class StatusPipelineAuditCollector {
           total_watch_events: null,
         },
       ],
-      Array.from({ length: watchedEpisodeCount }, () => ({
-        series_id: seriesId,
-        watched_at: new Date().toISOString(),
-      })),
+      [{ series_id: seriesId, watched_count: watchedEpisodeCount, last_watched_at: new Date().toISOString() }],
       {
         movies: {},
         series: {

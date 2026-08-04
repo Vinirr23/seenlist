@@ -1,6 +1,6 @@
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { decideWatchingVsUpToDate } from "./airDateCategory";
-import { fetchAllWatchedEpisodeRows } from "./library-state";
+import { fetchWatchedEpisodeStats } from "./library-state";
 
 const TMDB_EPISODES_CHUNK_SIZE = 20; // mesmo limite de /api/tmdb/series-episodes-at-export (MAX_IDS_PER_REQUEST)
 
@@ -141,15 +141,12 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>;
   let endedBySeriesId: Map<number, boolean>;
   try {
-    const [watchedRows, episodesMap, endedMap] = await Promise.all([
-      fetchAllWatchedEpisodeRows(supabase, user.id),
+    const [watchedStats, episodesMap, endedMap] = await Promise.all([
+      fetchWatchedEpisodeStats(supabase, user.id),
       fetchLiveEpisodesBySeriesId(seriesIds),
       fetchEndedBySeriesId(seriesIds),
     ]);
-    watchedCountBySeriesId = new Map();
-    for (const row of watchedRows) {
-      watchedCountBySeriesId.set(row.series_id, (watchedCountBySeriesId.get(row.series_id) ?? 0) + 1);
-    }
+    watchedCountBySeriesId = new Map(watchedStats.map((stat) => [stat.series_id, stat.watched_count]));
     episodesBySeriesId = episodesMap;
     endedBySeriesId = endedMap;
   } catch (error) {

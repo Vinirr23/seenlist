@@ -196,10 +196,9 @@ export async function proveStatusDivergenceReadOnly(
     console.log("\n[8] buildLibraryItemsFromRows, usando a linha existente do banco (não o valor calculado):");
     let displayedByLibrary: string | null = null;
     if (currentRow) {
-      const watchedEpisodeRowsForCount = Array.from({ length: counts.watchedNonSpecialCount }, () => ({
-        series_id: tmdbId as number,
-        watched_at: new Date().toISOString(),
-      }));
+      const watchedEpisodeRowsForCount = [
+        { series_id: tmdbId as number, watched_count: counts.watchedNonSpecialCount, last_watched_at: new Date().toISOString() },
+      ];
       const libraryItems = buildLibraryItemsFromRows(
         [],
         [

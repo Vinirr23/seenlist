@@ -220,10 +220,9 @@ export async function proveStatusDivergence(
       updated_at: readBackRow?.updated_at ?? new Date().toISOString(),
       total_watch_events: readBackRow?.total_watch_events ?? null,
     };
-    const watchedEpisodeRows = Array.from({ length: counts.watchedNonSpecialCount }, () => ({
-      series_id: tmdbId,
-      watched_at: new Date().toISOString(),
-    }));
+    const watchedEpisodeRows = [
+      { series_id: tmdbId, watched_count: counts.watchedNonSpecialCount, last_watched_at: new Date().toISOString() },
+    ];
     console.log("\n[7] Objeto entregue a buildLibraryItemsFromRows (lib/queries/library-state.ts):");
     console.log("  series_status row:", seriesStatusRowForLibrary);
     console.log(`  media_id (= series_id): ${tmdbId}`);

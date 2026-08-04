@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
-import { buildLibraryItemsFromRows, fetchDisplaySummaries, fetchAllWatchedEpisodeRows } from "./library-state";
+import { buildLibraryItemsFromRows, fetchDisplaySummaries, fetchWatchedEpisodeStats } from "./library-state";
 
 interface MovieStatusRow {
   movie_id: number;
@@ -40,10 +40,10 @@ export function usePublicLibraryItems(userId: string | null) {
       if (!userId) return [];
       const supabase = createClient();
 
-      const [movieResult, seriesResult, episodeRows] = await Promise.all([
+      const [movieResult, seriesResult, episodeStats] = await Promise.all([
         supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", userId),
         supabase.from("series_status").select("series_id, status, created_at, updated_at, total_watch_events").eq("user_id", userId),
-        fetchAllWatchedEpisodeRows(supabase, userId),
+        fetchWatchedEpisodeStats(supabase, userId),
       ]);
 
       if (movieResult.error) {
@@ -60,7 +60,7 @@ export function usePublicLibraryItems(userId: string | null) {
 
       const validSeriesIds = new Set<number>([
         ...seriesRows.filter((row) => row.status !== "removed").map((row) => row.series_id),
-        ...episodeRows.map((row) => row.series_id),
+        ...episodeStats.map((stat) => stat.series_id),
       ]);
       for (const row of seriesRows) {
         if (row.status === "removed") validSeriesIds.delete(row.series_id);
@@ -71,7 +71,7 @@ export function usePublicLibraryItems(userId: string | null) {
         [...validSeriesIds]
       );
 
-      return buildLibraryItemsFromRows(movieRows, seriesRows, episodeRows, summaries);
+      return buildLibraryItemsFromRows(movieRows, seriesRows, episodeStats, summaries);
     },
     enabled: Boolean(userId),
   });

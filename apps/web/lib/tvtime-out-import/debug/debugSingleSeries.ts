@@ -198,10 +198,7 @@ export async function debugSingleSeries(
         total_watch_events: null,
       },
     ],
-    Array.from({ length: counts.watchedNonSpecialCount }, () => ({
-      series_id: tmdbId,
-      watched_at: new Date().toISOString(),
-    })),
+    [{ series_id: tmdbId, watched_count: counts.watchedNonSpecialCount, last_watched_at: new Date().toISOString() }],
     {
       movies: {},
       series: {

@@ -24,9 +24,10 @@ interface SeriesStatusRow {
   total_watch_events: number | null;
 }
 
-export interface WatchedEpisodeRow {
+export interface WatchedEpisodeStats {
   series_id: number;
-  watched_at: string;
+  watched_count: number;
+  last_watched_at: string;
 }
 
 interface LibrarySummariesResponse {
@@ -35,54 +36,34 @@ interface LibrarySummariesResponse {
 }
 
 /**
- * AUDITORIA — mesmo bug já encontrado e corrigido no mobile
- * (TASK-144/149, `WATCHED_EPISODES_PAGE_SIZE` em `apps/mobile/lib/
- * library.ts`), nunca portado pro web: sem paginação, o limite
- * padrão de 1000 linhas por consulta do Supabase/PostgREST cortava
- * silenciosamente a contagem de episódios assistidos pra contas com
- * muito histórico. Busca a CONTAGEM primeiro (rápida, sem trazer
- * linha nenhuma) e dispara todas as páginas necessárias ao mesmo
- * tempo (`Promise.all`) — mesmo raciocínio de `fetchDisplaySummaries`
- * logo acima. Reaproveitada por `fetchLibraryItems` (biblioteca
- * própria), `usePublicLibraryItems` (biblioteca de outro usuário) e
- * `useProfileSectionCounts` (contador "Séries" do Perfil) — as três
- * tinham a mesma consulta sem paginação, duplicada.
+ * ACHADO DE PERFORMANCE ("Home lenta", achado #2, corrigido) — antes,
+ * esta função baixava CADA linha individual de `watched_episodes`
+ * (paginada em lotes de 1000, pra não bater no limite padrão do
+ * Supabase) só pra, no fim, usar apenas duas coisas por série:
+ * contagem e data do mais recente. Pra conta com histórico grande,
+ * isso é transferir milhares de linhas pela rede à toa.
+ *
+ * Agora chama `get_watched_episode_stats` (RPC, migration
+ * `20260822000000` + correção `20260822000100`) — o Postgres já
+ * devolve UMA linha por série, com a soma pronta. `security invoker`
+ * na função (não `definer`) — continua respeitando exatamente a
+ * mesma RLS de sempre (dono vê tudo; outra pessoa só vê se a
+ * biblioteca for pública ou se for seguidor).
+ *
+ * Reaproveitada por `fetchLibraryItems` (biblioteca própria),
+ * `recalculateUpToDateSeriesCategories` (seriesCategoryRecalc.ts),
+ * `useSeriesActivityIds` (carrossel do Perfil), `useProfileSectionCounts`
+ * (contador "Séries" do Perfil) e `usePublicLibraryItems` (biblioteca
+ * de outro usuário) — as cinco tinham a mesma busca de linha-por-linha
+ * duplicada.
  */
-const WATCHED_EPISODES_PAGE_SIZE = 1000;
-
-export async function fetchAllWatchedEpisodeRows(
+export async function fetchWatchedEpisodeStats(
   supabase: ReturnType<typeof createClient>,
   userId: string
-): Promise<WatchedEpisodeRow[]> {
-  const { count, error: countError } = await supabase
-    .from("watched_episodes")
-    .select("series_id", { count: "exact", head: true })
-    .eq("is_special", false)
-    .eq("user_id", userId);
-  if (countError) throw countError;
-
-  const total = count ?? 0;
-  if (total === 0) return [];
-
-  const pageCount = Math.ceil(total / WATCHED_EPISODES_PAGE_SIZE);
-  const pages = await Promise.all(
-    Array.from({ length: pageCount }, (_, index) => {
-      const from = index * WATCHED_EPISODES_PAGE_SIZE;
-      return supabase
-        .from("watched_episodes")
-        .select("series_id, watched_at")
-        .eq("is_special", false)
-        .eq("user_id", userId)
-        .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
-    })
-  );
-
-  const rows: WatchedEpisodeRow[] = [];
-  for (const page of pages) {
-    if (page.error) throw page.error;
-    rows.push(...((page.data ?? []) as WatchedEpisodeRow[]));
-  }
-  return rows;
+): Promise<WatchedEpisodeStats[]> {
+  const { data, error } = await supabase.rpc("get_watched_episode_stats", { p_user_id: userId });
+  if (error) throw error;
+  return (data ?? []) as WatchedEpisodeStats[];
 }
 
 function toLibraryStatus(movieStatus: MovieStatusRow["status"]): LibraryStatus {
@@ -211,19 +192,13 @@ export async function fetchDisplaySummaries(
 export function buildLibraryItemsFromRows(
   movieRows: MovieStatusRow[],
   seriesRows: SeriesStatusRow[],
-  episodeRows: WatchedEpisodeRow[],
+  episodeStats: WatchedEpisodeStats[],
   summaries: { movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }
 ): LibraryItem[] {
-  // Agrega episódios assistidos por série (contagem + data do mais recente).
+  // Agregado já vem pronto do banco (get_watched_episode_stats) — só monta o mapa por série.
   const episodeAgg = new Map<number, { count: number; lastWatchedAt: string }>();
-  for (const row of episodeRows) {
-    const entry = episodeAgg.get(row.series_id);
-    if (!entry) {
-      episodeAgg.set(row.series_id, { count: 1, lastWatchedAt: row.watched_at });
-    } else {
-      entry.count += 1;
-      if (row.watched_at > entry.lastWatchedAt) entry.lastWatchedAt = row.watched_at;
-    }
+  for (const stat of episodeStats) {
+    episodeAgg.set(stat.series_id, { count: stat.watched_count, lastWatchedAt: stat.last_watched_at });
   }
 
   const explicitSeriesById = new Map(seriesRows.map((row) => [row.series_id, row]));
@@ -330,13 +305,13 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
   // inteira do usuário atual podia se misturar com a de qualquer
   // pessoa cujo perfil ele segue/é público — a causa raiz real por
   // trás de "mesclou" ao reimportar.
-  const [movieResult, seriesResult, episodeRows] = await Promise.all([
+  const [movieResult, seriesResult, episodeStats] = await Promise.all([
     supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", user.id),
     supabase
       .from("series_status")
       .select("series_id, status, created_at, updated_at, total_watch_events")
       .eq("user_id", user.id),
-    fetchAllWatchedEpisodeRows(supabase, user.id),
+    fetchWatchedEpisodeStats(supabase, user.id),
   ]);
 
   if (movieResult.error) {
@@ -357,7 +332,7 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
   // incluir uma série marcada como "removed".
   const validSeriesIds = new Set<number>([
     ...seriesRows.filter((row) => row.status !== "removed").map((row) => row.series_id),
-    ...episodeRows.map((row) => row.series_id),
+    ...episodeStats.map((stat) => stat.series_id),
   ]);
   for (const row of seriesRows) {
     if (row.status === "removed") validSeriesIds.delete(row.series_id);
@@ -368,7 +343,7 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
     [...validSeriesIds]
   );
 
-  return buildLibraryItemsFromRows(movieRows, seriesRows, episodeRows, summaries);
+  return buildLibraryItemsFromRows(movieRows, seriesRows, episodeStats, summaries);
 }
 
 export function useLibraryItems() {

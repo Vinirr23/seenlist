@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
-import { fetchAllWatchedEpisodeRows } from "./library-state";
+import { fetchWatchedEpisodeStats } from "./library-state";
 
 /**
  * TASK-177 — Perfil, redesign a pedido (referências trazidas de
@@ -27,9 +27,9 @@ export function useSeriesActivityIds(userId: string | null) {
       if (!userId) return [];
       const supabase = createClient();
 
-      const [statusResult, episodeRows] = await Promise.all([
+      const [statusResult, episodeStats] = await Promise.all([
         supabase.from("series_status").select("series_id, status, updated_at").eq("user_id", userId),
-        fetchAllWatchedEpisodeRows(supabase, userId),
+        fetchWatchedEpisodeStats(supabase, userId),
       ]);
       if (statusResult.error) {
         console.error("[profile-media-carousel] Falha ao buscar series_status", describeSupabaseError(statusResult.error));
@@ -45,11 +45,11 @@ export function useSeriesActivityIds(userId: string | null) {
         }
         lastActivityBySeriesId.set(row.series_id, new Date(row.updated_at).getTime());
       }
-      for (const row of episodeRows) {
-        const watchedAtMs = new Date(row.watched_at as string).getTime();
-        const current = lastActivityBySeriesId.get(row.series_id);
+      for (const stat of episodeStats) {
+        const watchedAtMs = new Date(stat.last_watched_at).getTime();
+        const current = lastActivityBySeriesId.get(stat.series_id);
         if (!current || watchedAtMs > current) {
-          lastActivityBySeriesId.set(row.series_id, watchedAtMs);
+          lastActivityBySeriesId.set(stat.series_id, watchedAtMs);
         }
       }
       for (const id of removedIds) {
