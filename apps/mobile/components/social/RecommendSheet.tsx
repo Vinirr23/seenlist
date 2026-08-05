@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Modal, Pressable, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { View, Modal, Pressable, TextInput, FlatList, KeyboardAvoidingView, Platform, Keyboard, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -35,6 +35,30 @@ export function RecommendSheet({
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+
+  /**
+   * CORREÇÃO (bug real, reportado com print — "o teclado apareceu em
+   * cima de onde eu estava escrevendo") — a lista de pessoas tem
+   * altura FIXA (260). Com o teclado aberto, o `behavior="height"`
+   * encolhe o espaço disponível da folha, mas essa lista continuava
+   * ocupando os mesmos 260, empurrando o campo de mensagem (e o
+   * botão de enviar) pra fora da área visível. Encolher a lista
+   * enquanto o teclado está aberto resolve sem precisar aninhar
+   * rolagem dentro de rolagem (`FlatList` dentro de `ScrollView` é
+   * um padrão com bug conhecido no React Native, evitado de
+   * propósito aqui).
+   */
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardOpen(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardOpen(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const userId = session?.user.id;
@@ -107,7 +131,8 @@ export function RecommendSheet({
             <FlatList
               data={following ?? []}
               keyExtractor={(item) => item.userId}
-              style={{ maxHeight: 260 }}
+              style={{ maxHeight: keyboardOpen ? 120 : 260 }}
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => {
                 const selected = selectedUserId === item.userId;
                 return (
