@@ -6,10 +6,39 @@ import { todayLocalKey } from "@/lib/localDate";
 const SITE_URL = "https://seenlist.app";
 
 /** Idêntico a lib/queries/series.ts do web. */
+/**
+ * A PEDIDO (auditoria — velocidade percebida) — cache em memória do
+ * detalhe de série, com pré-carregamento. Antes, tocar numa série
+ * SEMPRE esperava a busca inteira acontecer do zero, mesmo sendo a
+ * ação mais previsível do app (o primeiro item de "Continue
+ * assistindo" é de longe o mais tocado).
+ *
+ * `prefetchSeriesDetails` é chamado em silêncio pela Home assim que
+ * a lista carrega; quando a pessoa toca, o dado já está pronto e a
+ * tela abre sem espera. Falha de rede aqui é ignorada de propósito
+ * — é só uma antecipação: se der errado, a tela busca normalmente
+ * depois, exatamente como fazia antes.
+ */
+const SERIES_DETAILS_TTL_MS = 5 * 60 * 1000;
+const seriesDetailsCache = new Map<string, { data: SeriesDetails; expiresAt: number }>();
+
 export async function fetchSeriesDetails(seriesId: string): Promise<SeriesDetails> {
+  const cached = seriesDetailsCache.get(seriesId);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
   const response = await fetch(`${SITE_URL}/api/tmdb/series/${seriesId}`);
   if (!response.ok) throw new Error("series details fetch failed");
-  return response.json() as Promise<SeriesDetails>;
+  const data = (await response.json()) as SeriesDetails;
+  seriesDetailsCache.set(seriesId, { data, expiresAt: Date.now() + SERIES_DETAILS_TTL_MS });
+  return data;
+}
+
+export function prefetchSeriesDetails(seriesId: string): void {
+  const cached = seriesDetailsCache.get(seriesId);
+  if (cached && cached.expiresAt > Date.now()) return;
+  fetchSeriesDetails(seriesId).catch(() => {
+    // Silencioso de propósito — ver comentário acima.
+  });
 }
 
 export interface EpisodeContextEpisode {

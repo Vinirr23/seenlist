@@ -14,6 +14,7 @@ import {
   type BlockedUser,
 } from "@/lib/recommendations";
 import { Screen, Text, Skeleton } from "@/components/ui";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { colors, radius, spacing, tint } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -101,7 +102,7 @@ export default function RecommendationsScreen() {
           data={recommendations}
           keyExtractor={(rec) => rec.id}
           contentContainerStyle={styles.content}
-          ListEmptyComponent={<Text variant="muted">Ninguém te recomendou nada ainda.</Text>}
+          ListEmptyComponent={<EmptyShelf icon="send" message="Ninguém te recomendou nada ainda." />}
           renderItem={({ item: rec }) => (
             <View style={[styles.card, !rec.readAt && styles.cardUnread]}>
               <Pressable style={styles.cardMain} onPress={() => handleOpen(rec)}>

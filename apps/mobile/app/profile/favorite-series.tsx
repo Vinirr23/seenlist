@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePublicFavorites } from "@/lib/usePublicProfile";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { Screen, Text } from "@/components/ui";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
 import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
@@ -55,7 +56,12 @@ export default function FavoriteSeriesScreen() {
         </View>
       ) : series.length === 0 ? (
         <View style={styles.content}>
-          <Text variant="muted">Você ainda não favoritou nenhuma série.</Text>
+          <EmptyShelf
+            icon="heart"
+            message="Você ainda não favoritou nenhuma série."
+            actionLabel="Explorar séries"
+            actionHref="/(tabs)/explore"
+          />
         </View>
       ) : viewMode === "grid" ? (
         <FlatList

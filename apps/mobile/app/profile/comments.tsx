@@ -6,6 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchMyComments, deleteMyComment, type MyComment } from "@/lib/myComments";
 import { tmdbImageUrl } from "@/lib/library";
 import { Screen, Text } from "@/components/ui";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
@@ -131,7 +132,7 @@ export default function MyCommentsScreen() {
         </View>
       ) : !comments || comments.length === 0 ? (
         <View style={styles.content}>
-          <Text variant="muted">Você ainda não fez nenhum comentário.</Text>
+          <EmptyShelf icon="message-circle" message="Você ainda não fez nenhum comentário." />
         </View>
       ) : (
         <FlatList

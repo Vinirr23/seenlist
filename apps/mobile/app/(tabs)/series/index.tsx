@@ -5,7 +5,7 @@ import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useUpcomingEpisodes } from "@/lib/useUpcomingEpisodes";
 import { useViewModePreference } from "@/lib/useViewModePreference";
-import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/seriesDetails";
+import { recalculateUpToDateSeriesCategoriesThrottled, prefetchSeriesDetails } from "@/lib/seriesDetails";
 import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text } from "@/components/ui";
@@ -216,6 +216,21 @@ export default function SeriesHomeScreen() {
   }, [listNeedingEpisodes.map((i) => i.id).join(",")]);
 
   useEffect(loadNextEpisodes, [loadNextEpisodes]);
+
+  /**
+   * A PEDIDO (auditoria — velocidade percebida) — pré-carrega, em
+   * silêncio, o detalhe das 2 primeiras séries de "Continue
+   * assistindo": são de longe as mais prováveis de serem tocadas, e
+   * assim a tela abre sem espera nenhuma. Não é trabalho extra de
+   * verdade — é a MESMA busca que aconteceria ao tocar, só
+   * antecipada; se falhar, a tela busca normalmente depois.
+   */
+  useEffect(() => {
+    for (const item of continueWatching.slice(0, 2)) {
+      prefetchSeriesDetails(String(item.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [continueWatching.map((i) => i.id).join(",")]);
 
   function handlePressItem(item: LibraryItem) {
     router.push(`/series/${item.id}`);
