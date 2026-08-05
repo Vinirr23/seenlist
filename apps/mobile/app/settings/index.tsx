@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchMyProfileSettings, type MyProfileSettings, type ProfileVisibility } from "@/lib/settings";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { Screen, Text } from "@/components/ui";
+import { Screen, Text, Skeleton } from "@/components/ui";
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import { VisibilityRow } from "@/components/settings/VisibilityRow";
 import { LanguageRow } from "@/components/settings/LanguageRow";
@@ -83,6 +83,30 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/*
+          * CORREÇÃO (auditoria — velocidade percebida) — mesmo
+          * achado de `edit-profile.tsx`: os blocos de Conta e
+          * Privacidade simplesmente não existiam durante o
+          * carregamento, então a tela "pulava" ao ficar pronta (as
+          * seções de baixo saltavam pra baixo). Esqueleto com a
+          * mesma altura evita o salto.
+          */}
+        {isLoading && (
+          <>
+            <SectionLabel label={t("settings.section.account")} />
+            <View style={styles.card}>
+              <Skeleton width="100%" height={52} borderRadius={0} />
+              <Skeleton width="100%" height={52} borderRadius={0} />
+            </View>
+            <SectionLabel label={t("settings.section.privacy")} />
+            <View style={styles.card}>
+              <Skeleton width="100%" height={52} borderRadius={0} />
+              <Skeleton width="100%" height={52} borderRadius={0} />
+              <Skeleton width="100%" height={52} borderRadius={0} />
+            </View>
+          </>
+        )}
+
         {!isLoading && profile && (
           <>
             <SectionLabel label={t("settings.section.account")} />

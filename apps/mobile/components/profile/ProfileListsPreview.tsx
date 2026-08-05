@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyListsWithPreview, type ListWithPreview } from "@/lib/lists";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const CARD_SIZE = 112;
@@ -61,7 +61,7 @@ export function ProfileListsPreview() {
       {isLoading ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
           {[0, 1, 2].map((i) => (
-            <View key={i} style={[styles.skeleton, { width: CARD_SIZE, height: CARD_SIZE }]} />
+            <Skeleton key={i} width={CARD_SIZE} height={CARD_SIZE} />
           ))}
         </ScrollView>
       ) : !lists || lists.length === 0 ? (
@@ -130,10 +130,6 @@ const styles = StyleSheet.create({
   },
   row: {
     gap: spacing.sm,
-  },
-  skeleton: {
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
   },
   emptyCard: {
     alignItems: "center",

@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchEditableProfile, saveEditableProfile } from "@/lib/editProfile";
 import { pickImageFromLibrary, uploadAvatar, uploadBanner } from "@/lib/imageUpload";
-import { Screen, Text, Button } from "@/components/ui";
+import { Screen, Text, Button, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 function initials(name: string): string {
@@ -103,6 +103,27 @@ export default function EditProfileScreen() {
         * `keyboardShouldPersistTaps="handled"` deixa tocar em
         * "Salvar" direto, sem precisar fechar o teclado antes.
         */}
+      {/*
+        * CORREÇÃO (auditoria — velocidade percebida) — enquanto
+        * carregava, esta tela mostrava NADA (tela em branco), pior
+        * que um spinner: parecia travada. Esqueleto no formato real
+        * do conteúdo (banner, avatar, campos) faz a troca
+        * "carregando → carregado" parecer instantânea, sem o layout
+        * pular.
+        */}
+      {isLoading && (
+        <View style={styles.content}>
+          <Skeleton width="100%" height={112} />
+          <Skeleton width={88} height={88} borderRadius={44} style={styles.skeletonAvatar} />
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={styles.skeletonField}>
+              <Skeleton width="30%" height={11} />
+              <Skeleton width="100%" height={44} />
+            </View>
+          ))}
+        </View>
+      )}
+
       {!isLoading && (
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -199,6 +220,13 @@ const AVATAR_SIZE = 80;
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  skeletonAvatar: {
+    alignSelf: "center",
+    marginTop: -spacing.xl,
+  },
+  skeletonField: {
+    gap: spacing.xs,
   },
   header: {
     flexDirection: "row",

@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchReceivedRecommendations, type ReceivedRecommendation } from "@/lib/recommendations";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 
 const AVATAR_SIZE = 32;
@@ -45,7 +45,14 @@ export function ProfileRecommendationsPreview() {
   );
 
   if (isLoading && recommendations === null) {
-    return <View style={[styles.card, { height: 80 }]} />;
+    /*
+     * CORREÇÃO (auditoria — "loaders diferentes") — era uma caixa
+     * cinza ESTÁTICA, sem animação, enquanto o resto do app usa o
+     * `Skeleton` pulsante. Duas linguagens de carregamento no mesmo
+     * Perfil, uma parecendo "conteúdo quebrado" e a outra
+     * "carregando".
+     */
+    return <Skeleton width="100%" height={80} />;
   }
 
   if (!recommendations || recommendations.length === 0) {
