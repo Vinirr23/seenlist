@@ -9,12 +9,28 @@ import { ViewModeToggle } from "../media/ViewModeToggle";
 import { ContinueWatchingCard } from "./ContinueWatchingCard";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
-import { WatchlistButton } from "./WatchlistButton";
+import { MediaListRow } from "../media/MediaListRow";
 import { EmptyShelf } from "../media/EmptyShelf";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
 const CONTINUE_ASSISTINDO_LIMIT = 8;
+
+/**
+ * A PEDIDO — seção "Faz um tempo que você não assiste". Série que
+ * está em "Assistindo" mas sem NENHUM episódio marcado há 2 semanas
+ * desce automaticamente de "Continue assistindo" pra essa seção
+ * separada, mais abaixo. Porta fiel do que já foi feito no mobile
+ * (`app/(tabs)/series/index.tsx`), mesmo corte e mesma regra.
+ *
+ * Usa `lastActivityAt` (não `updatedAt`): esse campo já reflete o
+ * episódio mais recente REALMENTE assistido, não só a última vez que
+ * o status mudou — é o que faz "faz um tempo que você não assiste"
+ * significar o que promete. Sem botão nenhum e sem tela própria (a
+ * pedido) — a seção só aparece quando tem algo nela, e some sozinha
+ * quando a pessoa volta a assistir.
+ */
+const STALE_AFTER_DAYS = 14;
 
 /**
  * Ajuste — o botão de alternância grade/lista mora aqui agora
@@ -68,6 +84,29 @@ export function MinhaListaSection() {
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
 
   /**
+   * A PEDIDO — "Faz um tempo que você não assiste": corte por
+   * `lastActivityAt` (episódio realmente assistido), 14 dias. Feito
+   * ANTES das listas de "Continue assistindo" porque as duas
+   * precisam desse mesmo corte pra não mostrar a mesma série nas
+   * duas seções.
+   */
+  const { recentSeries, staleSeries } = useMemo(() => {
+    const cutoff = Date.now() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
+    const recent: typeof series = [];
+    const stale: typeof series = [];
+
+    for (const item of series) {
+      // Só "watching" pode ficar parada — "Em dia" não tem nada
+      // pendente pra assistir, então não faz sentido cobrar.
+      const isStale = item.status === "watching" && new Date(item.lastActivityAt).getTime() < cutoff;
+      (isStale ? stale : recent).push(item);
+    }
+
+    stale.sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
+    return { recentSeries: recent, staleSeries: stale };
+  }, [series]);
+
+  /**
    * Correção (bug real, reportado): "Em dia" (`up_to_date`) é um status
    * PRÓPRIO, separado de "watching" — mesma causa raiz já documentada
    * em `useUpcomingEpisodes`/"Em breve". Filtrando só "watching" aqui,
@@ -87,7 +126,7 @@ export function MinhaListaSection() {
    */
   const continueWatchingList = useMemo(
     () =>
-      series
+      recentSeries
         .filter((item) => item.status === "watching" || item.status === "up_to_date")
         /*
          * CORREÇÃO (bug real, reportado — Tanya the Evil, Daemons do
@@ -114,16 +153,16 @@ export function MinhaListaSection() {
           return b.updatedAt.localeCompare(a.updatedAt);
         })
         .slice(0, CONTINUE_ASSISTINDO_LIMIT),
-    [series]
+    [recentSeries]
   );
 
   const continueWatchingGrid = useMemo(
     () =>
-      series
+      recentSeries
         .filter((item) => item.status === "watching")
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
         .slice(0, CONTINUE_ASSISTINDO_LIMIT),
-    [series]
+    [recentSeries]
   );
 
   const continueWatching = viewMode === "grid" ? continueWatchingGrid : continueWatchingList;
@@ -157,9 +196,40 @@ export function MinhaListaSection() {
         </div>
       )}
 
-      <div className="mt-4">
-        <WatchlistButton />
-      </div>
+      {/*
+        * A PEDIDO — "Ver todas da lista Assistir depois"
+        * (`WatchlistButton`) removido daqui. A lista continua
+        * acessível normalmente (a rota não foi apagada), só não
+        * ocupa mais espaço fixo no fim da Home.
+        */}
+
+      {staleSeries.length > 0 && (
+        <div className="mt-8">
+          <SectionTitle>Faz um tempo que você não assiste</SectionTitle>
+          <div className="mt-2">
+            {viewMode === "grid" ? (
+              <PosterGrid items={staleSeries} />
+            ) : (
+              <div className="space-y-3">
+                {staleSeries.map((item) => (
+                  <MediaListRow
+                    key={item.id}
+                    item={item}
+                    secondaryText={
+                      item.progress && item.progress.totalEpisodes > 0
+                        ? t("seriesHome.episodeProgress", {
+                            watched: item.progress.watchedEpisodes,
+                            total: item.progress.totalEpisodes,
+                          })
+                        : ""
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
