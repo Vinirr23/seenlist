@@ -14,6 +14,7 @@ import { ConfettiBurst } from "@/components/series-detail/ConfettiBurst";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
 import { BackdropGallery } from "@/components/media/BackdropGallery";
+import { TrailerCard } from "@/components/media/TrailerCard";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { SeasonAccordion } from "@/components/series-detail/SeasonAccordion";
 import { EpisodeCarousel } from "@/components/series-detail/EpisodeCarousel";
@@ -122,19 +123,14 @@ export default function SeriesDetailScreen() {
                 <MetaRow label="Gêneros" value={series.genres.join(", ") || "—"} />
               </View>
 
-              {/*
-               * REVERTIDO TEMPORARIAMENTE (a pedido, urgente — app
-               * publicado travando de verdade) — crash confirmado
-               * ("Cannot read property 'prototype' of undefined",
-               * clássico de módulo nativo não vinculado): o
-               * `.aab` instalado nunca passou por um build nativo
-               * novo depois que `react-native-webview` foi
-               * adicionado (só saiu via `eas update`, que é só
-               * JavaScript). Volta a aparecer assim que um `eas
-               * build` de verdade for gerado — o componente
-               * (`TrailerCard.tsx`) continua pronto, só tirado da
-               * tela por enquanto.
-               */}
+              {!!series.trailerKey && (
+                <View>
+                  <Text variant="subtitle" style={styles.sectionTitle}>
+                    Trailer
+                  </Text>
+                  <TrailerCard videoKey={series.trailerKey} />
+                </View>
+              )}
 
               <View>
                 <Text variant="subtitle" style={styles.sectionTitle}>
