@@ -13,6 +13,8 @@ import { RecommendationQuickActionsSheet } from "@/components/social/Recommendat
 import { ConfettiBurst } from "@/components/series-detail/ConfettiBurst";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
+import { TrailerCard } from "@/components/media/TrailerCard";
+import { BackdropGallery } from "@/components/media/BackdropGallery";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { SeasonAccordion } from "@/components/series-detail/SeasonAccordion";
 import { EpisodeCarousel } from "@/components/series-detail/EpisodeCarousel";
@@ -121,12 +123,30 @@ export default function SeriesDetailScreen() {
                 <MetaRow label="Gêneros" value={series.genres.join(", ") || "—"} />
               </View>
 
+              {!!series.trailerKey && (
+                <View>
+                  <Text variant="subtitle" style={styles.sectionTitle}>
+                    Trailer
+                  </Text>
+                  <TrailerCard videoKey={series.trailerKey} />
+                </View>
+              )}
+
               <View>
                 <Text variant="subtitle" style={styles.sectionTitle}>
                   Elenco principal
                 </Text>
                 <CastCarousel cast={series.cast} />
               </View>
+
+              {series.gallery.length > 0 && (
+                <View>
+                  <Text variant="subtitle" style={styles.sectionTitle}>
+                    Galeria
+                  </Text>
+                  <BackdropGallery paths={series.gallery} />
+                </View>
+              )}
 
               <View>
                 <Text variant="subtitle" style={styles.sectionTitle}>

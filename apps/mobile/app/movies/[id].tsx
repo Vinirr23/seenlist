@@ -13,8 +13,24 @@ import { RecommendationQuickActionsSheet } from "@/components/social/Recommendat
 import { StreamingProviders } from "@/components/movie-detail/StreamingProviders";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
+import { TrailerCard } from "@/components/media/TrailerCard";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { colors, spacing } from "@/lib/theme";
+
+/** A PEDIDO (confirmação de paridade web/mobile) — mesmo mapa do web (`MovieInfo.tsx`), só que fixo em português (esta tela nunca usou o sistema de tradução, mesmo padrão de todo o resto dela — trocar isso é maior que o pedido aqui). */
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "Inglês",
+  pt: "Português",
+  es: "Espanhol",
+  fr: "Francês",
+  ja: "Japonês",
+  ko: "Coreano",
+  de: "Alemão",
+  it: "Italiano",
+  zh: "Mandarim",
+};
+
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 /**
  * TASK-097 — porta de `MovieDetailsView.tsx` + `MovieHeader.tsx` +
@@ -67,8 +83,19 @@ export default function MovieDetailScreen() {
             <MetaRow label="Diretor" value={movie.director ?? "—"} />
             <MetaRow label="Estúdios" value={movie.studios.join(", ") || "—"} />
             <MetaRow label="País" value={movie.country ?? "—"} />
-            <MetaRow label="Idioma" value={movie.language ?? "—"} />
+            <MetaRow label="Idioma" value={(movie.language && LANGUAGE_NAMES[movie.language]) || movie.language || "—"} />
+            {movie.budget !== null && <MetaRow label="Orçamento" value={currencyFormatter.format(movie.budget)} />}
+            {movie.revenue !== null && <MetaRow label="Bilheteria" value={currencyFormatter.format(movie.revenue)} />}
           </View>
+
+          {!!movie.trailerKey && (
+            <View>
+              <Text variant="subtitle" style={styles.sectionTitle}>
+                Trailer
+              </Text>
+              <TrailerCard videoKey={movie.trailerKey} />
+            </View>
+          )}
 
           <View>
             <Text variant="subtitle" style={styles.sectionTitle}>
@@ -77,14 +104,15 @@ export default function MovieDetailScreen() {
             <CastCarousel cast={movie.cast} />
           </View>
 
+          {/* A PEDIDO (confirmação de paridade web/mobile) — ordem trocada pra bater com o web: "Onde assistir" vem ANTES de "Filmes parecidos" lá, estava depois aqui. */}
+          <StreamingProviders providers={movie.watchProviders} />
+
           <View>
             <Text variant="subtitle" style={styles.sectionTitle}>
               Filmes parecidos
             </Text>
             <SimilarTitlesCarousel items={movie.similar} />
           </View>
-
-          <StreamingProviders providers={movie.watchProviders} />
 
           <View>
             <Text variant="subtitle" style={styles.sectionTitle}>
