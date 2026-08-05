@@ -15,6 +15,7 @@ import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
 import { BackdropGallery } from "@/components/media/BackdropGallery";
 import { TrailerCard } from "@/components/media/TrailerCard";
+import { MetaRow } from "@/components/media/MetaRow";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { SeasonAccordion } from "@/components/series-detail/SeasonAccordion";
 import { EpisodeCarousel } from "@/components/series-detail/EpisodeCarousel";
@@ -241,19 +242,6 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
   );
 }
 
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metaRow}>
-      <Text variant="muted" style={styles.metaLabel}>
-        {label}
-      </Text>
-      <Text numberOfLines={2} style={styles.metaValue}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   body: {
     padding: spacing.lg,
@@ -290,17 +278,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.md,
-  },
-  metaRow: {
-    width: "47%",
-    gap: 2,
-  },
-  metaLabel: {
-    fontSize: 11,
-  },
-  metaValue: {
-    fontSize: 13,
-    color: colors.text,
   },
   sectionTitle: {
     marginBottom: spacing.sm,
