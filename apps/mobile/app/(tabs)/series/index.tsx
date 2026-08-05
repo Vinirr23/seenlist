@@ -11,7 +11,6 @@ import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpi
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
-import { MediaListRow } from "@/components/media/MediaListRow";
 import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
@@ -188,7 +187,25 @@ export default function SeriesHomeScreen() {
             <View style={styles.listRows}>
               {continueWatching.map((item) => {
                 const nextEpisode = nextEpisodes.get(item.id);
-                return nextEpisode ? (
+                /**
+                 * CORREÇÃO (bug real, reportado com print — "série já
+                 * em dia ainda na Home", card com formato errado) —
+                 * `nextEpisode` vem `undefined` tanto pra "ainda
+                 * buscando" (tratado acima, via `nextEpisodesLoaded`)
+                 * quanto pra "já buscou e essa série genuinamente não
+                 * tem episódio pendente com data já passada" — ou
+                 * seja, ela está em dia hoje, só o status no banco
+                 * ainda não foi recalculado (o recálculo agora roda
+                 * só 1x/dia). Antes, esse segundo caso caía pro card
+                 * antigo (`MediaListRow`, sem código de episódio nem
+                 * botão de check) — inconsistente e confuso. Mesma
+                 * decisão já tomada no web (`ContinueWatchingCard.tsx`:
+                 * `if (!episodes || !next) return null;`) — se não
+                 * tem nada pendente pra assistir agora, o card
+                 * simplesmente não aparece, em vez de aparecer errado.
+                 */
+                if (!nextEpisode) return null;
+                return (
                   <ContinueWatchingListRow
                     key={item.id}
                     item={item}
@@ -197,17 +214,6 @@ export default function SeriesHomeScreen() {
                       refetchSilently();
                       loadNextEpisodes();
                     }}
-                  />
-                ) : (
-                  <MediaListRow
-                    key={item.id}
-                    item={item}
-                    onPress={handlePressItem}
-                    secondaryText={
-                      item.progress && item.progress.totalEpisodes > 0
-                        ? t("seriesHome.episodeProgress", { watched: item.progress.watchedEpisodes, total: item.progress.totalEpisodes })
-                        : ""
-                    }
                   />
                 );
               })}
