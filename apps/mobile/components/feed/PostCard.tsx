@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, TextInput, Pressable, Share, Alert, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { Post } from "@/lib/posts";
 import { editPost, deletePost } from "@/lib/posts";
 import { reportPost } from "@/lib/social/postReports";
@@ -220,7 +220,12 @@ export function PostCard({
             </Text>
             <View style={styles.starsRow}>
               {Array.from({ length: 5 }).map((_, i) => (
-                <Feather key={i} name="star" size={13} color={i < (post.rating ?? 0) ? colors.primary : colors.border} />
+                <MaterialCommunityIcons
+                  key={i}
+                  name={i < (post.rating ?? 0) ? "star" : "star-outline"}
+                  size={15}
+                  color={i < (post.rating ?? 0) ? colors.primary : colors.border}
+                />
               ))}
               <Text style={styles.ratingText}>{(post.rating ?? 0).toFixed(1)}/5</Text>
             </View>

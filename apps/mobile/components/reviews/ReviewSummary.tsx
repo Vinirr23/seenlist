@@ -1,5 +1,5 @@
 import { View, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { ReviewAggregate } from "@/lib/social/reviews";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
@@ -30,7 +30,7 @@ export function ReviewSummary({ aggregate }: { aggregate: ReviewAggregate }) {
               <Text variant="muted" style={styles.starLabelText}>
                 {star}
               </Text>
-              <Feather name="star" size={9} color={colors.muted} />
+              <MaterialCommunityIcons name="star" size={11} color={colors.muted} />
             </View>
             <View style={styles.track}>
               <View style={[styles.fill, { width: `${(count / maxCount) * 100}%` }]} />

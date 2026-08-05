@@ -1,5 +1,5 @@
 import { View, Pressable, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Text } from "@/components/ui";
 import { hapticSelection } from "@/lib/haptics";
 import { colors, spacing } from "@/lib/theme";
@@ -32,7 +32,7 @@ export function EpisodeStarRatingRow({ value, onChange }: { value: number; onCha
               onChange(level.value);
             }}
           >
-            <Feather name="star" size={22} color={filled ? colors.primary : colors.muted} />
+            <MaterialCommunityIcons name={filled ? "star" : "star-outline"} size={24} color={filled ? colors.primary : colors.muted} />
             <Text style={[styles.label, filled && styles.labelActive]}>{level.label}</Text>
           </Pressable>
         );

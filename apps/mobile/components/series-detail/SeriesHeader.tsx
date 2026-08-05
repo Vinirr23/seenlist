@@ -1,7 +1,7 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { SeriesDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
@@ -62,7 +62,7 @@ export function SeriesHeader({
         </Text>
         {series.voteAverage > 0 && (
           <View style={styles.ratingRow}>
-            <Feather name="star" size={11} color={colors.primary} />
+            <MaterialCommunityIcons name="star" size={13} color={colors.primary} />
             <Text style={styles.ratingValue}>{series.voteAverage.toFixed(1)}</Text>
             {series.voteCount > 0 && (
               <Text style={styles.ratingCount}>· {formatCompactCount(series.voteCount)} avaliações</Text>

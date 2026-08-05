@@ -1,7 +1,7 @@
 import { ScrollView, View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { MediaSearchResult } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
@@ -48,7 +48,7 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
               <View style={styles.metaRow}>
                 {hasRating && (
                   <View style={styles.ratingRow}>
-                    <Feather name="star" size={9} color={colors.primary} />
+                    <MaterialCommunityIcons name="star" size={11} color={colors.primary} />
                     <Text style={styles.rating}>{item.voteAverage!.toFixed(1)}</Text>
                   </View>
                 )}

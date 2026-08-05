@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { fetchHasLiked, fetchLikeCount, toggleLike, type LikeTargetType } from "@/lib/social/likes";
 import { hapticTick } from "@/lib/haptics";
 import { Text } from "@/components/ui";
@@ -64,7 +64,22 @@ export function LikeButton({
 
   return (
     <Pressable style={styles.button} onPress={handlePress} hitSlop={8}>
-      <Feather name="heart" size={16} color={hasLiked ? colors.primary : colors.muted} />
+      {/*
+        * CORREÇÃO (bug real, reportado — "like não fica preenchido
+        * com cor, diferente do web") — `Feather` é uma família de
+        * ícone SÓ de contorno: não tem versão preenchida, então
+        * curtir só mudava a COR da linha, nunca preenchia o coração.
+        * O web usa `lucide-react` com `fill="currentColor"`, que
+        * preenche de verdade. `MaterialCommunityIcons` já vem no
+        * mesmo pacote `@expo/vector-icons` que o app já usa (nenhuma
+        * dependência nova) e tem os dois: "heart" (preenchido) e
+        * "heart-outline" (contorno) — agora bate com o web.
+        */}
+      <MaterialCommunityIcons
+        name={hasLiked ? "heart" : "heart-outline"}
+        size={17}
+        color={hasLiked ? colors.primary : colors.muted}
+      />
       <Text style={[styles.count, hasLiked && styles.countActive]}>{count ?? 0}</Text>
     </Pressable>
   );

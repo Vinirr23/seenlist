@@ -1,7 +1,7 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { MovieDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
@@ -76,7 +76,7 @@ export function MovieHeader({
             </Text>
           )}
           <View style={styles.ratingRow}>
-            <Feather name="star" size={13} color={colors.primary} />
+            <MaterialCommunityIcons name="star" size={15} color={colors.primary} />
             <Text style={styles.rating}>{movie.voteAverage.toFixed(1)}</Text>
           </View>
         </View>
