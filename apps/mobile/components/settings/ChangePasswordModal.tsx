@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Modal, TextInput, Pressable, StyleSheet } from "react-native";
 import { updatePassword } from "@/lib/settings";
 import { Text, Button } from "@/components/ui";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState("");
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: scrim.modal,
     padding: spacing.xl,
   },
   card: {

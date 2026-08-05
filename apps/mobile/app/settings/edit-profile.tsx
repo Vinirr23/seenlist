@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchEditableProfile, saveEditableProfile } from "@/lib/editProfile";
 import { pickImageFromLibrary, uploadAvatar, uploadBanner } from "@/lib/imageUpload";
 import { Screen, Text, Button } from "@/components/ui";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 function initials(name: string): string {
   return name
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: spacing.md,
     top: spacing.md,
-    backgroundColor: "rgba(11,14,20,0.75)",
+    backgroundColor: scrim.control,
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,

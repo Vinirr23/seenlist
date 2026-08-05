@@ -8,7 +8,7 @@ import { fetchFollowList, type FollowListUser } from "@/lib/followList";
 import { sendRecommendation } from "@/lib/recommendations";
 import { hapticTick } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
-import { colors, radius, spacing, tint } from "@/lib/theme";
+import { colors, radius, spacing, tint, scrim } from "@/lib/theme";
 
 const MAX_MESSAGE_LENGTH = 200;
 
@@ -184,7 +184,7 @@ export function RecommendSheet({
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
+  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: scrim.modal },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,

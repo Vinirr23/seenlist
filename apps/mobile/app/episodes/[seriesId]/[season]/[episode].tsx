@@ -20,7 +20,7 @@ import { EpisodeWatchedPlatformPicker } from "@/components/episode/EpisodeWatche
 import { EpisodeFavoriteCharacterPicker, type FavoriteCharacterOption } from "@/components/episode/EpisodeFavoriteCharacterPicker";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { hapticTick } from "@/lib/haptics";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 interface EpisodeRef {
   seasonNumber: number;
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   },
   bannerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(11,14,20,0.35)",
+    backgroundColor: scrim.overImage,
   },
   backButton: {
     position: "absolute",
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(11,14,20,0.7)",
+    backgroundColor: scrim.overImage,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(11,14,20,0.7)",
+    backgroundColor: scrim.overImage,
     alignItems: "center",
     justifyContent: "center",
   },

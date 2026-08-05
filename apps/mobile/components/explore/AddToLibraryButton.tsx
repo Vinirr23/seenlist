@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { setSeriesStatus } from "@/lib/seriesDetails";
 import { setMovieStatus } from "@/lib/movieDetails";
 import { hapticTick } from "@/lib/haptics";
-import { colors, radius } from "@/lib/theme";
+import { colors, radius, scrim } from "@/lib/theme";
 
 /**
  * TASK-142/152 (Explorar, a pedido) — porta de `AddToLibraryButton.tsx`.
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: 2,
     borderColor: colors.primary,
-    backgroundColor: "rgba(11,14,20,0.8)",
+    backgroundColor: scrim.control,
     alignItems: "center",
     justifyContent: "center",
   },

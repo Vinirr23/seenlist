@@ -2,7 +2,7 @@ import { View, Modal, Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, scrim } from "@/lib/theme";
 
 /**
  * TASK-169 (continuação) — aparece automaticamente ao abrir uma
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: scrim.modal,
   },
   sheet: {
     width: "100%",

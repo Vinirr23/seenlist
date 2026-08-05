@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchMyLists, fetchListItems, removeFromList, deleteList, type UserList, type ListItem } from "@/lib/lists";
 import { usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { Screen, Text, Skeleton } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, scrim } from "@/lib/theme";
 
 /**
  * TASK-172 — porta de `ListDetailView.tsx` do web.
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 4,
     right: 4,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: scrim.overImage,
     borderRadius: 999,
     padding: 4,
   },

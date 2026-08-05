@@ -12,7 +12,7 @@ import { FollowButton } from "@/components/profile/FollowButton";
 import { StatsCarousel } from "@/components/profile/StatsCarousel";
 import { PublicFavoritesSection } from "@/components/profile/PublicFavoritesSection";
 import { PublicLibrarySection } from "@/components/profile/PublicLibrarySection";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(11,14,20,0.7)",
+    backgroundColor: scrim.overImage,
     alignItems: "center",
     justifyContent: "center",
   },

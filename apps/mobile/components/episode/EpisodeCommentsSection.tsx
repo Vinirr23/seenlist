@@ -10,7 +10,7 @@ import { EpisodeCommentItem } from "./EpisodeCommentItem";
 import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { hapticTick } from "@/lib/haptics";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 /** TASK-153 — achata a árvore inteira (comentário + respostas, em qualquer nível) numa lista simples de ids, pra buscar curtida de todo mundo de uma vez. */
 function flattenCommentIds(nodes: CommentNode[]): string[] {
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "rgba(11,14,20,0.75)",
+    backgroundColor: scrim.control,
     alignItems: "center",
     justifyContent: "center",
   },

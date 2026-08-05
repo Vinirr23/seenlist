@@ -14,7 +14,7 @@ import { SpoilerGate } from "@/components/reviews/SpoilerGate";
 import { Screen, Text, Button } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "rgba(11,14,20,0.75)",
+    backgroundColor: scrim.control,
     alignItems: "center",
     justifyContent: "center",
   },

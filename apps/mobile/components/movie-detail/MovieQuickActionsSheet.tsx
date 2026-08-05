@@ -7,7 +7,7 @@ import { addToList } from "@/lib/lists";
 import { removeMovieFromLibrary } from "@/lib/movieDetails";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, scrim } from "@/lib/theme";
 import { RecommendSheet } from "../social/RecommendSheet";
 
 export interface MovieQuickActionsSheetProps {
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: scrim.modal,
   },
   sheet: {
     backgroundColor: colors.surface,

@@ -15,7 +15,7 @@ import { StatisticsCard } from "@/components/profile/StatisticsCard";
 import { ProfileRecommendationsPreview } from "@/components/profile/ProfileRecommendationsPreview";
 import { ProfileListsPreview } from "@/components/profile/ProfileListsPreview";
 import { ProfileMediaCarousel } from "@/components/profile/ProfileMediaCarousel";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: scrim.overImage,
   },
   bannerIconsRight: {
     position: "absolute",
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: scrim.overImage,
   },
   bannerIconButtonFlat: {
     height: 36,

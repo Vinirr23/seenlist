@@ -5,7 +5,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { SeriesDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
-import { colors, spacing } from "@/lib/theme";
+import { colors, spacing, scrim } from "@/lib/theme";
 
 /**
  * CORREÇÃO (a pedido — auditoria mais rigorosa) — evita
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(11,14,20,0.55)",
+    backgroundColor: scrim.overImage,
   },
   backButton: {
     position: "absolute",
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(11,14,20,0.7)",
+    backgroundColor: scrim.overImage,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(11,14,20,0.7)",
+    backgroundColor: scrim.overImage,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: scrim.overImage,
     overflow: "hidden",
   },
   progressFill: {

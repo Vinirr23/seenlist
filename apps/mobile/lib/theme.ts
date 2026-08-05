@@ -65,6 +65,24 @@ export const radius = {
  * diferentes. Três tons oficiais agora, pra usar em vez de inventar
  * uma opacidade nova a cada tela.
  */
+/**
+ * CORREÇÃO (a pedido — auditoria de consistência) — achado real:
+ * "véu escuro" (fundo de modal, camada sobre imagem, fundo de botão
+ * flutuante sobre pôster) aparecia 28 vezes escrito à mão, com DEZ
+ * valores diferentes — e misturando duas cores base (`#000` puro em
+ * uns lugares, a cor de fundo do app `#0B0E14` em outros), o que dá
+ * temperaturas visivelmente diferentes lado a lado. Três papéis
+ * definidos agora:
+ */
+export const scrim = {
+  /** Fundo de modal/bottom sheet — escurece a tela inteira atrás. */
+  modal: "rgba(0,0,0,0.6)",
+  /** Camada sobre imagem, pra texto ficar legível por cima (capa, backdrop). */
+  overImage: "rgba(11,14,20,0.7)",
+  /** Fundo de controle flutuante sobre imagem (botão de voltar, "+" no pôster). */
+  control: "rgba(11,14,20,0.75)",
+} as const;
+
 export const tint = {
   /** Fundo sutil de item selecionado/ativo (linha de lista, chip, opção escolhida). */
   subtle: "rgba(232,163,61,0.12)",

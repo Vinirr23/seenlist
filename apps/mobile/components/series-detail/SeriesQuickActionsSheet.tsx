@@ -7,7 +7,7 @@ import { useMyLists } from "@/lib/useMyLists";
 import { addToList as addSeriesToList } from "@/lib/lists";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, scrim } from "@/lib/theme";
 import { RecommendSheet } from "../social/RecommendSheet";
 
 export interface SeriesQuickActionsSheetProps {
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: scrim.modal,
   },
   sheet: {
     backgroundColor: colors.surface,

@@ -5,7 +5,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { MovieDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 export function MovieHeader({
   movie,
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(11,14,20,0.35)",
+    backgroundColor: scrim.overImage,
   },
   backButton: {
     position: "absolute",
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(11,14,20,0.7)",
+    backgroundColor: scrim.overImage,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(11,14,20,0.7)",
+    backgroundColor: scrim.overImage,
     alignItems: "center",
     justifyContent: "center",
   },

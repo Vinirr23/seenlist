@@ -8,7 +8,7 @@ import { fetchLibraryStatusesFor } from "@/lib/discover";
 import { tmdbImageUrl } from "@/lib/library";
 import { AddToLibraryButton } from "./AddToLibraryButton";
 import { Text } from "@/components/ui";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
 
 const CARD_WIDTH = 112;
 
@@ -118,7 +118,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   card: {
+    // CORREÇÃO (auditoria de consistência) — mesma elevação do
+    // pôster de `PosterGrid.tsx`: os dois são "pôster de mídia numa
+    // lista", não faz sentido um ter profundidade e o outro não.
+    // Sombra vai no wrapper de FORA (o de dentro tem `overflow:
+    // hidden`, que cortaria a sombra).
+    ...elevation.low,
     width: CARD_WIDTH,
+    borderRadius: radius.md,
   },
   posterWrapper: {
     position: "relative",

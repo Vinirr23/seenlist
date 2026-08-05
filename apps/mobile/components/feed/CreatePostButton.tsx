@@ -9,7 +9,7 @@ import { pickImageFromLibrary, uploadPostImage } from "@/lib/imageUpload";
 import { Text, Button } from "@/components/ui";
 import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, elevation, scrim } from "@/lib/theme";
 
 const MAX_LENGTH = 500;
 const MAX_POLL_OPTIONS = 4;
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: scrim.modal,
   },
   sheet: {
     backgroundColor: colors.surface,
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "rgba(11,14,20,0.75)",
+    backgroundColor: scrim.control,
     alignItems: "center",
     justifyContent: "center",
   },

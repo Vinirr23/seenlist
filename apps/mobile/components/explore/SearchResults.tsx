@@ -7,7 +7,7 @@ import { useSearchMedia } from "@/lib/useSearchMedia";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
 
 export function SearchResults({ query }: { query: string }) {
   const { data, isLoading, isError } = useSearchMedia(query);
@@ -93,6 +93,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   card: {
+    // CORREÇÃO (auditoria de consistência) — card de conteúdo dentro
+    // de lista, mesma natureza de `ReviewCard`/`PostCard`/comentário,
+    // que já ganharam elevação. Sem isso, a busca era a única lista
+    // do app com card totalmente plano.
+    ...elevation.low,
     flexDirection: "row",
     gap: spacing.sm,
     borderWidth: 1,

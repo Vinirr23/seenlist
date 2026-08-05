@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { colors, radius, spacing, elevation } from "@/lib/theme";
+import { colors, radius, spacing, elevation, scrim } from "@/lib/theme";
 
 const COLUMNS = 3;
 const GAP = spacing.sm;
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 4,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: scrim.overImage,
   },
   progressFill: {
     height: "100%",

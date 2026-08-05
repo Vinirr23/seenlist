@@ -1,6 +1,6 @@
 import { View, Modal, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
-import { colors, radius, spacing, tint } from "@/lib/theme";
+import { colors, radius, spacing, tint, scrim } from "@/lib/theme";
 
 export interface OptionSheetAction {
   label: string;
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: scrim.modal,
     padding: spacing.xl,
   },
   card: {
