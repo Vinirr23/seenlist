@@ -13,7 +13,6 @@ import { RecommendationQuickActionsSheet } from "@/components/social/Recommendat
 import { StreamingProviders } from "@/components/movie-detail/StreamingProviders";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
-import { TrailerCard } from "@/components/media/TrailerCard";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { colors, spacing } from "@/lib/theme";
 
@@ -88,14 +87,14 @@ export default function MovieDetailScreen() {
             {movie.revenue !== null && <MetaRow label="Bilheteria" value={currencyFormatter.format(movie.revenue)} />}
           </View>
 
-          {!!movie.trailerKey && (
-            <View>
-              <Text variant="subtitle" style={styles.sectionTitle}>
-                Trailer
-              </Text>
-              <TrailerCard videoKey={movie.trailerKey} />
-            </View>
-          )}
+          {/*
+           * REVERTIDO TEMPORARIAMENTE (a pedido, urgente — app
+           * publicado travando de verdade) — mesmo motivo de
+           * `app/series/[id].tsx`: `react-native-webview` só saiu
+           * via `eas update` (JS), o `.aab` instalado nunca passou
+           * por build nativo novo com ele dentro. Volta assim que
+           * um `eas build` de verdade rodar.
+           */}
 
           <View>
             <Text variant="subtitle" style={styles.sectionTitle}>
