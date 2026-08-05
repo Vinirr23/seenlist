@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Animated, Dimensions, StyleSheet } from "react-native";
+import { colors } from "@/lib/theme";
 
-const COLORS = ["#E8A33D", "#4FD1C5", "#22c55e", "#a855f7", "#3b82f6", "#F4F1E8"];
+/**
+ * CORREÇÃO (a pedido — auditoria visual, "não parece produto de
+ * nível premium") — achado real: a lista de cores do confete usava
+ * 3 tons genéricos do Tailwind (`#22c55e`, `#a855f7`, `#3b82f6` —
+ * verde/roxo/azul aleatórios, nunca usados em NENHUM outro lugar do
+ * app) misturados com as 3 cores de verdade da marca. Um dos
+ * momentos mais especiais do app (terminar uma série) usava cor que
+ * não é do SeenList — trocado por uma paleta só com tons que já
+ * existem no `theme.ts` (inclui `success`, que já existe e nunca
+ * tinha sido usado aqui).
+ */
+const COLORS = [colors.primary, colors.secondary, colors.success, colors.text, colors.warning, "#7EE0D6"];
 const PARTICLE_COUNT = 30;
 const DURATION_MS = 2600;
 

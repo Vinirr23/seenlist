@@ -2,7 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const COLORS = ["#E8A33D", "#4FD1C5", "#22c55e", "#a855f7", "#3b82f6", "#F4F1E8"];
+/**
+ * CORREÇÃO (a pedido — auditoria visual, "não parece produto de
+ * nível premium") — achado real: a lista de cores do confete usava
+ * 3 tons genéricos do Tailwind (`#22c55e`, `#a855f7`, `#3b82f6` —
+ * verde/roxo/azul aleatórios, nunca usados em NENHUM outro lugar do
+ * app) misturados com as 3 cores de verdade da marca. Um dos
+ * momentos mais especiais do app (terminar uma série) usava cor que
+ * não é do SeenList — trocado por uma paleta só com tons que já
+ * existem no design system (`--color-success`/`--color-warning`,
+ * nunca usados aqui antes). Mesma correção espelhada no mobile
+ * (`ConfettiBurst.tsx`), pra continuar idêntico nas duas
+ * plataformas.
+ */
+const COLORS = ["#E8A33D", "#4FD1C5", "#34C77B", "#F4F1E8", "#F0B429", "#7EE0D6"];
 const PARTICLE_COUNT = 40;
 const DURATION_MS = 2600;
 
