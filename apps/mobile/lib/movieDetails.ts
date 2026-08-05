@@ -43,6 +43,37 @@ export async function setMovieStatus(movieId: number, status: MovieWatchStatus, 
   }
 }
 
+/**
+ * CORREÇÃO (a pedido — auditoria mais rigorosa, achado real: só
+ * existia no web) — porta de `useIncrementMovieRewatch` do web
+ * (TASK-047). Incrementa `rewatch_count` na mesma linha de
+ * `movie_status`, mantém `status="watched"` intocado — nunca cria
+ * outra linha, nunca muda o status. Mesma tabela/coluna do web, sem
+ * migration nova.
+ */
+export async function incrementMovieRewatch(movieId: number): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) throw new Error("not authenticated");
+
+  const { data: row, error: readError } = await supabase
+    .from("movie_status")
+    .select("rewatch_count")
+    .eq("user_id", user.id)
+    .eq("movie_id", movieId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!row) throw new Error("Filme não está marcado como assistido — não dá pra reassistir.");
+
+  const { error: updateError } = await supabase
+    .from("movie_status")
+    .update({ rewatch_count: (row.rewatch_count ?? 0) + 1 })
+    .eq("user_id", user.id)
+    .eq("movie_id", movieId);
+  if (updateError) throw updateError;
+}
+
 /** TASK-172 — favoritar filme, achado real: só existia pra série no mobile. Idêntico a fetchIsFavorite de lib/seriesDetails.ts, mesma tabela genérica `favorites`, só troca media_type. */
 export async function fetchIsMovieFavorite(movieId: number): Promise<boolean> {
   const {

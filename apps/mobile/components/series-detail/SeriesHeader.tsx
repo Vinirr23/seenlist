@@ -7,6 +7,20 @@ import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
 import { colors, spacing } from "@/lib/theme";
 
+/**
+ * CORREÇÃO (a pedido — auditoria mais rigorosa) — evita
+ * `Intl.NumberFormat({ notation: "compact" })` de propósito: é o
+ * mesmo tipo de API "avançada" do `Intl` que já derrubou o Feed em
+ * produção (`Intl.RelativeTimeFormat`, sem suporte garantido no
+ * Hermes dependendo do build). Mais vale um formato mais simples e
+ * SEGURO do que arriscar outro crash igual, por uma linha de nota.
+ */
+function formatCompactCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")} mi`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")} mil`;
+  return String(n);
+}
+
 export function SeriesHeader({
   series,
   watchedCount,
@@ -46,6 +60,15 @@ export function SeriesHeader({
         <Text variant="title" style={styles.title}>
           {series.title}
         </Text>
+        {series.voteAverage > 0 && (
+          <View style={styles.ratingRow}>
+            <Feather name="star" size={11} color={colors.primary} />
+            <Text style={styles.ratingValue}>{series.voteAverage.toFixed(1)}</Text>
+            {series.voteCount > 0 && (
+              <Text style={styles.ratingCount}>· {formatCompactCount(series.voteCount)} avaliações</Text>
+            )}
+          </View>
+        )}
         <Text style={styles.meta}>{[year, seasonsLabel, series.genres[0]].filter(Boolean).join(" · ")}</Text>
       </View>
 
@@ -111,6 +134,21 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     color: "rgba(255,255,255,0.8)",
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 5,
+  },
+  ratingValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  ratingCount: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
   },
   progressRow: {
     position: "absolute",
