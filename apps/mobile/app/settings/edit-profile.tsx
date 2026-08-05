@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -92,8 +92,20 @@ export default function EditProfileScreen() {
         <Text variant="subtitle">Editar perfil</Text>
       </View>
 
+      {/*
+        * CORREÇÃO (auditoria — achado real, mais grave que visual):
+        * esta tela não tinha rolagem NENHUMA (`View` puro) nem
+        * tratamento de teclado. Com banner + avatar + 4 campos +
+        * botão, em aparelho de tela menor o botão "Salvar" ficava
+        * inalcançável — e, com o teclado aberto, os campos de baixo
+        * (Bio, País) ficavam cobertos, sem como rolar até eles.
+        * `ScrollView` + `KeyboardAvoidingView` resolvem os dois.
+        * `keyboardShouldPersistTaps="handled"` deixa tocar em
+        * "Salvar" direto, sem precisar fechar o teclado antes.
+        */}
       {!isLoading && (
-        <View style={styles.content}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.bannerWrapper}>
             {bannerUrl ? (
               <Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />
@@ -134,7 +146,8 @@ export default function EditProfileScreen() {
           <Button onPress={handleSave} loading={saving} disabled={!name.trim() || !username.trim()}>
             Salvar
           </Button>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </Screen>
   );
@@ -184,6 +197,9 @@ function Field({
 const AVATAR_SIZE = 80;
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -194,6 +210,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
     gap: spacing.md,
   },
   bannerWrapper: {

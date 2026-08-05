@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { sendFeedback, type FeedbackType } from "@/lib/settings";
@@ -43,7 +43,15 @@ export default function FeedbackScreen() {
         <Text variant="subtitle">Enviar feedback</Text>
       </View>
 
-      <View style={styles.content}>
+      {/*
+        * CORREÇÃO (auditoria — mesmo achado de `edit-profile.tsx`):
+        * tela de formulário sem rolagem nem tratamento de teclado. O
+        * campo de texto aqui é longo (até 2000 caracteres) e fica
+        * embaixo — com o teclado aberto, ele mesmo e o botão de
+        * enviar ficavam cobertos, sem como rolar até eles.
+        */}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {sent ? (
           <View style={styles.sentBox}>
             <View style={styles.sentIcon}>
@@ -103,12 +111,16 @@ export default function FeedbackScreen() {
             </Button>
           </View>
         )}
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -119,6 +131,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   form: {
     gap: spacing.lg,
