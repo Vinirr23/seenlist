@@ -13,7 +13,6 @@ const UNREAD_POLL_INTERVAL_MS = 30_000;
 const ROUTE_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   series: "tv",
   movies: "film",
-  feed: "rss",
   explore: "compass",
   profile: "user",
 };
@@ -21,7 +20,6 @@ const ROUTE_ICON: Record<string, keyof typeof Feather.glyphMap> = {
 const ROUTE_LABEL_KEY: Record<string, string> = {
   series: "nav.series",
   movies: "nav.movies",
-  feed: "nav.feed",
   explore: "nav.explore",
   profile: "nav.profile",
 };
@@ -34,6 +32,9 @@ const ROUTE_LABEL_KEY: Record<string, string> = {
  * nativa nova; `@expo/vector-icons` já vem dentro do pacote `expo`
  * (histórico da EAS: cota de build já estourou uma vez, então cada
  * dependência nova evitada é um risco a menos).
+ *
+ * ⚠️ Feed escondido temporariamente (ver comentário em `TabsLayout`
+ * abaixo) — só 4 abas visíveis por enquanto.
  *
  * TASK-169 — badge de recomendações não lidas, redesenhado à mão
  * (ver abaixo) — busca de novo a cada 30s enquanto o app está
@@ -127,7 +128,16 @@ export default function TabsLayout() {
     <Tabs tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="series" options={{ title: "Séries" }} />
       <Tabs.Screen name="movies" options={{ title: "Filmes" }} />
-      <Tabs.Screen name="feed" options={{ title: "Feed" }} />
+      {/*
+       * ESCONDIDO TEMPORARIAMENTE (a pedido, urgente — crash
+       * confirmado, "Cannot read property 'prototype' of undefined"
+       * dentro do `PostCard`, causa ainda não encontrada com
+       * certeza) — a rota (`app/(tabs)/feed.tsx`) continua existindo,
+       * só não aparece mais na barra de navegação nem no `<Tabs>`,
+       * pra ninguém mais cair nesse crash enquanto investigo com
+       * calma. Volta assim que a causa for encontrada e corrigida.
+       */}
+      <Tabs.Screen name="feed" options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ title: "Explorar" }} />
       <Tabs.Screen name="profile" options={{ title: "Perfil" }} />
     </Tabs>
