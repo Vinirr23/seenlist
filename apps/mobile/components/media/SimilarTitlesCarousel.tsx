@@ -14,6 +14,11 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  * um componente só serve os dois). Os dados (`series.similar`/
  * `movie.similar`) já vêm de graça na mesma resposta que os detalhes
  * — nenhuma chamada nova precisou ser feita.
+ *
+ * CORREÇÃO (a pedido — auditoria mais rigorosa) — faltava a nota +
+ * ano embaixo do título (`voteAverage`/`year`, o mesmo dado já vem
+ * junto, só não era mostrado) — o web tem desde o refinamento da aba
+ * Sobre.
  */
 export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] }) {
   const router = useRouter();
@@ -24,6 +29,7 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
       {items.map((item) => {
         const posterUrl = tmdbImageUrl(item.posterPath, "w342");
         const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
+        const hasRating = item.voteAverage != null && item.voteAverage > 0;
         return (
           <Pressable key={`${item.mediaType}-${item.id}`} style={styles.card} onPress={() => router.push(href)}>
             <View style={styles.posterWrapper}>
@@ -38,6 +44,22 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
             <Text numberOfLines={1} style={styles.title}>
               {item.title}
             </Text>
+            {(hasRating || item.year) && (
+              <View style={styles.metaRow}>
+                {hasRating && (
+                  <View style={styles.ratingRow}>
+                    <Feather name="star" size={9} color={colors.primary} />
+                    <Text style={styles.rating}>{item.voteAverage!.toFixed(1)}</Text>
+                  </View>
+                )}
+                {hasRating && item.year ? <Text variant="muted" style={styles.dot}>·</Text> : null}
+                {!!item.year && (
+                  <Text variant="muted" style={styles.year}>
+                    {item.year}
+                  </Text>
+                )}
+              </View>
+            )}
           </Pressable>
         );
       })}
@@ -78,5 +100,26 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: "600",
     color: colors.text,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 1,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  rating: {
+    fontSize: 11,
+    color: colors.primary,
+  },
+  dot: {
+    fontSize: 11,
+    marginHorizontal: 3,
+  },
+  year: {
+    fontSize: 11,
   },
 });

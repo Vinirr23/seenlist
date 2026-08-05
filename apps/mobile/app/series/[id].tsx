@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Feather } from "@expo/vector-icons";
 import { useSeriesDetails, useWatchedEpisodes, useSeriesStatus, useIsFavorite, removeSeries } from "@/lib/useSeriesDetails";
 import { dismissRecommendation } from "@/lib/recommendations";
 import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
@@ -115,13 +116,34 @@ export default function SeriesDetailScreen() {
             <View style={styles.section}>
               <Text style={styles.overview}>{series.overview || "Sem sinopse disponível."}</Text>
 
+              {series.genres.length > 0 && (
+                <View style={styles.genreRow}>
+                  {series.genres.map((genre) => (
+                    <View key={genre} style={styles.genreChip}>
+                      <Text style={styles.genreChipText}>{genre}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
               <View style={styles.metaGrid}>
-                <MetaRow label="Status" value={series.status} />
-                <MetaRow label="Estreia" value={series.firstAirDate ?? "—"} />
-                <MetaRow label="Temporadas" value={String(series.numberOfSeasons)} />
-                <MetaRow label="Episódios" value={String(series.numberOfEpisodes)} />
+                <MetaRow label="Status" value={series.status} icon={<Feather name="layers" size={14} color={colors.muted} style={styles.metaIcon} />} />
+                <MetaRow
+                  label="Estreia"
+                  value={series.firstAirDate?.slice(0, 4) ?? "—"}
+                  icon={<Feather name="calendar" size={14} color={colors.muted} style={styles.metaIcon} />}
+                />
+                <MetaRow
+                  label="Temporadas"
+                  value={String(series.numberOfSeasons)}
+                  icon={<Feather name="tv" size={14} color={colors.muted} style={styles.metaIcon} />}
+                />
+                <MetaRow
+                  label="Episódios"
+                  value={String(series.numberOfEpisodes)}
+                  icon={<Feather name="film" size={14} color={colors.muted} style={styles.metaIcon} />}
+                />
                 <MetaRow label="Rede" value={series.networks.join(", ") || "—"} />
-                <MetaRow label="Gêneros" value={series.genres.join(", ") || "—"} />
               </View>
 
               {!!series.trailerKey && (
@@ -137,7 +159,11 @@ export default function SeriesDetailScreen() {
                 <Text variant="subtitle" style={styles.sectionTitle}>
                   Elenco principal
                 </Text>
-                <CastCarousel cast={series.cast} />
+                <CastCarousel
+                  cast={series.cast}
+                  title={series.matchTitle}
+                  year={series.firstAirDate ? Number(series.firstAirDate.slice(0, 4)) : null}
+                />
               </View>
 
               {series.gallery.length > 0 && (
@@ -278,6 +304,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.md,
+  },
+  genreRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  genreChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  genreChipText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.text,
+  },
+  metaIcon: {
+    marginBottom: 4,
   },
   sectionTitle: {
     marginBottom: spacing.sm,

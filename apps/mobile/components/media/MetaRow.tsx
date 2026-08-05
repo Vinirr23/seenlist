@@ -1,4 +1,5 @@
 import { View, StyleSheet } from "react-native";
+import type { ReactNode } from "react";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -10,10 +11,16 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  * mesma peça (uma em `app/series/[id].tsx`, outra em
  * `app/movies/[id].tsx`), cada uma só com texto puro, sem chip
  * nenhum. Um componente só agora, reaproveitado pelos dois.
+ *
+ * `icon` é opcional, um elemento pronto (`<Feather name="calendar"
+ * .../>`) — mesmo padrão do web (`icon={<Calendar .../>}`). Só a
+ * série usa; filme nunca teve ícone nesses cards, nem no próprio web
+ * (`MovieInfo.tsx`).
  */
-export function MetaRow({ label, value }: { label: string; value: string }) {
+export function MetaRow({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
   return (
     <View style={styles.card}>
+      {icon}
       <Text numberOfLines={2} style={styles.value}>
         {value}
       </Text>
@@ -33,8 +40,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
-  },
-  value: {
+  },  value: {
     fontSize: fontSize.sm,
     fontWeight: "700",
     color: colors.text,
