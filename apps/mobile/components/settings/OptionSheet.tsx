@@ -1,6 +1,6 @@
 import { View, Modal, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, tint } from "@/lib/theme";
 
 export interface OptionSheetAction {
   label: string;
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   actionButtonActive: {
-    backgroundColor: "rgba(232,163,61,0.12)",
+    backgroundColor: tint.subtle,
   },
   actionText: {
     fontSize: 14,

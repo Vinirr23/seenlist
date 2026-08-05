@@ -8,7 +8,7 @@ import { fetchFollowList, type FollowListUser } from "@/lib/followList";
 import { sendRecommendation } from "@/lib/recommendations";
 import { hapticTick } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, tint } from "@/lib/theme";
 
 const MAX_MESSAGE_LENGTH = 200;
 
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.sm,
   },
-  personRowSelected: { backgroundColor: "rgba(232,163,61,0.1)" },
+  personRowSelected: { backgroundColor: tint.subtle },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.background, overflow: "hidden" },
   avatarImage: { width: "100%", height: "100%" },
   personName: { fontSize: 14, fontWeight: "500", color: colors.text },

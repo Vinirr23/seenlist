@@ -7,7 +7,7 @@ import { incrementMovieRewatch } from "@/lib/movieDetails";
 import { hapticTick } from "@/lib/haptics";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { Text } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, tint } from "@/lib/theme";
 
 const OPTIONS: { status: MovieWatchStatus; label: string; icon: keyof typeof Feather.glyphMap }[] = [
   { status: "watched", label: "Assistido", icon: "check" },
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   buttonActive: {
     borderColor: colors.primary,
-    backgroundColor: "rgba(232,163,61,0.12)",
+    backgroundColor: tint.subtle,
   },
   label: {
     color: colors.muted,

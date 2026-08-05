@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchReceivedRecommendations, type ReceivedRecommendation } from "@/lib/recommendations";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 
 const AVATAR_SIZE = 32;
 
@@ -139,8 +139,8 @@ const styles = StyleSheet.create({
   },
   /** Contorno/fundo de destaque quando tem recomendação não lida — mesmo ajuste feito no web. */
   cardHighlighted: {
-    borderColor: "rgba(232,163,61,0.6)",
-    backgroundColor: "rgba(232,163,61,0.05)",
+    borderColor: tint.border,
+    backgroundColor: tint.subtle,
   },
   emptyIcon: {
     height: 32,
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(232,163,61,0.12)",
+    backgroundColor: tint.subtle,
   },
   title: {
     flex: 1,

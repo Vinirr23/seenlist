@@ -14,7 +14,7 @@ import {
   type BlockedUser,
 } from "@/lib/recommendations";
 import { Screen, Text, Skeleton } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, tint } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -189,8 +189,8 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   cardUnread: {
-    borderColor: "rgba(232,163,61,0.4)",
-    backgroundColor: "rgba(232,163,61,0.06)",
+    borderColor: tint.border,
+    backgroundColor: tint.subtle,
   },
   cardMain: {
     flex: 1,

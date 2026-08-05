@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { fetchIsSaved, toggleSavePost } from "@/lib/social/savedPosts";
 import { hapticTick } from "@/lib/haptics";
 import { colors } from "@/lib/theme";
@@ -48,7 +48,19 @@ export function SaveButton({ postId, initial }: { postId: string; initial?: bool
 
   return (
     <Pressable onPress={handlePress} hitSlop={8} style={styles.button}>
-      <Feather name="bookmark" size={16} color={isSaved ? colors.primary : colors.muted} />
+      {/*
+        * CORREÇÃO (auditoria de consistência — mesmo achado do
+        * coração e das estrelas) — `Feather` só tem ícone de
+        * CONTORNO: salvar só mudava a cor da linha, nunca preenchia.
+        * O web usa `fill="currentColor"` aqui (`PostCard.tsx`).
+        * `MaterialCommunityIcons` (mesmo pacote, sem dependência
+        * nova) tem "bookmark"/"bookmark-outline".
+        */}
+      <MaterialCommunityIcons
+        name={isSaved ? "bookmark" : "bookmark-outline"}
+        size={18}
+        color={isSaved ? colors.primary : colors.muted}
+      />
     </Pressable>
   );
 }

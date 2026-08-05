@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { fetchPostCommentCount } from "@/lib/social/likes";
 import { Text } from "@/components/ui";
 import { colors, spacing } from "@/lib/theme";
@@ -27,7 +27,8 @@ export function CommentCount({ postId, initial }: { postId: string; initial?: nu
 
   return (
     <View style={styles.row}>
-      <Feather name="message-circle" size={16} color={colors.muted} />
+      {/* CORREÇÃO (auditoria de consistência) — os 3 ícones da fileira de ações do post (curtir/comentar/salvar) tinham 3 tamanhos diferentes (17/16/16 em famílias diferentes). Unificados em 18, mesma família (`MaterialCommunityIcons`), pra alinharem de verdade. */}
+      <MaterialCommunityIcons name="comment-outline" size={18} color={colors.muted} />
       <Text style={styles.count}>{count ?? 0}</Text>
     </View>
   );

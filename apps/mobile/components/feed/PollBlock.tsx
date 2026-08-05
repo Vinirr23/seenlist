@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchPollData, votePoll, type PollData } from "@/lib/social/polls";
 import { Text } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 
 /**
  * TASK-163 — bloco de enquete dentro do PostCard. Antes de votar,
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   resultBarChosen: {
-    backgroundColor: "rgba(232, 163, 61, 0.25)",
+    backgroundColor: tint.strong,
   },
   resultContent: {
     flexDirection: "row",

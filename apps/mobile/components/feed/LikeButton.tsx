@@ -77,7 +77,7 @@ export function LikeButton({
         */}
       <MaterialCommunityIcons
         name={hasLiked ? "heart" : "heart-outline"}
-        size={17}
+        size={18}
         color={hasLiked ? colors.primary : colors.muted}
       />
       <Text style={[styles.count, hasLiked && styles.countActive]}>{count ?? 0}</Text>

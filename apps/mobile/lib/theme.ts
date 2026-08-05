@@ -55,6 +55,25 @@ export const radius = {
  * Espelhada no web (`app/globals.css`, classes `.shadow-card-*`)
  * pras duas plataformas ficarem com a mesma sensação de profundidade.
  */
+/**
+ * CORREÇÃO (a pedido — auditoria de consistência) — achado real: a
+ * cor da marca aparecia escrita à mão (`rgba(232,163,61,...)`) em
+ * 14 lugares, com NOVE opacidades diferentes (0.05, 0.06, 0.1,
+ * 0.12, 0.15, 0.16, 0.25, 0.4, 0.6) — quase sempre pra mesma coisa:
+ * "fundo sutil de item selecionado/destacado". Isso é invisível item
+ * a item, mas somado é o que faz um app parecer montado por pessoas
+ * diferentes. Três tons oficiais agora, pra usar em vez de inventar
+ * uma opacidade nova a cada tela.
+ */
+export const tint = {
+  /** Fundo sutil de item selecionado/ativo (linha de lista, chip, opção escolhida). */
+  subtle: "rgba(232,163,61,0.12)",
+  /** Preenchimento com mais presença — barra de resultado de enquete, destaque forte. */
+  strong: "rgba(232,163,61,0.25)",
+  /** Borda de item destacado (nunca fundo). */
+  border: "rgba(232,163,61,0.4)",
+} as const;
+
 export const elevation = {
   low: {
     shadowColor: "#000",

@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { sendFeedback, type FeedbackType } from "@/lib/settings";
 import { Screen, Text, Button } from "@/components/ui";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 
 const TYPES: { value: FeedbackType; label: string; icon: keyof typeof Feather.glyphMap }[] = [
   { value: "bug", label: "Achei um bug", icon: "alert-triangle" },
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   typeButtonActive: {
     borderColor: colors.primary,
-    backgroundColor: "rgba(232,163,61,0.1)",
+    backgroundColor: tint.subtle,
   },
   typeLabel: {
     fontSize: fontSize.sm,
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "rgba(232,163,61,0.15)",
+    backgroundColor: tint.subtle,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.xs,

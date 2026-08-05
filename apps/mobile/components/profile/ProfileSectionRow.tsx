@@ -1,7 +1,7 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ui";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 
 export function ProfileSectionRow({
   icon,
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(232,163,61,0.12)",
+    backgroundColor: tint.subtle,
   },
   label: {
     fontSize: fontSize.sm,

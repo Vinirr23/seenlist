@@ -1,7 +1,7 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
 import { hapticSelection } from "@/lib/haptics";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, tint } from "@/lib/theme";
 
 const MOODS = [
   { key: "shocked", emoji: "😵", label: "Chocado" },
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   cardActive: {
     borderColor: colors.primary,
-    backgroundColor: "rgba(232,163,61,0.1)",
+    backgroundColor: tint.subtle,
   },
   emoji: {
     fontSize: 22,
