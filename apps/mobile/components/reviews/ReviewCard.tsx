@@ -5,7 +5,7 @@ import { Text } from "@/components/ui";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, elevation } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -37,6 +37,7 @@ export function ReviewCard({ review, initial }: { review: Review; initial?: { co
 
 const styles = StyleSheet.create({
   card: {
+    ...elevation.low,
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,

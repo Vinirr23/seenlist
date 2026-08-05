@@ -8,7 +8,7 @@ import { SpoilerGate } from "@/components/reviews/SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
 import { Text, Button } from "@/components/ui";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -177,6 +177,7 @@ const AVATAR_SIZE = 28;
 
 const styles = StyleSheet.create({
   card: {
+    ...elevation.low,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,

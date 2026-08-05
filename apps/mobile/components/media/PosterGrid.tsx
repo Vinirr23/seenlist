@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, elevation } from "@/lib/theme";
 
 const COLUMNS = 3;
 const GAP = spacing.sm;
@@ -113,7 +113,10 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: GAP,
   },
-  card: {},
+  card: {
+    ...elevation.low,
+    borderRadius: radius.md,
+  },
   posterWrapper: {
     width: "100%",
     aspectRatio: 2 / 3,

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { colors } from "@/lib/theme";
+import { colors, elevation } from "@/lib/theme";
 
 const SIZES = {
   sm: { button: 28, icon: 14 },
@@ -56,11 +56,11 @@ const styles = StyleSheet.create({
   button: {
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+    shadowColor: elevation.low.shadowColor,
+    shadowOpacity: elevation.low.shadowOpacity,
+    shadowRadius: elevation.low.shadowRadius,
+    shadowOffset: elevation.low.shadowOffset,
+    elevation: elevation.low.elevation,
   },
   disabled: {
     opacity: 0.5,

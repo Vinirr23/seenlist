@@ -9,7 +9,7 @@ import { pickImageFromLibrary, uploadPostImage } from "@/lib/imageUpload";
 import { Text, Button } from "@/components/ui";
 import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
 
 const MAX_LENGTH = 500;
 const MAX_POLL_OPTIONS = 4;
@@ -271,11 +271,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    shadowColor: elevation.high.shadowColor,
+    shadowOpacity: elevation.high.shadowOpacity,
+    shadowRadius: elevation.high.shadowRadius,
+    shadowOffset: elevation.high.shadowOffset,
+    elevation: elevation.high.elevation,
   },
   overlay: {
     flex: 1,

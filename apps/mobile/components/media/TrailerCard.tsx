@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { WebView } from "react-native-webview";
 import { Feather } from "@expo/vector-icons";
-import { colors, radius } from "@/lib/theme";
+import { colors, radius, elevation } from "@/lib/theme";
 
 /**
  * A PEDIDO (confirmação de paridade web/mobile — decisão confirmada:
@@ -82,10 +82,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: elevation.medium.shadowColor,
+    shadowOpacity: elevation.medium.shadowOpacity,
+    shadowRadius: elevation.medium.shadowRadius,
+    elevation: elevation.medium.elevation,
   },
   playIcon: {
     marginLeft: 3,

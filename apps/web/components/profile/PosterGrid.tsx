@@ -83,7 +83,7 @@ function PosterGridItem({
     <Link
       href={href}
       className={cn(
-        "block transition-all duration-300 ease-out",
+        "block rounded-lg shadow-md shadow-black/20 transition-all duration-300 ease-out",
         mounted ? "scale-100 opacity-100" : "scale-95 opacity-0"
       )}
       {...(onLongPress ? longPress : {})}

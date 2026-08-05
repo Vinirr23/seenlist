@@ -178,7 +178,7 @@ export function PostCard({
   return (
     <div
       onClick={goToDetail}
-      className={cn("relative rounded-xl border border-border bg-surface p-3", !detail && "cursor-pointer")}
+      className={cn("relative rounded-xl border border-border bg-surface p-3 shadow-md shadow-black/20", !detail && "cursor-pointer")}
     >
       <div className="flex items-center gap-2.5">
         <Link

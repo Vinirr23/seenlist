@@ -44,6 +44,41 @@ export const radius = {
   full: 999,
 } as const;
 
+/**
+ * CORREÇÃO (a pedido — auditoria visual, "profundidade/sombra") —
+ * achado real: de todo o app, só 4 arquivos usavam sombra, cada um
+ * com valor diferente "no olho" (sem escala) — os mais de 10
+ * componentes de card do app (pôster, review, post, comentário)
+ * eram completamente planos, só cor+borda. Escala de elevação nova,
+ * 3 níveis (baixo → alto), pra usar em vez de inventar valor solto
+ * de novo — mesma disciplina do `spacing`/`radius`/`fontSize`.
+ * Espelhada no web (`app/globals.css`, classes `.shadow-card-*`)
+ * pras duas plataformas ficarem com a mesma sensação de profundidade.
+ */
+export const elevation = {
+  low: {
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  medium: {
+    shadowColor: "#000",
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  high: {
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+} as const;
+
 export const fontSize = {
   xs: 12,
   sm: 14,

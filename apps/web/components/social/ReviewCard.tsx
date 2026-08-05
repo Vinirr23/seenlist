@@ -10,7 +10,7 @@ export function ReviewCard({ review, likeInfo }: { review: Review; likeInfo?: { 
   const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-surface p-3">
+    <div className="space-y-2 rounded-lg border border-border bg-surface p-3 shadow-md shadow-black/20">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-text">{review.author.displayName ?? review.author.username}</span>

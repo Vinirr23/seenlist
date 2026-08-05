@@ -64,7 +64,7 @@ export function CommentItem({
 
   if (editing) {
     return (
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface p-3 shadow-md shadow-black/20">
         <CommentComposer
           initialBody={comment.body ?? ""}
           initialSpoiler={comment.containsSpoiler}
@@ -85,7 +85,7 @@ export function CommentItem({
     <div
       ref={containerRef}
       className={cn(
-        depth === 0 ? "space-y-2 rounded-lg border border-border bg-surface p-3" : "space-y-2",
+        depth === 0 ? "space-y-2 rounded-lg border border-border bg-surface p-3 shadow-md shadow-black/20" : "space-y-2",
         isHighlighted && "ring-2 ring-primary"
       )}
     >

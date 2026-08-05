@@ -12,7 +12,7 @@ import { fetchLikeInfoFor, fetchCommentCountsFor } from "@/lib/social/likes";
 import { fetchSavedStatusesFor } from "@/lib/social/savedPosts";
 import { fetchPollDataFor, type PollData } from "@/lib/social/polls";
 import { supabase } from "@/lib/supabase";
-import { colors, spacing, radius } from "@/lib/theme";
+import { colors, spacing, radius, elevation } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -188,11 +188,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    shadowColor: elevation.medium.shadowColor,
+    shadowOpacity: elevation.medium.shadowOpacity,
+    shadowRadius: elevation.medium.shadowRadius,
+    shadowOffset: elevation.medium.shadowOffset,
+    elevation: elevation.medium.elevation,
   },
   bannerText: {
     color: colors.background,

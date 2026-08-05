@@ -22,7 +22,7 @@ import { useNow } from "@/lib/useNow";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
 
 const SITE_URL = "https://seenlist.app";
 
@@ -279,6 +279,7 @@ export function PostCard({
 
 const styles = StyleSheet.create({
   card: {
+    ...elevation.low,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
