@@ -2,7 +2,7 @@ import { ScrollView, View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Text } from "@/components/ui";
 import { hapticSelection } from "@/lib/haptics";
-import { colors, spacing } from "@/lib/theme";
+import { colors, spacing, fontSize } from "@/lib/theme";
 
 export interface FavoriteCharacterOption {
   id: number;
@@ -91,12 +91,12 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   noPhoto: {
-    fontSize: 9,
+    fontSize: fontSize.micro,
     textAlign: "center",
   },
   name: {
     marginTop: spacing.xs,
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     fontWeight: "500",
     color: colors.text,
     textAlign: "center",

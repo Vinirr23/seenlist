@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   attachButtonText: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
   composerFooter: {
     flexDirection: "row",
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   spoilerLabel: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
   sendButton: {
     paddingHorizontal: spacing.md,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   sendButtonText: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     fontWeight: "700",
     color: colors.background,
   },

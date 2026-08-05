@@ -1,7 +1,7 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
 import { hapticSelection } from "@/lib/haptics";
-import { colors, radius, spacing, tint } from "@/lib/theme";
+import { colors, radius, spacing, tint, fontSize } from "@/lib/theme";
 
 const MOODS = [
   { key: "shocked", emoji: "😵", label: "Chocado" },
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   label: {
-    fontSize: 10,
+    fontSize: fontSize.micro,
     fontWeight: "500",
     color: colors.muted,
     textAlign: "center",

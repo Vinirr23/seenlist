@@ -15,6 +15,7 @@ import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { EpisodeWatchedButton } from "@/components/series-detail/EpisodeWatchedButton";
 import { EpisodeStarRatingRow } from "@/components/episode/EpisodeStarRatingRow";
+import { StarRating } from "@/components/reviews/StarRating";
 import { EpisodeMoodPicker } from "@/components/episode/EpisodeMoodPicker";
 import { EpisodeWatchedPlatformPicker } from "@/components/episode/EpisodeWatchedPlatformPicker";
 import { EpisodeFavoriteCharacterPicker, type FavoriteCharacterOption } from "@/components/episode/EpisodeFavoriteCharacterPicker";
@@ -366,13 +367,35 @@ export default function EpisodeDetailScreen() {
             </View>
           )}
 
-          <View style={styles.communityRow}>
-            <Feather name="star" size={16} color={colors.primary} />
-            <Text variant="muted" style={styles.communityText}>
-              {aggregate.average !== null
-                ? `Avaliação da comunidade: ${aggregate.average.toFixed(1)}/5 (${aggregate.count})`
-                : "Ainda sem avaliações da comunidade"}
-            </Text>
+          {/*
+            * CORREÇÃO (auditoria de consistência web/mobile) — o web
+            * mostra a nota da comunidade com ESTRELAS visuais + o
+            * número em destaque (`HalfStarRating` + texto grande);
+            * aqui era uma linha de texto corrido com tudo espremido
+            * ("Avaliação da comunidade: 4.5/5 (12)"), bem menos
+            * legível e sem nenhum peso visual. Reaproveita o
+            * `StarRating` que já existe, em vez de criar componente
+            * novo.
+            */}
+          <View style={styles.communityBlock}>
+            {aggregate.average !== null ? (
+              <>
+                <View style={styles.communityRow}>
+                  <StarRating value={Math.round(aggregate.average)} size="sm" />
+                  <Text style={styles.communityAverage}>{aggregate.average.toFixed(1)}/5</Text>
+                </View>
+                <Text variant="muted" style={styles.communityCaption}>
+                  Avaliação da comunidade
+                </Text>
+                <Text variant="muted" style={styles.communityCaption}>
+                  {aggregate.count} {aggregate.count === 1 ? "avaliação" : "avaliações"}
+                </Text>
+              </>
+            ) : (
+              <Text variant="muted" style={styles.communityCaption}>
+                Ainda sem avaliações da comunidade
+              </Text>
+            )}
           </View>
 
           {!!ep.overview && (
@@ -528,13 +551,21 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: 2,
   },
+  communityBlock: {
+    gap: 2,
+  },
   communityRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
-  communityText: {
-    fontSize: 12,
+  communityAverage: {
+    fontSize: fontSize.lg,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  communityCaption: {
+    fontSize: fontSize.xs,
   },
   overview: {
     fontSize: 14,

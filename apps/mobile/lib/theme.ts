@@ -116,7 +116,21 @@ export const elevation = {
   },
 } as const;
 
+/**
+ * CORREÇÃO (a pedido — auditoria de consistência) — achado real: a
+ * escala começava em 12, mas o app usa MUITO texto menor que isso
+ * (rótulo embaixo de ícone, contador, legenda) — 71 usos de 9/10/11
+ * escritos à mão, sem token nenhum, então cada tela inventava o
+ * próprio "pequeno". Dois degraus novos abaixo do `xs` fecham essa
+ * lacuna:
+ * - `xxs` (11): legenda, contador, data — o "pequeno" mais comum.
+ * - `micro` (10): rótulo curto embaixo de ícone, selo em caixa alta.
+ * Abaixo de 10 não deve existir (fica ilegível pra muita gente e
+ * some em tela com brilho alto).
+ */
 export const fontSize = {
+  micro: 10,
+  xxs: 11,
   xs: 12,
   sm: 14,
   md: 16,

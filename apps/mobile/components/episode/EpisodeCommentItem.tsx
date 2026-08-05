@@ -224,21 +224,21 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   avatarInitials: {
-    fontSize: 10,
+    fontSize: fontSize.micro,
     fontWeight: "700",
     color: colors.muted,
   },
   authorName: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     fontWeight: "700",
     color: colors.text,
   },
   date: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
   },
   body: {
     marginTop: 2,
-    fontSize: 13,
+    fontSize: fontSize.xs,
     color: colors.text,
   },
   actionsRow: {
@@ -248,10 +248,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   actionLabel: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
   deleteLabel: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     color: colors.danger,
   },
   editInput: {

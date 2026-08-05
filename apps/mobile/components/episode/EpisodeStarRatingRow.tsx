@@ -2,7 +2,7 @@ import { View, Pressable, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Text } from "@/components/ui";
 import { hapticSelection } from "@/lib/haptics";
-import { colors, spacing } from "@/lib/theme";
+import { colors, spacing, fontSize } from "@/lib/theme";
 
 const LEVELS = [
   { value: 1, label: "RUIM" },
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   label: {
-    fontSize: 9,
+    fontSize: fontSize.micro,
     fontWeight: "700",
     letterSpacing: 0.3,
     color: colors.muted,

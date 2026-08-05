@@ -5,7 +5,7 @@ import type { WatchProvider } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
 import { hapticSelection } from "@/lib/haptics";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const FIXED_OPTIONS = [
   { key: "other", label: "Outro", icon: "more-horizontal" as const },
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   },
   label: {
     marginTop: spacing.xs,
-    fontSize: 10,
+    fontSize: fontSize.micro,
     color: colors.muted,
     textAlign: "center",
   },
