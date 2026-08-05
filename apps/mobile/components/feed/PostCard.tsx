@@ -157,10 +157,18 @@ export function PostCard({
     }
   }
 
-  const Wrapper = detail ? View : Pressable;
-
+  /**
+   * CORREÇÃO (bug real, reportado com pilha de componentes — crash
+   * no Feed, "Cannot read property 'prototype' of undefined") —
+   * antes, o componente da tag era escolhido em tempo de execução
+   * (`const Wrapper = detail ? View : Pressable`) — padrão frágil
+   * nesse ambiente (Hermes/bundler), risco real de exatamente esse
+   * tipo de erro. Trocado por SEMPRE `Pressable`, só desligando o
+   * toque (`disabled`) na tela de detalhe — mesmo resultado visual e
+   * de comportamento, sem trocar o componente dinamicamente.
+   */
   return (
-    <Wrapper style={styles.card} {...(detail ? {} : { onPress: handlePress })}>
+    <Pressable style={styles.card} onPress={detail ? undefined : handlePress} disabled={detail}>
       <View style={styles.headerRow}>
         <Pressable
           style={styles.header}
@@ -265,7 +273,7 @@ export function PostCard({
           ]}
         />
       )}
-    </Wrapper>
+    </Pressable>
   );
 }
 
