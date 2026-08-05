@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ScrollView, View, Pressable, Alert, StyleSheet } from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import { View, Pressable, Alert, FlatList, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -18,6 +18,13 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  * comentário já focado pra editar lá) — aqui só ver e apagar; editar
  * o texto de um comentário antigo é uma ação rara o bastante pra não
  * justificar replicar esse fluxo específico agora.
+ *
+ * CORREÇÃO (a pedido — mesmo achado #3 já corrigido no Perfil,
+ * "sem limite nenhum na busca") — `fetchMyComments` busca TODO
+ * comentário que a pessoa já fez, sem limite (correto — não é uma
+ * paginação, é "tudo mesmo"), mas antes desenhava tudo de uma vez
+ * com `ScrollView`+`.map()`, sem virtualização — pra quem comenta
+ * bastante, trava a rolagem. Trocado por `FlatList`.
  */
 export default function MyCommentsScreen() {
   const router = useRouter();
@@ -66,6 +73,45 @@ export default function MyCommentsScreen() {
     ]);
   }
 
+  const renderItem = useCallback(
+    ({ item: comment }: { item: MyComment }) => {
+      const posterUrl = tmdbImageUrl(comment.mediaPosterPath, "w185");
+      const episodeCode =
+        comment.seasonNumber != null && comment.episodeNumber != null ? `T${comment.seasonNumber} · E${comment.episodeNumber}` : null;
+
+      return (
+        <View style={styles.row}>
+          <Pressable style={styles.rowContent} onPress={() => handleOpen(comment)}>
+            <View style={styles.posterWrapper}>
+              {posterUrl ? (
+                <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
+              ) : (
+                <Feather name="film" size={16} color={colors.muted} />
+              )}
+            </View>
+            <View style={styles.info}>
+              <Text numberOfLines={1} variant="muted" style={styles.mediaTitle}>
+                {comment.mediaTitle}
+                {episodeCode ? ` · ${episodeCode}` : ""}
+              </Text>
+              <Text variant="muted" style={styles.date}>
+                {dateFormatter.format(new Date(comment.createdAt))}
+              </Text>
+              <Text numberOfLines={3} style={styles.body}>
+                {comment.containsSpoiler ? "Contém spoiler — toque para ver" : comment.body}
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable hitSlop={8} onPress={() => handleDelete(comment)}>
+            <Feather name="trash-2" size={16} color={colors.danger} />
+          </Pressable>
+        </View>
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   return (
     <Screen padded={false}>
       <View style={styles.header}>
@@ -75,52 +121,26 @@ export default function MyCommentsScreen() {
         <Text variant="subtitle">Comentários</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {isLoading ? (
+      {isLoading ? (
+        <View style={styles.content}>
           <AvatarRowSkeleton />
-        ) : isError ? (
+        </View>
+      ) : isError ? (
+        <View style={styles.content}>
           <PageError message="Não foi possível carregar seus comentários agora." onRetry={load} />
-        ) : !comments || comments.length === 0 ? (
+        </View>
+      ) : !comments || comments.length === 0 ? (
+        <View style={styles.content}>
           <Text variant="muted">Você ainda não fez nenhum comentário.</Text>
-        ) : (
-          <View style={styles.list}>
-            {comments.map((comment) => {
-              const posterUrl = tmdbImageUrl(comment.mediaPosterPath, "w185");
-              const episodeCode =
-                comment.seasonNumber != null && comment.episodeNumber != null ? `T${comment.seasonNumber} · E${comment.episodeNumber}` : null;
-
-              return (
-                <View key={comment.id} style={styles.row}>
-                  <Pressable style={styles.rowContent} onPress={() => handleOpen(comment)}>
-                    <View style={styles.posterWrapper}>
-                      {posterUrl ? (
-                        <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
-                      ) : (
-                        <Feather name="film" size={16} color={colors.muted} />
-                      )}
-                    </View>
-                    <View style={styles.info}>
-                      <Text numberOfLines={1} variant="muted" style={styles.mediaTitle}>
-                        {comment.mediaTitle}
-                        {episodeCode ? ` · ${episodeCode}` : ""}
-                      </Text>
-                      <Text variant="muted" style={styles.date}>
-                        {dateFormatter.format(new Date(comment.createdAt))}
-                      </Text>
-                      <Text numberOfLines={3} style={styles.body}>
-                        {comment.containsSpoiler ? "Contém spoiler — toque para ver" : comment.body}
-                      </Text>
-                    </View>
-                  </Pressable>
-                  <Pressable hitSlop={8} onPress={() => handleDelete(comment)}>
-                    <Feather name="trash-2" size={16} color={colors.danger} />
-                  </Pressable>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
+        </View>
+      ) : (
+        <FlatList
+          data={comments}
+          keyExtractor={(comment) => comment.id}
+          renderItem={renderItem}
+          contentContainerStyle={[styles.content, styles.list]}
+        />
+      )}
     </Screen>
   );
 }

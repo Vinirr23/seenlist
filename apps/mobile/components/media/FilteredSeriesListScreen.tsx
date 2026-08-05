@@ -1,16 +1,36 @@
 import { useMemo } from "react";
-import { View, ScrollView, RefreshControl, Pressable, StyleSheet } from "react-native";
+import { View, RefreshControl, Pressable, FlatList, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text } from "@/components/ui";
-import { PosterGrid } from "./PosterGrid";
+import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "./PosterGrid";
 import { LibraryGridSkeleton } from "./LibraryGridSkeleton";
 import { EmptyShelf } from "./EmptyShelf";
 import { PageError } from "./PageError";
 import { colors, spacing } from "@/lib/theme";
 
+/**
+ * TASK-116/176 — telas "Assistir depois"/"Concluídas"/"Interrompidas"
+ * (Séries), acessadas pelo botão no fim da Home. Um componente só,
+ * reaproveitado pelas 3 (só muda `status`/`title`/`emptyMessage`).
+ *
+ * CORREÇÃO (bug real, reportado com print — pôster colado na barra
+ * de navegação) — essa tela está DENTRO da aba Séries
+ * (`app/(tabs)/series/watchlist.tsx` etc.), então a barra de
+ * navegação (`position: absolute`) fica por cima dela igual — só que
+ * essa tela nunca tinha somado `useTabBarClearance()` no
+ * `paddingBottom`, diferente de toda outra tela com lista dentro de
+ * uma aba (mesmo ajuste já usado em todo canto, ver
+ * `useTabBarClearance.ts`).
+ *
+ * CORREÇÃO (a pedido — mesmo achado #3 já corrigido no Perfil) —
+ * trocado `ScrollView`+`PosterGrid` (desenha tudo de uma vez, sem
+ * limite) por `FlatList` virtualizada — série "Concluídas" pode
+ * crescer bastante ao longo do tempo de uso.
+ */
 export function FilteredSeriesListScreen({
   status,
   title,
@@ -22,6 +42,8 @@ export function FilteredSeriesListScreen({
 }) {
   const router = useRouter();
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
+  const cardWidth = usePosterCardWidth();
+  const tabBarClearance = useTabBarClearance();
 
   const filtered = useMemo(
     () => (items ?? []).filter((item) => item.mediaType === "series" && item.status === status),
@@ -41,20 +63,29 @@ export function FilteredSeriesListScreen({
         <Text variant="subtitle">{title}</Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
-      >
-        {isError ? (
+      {isError ? (
+        <View style={styles.content}>
           <PageError message="Não foi possível carregar sua lista agora. Tente de novo em instantes." onRetry={() => refetch()} />
-        ) : isLoading ? (
+        </View>
+      ) : isLoading ? (
+        <View style={styles.content}>
           <LibraryGridSkeleton />
-        ) : filtered.length === 0 ? (
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.content}>
           <EmptyShelf message={emptyMessage} actionLabel="Explorar séries" actionHref="/(tabs)/explore" />
-        ) : (
-          <PosterGrid items={filtered} onPressItem={handlePressItem} />
-        )}
-      </ScrollView>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          numColumns={3}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+          columnWrapperStyle={styles.gridRow}
+          renderItem={({ item }) => <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} />}
+        />
+      )}
     </Screen>
   );
 }
@@ -73,5 +104,9 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+  gridRow: {
+    gap: POSTER_GRID_GAP,
+    marginBottom: POSTER_GRID_GAP,
   },
 });

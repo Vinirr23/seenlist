@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { ScrollView, View, Pressable, Alert, StyleSheet } from "react-native";
+import { View, Pressable, Alert, FlatList, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -24,6 +24,14 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  * raciocínio do web. Bloquear mora aqui (não em Configurações) por
  * ser a ação mais provável de precisar bem na hora que uma
  * recomendação indesejada chega.
+ *
+ * CORREÇÃO (a pedido — mesmo achado #3 já corrigido no Perfil,
+ * "sem limite nenhum na busca") — `fetchReceivedRecommendations`
+ * busca TODA recomendação já recebida, sem limite (correto — é
+ * "tudo mesmo", não uma paginação faltando), mas desenhava tudo de
+ * uma vez com `ScrollView`+`.map()`. Trocado por `FlatList` — a
+ * seção de usuários bloqueados (bem menor, quase sempre) virou
+ * `ListFooterComponent`, não precisa de lista própria.
  */
 export default function RecommendationsScreen() {
   const router = useRouter();
@@ -75,84 +83,86 @@ export default function RecommendationsScreen() {
         <Text variant="subtitle">Recomendações</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {recommendations === null && (
-          <View style={{ gap: spacing.sm }}>
-            {[0, 1, 2].map((i) => (
-              <View key={i} style={styles.card}>
-                <Skeleton width={56} height={80} borderRadius={radius.sm} />
-                <View style={{ flex: 1, gap: spacing.xs }}>
-                  <Skeleton width="70%" height={12} />
-                  <Skeleton width="50%" height={14} />
-                  <Skeleton width="40%" height={10} />
-                </View>
+      {recommendations === null ? (
+        <View style={[styles.content, { gap: spacing.sm }]}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={styles.card}>
+              <Skeleton width={56} height={80} borderRadius={radius.sm} />
+              <View style={{ flex: 1, gap: spacing.xs }}>
+                <Skeleton width="70%" height={12} />
+                <Skeleton width="50%" height={14} />
+                <Skeleton width="40%" height={10} />
               </View>
-            ))}
-          </View>
-        )}
-
-        {recommendations && recommendations.length === 0 && (
-          <Text variant="muted">Ninguém te recomendou nada ainda.</Text>
-        )}
-
-        {recommendations?.map((rec) => (
-          <View key={rec.id} style={[styles.card, !rec.readAt && styles.cardUnread]}>
-            <Pressable style={styles.cardMain} onPress={() => handleOpen(rec)}>
-              <View style={styles.poster}>
-                {rec.posterPath && (
-                  <Image source={{ uri: `https://image.tmdb.org/t/p/w185${rec.posterPath}` }} style={styles.posterImage} />
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text variant="muted" style={styles.senderLine}>
-                  <Text style={styles.senderName}>{rec.sender.displayName ?? `@${rec.sender.username}`}</Text> recomendou
-                </Text>
-                <Text numberOfLines={1} style={styles.mediaTitle}>
-                  {rec.title}
-                </Text>
-                {!!rec.message && (
-                  <Text numberOfLines={2} variant="muted" style={styles.message}>
-                    &quot;{rec.message}&quot;
-                  </Text>
-                )}
-                <Text variant="muted" style={styles.date}>
-                  {dateFormatter.format(new Date(rec.createdAt))}
-                </Text>
-              </View>
-            </Pressable>
-
-            <View style={styles.cardActions}>
-              <Pressable onPress={() => handleDismiss(rec.id)} hitSlop={8}>
-                <Feather name="x" size={16} color={colors.muted} />
-              </Pressable>
-              <Pressable onPress={() => handleBlock(rec)} hitSlop={8}>
-                <Feather name="slash" size={16} color={colors.muted} />
-              </Pressable>
             </View>
-          </View>
-        ))}
-
-        {blockedUsers.length > 0 && (
-          <View style={styles.blockedSection}>
-            <Pressable style={styles.blockedToggle} onPress={() => setShowBlocked((v) => !v)}>
-              <Text variant="muted" style={styles.blockedToggleText}>
-                Usuários bloqueados ({blockedUsers.length})
-              </Text>
-              <Feather name={showBlocked ? "chevron-up" : "chevron-down"} size={16} color={colors.muted} />
-            </Pressable>
-
-            {showBlocked &&
-              blockedUsers.map((user) => (
-                <View key={user.userId} style={styles.blockedRow}>
-                  <Text style={styles.blockedName}>{user.displayName ?? `@${user.username}`}</Text>
-                  <Pressable onPress={() => unblockUser(user.userId).then(reload)}>
-                    <Text style={styles.unblockText}>Desbloquear</Text>
-                  </Pressable>
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={recommendations}
+          keyExtractor={(rec) => rec.id}
+          contentContainerStyle={styles.content}
+          ListEmptyComponent={<Text variant="muted">Ninguém te recomendou nada ainda.</Text>}
+          renderItem={({ item: rec }) => (
+            <View style={[styles.card, !rec.readAt && styles.cardUnread]}>
+              <Pressable style={styles.cardMain} onPress={() => handleOpen(rec)}>
+                <View style={styles.poster}>
+                  {rec.posterPath && (
+                    <Image source={{ uri: `https://image.tmdb.org/t/p/w185${rec.posterPath}` }} style={styles.posterImage} />
+                  )}
                 </View>
-              ))}
-          </View>
-        )}
-      </ScrollView>
+                <View style={{ flex: 1 }}>
+                  <Text variant="muted" style={styles.senderLine}>
+                    <Text style={styles.senderName}>{rec.sender.displayName ?? `@${rec.sender.username}`}</Text> recomendou
+                  </Text>
+                  <Text numberOfLines={1} style={styles.mediaTitle}>
+                    {rec.title}
+                  </Text>
+                  {!!rec.message && (
+                    <Text numberOfLines={2} variant="muted" style={styles.message}>
+                      &quot;{rec.message}&quot;
+                    </Text>
+                  )}
+                  <Text variant="muted" style={styles.date}>
+                    {dateFormatter.format(new Date(rec.createdAt))}
+                  </Text>
+                </View>
+              </Pressable>
+
+              <View style={styles.cardActions}>
+                <Pressable onPress={() => handleDismiss(rec.id)} hitSlop={8}>
+                  <Feather name="x" size={16} color={colors.muted} />
+                </Pressable>
+                <Pressable onPress={() => handleBlock(rec)} hitSlop={8}>
+                  <Feather name="slash" size={16} color={colors.muted} />
+                </Pressable>
+              </View>
+            </View>
+          )}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          ListFooterComponent={
+            blockedUsers.length > 0 ? (
+              <View style={styles.blockedSection}>
+                <Pressable style={styles.blockedToggle} onPress={() => setShowBlocked((v) => !v)}>
+                  <Text variant="muted" style={styles.blockedToggleText}>
+                    Usuários bloqueados ({blockedUsers.length})
+                  </Text>
+                  <Feather name={showBlocked ? "chevron-up" : "chevron-down"} size={16} color={colors.muted} />
+                </Pressable>
+
+                {showBlocked &&
+                  blockedUsers.map((user) => (
+                    <View key={user.userId} style={styles.blockedRow}>
+                      <Text style={styles.blockedName}>{user.displayName ?? `@${user.username}`}</Text>
+                      <Pressable onPress={() => unblockUser(user.userId).then(reload)}>
+                        <Text style={styles.unblockText}>Desbloquear</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+              </View>
+            ) : null
+          }
+        />
+      )}
     </Screen>
   );
 }
@@ -168,7 +178,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    gap: spacing.sm,
   },
   card: {
     flexDirection: "row",
