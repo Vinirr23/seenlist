@@ -92,10 +92,30 @@ export default function SeriesHomeScreen() {
    * poluiria a grade com séries sem nada pendente e nenhum
    * indicativo visual disso.
    */
+  /**
+   * CORREÇÃO (bug real, reportado com print — Tomb Raider King,
+   * "De Caipira a Mestre Espadachim" etc. aparecendo na grade mas
+   * sumindo no modo lista) — mesmo bug já corrigido no web antes
+   * (comentário lá cita os mesmos exemplos: "Tanya the Evil, Daemons
+   * do Reino das Sombras e Rick and Morty"), nunca portado pra essa
+   * segunda parte da correção no mobile. O filtro já incluía "Em
+   * dia" aqui, mas a ORDENAÇÃO continuava numa camada só (só por
+   * `updatedAt`) — uma série "Em dia" mexida recentemente (sem
+   * episódio pendente pra assistir agora) competia pelas mesmas 8
+   * vagas com uma série "Assistindo" de verdade (que TEM episódio
+   * pendente), podendo empurrar essa pra fora do corte. Ordenação em
+   * duas camadas, igual ao web: primeiro por status (watching
+   * sempre antes de up_to_date), dentro de cada grupo por
+   * `updatedAt` — uma série com episódio pendente de verdade nunca
+   * mais perde vaga pra uma que talvez nem tenha nada pra mostrar.
+   */
   const continueWatchingList = useMemo(() => {
     return (items ?? [])
       .filter((item) => item.mediaType === "series" && (item.status === "watching" || item.status === "up_to_date"))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .sort((a, b) => {
+        if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
+        return b.updatedAt.localeCompare(a.updatedAt);
+      })
       .slice(0, CONTINUE_LIMIT);
   }, [items]);
 
