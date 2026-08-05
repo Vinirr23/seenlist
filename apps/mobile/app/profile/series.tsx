@@ -46,7 +46,16 @@ export default function ProfileSeriesScreen() {
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
   const nonEmptyCategories = useMemo(
-    () => SERIES_CATEGORIES.map((category) => ({ ...category, items: series.filter(category.filter) })).filter((c) => c.items.length > 0),
+    () =>
+      SERIES_CATEGORIES.map((category) => ({
+        ...category,
+        // CORREÇÃO (bug real, reportado — "ordem diferente do web") —
+        // faltava ordenar por atividade mais recente primeiro, igual
+        // ao web (`ProfileSeriesSection.tsx`) — antes ficava na
+        // ordem crua que `useLibraryItems` devolvia, sem
+        // significado nenhum pra quem usa.
+        items: series.filter(category.filter).sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)),
+      })).filter((c) => c.items.length > 0),
     [series]
   );
 

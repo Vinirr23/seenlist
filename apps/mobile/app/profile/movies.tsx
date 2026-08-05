@@ -33,7 +33,17 @@ export default function ProfileMoviesScreen() {
   const { viewMode, setViewMode } = useViewModePreference("profile-movies");
   const cardWidth = usePosterCardWidth();
 
-  const watchedMovies = useMemo(() => (items ?? []).filter((item) => item.mediaType === "movie" && item.status === "completed"), [items]);
+  const watchedMovies = useMemo(
+    () =>
+      (items ?? [])
+        .filter((item) => item.mediaType === "movie" && item.status === "completed")
+        // CORREÇÃO (bug real, reportado — "ordem diferente do web") —
+        // mesma correção de `app/profile/series.tsx`: faltava
+        // ordenar por atividade mais recente, igual ao web
+        // (`ProfileMoviesSection.tsx`).
+        .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)),
+    [items]
+  );
 
   function handlePress(item: { mediaType: "movie" | "series"; id: number }) {
     router.push(item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`);
