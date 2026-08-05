@@ -24,7 +24,3 @@ export const SERIES_CATEGORIES: SeriesCategory[] = [
   { slug: "concluidas", label: "Assistidas", barColor: "#22c55e", filter: (i) => i.status === "completed" },
   { slug: "pausadas", label: "Interrompidas", barColor: "#ef4444", filter: (i) => i.status === "paused" },
 ];
-
-export function getSeriesCategoryBySlug(slug: string): SeriesCategory | undefined {
-  return SERIES_CATEGORIES.find((c) => c.slug === slug);
-}

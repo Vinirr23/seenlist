@@ -346,61 +346,6 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   }
 }
 
-/**
- * TASK-143 (reparo, uso único) — desfaz o estrago do bug acima: séries
- * que foram incorretamente movidas de "Em dia" pra "Assistindo" (por
- * causa da contagem zerada) continuam erradas no banco até serem
- * reavaliadas — o recálculo automático só olha séries "Em dia", então
- * nunca mais tocaria nelas sozinho, já que agora estão como
- * "watching". Esta função reavalia TODAS as séries "watching" (com
- * pelo menos 1 episódio assistido) usando a lógica já corrigida
- * (paginada, sem o limite de 20/1000) — quem realmente está em dia
- * volta pra "up_to_date"/"completed"; quem está mesmo atrasada fica
- * como está. Chamar uma vez só (ver instruções de teste).
- */
-export async function repairWatchingSeriesCategories(): Promise<{ corrigidas: number; total: number }> {
-  const {
-    data: { user },
-  } = await getCurrentAuthUser();
-  if (!user) return { corrigidas: 0, total: 0 };
-
-  const { data: statusRows, error: statusError } = await supabase
-    .from("series_status")
-    .select("series_id")
-    .eq("user_id", user.id)
-    .eq("status", "watching");
-  if (statusError || !statusRows || statusRows.length === 0) return { corrigidas: 0, total: 0 };
-
-  const seriesIds = statusRows.map((row) => row.series_id);
-
-  const [watchedCountBySeriesId, episodesBySeriesId, endedBySeriesId] = await Promise.all([
-    fetchWatchedEpisodeCountsBySeriesId(user.id, seriesIds),
-    fetchLiveEpisodesBySeriesId(seriesIds),
-    fetchEndedBySeriesId(seriesIds),
-  ]);
-
-  const updates: { user_id: string; series_id: number; status: LibraryStatus; updated_at: string }[] = [];
-  for (const seriesId of seriesIds) {
-    const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
-    if (liveEpisodes.length === 0) continue;
-
-    const watched = watchedCountBySeriesId.get(seriesId) ?? 0;
-    const ended = endedBySeriesId.get(seriesId) ?? false;
-    const allEpisodesWatched = watched >= liveEpisodes.length;
-    const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
-
-    if (newCategory !== "watching") {
-      updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
-    }
-  }
-
-  if (updates.length > 0) {
-    const { error } = await supabase.from("series_status").upsert(updates, { onConflict: "user_id,series_id" });
-    if (error) console.error("[repairWatchingSeriesCategories] Falha ao gravar correções", error);
-  }
-
-  return { corrigidas: updates.length, total: seriesIds.length };
-}
 
 export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: number): Promise<void> {
   const {

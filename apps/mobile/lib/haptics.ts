@@ -20,12 +20,27 @@ export function hapticTick() {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 }
 
-/** Toque médio — ações mais "decisivas" que um toque leve, mas que ainda não são destrutivas. Usado em: abrir/fechar bottom sheet, puxar-pra-atualizar completar, enviar comentário/post. */
+/**
+ * Toque médio — ações mais "decisivas" que um toque leve, mas que
+ * ainda não são destrutivas.
+ *
+ * ⚠️ AINDA NÃO USADA (achado da auditoria de remoção) — a intenção
+ * original era: abrir/fechar bottom sheet, puxar-pra-atualizar
+ * completar, enviar comentário/post. Mantida de propósito em vez de
+ * apagada: "feedback háptico" é uma tarefa planejada do roadmap, e
+ * apagar agora só pra recriar depois seria retrabalho.
+ */
 export function hapticImpact() {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 }
 
-/** Feedback de sucesso — ação que terminou bem e vale comemorar um pouco mais que um toque comum. Usado em: publicar post, enviar recomendação, terminar uma série/temporada. */
+/**
+ * Feedback de sucesso — ação que terminou bem e vale comemorar um
+ * pouco mais que um toque comum.
+ *
+ * ⚠️ AINDA NÃO USADA (mesmo caso de `hapticImpact` acima) — intenção:
+ * publicar post, enviar recomendação, terminar uma série/temporada.
+ */
 export function hapticSuccess() {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 }

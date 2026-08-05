@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchCurrentUser, type CurrentUser } from "./currentUser";
-import { fetchProfileSectionCounts, type ProfileSectionCounts } from "./profileSectionCounts";
 import { fetchSocialCounts, type SocialCounts } from "./socialCounts";
 
 export function useCurrentUser() {
@@ -23,17 +22,6 @@ export function useCurrentUser() {
   }, [session?.user]);
 
   return { user, isLoading, isError };
-}
-
-export function useProfileSectionCounts(userId: string | null) {
-  const [counts, setCounts] = useState<ProfileSectionCounts | undefined>(undefined);
-
-  useEffect(() => {
-    if (!userId) return;
-    fetchProfileSectionCounts(userId).then(setCounts);
-  }, [userId]);
-
-  return counts;
 }
 
 /**
