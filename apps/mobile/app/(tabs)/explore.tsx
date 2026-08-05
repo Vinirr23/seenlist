@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
@@ -20,12 +20,8 @@ type ExploreTab = "discover" | "activity";
  * do web. A busca é o essencial (é pra onde os botões "Explorar
  * séries"/"Explorar filmes" espalhados pelo app já apontam desde a
  * fundação); Descobrir traz os mesmos carrosséis de tendências do
- * TMDB que o web mostra.
- *
- * Fora do escopo desta leva, de propósito: "Adicionar à Biblioteca"
- * direto no card fica pra quando a tela de detalhes existir —
- * colocar a mutação sem essa tela por
- * perto duplicaria lógica sem um lugar certo pra ela morar.
+ * TMDB que o web mostra ("Adicionar à Biblioteca" direto no card já
+ * existe, `DiscoverCarousel.tsx`/`AddToLibraryButton.tsx`, TASK-152).
  */
 export default function ExploreScreen() {
   const tabBarClearance = useTabBarClearance();
@@ -37,6 +33,17 @@ export default function ExploreScreen() {
   const trendingMovies = useDiscoverList("trending_movies");
   const upcomingMovies = useDiscoverList("upcoming_movies");
   const onTheAir = useDiscoverList("on_the_air_series");
+  // A PEDIDO (adicionar seção que faltava, comparado ao web) —
+  // "Continuar explorando", mistura 6 séries + 6 filmes populares.
+  // A filtragem de item já-na-biblioteca já acontece dentro do
+  // próprio `DiscoverCarousel` (diferente do web, que filtra aqui
+  // fora) — não precisa repetir isso aqui.
+  const popularSeries = useDiscoverList("popular_series");
+  const popularMovies = useDiscoverList("popular_movies");
+  const continuing = useMemo(
+    () => [...popularSeries.items.slice(0, 6), ...popularMovies.items.slice(0, 6)],
+    [popularSeries.items, popularMovies.items]
+  );
 
   return (
     <Screen padded={false}>
@@ -61,6 +68,11 @@ export default function ExploreScreen() {
               <DiscoverCarousel title={t("explore.discover.trendingMovies")} items={trendingMovies.items} isLoading={trendingMovies.isLoading} />
               <DiscoverCarousel title={t("explore.discover.upcomingMovies")} items={upcomingMovies.items} isLoading={upcomingMovies.isLoading} />
               <DiscoverCarousel title={t("explore.discover.onTheAir")} items={onTheAir.items} isLoading={onTheAir.isLoading} />
+              <DiscoverCarousel
+                title={t("explore.discover.keepExploring")}
+                items={continuing}
+                isLoading={popularSeries.isLoading || popularMovies.isLoading}
+              />
             </ScrollView>
           ) : (
             <ActivityTabContent />
