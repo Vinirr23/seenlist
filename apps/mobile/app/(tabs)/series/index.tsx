@@ -11,7 +11,6 @@ import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingListRow";
-import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
@@ -187,10 +186,24 @@ export default function SeriesHomeScreen() {
    */
   const [nextEpisodesLoaded, setNextEpisodesLoaded] = useState(false);
 
+  /**
+   * A PEDIDO — a seção "Faz um tempo que você não assiste" usa o
+   * MESMO card completo do "Continue assistindo"
+   * (`ContinueWatchingListRow`: código do episódio, selo NOVO/MAIS
+   * RECENTE, botão de check rápido) — antes usava um card simples
+   * só com progresso, visualmente inconsistente com o resto da tela.
+   * Por isso a busca de "próximo episódio pendente" precisa cobrir
+   * as duas listas, não só a de cima.
+   */
+  const listNeedingEpisodes = useMemo(
+    () => (viewMode === "list" ? [...continueWatching, ...staleSeries] : []),
+    [viewMode, continueWatching, staleSeries]
+  );
+
   const loadNextEpisodes = useCallback(() => {
-    if (viewMode !== "list" || continueWatching.length === 0) return;
+    if (listNeedingEpisodes.length === 0) return;
     setNextEpisodesLoaded(false);
-    fetchNextEpisodesToWatch(continueWatching.map((item) => item.id))
+    fetchNextEpisodesToWatch(listNeedingEpisodes.map((item) => item.id))
       .then((map) => {
         setNextEpisodes(map);
         setNextEpisodesLoaded(true);
@@ -200,7 +213,7 @@ export default function SeriesHomeScreen() {
         setNextEpisodesLoaded(true); // não trava no esqueleto pra sempre se der erro — cai pro cartão simples
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, continueWatching.map((i) => i.id).join(",")]);
+  }, [listNeedingEpisodes.map((i) => i.id).join(",")]);
 
   useEffect(loadNextEpisodes, [loadNextEpisodes]);
 
@@ -293,23 +306,28 @@ export default function SeriesHomeScreen() {
               </Text>
               {viewMode === "grid" ? (
                 <PosterGrid items={staleSeries} onPressItem={handlePressItem} />
+              ) : !nextEpisodesLoaded ? (
+                <LibraryListSkeleton />
               ) : (
                 <View style={styles.listRows}>
-                  {staleSeries.map((item) => (
-                    <MediaListRow
-                      key={item.id}
-                      item={item}
-                      onPress={handlePressItem}
-                      secondaryText={
-                        item.progress && item.progress.totalEpisodes > 0
-                          ? t("seriesHome.episodeProgress", {
-                              watched: item.progress.watchedEpisodes,
-                              total: item.progress.totalEpisodes,
-                            })
-                          : ""
-                      }
-                    />
-                  ))}
+                  {staleSeries.map((item) => {
+                    const nextEpisode = nextEpisodes.get(item.id);
+                    // Mesma regra do "Continue assistindo": sem
+                    // episódio pendente de verdade, não mostra card
+                    // (evita card meia-boca, sem código nem selo).
+                    if (!nextEpisode) return null;
+                    return (
+                      <ContinueWatchingListRow
+                        key={item.id}
+                        item={item}
+                        nextEpisode={nextEpisode}
+                        onMarkedWatched={() => {
+                          refetchSilently();
+                          loadNextEpisodes();
+                        }}
+                      />
+                    );
+                  })}
                 </View>
               )}
             </View>

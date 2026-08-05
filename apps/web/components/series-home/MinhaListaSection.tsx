@@ -9,7 +9,6 @@ import { ViewModeToggle } from "../media/ViewModeToggle";
 import { ContinueWatchingCard } from "./ContinueWatchingCard";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
-import { MediaListRow } from "../media/MediaListRow";
 import { EmptyShelf } from "../media/EmptyShelf";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
@@ -211,19 +210,18 @@ export function MinhaListaSection() {
               <PosterGrid items={staleSeries} />
             ) : (
               <div className="space-y-3">
+                {/*
+                  * A PEDIDO — mesma correção já feita no mobile: usa
+                  * o MESMO card completo do "Continue assistindo"
+                  * (`ContinueWatchingCard`: código do episódio, selo
+                  * NOVO/MAIS RECENTE, botão de check rápido) em vez
+                  * de um card simples só com progresso, que ficava
+                  * visualmente inconsistente com o resto da tela. O
+                  * componente já sabe voltar `null` sozinho quando a
+                  * série não tem episódio pendente de verdade.
+                  */}
                 {staleSeries.map((item) => (
-                  <MediaListRow
-                    key={item.id}
-                    item={item}
-                    secondaryText={
-                      item.progress && item.progress.totalEpisodes > 0
-                        ? t("seriesHome.episodeProgress", {
-                            watched: item.progress.watchedEpisodes,
-                            total: item.progress.totalEpisodes,
-                          })
-                        : ""
-                    }
-                  />
+                  <ContinueWatchingCard key={item.id} item={item} />
                 ))}
               </div>
             )}
