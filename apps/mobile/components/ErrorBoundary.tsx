@@ -10,6 +10,7 @@ interface Props {
 
 interface State {
   error: Error | null;
+  componentStack: string | null;
 }
 
 /**
@@ -27,14 +28,15 @@ interface State {
  * dia existir um).
  */
 export class ErrorBoundary extends Component<Props, State> {
-  override state: State = { error: null };
+  override state: State = { error: null, componentStack: null };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
   }
 
   override componentDidCatch(error: Error, info: { componentStack: string }) {
     console.error("[ErrorBoundary]", error, info.componentStack);
+    this.setState({ componentStack: info.componentStack });
   }
 
   override render() {
@@ -48,16 +50,19 @@ export class ErrorBoundary extends Component<Props, State> {
             Configurações → Enviar feedback.
           </Text>
           {/*
-           * A PEDIDO (diagnóstico temporário) — mostra o motivo de
-           * verdade na própria tela, pra printar e mandar, sem
-           * precisar de `adb logcat` (o app publicado não tem
-           * terminal do Metro aberto, então esse é o único jeito
-           * fácil de ver o erro sem conectar o celular no PC).
+           * A PEDIDO (diagnóstico temporário) — mostra o motivo E a
+           * pilha de componentes na própria tela, pra printar e
+           * mandar. A mensagem sozinha ("Cannot read property
+           * 'prototype' of undefined") não dizia QUAL componente —
+           * `componentStack` mostra a árvore de componentes que
+           * estava renderizando na hora do erro, de cima pra baixo,
+           * o suficiente pra apontar o arquivo certo.
            */}
           <Text variant="muted" style={styles.errorDetail} selectable>
             {this.state.error.message}
+            {this.state.componentStack ? `\n${this.state.componentStack.trim().split("\n").slice(0, 6).join("\n")}` : ""}
           </Text>
-          <Button onPress={() => this.setState({ error: null })}>Tentar de novo</Button>
+          <Button onPress={() => this.setState({ error: null, componentStack: null })}>Tentar de novo</Button>
         </View>
       );
     }
