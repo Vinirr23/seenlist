@@ -138,7 +138,18 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
       <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
         {/* TASK-136 (correção — teclado cobrindo o campo) — "undefined" no Android não fazia nada; dentro de um Modal, o Android não ajusta a janela sozinho como faz numa tela normal (é uma janela nativa separada) — precisa do KeyboardAvoidingView de verdade. "height" é o comportamento que funciona de forma confiável dentro de Modal no Android ("padding" tem comportamento inconsistente nesse contexto específico). */}
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.overlay}>
-          <View style={styles.sheet}>
+          {/*
+            * CORREÇÃO (bug real, reportado com print — botão
+            * "Publicar" atrás da barra de navegação do Android) — a
+            * folha usava `padding` uniforme, sem somar a área do
+            * sistema embaixo (barra de gestos/botões), então o
+            * último elemento ficava parcialmente coberto. O
+            * `insets` já era calculado neste componente (usado no
+            * botão flutuante), só nunca tinha sido aplicado aqui.
+            * `insets.bottom || spacing.md` garante um respiro
+            * mínimo mesmo em aparelho que reporta 0.
+            */}
+          <View style={[styles.sheet, { paddingBottom: spacing.lg + (insets.bottom || spacing.md) }]}>
             <View style={styles.sheetHeader}>
               <Pressable onPress={() => setOpen(false)} hitSlop={8}>
                 <Text variant="muted">{t("common.cancel")}</Text>
