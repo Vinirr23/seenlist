@@ -3,7 +3,8 @@ import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet } from "re
 import { Link, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Screen, Text, Input, Button } from "@/components/ui";
-import { colors, spacing } from "@/lib/theme";
+import { AuthBrand } from "@/components/auth/AuthBrand";
+import { colors, spacing, fontSize } from "@/lib/theme";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -54,6 +55,8 @@ export default function RegisterScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
+            <AuthBrand compact />
+
             <View>
               <Text variant="title">Criar conta</Text>
               <Text variant="muted" style={styles.subtitle}>
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
   },
   primaryLink: {
     color: colors.primary,
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "600",
   },
 });

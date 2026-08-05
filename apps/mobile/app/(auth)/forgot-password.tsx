@@ -3,7 +3,8 @@ import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet } from "re
 import { Link } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { Screen, Text, Input, Button } from "@/components/ui";
-import { colors, spacing } from "@/lib/theme";
+import { AuthBrand } from "@/components/auth/AuthBrand";
+import { colors, spacing, fontSize } from "@/lib/theme";
 import * as Linking from "expo-linking";
 
 /**
@@ -49,6 +50,8 @@ export default function ForgotPasswordScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
+            <AuthBrand compact />
+
             <View>
               <Text variant="title">Esqueceu a senha?</Text>
               <Text variant="muted" style={styles.subtitle}>
@@ -104,7 +107,7 @@ const styles = StyleSheet.create({
   },
   link: {
     color: colors.primary,
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "600",
     textAlign: "center",
   },

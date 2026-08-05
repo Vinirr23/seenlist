@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet } from "react-native";
-import { Image } from "expo-image";
 import { Link, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Screen, Text, Input, Button } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { AuthBrand } from "@/components/auth/AuthBrand";
+import { colors, spacing, fontSize } from "@/lib/theme";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -48,12 +48,7 @@ export default function LoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
-            <View style={styles.brand}>
-              <Image source={require("@/assets/images/logo.png")} style={styles.logo} />
-              <Text variant="title" style={styles.brandName}>
-                SeenList
-              </Text>
-            </View>
+            <AuthBrand />
 
             <View>
               <Text variant="title">Entrar</Text>
@@ -125,18 +120,6 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.lg,
   },
-  brand: {
-    alignItems: "center",
-    marginBottom: spacing.sm,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    borderRadius: radius.lg,
-  },
-  brandName: {
-    marginTop: spacing.sm,
-  },
   subtitle: {
     marginTop: spacing.xs,
   },
@@ -159,11 +142,11 @@ const styles = StyleSheet.create({
   },
   mutedLink: {
     color: colors.muted,
-    fontSize: 14,
+    fontSize: fontSize.sm,
   },
   primaryLink: {
     color: colors.primary,
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "600",
   },
 });
