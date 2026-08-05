@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { View, ScrollView, RefreshControl, Pressable, StyleSheet } from "react-native";
+import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useUpcomingEpisodes } from "@/lib/useUpcomingEpisodes";
@@ -12,6 +11,7 @@ import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingListRow";
+import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
@@ -25,6 +25,21 @@ import { translateDayLabel } from "@/lib/i18n/dayLabels";
 import { colors, spacing, radius } from "@/lib/theme";
 
 const CONTINUE_LIMIT = 8;
+
+/**
+ * A PEDIDO — seção "Faz um tempo que você não assiste". Série que
+ * está em "Assistindo" mas sem NENHUM episódio marcado há 2 semanas
+ * desce automaticamente de "Continue assistindo" pra essa seção
+ * separada, mais abaixo.
+ *
+ * Usa `lastActivityAt` (não `updatedAt`): esse campo já reflete o
+ * episódio mais recente REALMENTE assistido, não só a última vez que
+ * o status mudou — é o que faz "faz um tempo que você não assiste"
+ * significar o que promete. Sem botão nenhum e sem tela própria (a
+ * pedido) — a seção só aparece quando tem algo nela, e some sozinha
+ * quando a pessoa volta a assistir.
+ */
+const STALE_AFTER_DAYS = 14;
 
 /**
  * TASK-091 — primeira tela de conteúdo real do app nativo (depois da
@@ -93,6 +108,30 @@ export default function SeriesHomeScreen() {
    * indicativo visual disso.
    */
   /**
+   * A PEDIDO — "Faz um tempo que você não assiste": corte por
+   * `lastActivityAt` (episódio realmente assistido), 14 dias. Feito
+   * ANTES das listas de "Continue assistindo" porque as duas
+   * precisam desse mesmo corte pra não mostrar a mesma série nas
+   * duas seções.
+   */
+  const { recentSeries, staleSeries } = useMemo(() => {
+    const cutoff = Date.now() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
+    const allSeries = (items ?? []).filter((item) => item.mediaType === "series");
+    const recent: LibraryItem[] = [];
+    const stale: LibraryItem[] = [];
+
+    for (const item of allSeries) {
+      // Só "watching" pode ficar parada — "Em dia" não tem nada
+      // pendente pra assistir, então não faz sentido cobrar.
+      const isStale = item.status === "watching" && new Date(item.lastActivityAt).getTime() < cutoff;
+      (isStale ? stale : recent).push(item);
+    }
+
+    stale.sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
+    return { recentSeries: recent, staleSeries: stale };
+  }, [items]);
+
+  /**
    * CORREÇÃO (bug real, reportado com print — Tomb Raider King,
    * "De Caipira a Mestre Espadachim" etc. aparecendo na grade mas
    * sumindo no modo lista) — mesmo bug já corrigido no web antes
@@ -110,21 +149,21 @@ export default function SeriesHomeScreen() {
    * mais perde vaga pra uma que talvez nem tenha nada pra mostrar.
    */
   const continueWatchingList = useMemo(() => {
-    return (items ?? [])
-      .filter((item) => item.mediaType === "series" && (item.status === "watching" || item.status === "up_to_date"))
+    return recentSeries
+      .filter((item) => item.status === "watching" || item.status === "up_to_date")
       .sort((a, b) => {
         if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
         return b.updatedAt.localeCompare(a.updatedAt);
       })
       .slice(0, CONTINUE_LIMIT);
-  }, [items]);
+  }, [recentSeries]);
 
   const continueWatchingGrid = useMemo(() => {
-    return (items ?? [])
-      .filter((item) => item.mediaType === "series" && item.status === "watching")
+    return recentSeries
+      .filter((item) => item.status === "watching")
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .slice(0, CONTINUE_LIMIT);
-  }, [items]);
+  }, [recentSeries]);
 
   const continueWatching = viewMode === "grid" ? continueWatchingGrid : continueWatchingList;
 
@@ -240,12 +279,41 @@ export default function SeriesHomeScreen() {
             </View>
           )}
 
-          <View style={styles.linkList}>
-            <ListLinkButton
-              label={t("seriesHome.viewAllWatchlistShort")}
-              onPress={() => router.push("/(tabs)/series/watchlist")}
-            />
-          </View>
+          {/*
+            * A PEDIDO — "Ver todas da lista Assistir depois" removido
+            * daqui. A lista continua acessível normalmente (a rota
+            * `/(tabs)/series/watchlist` não foi apagada), só não
+            * ocupa mais espaço fixo no fim da Home.
+            */}
+
+          {staleSeries.length > 0 && (
+            <View style={styles.staleSection}>
+              <Text variant="subtitle" style={styles.staleTitle}>
+                Faz um tempo que você não assiste
+              </Text>
+              {viewMode === "grid" ? (
+                <PosterGrid items={staleSeries} onPressItem={handlePressItem} />
+              ) : (
+                <View style={styles.listRows}>
+                  {staleSeries.map((item) => (
+                    <MediaListRow
+                      key={item.id}
+                      item={item}
+                      onPress={handlePressItem}
+                      secondaryText={
+                        item.progress && item.progress.totalEpisodes > 0
+                          ? t("seriesHome.episodeProgress", {
+                              watched: item.progress.watchedEpisodes,
+                              total: item.progress.totalEpisodes,
+                            })
+                          : ""
+                      }
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
@@ -283,17 +351,6 @@ export default function SeriesHomeScreen() {
   );
 }
 
-function ListLinkButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={styles.linkButton}>
-      <Text variant="body" style={styles.linkButtonText}>
-        {label}
-      </Text>
-      <Feather name="chevron-right" size={18} color={colors.muted} />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   tabsRow: {
     paddingTop: spacing.sm,
@@ -311,23 +368,11 @@ const styles = StyleSheet.create({
   listRows: {
     gap: spacing.sm,
   },
-  linkList: {
-    marginTop: spacing.lg,
-    gap: spacing.sm,
+  staleSection: {
+    marginTop: spacing.xl,
   },
-  linkButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  linkButtonText: {
-    fontWeight: "600",
+  staleTitle: {
+    marginBottom: spacing.sm,
   },
   groupList: {
     gap: spacing.lg,
