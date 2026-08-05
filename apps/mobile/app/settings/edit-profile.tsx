@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   bannerButtonText: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     fontWeight: "600",
     color: colors.text,
   },
@@ -260,14 +260,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm - 2,
   },
   avatarButtonText: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     color: colors.text,
   },
   field: {
     gap: spacing.xs,
   },
   fieldLabel: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
   },
   inputRow: {
     flexDirection: "row",

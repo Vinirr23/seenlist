@@ -11,7 +11,7 @@ import { SettingsRow } from "@/components/settings/SettingsRow";
 import { VisibilityRow } from "@/components/settings/VisibilityRow";
 import { LanguageRow } from "@/components/settings/LanguageRow";
 import { ChangePasswordModal } from "@/components/settings/ChangePasswordModal";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const SITE_URL = "https://seenlist.app";
 
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     fontWeight: "700",
     letterSpacing: 0.5,
     marginTop: spacing.lg,
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   uidInput: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     color: colors.muted,
     padding: 0,
   },
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 4,
   },
   logoutText: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "600",
     color: colors.danger,
   },

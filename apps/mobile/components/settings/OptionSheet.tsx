@@ -1,6 +1,6 @@
 import { View, Modal, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
-import { colors, radius, spacing, tint, scrim } from "@/lib/theme";
+import { colors, radius, spacing, tint, scrim, fontSize } from "@/lib/theme";
 
 export interface OptionSheetAction {
   label: string;
@@ -86,16 +86,16 @@ const styles = StyleSheet.create({
     backgroundColor: tint.subtle,
   },
   actionText: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: colors.text,
   },
   actionTextActive: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "700",
     color: colors.primary,
   },
   actionTextDanger: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "600",
     color: colors.danger,
   },

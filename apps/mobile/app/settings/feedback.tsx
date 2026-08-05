@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   label: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     fontWeight: "700",
     letterSpacing: 0.5,
     marginBottom: spacing.sm,
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   },
   counter: {
     textAlign: "right",
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     marginTop: 2,
   },
   sentBox: {

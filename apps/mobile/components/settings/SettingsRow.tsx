@@ -36,6 +36,13 @@ export function SettingsRow({
 
 const styles = StyleSheet.create({
   row: {
+    // CORREÇÃO (auditoria de consistência) — altura mínima igual nas
+    // duas linhas de Configurações. `ToggleRow` tem um `Switch`
+    // nativo (~31px de altura) e `SettingsRow` só texto (~18px):
+    // com o mesmo `paddingVertical`, as duas ficavam com alturas
+    // diferentes no MESMO bloco, dando um ritmo visual irregular na
+    // lista. `minHeight` iguala sem esticar o que já é maior.
+    minHeight: 52,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -61,6 +68,6 @@ const styles = StyleSheet.create({
     maxWidth: "55%",
   },
   value: {
-    fontSize: 13,
+    fontSize: fontSize.xs,
   },
 });
