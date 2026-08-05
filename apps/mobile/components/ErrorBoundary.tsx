@@ -47,6 +47,16 @@ export class ErrorBoundary extends Component<Props, State> {
             Essa tela travou de um jeito inesperado. Tenta de novo — se continuar acontecendo, conta pra gente em
             Configurações → Enviar feedback.
           </Text>
+          {/*
+           * A PEDIDO (diagnóstico temporário) — mostra o motivo de
+           * verdade na própria tela, pra printar e mandar, sem
+           * precisar de `adb logcat` (o app publicado não tem
+           * terminal do Metro aberto, então esse é o único jeito
+           * fácil de ver o erro sem conectar o celular no PC).
+           */}
+          <Text variant="muted" style={styles.errorDetail} selectable>
+            {this.state.error.message}
+          </Text>
           <Button onPress={() => this.setState({ error: null })}>Tentar de novo</Button>
         </View>
       );
@@ -71,6 +81,11 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  errorDetail: {
+    textAlign: "center",
+    fontSize: 11,
     marginBottom: spacing.sm,
   },
 });
