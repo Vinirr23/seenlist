@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSeriesSummary } from "@/lib/tmdb/client";
 
 /**
  * A PEDIDO — dashboard de observabilidade. Coleta as métricas
@@ -14,7 +15,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Postgres devolve só o NÚMERO, nunca as linhas. Mesmo com a base
  * crescendo, o custo continua baixo e nenhum dado pessoal trafega.
  */
+/** Vem do RPC `get_observability_stats` — agregações pesadas que o Postgres faz numa passada só. */
+export interface AdvancedStats {
+  retention: {
+    d1: { total: number; retained: number };
+    d7: { total: number; retained: number };
+    d30: { total: number; retained: number };
+  };
+  funnel: { signedUp: number; addedFirstTitle: number; watchedFirstEpisode: number; cameBack: number };
+  topSeries: { series_id: number; tracked: number; title?: string }[];
+  ratings: { average: number; total: number };
+  presence: { onlineNow: number; activeLastHour: number; lastActivityAt: string | null };
+  growth: { today: number; week: number; month: number };
+  engagement: { activeUsers: number; episodes: number; reviews: number; comments: number; posts: number };
+}
+
 export interface ObservabilityMetrics {
+  advanced: AdvancedStats;
   users: { total: number; activeToday: number; active7d: number; active30d: number; newLast7d: number };
   platform: { mobileInstalls: number; mobileActive30d: number; android: number; ios: number };
   activity: { episodesToday: number; episodes7d: number; reviews7d: number; posts7d: number };
@@ -122,7 +139,29 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
 
   const n = (r: { count: number | null }) => r.count ?? 0;
 
+  const { data: advancedRaw, error: advancedError } = await supabase.rpc("get_observability_stats");
+  if (advancedError) throw advancedError;
+  const advanced = advancedRaw as AdvancedStats;
+
+  /**
+   * O RPC devolve só o ID da série (título do TMDB muda fora do
+   * nosso controle, não faz sentido guardar no banco). Resolve os
+   * nomes aqui — só 10 chamadas, em paralelo, e falha de uma não
+   * derruba o painel inteiro: cai pro ID cru.
+   */
+  advanced.topSeries = await Promise.all(
+    (advanced.topSeries ?? []).map(async (item) => {
+      try {
+        const summary = await getSeriesSummary(item.series_id);
+        return { ...item, title: summary.title };
+      } catch {
+        return item;
+      }
+    })
+  );
+
   return {
+    advanced,
     users: {
       total: n(totalUsers),
       activeToday: n(activeToday),
