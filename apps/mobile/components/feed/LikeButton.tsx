@@ -20,13 +20,30 @@ export function LikeButton({
   const [hasLiked, setHasLiked] = useState(initial?.hasLiked ?? false);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * CORREÇÃO (bug real, achado por diagnóstico na tela — "curtida
+   * não atualiza em tempo real") — o Realtime SEMPRE funcionou: o
+   * canal conectava (`SUBSCRIBED`) e os eventos chegavam (contador
+   * de eventos subindo). O problema era aqui: a condição antiga era
+   * `if (initial && count === null)`, ou seja, o componente só
+   * aceitava o valor de fora ENQUANTO ainda não tinha número
+   * nenhum. Depois da primeira vez, toda atualização vinda do
+   * Realtime era silenciosamente descartada — o pai re-renderizava
+   * com o dado novo e este componente continuava mostrando o
+   * antigo.
+   *
+   * Agora sincroniza sempre que o valor de fora muda de verdade. A
+   * comparação campo a campo evita voltar atrás na atualização
+   * otimista: ao curtir, o número muda na hora localmente, e o `initial`
+   * ainda vem com o valor velho por um instante até a busca em lote
+   * terminar — sem essa checagem, o número "piscaria" de volta.
+   */
   useEffect(() => {
-    if (initial && count === null) {
-      setCount(initial.count);
-      setHasLiked(initial.hasLiked);
-    }
+    if (!initial) return;
+    setCount((current) => (current === initial.count ? current : initial.count));
+    setHasLiked((current) => (current === initial.hasLiked ? current : initial.hasLiked));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial]);
+  }, [initial?.count, initial?.hasLiked]);
 
   useEffect(() => {
     if (initial) return; // já veio pronto — não busca de novo

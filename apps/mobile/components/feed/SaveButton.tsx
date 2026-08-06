@@ -8,13 +8,15 @@ import { colors } from "@/lib/theme";
 export function SaveButton({ postId, initial }: { postId: string; initial?: boolean }) {
   const [isSaved, setIsSaved] = useState(initial ?? false);
   const [busy, setBusy] = useState(false);
-  const [hasOwnValue, setHasOwnValue] = useState(initial !== undefined);
 
+  /**
+   * CORREÇÃO (bug real — mesmo achado do `LikeButton`) — a condição
+   * antiga (`!hasOwnValue`) travava o valor depois da primeira vez:
+   * atualização de fora era descartada em silêncio dali em diante.
+   */
   useEffect(() => {
-    if (initial !== undefined && !hasOwnValue) {
-      setIsSaved(initial);
-      setHasOwnValue(true);
-    }
+    if (initial === undefined) return;
+    setIsSaved((current) => (current === initial ? current : initial));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial]);
 

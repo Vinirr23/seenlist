@@ -54,18 +54,6 @@ export default function FeedScreen() {
   const [pollDataByPostId, setPollDataByPostId] = useState<Map<string, PollData>>(new Map());
   const [interactionsLoaded, setInteractionsLoaded] = useState(false);
   const [newPostsCount, setNewPostsCount] = useState(0);
-  /*
-   * DIAGNÓSTICO TEMPORÁRIO — "Realtime não atualiza sozinho". Já
-   * descartamos: código de inscrição (está correto), tabelas fora da
-   * publicação (corrigido por migration) e RLS (política de leitura
-   * de `likes` é `using(true)`, pública). O próximo dado que falta é
-   * o STATUS da inscrição — se o canal sequer conecta. Aparece na
-   * própria tela porque o app publicado não tem terminal do Metro,
-   * mesma abordagem que resolveu o crash do Feed. REMOVER depois de
-   * achar a causa.
-   */
-  const [realtimeStatus, setRealtimeStatus] = useState("iniciando");
-  const [eventCount, setEventCount] = useState(0);
 
   const postIds = posts?.map((p) => p.id) ?? [];
   const postIdsKey = postIds.join(",");
@@ -93,17 +81,14 @@ export default function FeedScreen() {
   useEffect(() => {
     const channel = supabase
       .channel("realtime-feed-interactions")
-      .on("postgres_changes", { event: "*", schema: "public", table: "likes", filter: "target_type=eq.post" }, () => {
-        setEventCount((n) => n + 1);
-        loadInteractions();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, () => {
-        setEventCount((n) => n + 1);
-        loadInteractions();
-      })
-      .subscribe((status, err) => {
-        setRealtimeStatus(err ? `${status}: ${err.message}` : status);
-      });
+      .on("postgres_changes", { event: "*", schema: "public", table: "likes", filter: "target_type=eq.post" }, loadInteractions)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, loadInteractions)
+      // CORREÇÃO (a pedido — "resposta de enquete não atualiza") —
+      // `poll_votes` nunca teve inscrição nenhuma: voto de outra
+      // pessoa só aparecia recarregando a tela. As outras duas
+      // tabelas já estavam aqui desde sempre.
+      .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes" }, loadInteractions)
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
@@ -133,13 +118,6 @@ export default function FeedScreen() {
 
   return (
     <Screen padded={false}>
-      {/* DIAGNÓSTICO TEMPORÁRIO — remover depois de achar a causa. */}
-      <View style={styles.diagBar}>
-        <Text style={styles.diagText}>
-          RT: {realtimeStatus} · eventos: {eventCount}
-        </Text>
-      </View>
-
       {newPostsCount > 0 && (
         <View style={styles.bannerWrapper}>
           <Pressable style={styles.banner} onPress={handleShowNewPosts}>
@@ -187,15 +165,6 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  diagBar: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 4,
-  },
-  diagText: {
-    fontSize: 10,
-    color: colors.muted,
-  },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,

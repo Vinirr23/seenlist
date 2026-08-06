@@ -8,8 +8,16 @@ import { colors, spacing } from "@/lib/theme";
 export function CommentCount({ postId, initial }: { postId: string; initial?: number }) {
   const [count, setCount] = useState<number | null>(initial ?? null);
 
+  /**
+   * CORREÇÃO (bug real — mesmo achado do `LikeButton`: "comentário
+   * não atualiza em tempo real") — a condição antiga
+   * (`count === null`) fazia o componente aceitar o valor de fora só
+   * ENQUANTO ainda não tinha número nenhum. Depois da primeira vez,
+   * toda atualização vinda do Realtime era descartada em silêncio.
+   */
   useEffect(() => {
-    if (initial !== undefined && count === null) setCount(initial);
+    if (initial === undefined) return;
+    setCount((current) => (current === initial ? current : initial));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial]);
 
