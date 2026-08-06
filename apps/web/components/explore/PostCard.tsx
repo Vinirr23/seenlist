@@ -4,13 +4,12 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Bookmark, MoreHorizontal, Share2, Link2, Pencil, Trash2, Star } from "lucide-react";
+import { Heart, MessageCircle, MoreHorizontal, Share2, Link2, Pencil, Trash2, Star } from "lucide-react";
 import type { Post } from "@/lib/queries/posts";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { useEditPost, useDeletePost } from "@/lib/queries/posts";
 import { useHasLiked, useLikeCount, useToggleLike } from "@/lib/queries/social/likes";
 import { usePostCommentCount } from "@/lib/queries/post-comments";
-import { useIsSaved, useToggleSavePost } from "@/lib/queries/saved-posts";
 import { useReportPost } from "@/lib/queries/post-reports";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { PostCommentsSection } from "./PostCommentsSection";
@@ -61,14 +60,12 @@ export function PostCard({
   post,
   detail = false,
   likeInfo,
-  isSaved: isSavedInitial,
   commentCount: commentCountInitial,
 }: {
   post: Post;
   detail?: boolean;
   /** AUDITORIA — quando quem chama já buscou isso em lote (Feed), passa pronto aqui, mesmo padrão do PostCard mobile (TASK-153). */
   likeInfo?: { count: number; hasLiked: boolean };
-  isSaved?: boolean;
   commentCount?: number;
 }) {
   const router = useRouter();
@@ -81,8 +78,6 @@ export function PostCard({
   const { data: likeCount } = useLikeCount("post", post.id, likeInfo?.count);
   const toggleLike = useToggleLike("post", post.id);
   const { data: commentCount } = usePostCommentCount(post.id, commentCountInitial);
-  const { data: isSaved } = useIsSaved(post.id, isSavedInitial);
-  const toggleSave = useToggleSavePost(post.id);
   const reportPost = useReportPost(post.id);
   const editPost = useEditPost(post.id);
   const deletePost = useDeletePost(post.id);
@@ -355,17 +350,6 @@ export function PostCard({
           <MessageCircle className="h-4 w-4" strokeWidth={2} />
           {commentCount ?? 0}
         </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleSave.mutate(Boolean(isSaved));
-          }}
-          aria-label={isSaved ? t("feed.unsave") : t("feed.save")}
-          className={cn("ml-auto flex items-center gap-1.5 text-xs", isSaved ? "text-primary" : "text-muted")}
-        >
-          <Bookmark className="h-4 w-4" strokeWidth={2} fill={isSaved ? "currentColor" : "none"} />
-        </button>
       </div>
 
       {detail && (

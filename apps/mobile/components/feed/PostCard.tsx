@@ -12,7 +12,6 @@ import { Text, Button } from "@/components/ui";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { LikeButton } from "./LikeButton";
 import { CommentCount } from "./CommentCount";
-import { SaveButton } from "./SaveButton";
 import { PostCommentsSection } from "./PostCommentsSection";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { PollBlock } from "./PollBlock";
@@ -53,7 +52,6 @@ export function PostCard({
   detail = false,
   onDeleted,
   likeInfo,
-  isSaved,
   commentCount,
   pollInfo,
 }: {
@@ -62,9 +60,8 @@ export function PostCard({
   onDeleted?: () => void;
   /** TASK-153 — quando quem chama já buscou isso em lote (Feed), passa pronto aqui. */
   likeInfo?: { count: number; hasLiked: boolean };
-  isSaved?: boolean;
   commentCount?: number;
-  /** TASK-163 — mesmo padrão de likeInfo/isSaved/commentCount: Feed busca em lote e passa pronto. */
+  /** TASK-163 — mesmo padrão de likeInfo/commentCount: Feed busca em lote e passa pronto. */
   pollInfo?: PollData;
 }) {
   const router = useRouter();
@@ -258,7 +255,6 @@ export function PostCard({
       <View style={styles.footer}>
         <LikeButton targetType="post" targetId={post.id} initial={likeInfo} />
         <CommentCount postId={post.id} initial={commentCount} />
-        <SaveButton postId={post.id} initial={isSaved} />
       </View>
 
       {detail && <PostCommentsSection postId={post.id} />}

@@ -6,7 +6,6 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { PostCard } from "./PostCard";
 import { CreatePostButton } from "./CreatePostButton";
 import { useLikeInfoBatch } from "@/lib/queries/social/likes";
-import { useSavedStatusesBatch } from "@/lib/queries/saved-posts";
 import { useCommentCountsBatch } from "@/lib/queries/post-comments";
 import { useRealtimePublicInvalidate } from "@/lib/supabase/useRealtimePublicInvalidate";
 import { useNewPostsBanner } from "@/lib/queries/social/useNewPostsBanner";
@@ -54,7 +53,6 @@ export function ExploreFeedTab() {
   const { t } = useTranslation();
 
   const { data: likeInfoByPostId } = useLikeInfoBatch("post", postIds);
-  const { data: savedPostIds } = useSavedStatusesBatch(postIds);
   const { data: commentCountByPostId } = useCommentCountsBatch(postIds);
 
   // Curtida de post de qualquer pessoa (não só a minha) faz a contagem
@@ -92,7 +90,6 @@ export function ExploreFeedTab() {
                 <PostCard
                   post={post}
                   likeInfo={likeInfoByPostId?.get(post.id)}
-                  isSaved={savedPostIds?.has(post.id)}
                   commentCount={commentCountByPostId?.get(post.id)}
                 />
               </div>
