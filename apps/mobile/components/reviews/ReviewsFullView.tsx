@@ -3,8 +3,17 @@ import { View, Pressable, StyleSheet } from "react-native";
 import type { ReviewTarget } from "@/lib/social/reviews";
 import { useReviews } from "@/lib/social/useReviews";
 import { createReviewPost } from "@/lib/posts";
+import {
+  shouldShowRecommendPrompt,
+  markRecommendPromptShown,
+  markRecommendPromptDismissed,
+  markRecommendPromptAccepted,
+} from "@/lib/recommendPrompt";
+import { RecommendPromptSheet } from "@/components/social/RecommendPromptSheet";
+import { RecommendSheet } from "@/components/social/RecommendSheet";
 import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { Text } from "@/components/ui";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { ReviewComposer } from "./ReviewComposer";
 import { ReviewCard } from "./ReviewCard";
@@ -30,6 +39,8 @@ export interface ReviewsFullViewProps {
 export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
   const { othersReviews, myReview, isLoading, saving, submit, remove } = useReviews(target);
   const [postError, setPostError] = useState<string | null>(null);
+  const [promptRating, setPromptRating] = useState<number | null>(null);
+  const [showRecommendSheet, setShowRecommendSheet] = useState(false);
 
   /** TASK-153 — busca a curtida de TODAS as avaliações visíveis de uma vez, não uma por uma. */
   const [likeInfoByReviewId, setLikeInfoByReviewId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
@@ -44,10 +55,34 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [othersReviews.map((r) => r.id).join(",")]);
 
+  /*
+   * DECISÃO DE PRODUTO (a pedido — aba Feed descontinuada) — a
+   * avaliação não é mais publicada no Feed, e a caixa "Publicar
+   * também no Feed" saiu do formulário: oferecer publicar num lugar
+   * que ninguém consegue mais abrir seria enganoso.
+   *
+   * O parâmetro `shareToFeed` continua na assinatura porque o
+   * `ReviewComposer` é compartilhado — ele só chega sempre `false`
+   * agora, já que a caixa não é mais renderizada.
+   */
   async function handleSubmit(rating: number, reviewText: string | null, shareToFeed: boolean) {
     setPostError(null);
     const ok = await submit(rating, reviewText, false);
-    if (!ok || !shareToFeed) return;
+    if (!ok) return;
+
+    /*
+     * A PEDIDO — convite pra recomendar depois de nota alta. Roda
+     * DEPOIS de a avaliação ter sido salva com sucesso (nunca
+     * interrompe o fluxo principal), e as regras de quando aparecer
+     * ficam todas em `lib/recommendPrompt.ts`.
+     */
+    shouldShowRecommendPrompt(rating, { mediaType: target.mediaType, mediaId: target.mediaId }).then((show) => {
+      if (!show) return;
+      setPromptRating(rating);
+      markRecommendPromptShown();
+    });
+
+    if (!shareToFeed) return;
 
     try {
       await createReviewPost(reviewText ?? "", {
@@ -63,14 +98,43 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
     }
   }
 
+  function handleDismissPrompt() {
+    setPromptRating(null);
+    markRecommendPromptDismissed();
+  }
+
+  function handleAcceptPrompt() {
+    setPromptRating(null);
+    markRecommendPromptAccepted();
+    setShowRecommendSheet(true);
+  }
+
   return (
     <View style={styles.wrapper}>
+      {promptRating !== null && (
+        <RecommendPromptSheet
+          mediaTitle={media.title}
+          posterPath={media.posterPath}
+          rating={promptRating}
+          onRecommend={handleAcceptPrompt}
+          onDismiss={handleDismissPrompt}
+        />
+      )}
+
+      {showRecommendSheet && (
+        <RecommendSheet
+          mediaType={target.mediaType}
+          mediaId={target.mediaId}
+          mediaTitle={media.title}
+          onClose={() => setShowRecommendSheet(false)}
+        />
+      )}
+
       <ReviewComposer
         initialRating={myReview?.rating ?? 0}
         initialText={myReview?.reviewText ?? ""}
         hasExistingReview={!!myReview}
         isPending={saving}
-        canShareToFeed
         onSubmit={handleSubmit}
       />
       {!!postError && (
@@ -90,9 +154,7 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
       {isLoading ? (
         <AvatarRowSkeleton count={3} />
       ) : othersReviews.length === 0 ? (
-        <Text variant="muted" style={styles.centerText}>
-          Nenhuma outra avaliação ainda.
-        </Text>
+        <EmptyShelf icon="star" message="Nenhuma outra avaliação ainda." />
       ) : (
         <View style={styles.list}>
           {othersReviews.map((review) => (

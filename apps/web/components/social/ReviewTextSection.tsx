@@ -70,13 +70,20 @@ export function ReviewTextSection({ target, media }: ReviewTextSectionProps) {
 
   return (
     <div className="space-y-4">
+      {/*
+        * DECISÃO DE PRODUTO (a pedido — aba Feed descontinuada) — a
+        * caixa "Publicar também no Feed" saiu daqui (`canShareToFeed`
+        * não é mais passado): oferecer publicar num lugar que ninguém
+        * consegue mais abrir seria enganoso. A prop continua
+        * existindo no componente compartilhado, então voltar é só
+        * passá-la de novo.
+        */}
       <ReviewFullComposer
         initialRating={myReview?.rating ?? 0}
         initialText={myReview?.reviewText}
         hasExistingReview={Boolean(myReview)}
         isPending={upsertReview.isPending}
         isDeleting={deleteReview.isPending}
-        canShareToFeed={Boolean(media)}
         onSubmit={handleSubmit}
         onDelete={() => myReview && deleteReview.mutate(myReview.id)}
       />

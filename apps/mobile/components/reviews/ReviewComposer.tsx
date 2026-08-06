@@ -19,6 +19,12 @@ export interface ReviewComposerProps {
  * rápida (só nota) e review completa (nota + texto) são o mesmo
  * formulário — texto é opcional.
  *
+ * DECISÃO DE PRODUTO (a pedido — aba Feed descontinuada) — a caixa
+ * "Publicar também no Feed" não é mais usada em lugar nenhum:
+ * `canShareToFeed` continua na interface (o componente é
+ * compartilhado, e voltar é só passar a prop de novo), mas nenhuma
+ * tela passa `true` hoje.
+ *
  * A PEDIDO (implementar tudo igual ao web) — "Contém spoiler" saiu
  * (review de mídia inteira raramente precisa disso). "Publicar
  * também no Feed" vem MARCADO por padrão só na PRIMEIRA vez
