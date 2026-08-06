@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchFollowList, type FollowListUser } from "@/lib/followList";
 import { sendRecommendation } from "@/lib/recommendations";
-import { hapticTick } from "@/lib/haptics";
+import { hapticTick, hapticSuccess } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, tint, scrim } from "@/lib/theme";
 
@@ -78,6 +78,9 @@ export function RecommendSheet({
     setSending(true);
     try {
       await sendRecommendation(selectedUserId, mediaType, mediaId, message);
+      // A PEDIDO (feedback háptico) — mesma lógica de publicar post:
+      // é o fim de um fluxo, não uma ação avulsa.
+      hapticSuccess();
       onClose();
     } catch (error) {
       console.error("[RecommendSheet] Falha ao enviar recomendação", error);

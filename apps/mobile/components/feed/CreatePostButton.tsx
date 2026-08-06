@@ -7,7 +7,7 @@ import { createTextPost } from "@/lib/posts";
 import { createPollPost } from "@/lib/social/polls";
 import { pickImageFromLibrary, uploadPostImage } from "@/lib/imageUpload";
 import { Text, Button } from "@/components/ui";
-import { hapticTick } from "@/lib/haptics";
+import { hapticTick, hapticSuccess } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize, elevation, scrim } from "@/lib/theme";
 
@@ -85,6 +85,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
       setPosting(true);
       try {
         await createPollPost(pollQuestion, pollOptions);
+        hapticSuccess();
         setOpen(false);
         onCreated();
       } catch (error) {
@@ -114,6 +115,10 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
     setPosting(true);
     try {
       await createTextPost(body, uploadedImageUrl);
+      // A PEDIDO (feedback háptico) — publicar é o desfecho de um
+      // fluxo inteiro, merece um retorno mais forte que o toque leve
+      // usado em ações comuns (curtir, marcar episódio).
+      hapticSuccess();
       setOpen(false);
       onCreated();
     } catch (error) {

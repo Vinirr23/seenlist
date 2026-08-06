@@ -9,7 +9,7 @@ import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { EpisodeCommentItem } from "./EpisodeCommentItem";
 import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
-import { hapticTick } from "@/lib/haptics";
+import { hapticTick, hapticImpact } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 
 /** TASK-153 — achata a árvore inteira (comentário + respostas, em qualquer nível) numa lista simples de ids, pra buscar curtida de todo mundo de uma vez. */
@@ -87,6 +87,10 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
 
     const ok = await submit(body, markSpoiler, null, uploadedImageUrl);
     if (ok) {
+      // A PEDIDO (feedback háptico) — enviar comentário é mais
+      // "decisivo" que curtir/marcar (é conteúdo publicado, visível
+      // pros outros), então usa o toque médio, não o leve.
+      hapticImpact();
       setBody("");
       setMarkSpoiler(false);
       setImageUri(null);

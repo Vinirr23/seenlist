@@ -12,6 +12,7 @@ import { SeriesHeader } from "@/components/series-detail/SeriesHeader";
 import { SeriesQuickActionsSheet } from "@/components/series-detail/SeriesQuickActionsSheet";
 import { RecommendationQuickActionsSheet } from "@/components/social/RecommendationQuickActionsSheet";
 import { ConfettiBurst } from "@/components/series-detail/ConfettiBurst";
+import { hapticSuccess } from "@/lib/haptics";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
 import { BackdropGallery } from "@/components/media/BackdropGallery";
@@ -69,6 +70,11 @@ export default function SeriesDetailScreen() {
       return;
     }
     if (caughtUpBadge === "ended" && badgeBaselineRef.current.value !== "ended") {
+      // A PEDIDO (feedback háptico) — terminar uma série é o momento
+      // mais especial do app (é o único que já ganha confete). Sem
+      // háptico, a comemoração era só visual: quem está com o som
+      // desligado e não estava olhando na hora não sentia nada.
+      hapticSuccess();
       setShowConfetti(true);
     }
     badgeBaselineRef.current.value = caughtUpBadge;
