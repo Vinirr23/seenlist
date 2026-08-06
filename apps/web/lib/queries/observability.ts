@@ -48,7 +48,14 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
    * avalia filme (sem marcar episódio) não conta aqui. É um piso, não
    * o número exato de usuários ativos.
    */
-  const count = (table: string, build: (q: any) => any) =>
+  /**
+   * Tipo inferido do próprio cliente (em vez de `any`, que a regra de
+   * lint do projeto proíbe — e com razão: `any` aqui esconderia erro
+   * de digitação em nome de coluna nos filtros abaixo).
+   */
+  type CountQuery = ReturnType<ReturnType<typeof supabase.from>["select"]>;
+
+  const count = (table: string, build: (q: CountQuery) => CountQuery) =>
     build(supabase.from(table).select("*", { count: "exact", head: true }));
 
   const [
