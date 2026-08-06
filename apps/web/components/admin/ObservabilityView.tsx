@@ -184,12 +184,15 @@ export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }
       </Section>
 
       <Section title="Saúde">
-        <StatCard
-          label="Denúncias"
-          value={health.pendingReports}
-          hint={health.pendingReports > 0 ? "requer revisão manual" : "nenhuma"}
-          alert={health.pendingReports > 0}
-        />
+        {/* A PEDIDO — o card virou link pra tela de moderação: antes mostrava o número mas não dava pra ver do que se tratava. */}
+        <a href="/admin/moderation" className="contents">
+          <StatCard
+            label="Denúncias"
+            value={health.pendingReports}
+            hint={health.pendingReports > 0 ? "abrir moderação →" : "nenhuma"}
+            alert={health.pendingReports > 0}
+          />
+        </a>
         <StatCard label="Feedback (7 dias)" value={health.feedbackLast7d} />
         <StatCard label="Feedback (total)" value={health.feedbackTotal} />
       </Section>
