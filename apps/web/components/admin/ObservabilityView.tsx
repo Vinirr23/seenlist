@@ -70,8 +70,77 @@ function FunnelRow({ label, value, base }: { label: string; value: number; base:
   );
 }
 
+/**
+ * A PEDIDO — comparação de retenção entre dois grupos. Mostra os dois
+ * lado a lado porque o número absoluto sozinho não decide nada: o que
+ * importa é a DIFERENÇA entre eles.
+ */
+function CohortCompare({
+  title,
+  question,
+  a,
+  b,
+}: {
+  title: string;
+  question: string;
+  a: { label: string; data: { total: number; retainedD1: number; retainedD7: number } };
+  b: { label: string; data: { total: number; retainedD1: number; retainedD7: number } };
+}) {
+  const d7a = a.data.total > 0 ? (a.data.retainedD7 / a.data.total) * 100 : 0;
+  const d7b = b.data.total > 0 ? (b.data.retainedD7 / b.data.total) * 100 : 0;
+  const diff = d7a - d7b;
+  const meaningful = a.data.total >= 20 && b.data.total >= 20;
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-text">{title}</h3>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted">{question}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {[a, b].map((group) => {
+          const d1 = group.data.total > 0 ? Math.round((group.data.retainedD1 / group.data.total) * 100) : 0;
+          const d7 = group.data.total > 0 ? Math.round((group.data.retainedD7 / group.data.total) * 100) : 0;
+          return (
+            <div key={group.label} className="rounded-lg border border-border bg-background p-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{group.label}</p>
+              <p className="mt-1 text-xl font-bold text-text">
+                {d7}% <span className="text-xs font-normal text-muted">D7</span>
+              </p>
+              <p className="text-[11px] text-muted">
+                {d1}% D1 · {group.data.total} pessoas
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {meaningful ? (
+        <p className="text-[11px] leading-relaxed text-muted">
+          {Math.abs(diff) < 3 ? (
+            <>Praticamente sem diferença — este recorte não explica a retenção.</>
+          ) : (
+            <>
+              <span className={diff > 0 ? "font-semibold text-success" : "font-semibold text-danger"}>
+                {diff > 0 ? "+" : ""}
+                {Math.round(diff)} pontos
+              </span>{" "}
+              de diferença no D7 para &quot;{a.label}&quot;.
+            </>
+          )}
+        </p>
+      ) : (
+        <p className="text-[11px] leading-relaxed text-warning">
+          Amostra pequena (menos de 20 pessoas em um dos grupos) — a diferença ainda não é confiável.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }) {
-  const { users, platform, activity, social, health, library, advanced, lastActivity } = metrics;
+  const { users, platform, activity, social, health, library, advanced, lastActivity, cohorts } = metrics;
   const { retention, funnel, topSeries, ratings, presence, growth, activeUsers, engagement } = advanced;
 
   const perActive = (n: number) =>
@@ -164,6 +233,22 @@ export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }
           hint={`${retention.d30.retained} de ${retention.d30.total}`}
         />
       </Section>
+
+      <section className="space-y-3">
+        <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Retenção por grupo</h2>
+        <CohortCompare
+          title="App instalado vs. só site"
+          question="Só quem tem o app recebe aviso de episódio novo — o principal motivo de voltar. Se a diferença for grande, o gargalo é conversão pra mobile, não o produto."
+          a={{ label: "Com app", data: cohorts.withApp }}
+          b={{ label: "Só site", data: cohorts.webOnly }}
+        />
+        <CohortCompare
+          title="Importou biblioteca vs. começou do zero"
+          question="Se quem importou retém pior, o importador traz usuário que vem só buscar os dados e vai embora — e o trabalho é no que acontece depois da importação."
+          a={{ label: "Importou", data: cohorts.imported }}
+          b={{ label: "Do zero", data: cohorts.notImported }}
+        />
+      </section>
 
       <section className="space-y-2">
         <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Funil de onboarding</h2>

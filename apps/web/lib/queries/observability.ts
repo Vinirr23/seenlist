@@ -47,8 +47,24 @@ export interface LastActivity {
   mediaTitle?: string | null;
 }
 
+/** A PEDIDO — retenção quebrada por coorte, pra responder onde investir. */
+export interface CohortRetention {
+  total: number;
+  retainedD1: number;
+  retainedD7: number;
+}
+
+export interface RetentionCohorts {
+  withApp: CohortRetention;
+  webOnly: CohortRetention;
+  imported: CohortRetention;
+  notImported: CohortRetention;
+}
+
 export interface ObservabilityMetrics {
+  cohorts: RetentionCohorts;
   lastActivity: LastActivity;
+  librarians: { withSeries: number; withMovies: number };
   advanced: AdvancedStats;
   users: { total: number; newLast7d: number };
   platform: { mobileInstalls: number; mobileActive30d: number; android: number; ios: number };
@@ -172,6 +188,21 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
     })
   );
 
+  const { data: librariansRaw } = await supabase.rpc("get_library_user_counts");
+  const librarians = (librariansRaw ?? { withSeries: 0, withMovies: 0 }) as {
+    withSeries: number;
+    withMovies: number;
+  };
+
+  const { data: cohortsRaw } = await supabase.rpc("get_retention_cohorts");
+  const empty = { total: 0, retainedD1: 0, retainedD7: 0 };
+  const cohorts = (cohortsRaw ?? {
+    withApp: empty,
+    webOnly: empty,
+    imported: empty,
+    notImported: empty,
+  }) as RetentionCohorts;
+
   const { data: lastActivityRaw } = await supabase.rpc("get_last_activity");
   const lastActivity = (lastActivityRaw ?? {}) as LastActivity;
 
@@ -190,7 +221,9 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
   }
 
   return {
+    cohorts,
     lastActivity,
+    librarians,
     advanced,
     users: {
       total: n(totalUsers),
