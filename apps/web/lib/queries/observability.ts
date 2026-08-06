@@ -27,12 +27,13 @@ export interface AdvancedStats {
   ratings: { average: number; total: number };
   presence: { onlineNow: number; activeLastHour: number; lastActivityAt: string | null };
   growth: { today: number; week: number; month: number };
+  activeUsers: { today: number; week: number; month: number };
   engagement: { activeUsers: number; episodes: number; reviews: number; comments: number; posts: number };
 }
 
 export interface ObservabilityMetrics {
   advanced: AdvancedStats;
-  users: { total: number; activeToday: number; active7d: number; active30d: number; newLast7d: number };
+  users: { total: number; newLast7d: number };
   platform: { mobileInstalls: number; mobileActive30d: number; android: number; ios: number };
   activity: { episodesToday: number; episodes7d: number; reviews7d: number; posts7d: number };
   social: { follows: number; recommendations7d: number; comments7d: number };
@@ -77,9 +78,6 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
 
   const [
     totalUsers,
-    activeToday,
-    active7d,
-    active30d,
     newUsers7d,
     episodesToday,
     episodes7d,
@@ -100,9 +98,6 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
     iosTokens,
   ] = await Promise.all([
     count("profiles", (q) => q),
-    count("watched_episodes", (q) => q.gte("watched_at", today)),
-    count("watched_episodes", (q) => q.gte("watched_at", d7)),
-    count("watched_episodes", (q) => q.gte("watched_at", d30)),
     count("profiles", (q) => q.gte("created_at", d7)),
     count("watched_episodes", (q) => q.gte("watched_at", today)),
     count("watched_episodes", (q) => q.gte("watched_at", d7)),
@@ -164,9 +159,6 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
     advanced,
     users: {
       total: n(totalUsers),
-      activeToday: n(activeToday),
-      active7d: n(active7d),
-      active30d: n(active30d),
       newLast7d: n(newUsers7d),
     },
     activity: {

@@ -49,16 +49,17 @@ export async function fetchReportedPosts(): Promise<ReportedPost[]> {
       .from("posts")
       .select("id, user_id, body, image_url, type, media_title, created_at, deleted_at")
       .in("id", postIds),
-    supabase.from("profiles").select("id, username").in("id", reporterIds),
+    // CORREÇÃO — a chave de `profiles` é `user_id`, não `id`: com `id` a busca não retornava nada e o nome do denunciante/autor vinha sempre vazio.
+    supabase.from("profiles").select("user_id, username").in("user_id", reporterIds),
   ]);
 
   const posts = postsResult.data ?? [];
   const authorIds = [...new Set(posts.map((p) => p.user_id))];
-  const { data: authors } = await supabase.from("profiles").select("id, username, display_name").in("id", authorIds);
+  const { data: authors } = await supabase.from("profiles").select("user_id, username, display_name").in("user_id", authorIds);
 
   const postById = new Map(posts.map((p) => [p.id, p]));
-  const authorById = new Map((authors ?? []).map((a) => [a.id, a]));
-  const reporterById = new Map((reportersResult.data ?? []).map((r) => [r.id, r]));
+  const authorById = new Map((authors ?? []).map((a) => [a.user_id, a]));
+  const reporterById = new Map((reportersResult.data ?? []).map((r) => [r.user_id, r]));
 
   return reports.map((report) => {
     const post = postById.get(report.post_id);

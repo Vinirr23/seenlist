@@ -72,7 +72,7 @@ function FunnelRow({ label, value, base }: { label: string; value: number; base:
 
 export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }) {
   const { users, platform, activity, social, health, library, advanced } = metrics;
-  const { retention, funnel, topSeries, ratings, presence, growth, engagement } = advanced;
+  const { retention, funnel, topSeries, ratings, presence, growth, activeUsers, engagement } = advanced;
 
   const perActive = (n: number) =>
     engagement.activeUsers > 0 ? (n / engagement.activeUsers / 30).toFixed(1) : "0,0";
@@ -105,7 +105,8 @@ export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }
         <StatCard label="Total de usuários" value={users.total} />
         <StatCard label="Novos hoje" value={growth.today} hint={`+${growth.week} na semana`} />
         <StatCard label="Novos (30 dias)" value={growth.month} />
-        <StatCard label="MAU" value={users.active30d} hint="ativos em 30 dias" />
+        {/* CORREÇÃO (bug real, visto no painel: "MAU 773.480" com 381 usuários) — contava LINHAS de episódio assistido, não pessoas. Agora vem do RPC, com `count(distinct user_id)`. */}
+        <StatCard label="MAU" value={activeUsers.month} hint="pessoas ativas em 30 dias" />
       </Section>
 
       <Section title="Retenção">
