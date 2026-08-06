@@ -71,14 +71,27 @@ function FunnelRow({ label, value, base }: { label: string; value: number; base:
 }
 
 export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }) {
-  const { users, platform, activity, social, health, library, advanced } = metrics;
+  const { users, platform, activity, social, health, library, advanced, lastActivity } = metrics;
   const { retention, funnel, topSeries, ratings, presence, growth, activeUsers, engagement } = advanced;
 
   const perActive = (n: number) =>
     engagement.activeUsers > 0 ? (n / engagement.activeUsers / 30).toFixed(1) : "0,0";
 
-  const staleWarning = presence.lastActivityAt
-    ? Date.now() - new Date(presence.lastActivityAt).getTime() > 6 * 60 * 60 * 1000
+  const ACTION_LABEL: Record<string, string> = {
+    episode: "marcou episódio",
+    review: "avaliou",
+    post: "publicou no Feed",
+    comment: "comentou",
+  };
+
+  /**
+   * Alerta de silêncio: agora olha a última ação de QUALQUER tipo
+   * (episódio, avaliação, post, comentário), não só episódio — antes,
+   * uma noite de gente avaliando e postando ainda apareceria como
+   * "sem atividade".
+   */
+  const staleWarning = lastActivity.at
+    ? Date.now() - new Date(lastActivity.at).getTime() > 6 * 60 * 60 * 1000
     : true;
 
   return (
@@ -93,13 +106,38 @@ export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }
       <Section title="Agora">
         <StatCard label="Online agora" value={presence.onlineNow} hint="últimos 5 min" />
         <StatCard label="Ativos (1 hora)" value={presence.activeLastHour} />
-        <StatCard
-          label="Última atividade"
-          value={relativeTime(presence.lastActivityAt)}
-          hint={staleWarning ? "silêncio longo — vale investigar" : undefined}
-          alert={staleWarning}
-        />
       </Section>
+
+      {/*
+        * A PEDIDO — última atividade com contexto (quem, o quê, onde),
+        * em vez de só "há 5 min". Confirma de relance que a atividade
+        * é real, não um resíduo repetido.
+        */}
+      <div
+        className={`rounded-xl border p-4 ${staleWarning ? "border-danger/40 bg-danger/5" : "border-border bg-surface"}`}
+      >
+        <p className="text-xs font-medium uppercase tracking-wide text-muted">Última ação</p>
+        {lastActivity.at ? (
+          <>
+            <p className={`mt-1 text-lg font-bold ${staleWarning ? "text-danger" : "text-text"}`}>
+              {lastActivity.username ? `@${lastActivity.username}` : "alguém"}{" "}
+              <span className="font-normal text-muted">{ACTION_LABEL[lastActivity.kind ?? ""] ?? "agiu"}</span>
+            </p>
+            {(lastActivity.mediaTitle || lastActivity.detail) && (
+              <p className="text-sm text-text">
+                {lastActivity.mediaTitle ?? `#${lastActivity.mediaId}`}
+                {lastActivity.detail && <span className="text-muted"> · {lastActivity.detail}</span>}
+              </p>
+            )}
+            <p className="mt-0.5 text-[11px] text-muted">
+              {relativeTime(lastActivity.at)}
+              {staleWarning && " · silêncio longo, vale investigar"}
+            </p>
+          </>
+        ) : (
+          <p className="mt-1 text-lg font-bold text-danger">Nenhuma atividade registrada</p>
+        )}
+      </div>
 
       <Section title="Crescimento">
         <StatCard label="Total de usuários" value={users.total} />

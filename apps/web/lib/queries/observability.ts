@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getSeriesSummary } from "@/lib/tmdb/client";
+import { getSeriesSummary, getMovieSummary } from "@/lib/tmdb/client";
 
 /**
  * A PEDIDO — dashboard de observabilidade. Coleta as métricas
@@ -31,7 +31,24 @@ export interface AdvancedStats {
   engagement: { activeUsers: number; episodes: number; reviews: number; comments: number; posts: number };
 }
 
+/**
+ * A PEDIDO — última atividade com contexto. "Há 5 min" sozinho
+ * confirma que existe pulso, mas não que o sistema está saudável:
+ * ver QUEM, O QUÊ e EM QUAL título torna a checagem de "está vivo?"
+ * conclusiva de relance.
+ */
+export interface LastActivity {
+  at: string | null;
+  kind: "episode" | "review" | "post" | "comment" | null;
+  mediaType: "movie" | "series" | null;
+  mediaId: number | null;
+  detail: string | null;
+  username: string | null;
+  mediaTitle?: string | null;
+}
+
 export interface ObservabilityMetrics {
+  lastActivity: LastActivity;
   advanced: AdvancedStats;
   users: { total: number; newLast7d: number };
   platform: { mobileInstalls: number; mobileActive30d: number; android: number; ios: number };
@@ -155,7 +172,25 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
     })
   );
 
+  const { data: lastActivityRaw } = await supabase.rpc("get_last_activity");
+  const lastActivity = (lastActivityRaw ?? {}) as LastActivity;
+
+  // Resolve o título da mídia envolvida (série ou filme, conforme o
+  // tipo). Falha aqui não derruba o painel — cai pro texto sem título.
+  if (lastActivity.mediaId && lastActivity.mediaType) {
+    try {
+      const summary =
+        lastActivity.mediaType === "movie"
+          ? await getMovieSummary(lastActivity.mediaId)
+          : await getSeriesSummary(lastActivity.mediaId);
+      lastActivity.mediaTitle = summary.title;
+    } catch {
+      lastActivity.mediaTitle = null;
+    }
+  }
+
   return {
+    lastActivity,
     advanced,
     users: {
       total: n(totalUsers),
