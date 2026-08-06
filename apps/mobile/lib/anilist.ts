@@ -16,7 +16,7 @@ query ($search: String, $perPage: Int) {
       startDate {
         year
       }
-      characters(sort: ROLE, perPage: 12) {
+      characters(sort: ROLE, perPage: 50) {
         edges {
           role
           node {
@@ -148,12 +148,30 @@ export async function getAniListCharacters(title: string, year: number | null): 
 
   if (!best || best.score < 0.7) return { characters: [], searchFailed: false };
 
+  /*
+   * CORREÇÃO (bug real, reportado com print — "mistura personagem e
+   * dublador na mesma fileira"): Rimuru aparecia com foto do
+   * personagem e Veldora/Souei/Hakurou com foto do dublador.
+   *
+   * Duas causas, as duas aqui:
+   *
+   * 1. `perPage: 12` — só 12 personagens eram buscados, enquanto o
+   *    elenco do TMDB mostra até 15. Personagem secundário nem
+   *    chegava a ser considerado.
+   * 2. `main.length >= 3 ? main : edges` — quando havia 3+
+   *    principais, os SECUNDÁRIOS eram DESCARTADOS de propósito.
+   *    Como o elenco do TMDB é ordenado por relevância e inclui
+   *    secundários, eles nunca achavam correspondência e caíam pro
+   *    dublador.
+   *
+   * Agora traz todos (50), com os principais primeiro (`sort: ROLE`
+   * já garante isso) — quem casa, casa; e a lista é grande o
+   * suficiente pra cobrir o elenco inteiro que o TMDB mostra.
+   */
   const edges = best.media.characters.edges;
-  const main = edges.filter((edge) => edge.role === "MAIN");
-  const source = main.length >= 3 ? main : edges;
 
   return {
-    characters: source.slice(0, 12).map((edge) => ({
+    characters: edges.map((edge) => ({
       id: edge.node.id,
       name: edge.node.name.full ?? "?",
       imageUrl: edge.node.image?.large ?? null,

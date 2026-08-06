@@ -65,7 +65,15 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
     <div className="flex gap-3 overflow-x-auto pb-1">
       {cast.map((member) => {
         const characterImage = findCharacterImage(imageByCharacterName, member.character);
-        const photoUrl = characterImage ?? tmdbImage(member.profilePath, "w185");
+        /*
+         * CORREÇÃO (bug real, reportado com print) — quando a série É
+         * anime (achamos personagens), NUNCA cai pro dublador:
+         * misturar foto de personagem animado com foto de dublador na
+         * MESMA fileira é pior que um espaço vazio. Fora de anime, o
+         * comportamento continua igual (foto do ator, que é o certo).
+         */
+        const isAnime = imageByCharacterName.size > 0;
+        const photoUrl = isAnime ? characterImage : tmdbImage(member.profilePath, "w185");
         return (
           <div key={member.id} className="w-24 shrink-0">
             <div className="relative h-32 w-24 overflow-hidden rounded-xl bg-surface">

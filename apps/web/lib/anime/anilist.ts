@@ -25,7 +25,7 @@ query ($search: String, $perPage: Int) {
       startDate {
         year
       }
-      characters(sort: ROLE, perPage: 12) {
+      characters(sort: ROLE, perPage: 50) {
         edges {
           role
           node {
@@ -252,12 +252,21 @@ export async function getAniListCharacters(title: string, year: number | null): 
 
   if (!best || best.score < 0.7) return { characters: [], searchFailed: false };
 
+  /*
+   * CORREÇÃO (bug real, reportado com print — "mistura personagem e
+   * dublador na mesma fileira"). Duas causas, as duas aqui:
+   * 1. `perPage: 12` — só 12 personagens buscados, enquanto o elenco
+   *    do TMDB mostra até 15.
+   * 2. `main.length >= 3 ? main : edges` — os SECUNDÁRIOS eram
+   *    descartados de propósito quando havia 3+ principais. Como o
+   *    elenco do TMDB inclui secundários, eles nunca casavam e caíam
+   *    pro dublador.
+   * Mesma correção espelhada no mobile (`lib/anilist.ts`).
+   */
   const edges = best.media.characters.edges;
-  const main = edges.filter((edge) => edge.role === "MAIN");
-  const source = main.length >= 3 ? main : edges;
 
   return {
-    characters: source.slice(0, 12).map((edge) => ({
+    characters: edges.map((edge) => ({
       id: edge.node.id,
       name: edge.node.name.full ?? "?",
       imageUrl: edge.node.image?.large ?? null,

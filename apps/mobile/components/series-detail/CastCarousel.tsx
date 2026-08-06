@@ -71,7 +71,22 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       {cast.slice(0, 15).map((member) => {
         const characterImage = findCharacterImage(imageByCharacterName, member.character);
-        const photoUrl = characterImage ?? tmdbImageUrl(member.profilePath, "w185");
+        /*
+         * CORREÇÃO (bug real, reportado com print) — quando a série É
+         * anime (achamos personagens), NUNCA cai pro dublador: se um
+         * personagem específico não casar, mostra o ícone genérico em
+         * vez da foto do ator.
+         *
+         * O motivo: misturar foto de personagem animado com foto de
+         * dublador na MESMA fileira é pior que ter um espaço vazio —
+         * quem olha não entende o que está vendo, e parece defeito.
+         * Consistência vale mais que preencher a todo custo.
+         *
+         * Fora de anime (nenhum personagem encontrado), o
+         * comportamento continua igual: foto do ator, que é o certo.
+         */
+        const isAnime = imageByCharacterName.size > 0;
+        const photoUrl = isAnime ? characterImage : tmdbImageUrl(member.profilePath, "w185");
         return (
           <View key={member.id} style={styles.card}>
             <View style={styles.photo}>
