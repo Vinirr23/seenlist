@@ -47,54 +47,80 @@ function buildMessage(
   commentContext: { mediaType: string; mediaId: number; seasonNumber: number | null; episodeNumber: number | null } | null
 ): { title: string; body: string; deepLink: string } | null {
   switch (n.type) {
+    /*
+     * A PEDIDO — texto das notificações reescrito. O padrão antigo
+     * colocava o GENÉRICO no título ("📺 Novo episódio disponível") e
+     * o específico no corpo. Na tela de bloqueio, muita gente lê só a
+     * primeira linha — e ela era idêntica pra toda série, então não
+     * dava pra saber DE QUAL série era sem abrir.
+     *
+     * Agora o título carrega a informação que decide se vale abrir (o
+     * nome da série, a pessoa que agiu), e o corpo complementa. O
+     * emoji continua: ajuda a reconhecer que é do SeenList de relance,
+     * só que agora divide espaço com conteúdo útil em vez de ocupar a
+     * linha inteira sozinho.
+     */
     case "episode_new": {
       const seriesTitle = n.payload?.seriesTitle ?? "";
       const episodeCode = n.payload?.episodeCode ?? "";
       const episodeName = n.payload?.episodeName ?? "";
       return {
-        title: "📺 Novo episódio disponível",
-        body: `${seriesTitle}: ${episodeCode} — ${episodeName}`,
+        title: `📺 ${seriesTitle}`,
+        // O nome do episódio nem sempre vem preenchido pelo TMDB no
+        // dia da estreia — sem esse cuidado, sobrava um traço solto.
+        body: episodeName ? `${episodeCode} já saiu: ${episodeName}` : `${episodeCode} já saiu`,
         deepLink: `/series/${n.target_media_id}/season/${n.target_season_number}/episode/${n.target_episode_number}`,
       };
     }
     case "season_premiere": {
       const seriesTitle = n.payload?.seriesTitle ?? "";
       return {
-        title: "🎬 Nova temporada disponível",
-        body: `${seriesTitle} Temporada ${n.target_season_number} estreou hoje.`,
+        title: `🎬 ${seriesTitle}`,
+        body: `A temporada ${n.target_season_number} estreou hoje.`,
         deepLink: `/series/${n.target_media_id}`,
       };
     }
     case "comment_reply": {
       if (!commentContext) return null;
       const link = commentDeepLink(commentContext, n.target_id);
-      return { title: "💬 Nova resposta", body: `${actorName ?? "Alguém"} respondeu seu comentário.`, deepLink: link };
+      return { title: `💬 ${actorName ?? "Alguém"} respondeu você`, body: "Toque para ver a resposta.", deepLink: link };
     }
     case "comment_like": {
       if (!commentContext) return null;
       const link = commentDeepLink(commentContext, n.target_id);
-      const body =
+      const title =
         n.group_count > 1
-          ? `${n.group_count} pessoas curtiram seu comentário.`
-          : `${actorName ?? "Alguém"} curtiu seu comentário.`;
-      return { title: "❤️ Curtida", body, deepLink: link };
+          ? `❤️ ${n.group_count} pessoas curtiram seu comentário`
+          : `❤️ ${actorName ?? "Alguém"} curtiu seu comentário`;
+      return { title, body: "Toque para ver.", deepLink: link };
     }
     case "review_like": {
       if (!commentContext) return null;
       const link = `/${commentContext.mediaType === "movie" ? "movies" : "series"}/${commentContext.mediaId}#review-${n.target_id}`;
-      const body =
-        n.group_count > 1 ? `${n.group_count} pessoas curtiram sua review.` : `${actorName ?? "Alguém"} curtiu sua review.`;
-      return { title: "⭐ Curtida", body, deepLink: link };
+      const title =
+        n.group_count > 1
+          ? `⭐ ${n.group_count} pessoas curtiram sua avaliação`
+          : `⭐ ${actorName ?? "Alguém"} curtiu sua avaliação`;
+      return { title, body: "Toque para ver.", deepLink: link };
     }
     case "recommendation": {
       const mediaType = n.target_media_type; // "movie" | "series"
       const mediaId = n.target_media_id;
       const customMessage = typeof n.payload?.message === "string" ? n.payload.message : null;
-      const body = customMessage
-        ? `${actorName ?? "Alguém"}: "${customMessage}"`
-        : `${actorName ?? "Alguém"} recomendou um título pra você.`;
+      /*
+       * `mediaTitle` NÃO é gravado hoje pelo gatilho de recomendação
+       * (`20260820000000`, que só guarda `message` no payload) — o
+       * código já cai pro texto sem título. Fica preparado de
+       * propósito: se um dia o gatilho passar a incluir o título,
+       * a notificação melhora sozinha, sem mexer aqui.
+       */
+      const mediaTitle = typeof n.payload?.mediaTitle === "string" ? n.payload.mediaTitle : null;
+      const title = mediaTitle
+        ? `🎁 ${actorName ?? "Alguém"} recomendou ${mediaTitle}`
+        : `🎁 ${actorName ?? "Alguém"} te recomendou um título`;
+      const body = customMessage ? `"${customMessage}"` : "Toque para ver.";
       const deepLink = mediaId && mediaType ? `/${mediaType === "movie" ? "movies" : "series"}/${mediaId}` : "/profile/recommendations";
-      return { title: "🎁 Nova recomendação", body, deepLink };
+      return { title, body, deepLink };
     }
     default:
       return null;
