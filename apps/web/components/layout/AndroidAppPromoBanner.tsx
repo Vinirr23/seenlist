@@ -37,6 +37,23 @@ export function AndroidAppPromoBanner() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    /*
+     * CORREÇÃO (a pedido, decidido com dado real do painel) — o modal
+     * aparecia pra TODO MUNDO, inclusive quem está em iPhone ou
+     * computador, que não tem como instalar app de Android nenhum.
+     * Pra essas pessoas era interrupção pura, sem ação possível — e
+     * gastava a única chance de convencer alguém a instalar.
+     *
+     * O porquê disso importar tanto: a retenção D7 de quem tem o app
+     * é 36%, contra 4% de quem só usa o site. Nove vezes. Mostrar
+     * este convite pra quem PODE agir é, hoje, a alavanca mais forte
+     * que o produto tem — e mostrar pra quem não pode só queima
+     * paciência.
+     */
+    const isAndroid = /android/i.test(navigator.userAgent);
+    if (!isAndroid) return;
+
     const clickedInstall = localStorage.getItem(INSTALLED_KEY) === "1";
     const dismissedThisSession = sessionStorage.getItem(DISMISS_SESSION_KEY) === "1";
     if (!clickedInstall && !dismissedThisSession) setOpen(true);
@@ -94,27 +111,33 @@ export function AndroidAppPromoBanner() {
         </h2>
         <p className="mt-2 text-sm text-muted">{t("androidPromo.subtitle")}</p>
 
-        <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-          <div className="flex flex-col items-center gap-1.5">
-            <Bell className="h-5 w-5 text-primary" strokeWidth={1.75} />
-            <span className="text-[11px] leading-tight text-muted">{t("androidPromo.featureNotifications")}</span>
-          </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <Zap className="h-5 w-5 text-primary" strokeWidth={1.75} />
-            <span className="text-[11px] leading-tight text-muted">{t("androidPromo.featureFast")}</span>
-          </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <RefreshCw className="h-5 w-5 text-primary" strokeWidth={1.75} />
-            <span className="text-[11px] leading-tight text-muted">{t("androidPromo.featureSync")}</span>
+        {/*
+          * O aviso de episódio novo saiu de um ícone pequeno no meio
+          * e virou o destaque: é o benefício que só o app entrega, e
+          * a explicação mais provável pra diferença de retenção
+          * (36% com app vs 4% sem). Os outros dois viraram linha
+          * secundária — continuam verdade, mas não são o motivo de
+          * alguém instalar.
+          */}
+        <div className="mt-5 flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+          <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
+          <div>
+            <p className="text-sm font-bold text-text">{t("androidPromo.featureNotifications")}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted">
+              {t("androidPromo.featureNotificationsDetail")}
+            </p>
           </div>
         </div>
 
-        <div className="mt-5 flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5">
-          <Smartphone className="h-5 w-5 shrink-0 text-muted" strokeWidth={1.75} />
-          <div className="min-w-0">
-            <p className="text-xs text-muted">{t("androidPromo.availableFor")}</p>
-            <p className="text-sm font-semibold text-text">Android</p>
-          </div>
+        <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-muted">
+          <span className="flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5 text-muted" strokeWidth={2} />
+            {t("androidPromo.featureFast")}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <RefreshCw className="h-3.5 w-3.5 text-muted" strokeWidth={2} />
+            {t("androidPromo.featureSync")}
+          </span>
         </div>
 
         <a
