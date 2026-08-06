@@ -134,7 +134,7 @@ export default function PublicProfileScreen() {
             ) : (
               <FollowButton isFollowing={follow.isFollowing} busy={follow.busy} onPress={follow.toggle} />
             )}
-            <Pressable style={styles.shareButton} onPress={handleShare}>
+            <Pressable hitSlop={8} style={styles.shareButton} onPress={handleShare}>
               <Feather name="share-2" size={16} color={colors.text} />
             </Pressable>
           </View>

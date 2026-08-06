@@ -143,7 +143,7 @@ export function SeriesQuickActionsSheet({
                     maxLength={80}
                     style={styles.newListInput}
                   />
-                  <Pressable style={styles.newListSaveButton} onPress={handleCreateAndAdd} disabled={!newListName.trim() || creating}>
+                  <Pressable hitSlop={8} style={styles.newListSaveButton} onPress={handleCreateAndAdd} disabled={!newListName.trim() || creating}>
                     <Feather name="check" size={16} color={colors.background} />
                   </Pressable>
                 </View>

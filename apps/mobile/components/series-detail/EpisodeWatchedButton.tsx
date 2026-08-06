@@ -31,7 +31,7 @@ export function EpisodeWatchedButton({
   const dimensions = SIZES[size];
 
   return (
-    <Pressable
+    <Pressable hitSlop={8}
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"

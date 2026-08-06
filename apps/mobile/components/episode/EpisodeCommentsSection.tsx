@@ -111,7 +111,7 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
         {imageUri ? (
           <View style={styles.imagePreviewWrapper}>
             <ExpoImage source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" autoplay />
-            <Pressable
+            <Pressable hitSlop={8}
               style={styles.removeImageButton}
               onPress={() => {
                 setImageUri(null);

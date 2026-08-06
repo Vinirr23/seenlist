@@ -6,10 +6,10 @@ import { colors, radius } from "@/lib/theme";
 export function ViewModeToggle({ viewMode, onChange }: { viewMode: ViewMode; onChange: (mode: ViewMode) => void }) {
   return (
     <View style={styles.wrapper}>
-      <Pressable style={[styles.button, viewMode === "grid" && styles.buttonActive]} onPress={() => onChange("grid")}>
+      <Pressable hitSlop={8} style={[styles.button, viewMode === "grid" && styles.buttonActive]} onPress={() => onChange("grid")}>
         <Feather name="grid" size={16} color={viewMode === "grid" ? colors.primary : colors.muted} />
       </Pressable>
-      <Pressable style={[styles.button, viewMode === "list" && styles.buttonActive]} onPress={() => onChange("list")}>
+      <Pressable hitSlop={8} style={[styles.button, viewMode === "list" && styles.buttonActive]} onPress={() => onChange("list")}>
         <Feather name="list" size={16} color={viewMode === "list" ? colors.primary : colors.muted} />
       </Pressable>
     </View>

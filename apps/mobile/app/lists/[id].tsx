@@ -92,7 +92,7 @@ export default function ListDetailScreen() {
                   )}
                 </View>
               </Pressable>
-              <Pressable style={styles.removeButton} onPress={() => handleRemove(item.id)}>
+              <Pressable hitSlop={8} style={styles.removeButton} onPress={() => handleRemove(item.id)}>
                 <Feather name="x" size={12} color="#fff" />
               </Pressable>
             </View>

@@ -111,17 +111,17 @@ export default function ProfileScreen() {
               />
             </View>
 
-            <Pressable style={styles.bannerIconLeft} onPress={() => router.push("/settings/edit-profile")}>
+            <Pressable hitSlop={8} style={styles.bannerIconLeft} onPress={() => router.push("/settings/edit-profile")}>
               <Feather name="edit-2" size={16} color="#fff" />
             </Pressable>
 
             <View style={styles.bannerIconsRight}>
               {!!username && (
-                <Pressable style={styles.bannerIconButton} onPress={handleShare}>
+                <Pressable hitSlop={8} style={styles.bannerIconButton} onPress={handleShare}>
                   <Feather name="share-2" size={16} color="#fff" />
                 </Pressable>
               )}
-              <Pressable style={styles.bannerIconButton} onPress={() => router.push("/settings")}>
+              <Pressable hitSlop={8} style={styles.bannerIconButton} onPress={() => router.push("/settings")}>
                 <Feather name="settings" size={16} color="#fff" />
               </Pressable>
             </View>
@@ -148,11 +148,11 @@ export default function ProfileScreen() {
         ) : (
           <View style={styles.topIconsRowNoBanner}>
             {!!username && (
-              <Pressable style={styles.bannerIconButtonFlat} onPress={handleShare}>
+              <Pressable hitSlop={8} style={styles.bannerIconButtonFlat} onPress={handleShare}>
                 <Feather name="share-2" size={16} color={colors.muted} />
               </Pressable>
             )}
-            <Pressable style={styles.bannerIconButtonFlat} onPress={() => router.push("/settings")}>
+            <Pressable hitSlop={8} style={styles.bannerIconButtonFlat} onPress={() => router.push("/settings")}>
               <Feather name="settings" size={16} color={colors.muted} />
             </Pressable>
           </View>

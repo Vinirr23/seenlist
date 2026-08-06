@@ -70,7 +70,7 @@ export function MovieActions({
           );
         })}
 
-        <Pressable style={styles.iconButton} disabled={favoriteBusy} onPress={toggleFavorite}>
+        <Pressable hitSlop={8} style={styles.iconButton} disabled={favoriteBusy} onPress={toggleFavorite}>
           <Feather name="heart" size={16} color={isFavorite ? colors.danger : colors.muted} />
         </Pressable>
       </View>

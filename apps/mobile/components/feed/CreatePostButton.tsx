@@ -131,7 +131,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Pressable style={[styles.fab, { bottom: 84 + insets.bottom }]} onPress={handleOpen}>
+      <Pressable hitSlop={8} style={[styles.fab, { bottom: 84 + insets.bottom }]} onPress={handleOpen}>
         <Feather name="plus" size={24} color={colors.background} />
       </Pressable>
 
@@ -234,7 +234,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
                 {imageUri ? (
                   <View style={styles.imagePreviewWrapper}>
                     <ExpoImage source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" autoplay />
-                    <Pressable
+                    <Pressable hitSlop={8}
                       style={styles.removeImageButton}
                       onPress={() => {
                         setImageUri(null);
