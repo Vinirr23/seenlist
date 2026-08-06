@@ -13,6 +13,7 @@
 // hora.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { sendWebPush, type WebPushSubscription } from "./webPush.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -158,6 +159,25 @@ Deno.serve(async () => {
   // Tokens de todos os destinatários de uma vez.
   const userIds = [...new Set(pending.map((n) => n.user_id))];
   const { data: tokenRows } = await supabase.from("push_tokens").select("id, user_id, token").in("user_id", userIds);
+
+  /*
+   * A PEDIDO — envio Web Push (navegador), em paralelo ao Expo (app).
+   * Motivo (dado real do painel): D7 de 36% com app vs 4% só site, e
+   * 81% da base está só no site. Quem tem os dois recebe pelos dois —
+   * é o comportamento certo: a pessoa pode estar no computador com o
+   * celular longe.
+   */
+  const { data: webSubRows } = await supabase
+    .from("web_push_subscriptions")
+    .select("id, user_id, endpoint, p256dh, auth")
+    .in("user_id", userIds);
+  const webSubsByUser = new Map<string, WebPushSubscription[]>();
+  for (const s of (webSubRows ?? []) as WebPushSubscription[]) {
+    const list = webSubsByUser.get(s.user_id) ?? [];
+    list.push(s);
+    webSubsByUser.set(s.user_id, list);
+  }
+  const webQueue: { sub: WebPushSubscription; title: string; body: string; url: string; tag: string }[] = [];
   const tokensByUser = new Map<string, { id: string; token: string }[]>();
   for (const t of tokenRows ?? []) {
     const list = tokensByUser.get(t.user_id) ?? [];
@@ -181,6 +201,20 @@ Deno.serve(async () => {
     for (const t of tokens) {
       tokenIdByExpoToken.set(t.token, t.id);
       expoMessages.push({ to: t.token, title: message.title, body: message.body, data: { deepLink: message.deepLink, notificationId: n.id } });
+    }
+
+    for (const sub of webSubsByUser.get(n.user_id) ?? []) {
+      webQueue.push({
+        sub,
+        title: message.title,
+        body: message.body,
+        // O deep link do app usa o mesmo formato de caminho do site,
+        // então serve para os dois sem conversão.
+        url: message.deepLink,
+        // Agrupa por notificação: se a mesma chegar duas vezes, o
+        // navegador substitui em vez de empilhar.
+        tag: n.id,
+      });
     }
   }
 
@@ -215,6 +249,32 @@ Deno.serve(async () => {
     }
   }
 
+  /*
+   * Envio web: um a um, porque cada mensagem é cifrada com as chaves
+   * de UM navegador específico — não existe lote como no Expo. São
+   * disparadas em paralelo (`Promise.all`) pra não virar fila lenta.
+   */
+  let webSentCount = 0;
+  const expiredWebSubIds: string[] = [];
+  if (webQueue.length > 0) {
+    const results = await Promise.all(
+      webQueue.map(async (item) => {
+        const result = await sendWebPush(item.sub, { title: item.title, body: item.body, url: item.url, tag: item.tag });
+        return { id: item.sub.id, ...result };
+      })
+    );
+    for (const r of results) {
+      if (r.ok) webSentCount += 1;
+      if (r.expired) expiredWebSubIds.push(r.id);
+    }
+  }
+
+  // Inscrição que o navegador declarou morta (404/410) sai da tabela —
+  // mesma lógica dos tokens inválidos do Expo logo abaixo.
+  if (expiredWebSubIds.length > 0) {
+    await supabase.from("web_push_subscriptions").delete().in("id", expiredWebSubIds);
+  }
+
   // Remove tokens inválidos automaticamente (item explícito da tarefa).
   if (invalidTokens.length > 0) {
     const idsToRemove = invalidTokens.map((t) => tokenIdByExpoToken.get(t)).filter((id): id is string => !!id);
@@ -234,7 +294,9 @@ Deno.serve(async () => {
     JSON.stringify({
       processed: processedNotificationIds.length,
       sent: sentCount,
+      webSent: webSentCount,
       invalidTokensRemoved: invalidTokens.length,
+      expiredWebSubsRemoved: expiredWebSubIds.length,
       ticketErrors, // TEMPORÁRIO — debug do bug de push não chegando; remover depois de achar a causa.
     }),
     { headers: { "Content-Type": "application/json" } }

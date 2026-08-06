@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useNotificationPreferences, useUpdateNotificationPreference, type NotificationPreferences } from "@/lib/queries/notification-preferences";
 import { ToggleRow } from "./ToggleRow";
+import { WebPushSettingRow } from "./WebPushSettingRow";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const ITEM_FIELDS: (keyof NotificationPreferences)[] = [
@@ -44,6 +45,16 @@ export function NotificationPreferencesView() {
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
         <h1 className="text-xl font-bold text-text">{t("settings.notifications")}</h1>
+      </div>
+
+      {/*
+        * A PEDIDO — controle do aviso no navegador. Fica ANTES das
+        * preferências por tipo porque é a chave geral: sem permissão
+        * do navegador, nenhuma daquelas opções produz notificação
+        * nenhuma pra quem usa só o site.
+        */}
+      <div className="mb-4">
+        <WebPushSettingRow />
       </div>
 
       {isLoading ? (
