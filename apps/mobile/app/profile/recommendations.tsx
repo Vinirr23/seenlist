@@ -170,11 +170,17 @@ export default function RecommendationsScreen() {
 
 const styles = StyleSheet.create({
   header: {
+    // CORREÇÃO (auditoria de consistência) — esta era a ÚNICA tela,
+    // entre 21 com cabeçalho de voltar+título, com espaçamento
+    // diferente (md em vez de lg na horizontal, md em vez de sm em
+    // cima). Alinhada com as outras 20: lado a lado, o título e a
+    // seta ficavam em posições ligeiramente diferentes ao navegar
+    // entre telas.
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   content: {

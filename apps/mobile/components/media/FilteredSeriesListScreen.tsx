@@ -92,10 +92,14 @@ export function FilteredSeriesListScreen({
 
 const styles = StyleSheet.create({
   header: {
+    // CORREÇÃO (auditoria de consistência) — faltava o `paddingTop`
+    // que as outras 20 telas com cabeçalho têm: o título ficava
+    // colado no topo aqui e com respiro em todo o resto do app.
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   backButton: {
