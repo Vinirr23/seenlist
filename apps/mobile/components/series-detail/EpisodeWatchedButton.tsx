@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { PressableScale } from "@/components/ui";
 import { colors, elevation } from "@/lib/theme";
 
 const SIZES = {
@@ -31,7 +32,7 @@ export function EpisodeWatchedButton({
   const dimensions = SIZES[size];
 
   return (
-    <Pressable hitSlop={8}
+    <PressableScale hitSlop={8}
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
@@ -48,7 +49,7 @@ export function EpisodeWatchedButton({
       ]}
     >
       <Feather name="check" size={dimensions.icon} color={watched ? "#FFFFFF" : "#000000"} />
-    </Pressable>
+    </PressableScale>
   );
 }
 

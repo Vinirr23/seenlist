@@ -7,7 +7,7 @@ import type { DiscoverItem } from "@/lib/discover";
 import { fetchLibraryStatusesFor } from "@/lib/discover";
 import { tmdbImageUrl } from "@/lib/library";
 import { AddToLibraryButton } from "./AddToLibraryButton";
-import { Text } from "@/components/ui";
+import { Text, PressableScale } from "@/components/ui";
 import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
 
 const CARD_WIDTH = 112;
@@ -86,7 +86,7 @@ function DiscoverCard({ item, status }: { item: DiscoverItem; status: string | n
   }
 
   return (
-    <Pressable style={styles.card} onPress={handlePress}>
+    <PressableScale style={styles.card} onPress={handlePress}>
       <View style={styles.posterWrapper}>
         {posterUrl ? (
           <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
@@ -100,7 +100,7 @@ function DiscoverCard({ item, status }: { item: DiscoverItem; status: string | n
       <Text numberOfLines={1} style={styles.cardTitle}>
         {item.title}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 

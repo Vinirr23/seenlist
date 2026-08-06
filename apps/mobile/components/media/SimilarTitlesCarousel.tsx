@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { MediaSearchResult } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, PressableScale } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
@@ -31,7 +31,7 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
         const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
         const hasRating = item.voteAverage != null && item.voteAverage > 0;
         return (
-          <Pressable key={`${item.mediaType}-${item.id}`} style={styles.card} onPress={() => router.push(href)}>
+          <PressableScale key={`${item.mediaType}-${item.id}`} style={styles.card} onPress={() => router.push(href)}>
             <View style={styles.posterWrapper}>
               {posterUrl ? (
                 <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
@@ -60,7 +60,7 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
                 )}
               </View>
             )}
-          </Pressable>
+          </PressableScale>
         );
       })}
     </ScrollView>

@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
+import { PressableScale } from "@/components/ui";
 import { colors, radius, spacing, elevation, scrim } from "@/lib/theme";
 
 const COLUMNS = 3;
@@ -87,7 +88,7 @@ export function PosterGridItem({
       : null;
 
   return (
-    <Pressable style={[styles.card, { width: cardWidth }]} onPress={() => onPress?.(item)}>
+    <PressableScale style={[styles.card, { width: cardWidth }]} onPress={() => onPress?.(item)}>
       <View style={styles.posterWrapper}>
         {posterUrl ? (
           <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
@@ -103,7 +104,7 @@ export function PosterGridItem({
         )}
         {!!barColor && <View style={[styles.progressTrack, { height: 5, backgroundColor: barColor }]} />}
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 

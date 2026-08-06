@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { setSeriesStatus } from "@/lib/seriesDetails";
 import { setMovieStatus } from "@/lib/movieDetails";
 import { hapticTick } from "@/lib/haptics";
+import { PressableScale } from "@/components/ui";
 import { colors, radius, scrim } from "@/lib/theme";
 
 /**
@@ -53,11 +54,11 @@ export function AddToLibraryButton({
   }
 
   return (
-    <Pressable style={styles.button} onPress={handlePress} disabled={isPending} hitSlop={6}>
+    <PressableScale style={styles.button} onPress={handlePress} disabled={isPending} hitSlop={6}>
       <View pointerEvents="none">
         <Feather name={isAdded ? "check" : "plus"} size={16} color={colors.primary} />
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 

@@ -74,6 +74,24 @@ export const radius = {
  * temperaturas visivelmente diferentes lado a lado. Três papéis
  * definidos agora:
  */
+/**
+ * CORREÇÃO (a pedido — auditoria de consistência, "duração de
+ * animações diferente") — o app tinha só 3 componentes animados, e
+ * cada um escolheu a própria duração no olho (300, 700, 1800). Sem
+ * escala, cada animação nova inventava um número — e duração
+ * inconsistente é das coisas que mais fazem uma interface parecer
+ * "montada por pessoas diferentes", mesmo que ninguém saiba apontar
+ * o porquê.
+ */
+export const motion = {
+  /** Reação imediata ao toque (escala de botão) — precisa ser quase imperceptível. */
+  fast: 120,
+  /** Transição padrão: entrada de item, aparecer/sumir. */
+  normal: 240,
+  /** Movimento com mais presença — celebração, destaque. */
+  slow: 400,
+} as const;
+
 export const scrim = {
   /** Fundo de modal/bottom sheet — escurece a tela inteira atrás. */
   modal: "rgba(0,0,0,0.6)",

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated } from "react-native";
+import { motion } from "@/lib/theme";
 
 /**
  * A PEDIDO — "Feed mais vivo", item 4. Porta fiel do efeito CSS do
@@ -16,8 +17,8 @@ export function FeedItemEnter({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 0, duration: 300, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: motion.normal, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: motion.normal, useNativeDriver: true }),
     ]).start();
   }, [opacity, translateY]);
 
