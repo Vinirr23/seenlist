@@ -26,7 +26,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }) {
-  const { users, activity, social, health, library } = metrics;
+  const { users, platform, activity, social, health, library } = metrics;
 
   return (
     <div className="w-full space-y-6 px-4 pb-24 pt-4 md:mx-auto md:max-w-[900px]">
@@ -42,6 +42,13 @@ export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }
         <StatCard label="Novos (7 dias)" value={users.newLast7d} />
         <StatCard label="Ativos hoje" value={users.activeToday} hint="marcaram episódio" />
         <StatCard label="Ativos (30 dias)" value={users.active30d} hint="marcaram episódio" />
+      </Section>
+
+      <Section title="Plataforma">
+        <StatCard label="Instalações mobile" value={platform.mobileInstalls} hint="com notificação ativa" />
+        <StatCard label="Mobile ativo (30 dias)" value={platform.mobileActive30d} />
+        <StatCard label="Android" value={platform.android} />
+        <StatCard label="iOS" value={platform.ios} />
       </Section>
 
       <Section title="Atividade">
@@ -77,6 +84,12 @@ export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }
       <div className="rounded-xl border border-border bg-surface p-4">
         <h2 className="text-sm font-semibold text-text">O que este painel NÃO cobre</h2>
         <p className="mt-1 text-xs leading-relaxed text-muted">
+          <span className="text-text">Web vs mobile:</span> os números de plataforma vêm de quem instalou o app E
+          permitiu notificação — quem usa o app com notificação desligada não aparece ali, então é um piso, não o
+          total. Separar toda ação por origem exigiria gravar isso em cada operação (ou uma ferramenta de produto
+          como PostHog).
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-muted">
           Aqui só aparece o que está no nosso banco. Erro de execução, crash e tempo de resposta vivem em outros
           lugares e continuam precisando de olhada separada: crash do app no{" "}
           <span className="text-text">Play Console → Android vitals</span>; tempo de consulta no{" "}

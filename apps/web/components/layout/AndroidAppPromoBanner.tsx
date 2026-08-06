@@ -5,7 +5,10 @@ import { X, Smartphone, Bell, Zap, RefreshCw, ArrowUpRight } from "lucide-react"
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-const DISMISS_KEY = "seenlist:android-promo-dismissed";
+/** Dispensa temporária (fechou no X) — só nesta sessão. */
+const DISMISS_SESSION_KEY = "seenlist:android-promo-dismissed";
+/** Dispensa permanente — só pra quem clicou em baixar. */
+const INSTALLED_KEY = "seenlist:android-promo-clicked-install";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.seenlist.app";
 
 /**
@@ -15,10 +18,17 @@ const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.seenli
  * Mesma estrutura visual de card central, adaptada — sem "beta" em
  * lugar nenhum, com link real pra Play Store.
  *
- * `localStorage` (não `sessionStorage`, diferente do antigo) — isso
- * não é uma campanha temporária de convite, é um anúncio permanente;
- * não faz sentido insistir de novo a cada aba nova depois que a
- * pessoa já dispensou uma vez.
+ * CORREÇÃO (a pedido — "aparece só uma vez e nunca mais") — usava
+ * `localStorage`, que é permanente: quem dispensasse UMA vez nunca
+ * mais veria o card, em nenhuma sessão, pra sempre. Trocado por
+ * `sessionStorage` (mesmo comportamento do antigo banner de beta):
+ * dispensar vale só pra sessão atual, e o card volta na próxima
+ * visita.
+ *
+ * Quem CLICA em baixar continua com a dispensa permanente
+ * (`localStorage`) — essa pessoa já foi pra Play Store, não faz
+ * sentido continuar oferecendo. São dois casos diferentes que antes
+ * eram tratados igual.
  */
 export function AndroidAppPromoBanner() {
   const [open, setOpen] = useState(false);
@@ -27,7 +37,9 @@ export function AndroidAppPromoBanner() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (localStorage.getItem(DISMISS_KEY) !== "1") setOpen(true);
+    const clickedInstall = localStorage.getItem(INSTALLED_KEY) === "1";
+    const dismissedThisSession = sessionStorage.getItem(DISMISS_SESSION_KEY) === "1";
+    if (!clickedInstall && !dismissedThisSession) setOpen(true);
   }, []);
 
   useEffect(() => {
@@ -37,7 +49,7 @@ export function AndroidAppPromoBanner() {
   }, [open]);
 
   function handleDismiss() {
-    localStorage.setItem(DISMISS_KEY, "1");
+    sessionStorage.setItem(DISMISS_SESSION_KEY, "1");
     setMounted(false);
     setTimeout(() => setOpen(false), 200);
   }
@@ -109,7 +121,7 @@ export function AndroidAppPromoBanner() {
           href={PLAY_STORE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={() => localStorage.setItem(DISMISS_KEY, "1")}
+          onClick={() => localStorage.setItem(INSTALLED_KEY, "1")}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-extrabold uppercase tracking-wide text-background transition-transform active:scale-[0.98]"
         >
           {t("androidPromo.cta")}

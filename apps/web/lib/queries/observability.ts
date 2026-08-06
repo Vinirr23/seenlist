@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 export interface ObservabilityMetrics {
   users: { total: number; activeToday: number; active7d: number; active30d: number; newLast7d: number };
+  platform: { mobileInstalls: number; mobileActive30d: number; android: number; ios: number };
   activity: { episodesToday: number; episodes7d: number; reviews7d: number; posts7d: number };
   social: { follows: number; recommendations7d: number; comments7d: number };
   health: { pendingReports: number; feedbackTotal: number; feedbackLast7d: number };
@@ -69,6 +70,10 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
     seriesTracked,
     moviesTracked,
     watchedEpisodes,
+    mobileInstalls,
+    mobileActive30d,
+    androidTokens,
+    iosTokens,
   ] = await Promise.all([
     count("profiles", (q) => q),
     count("watched_episodes", (q) => q.gte("watched_at", today)),
@@ -88,6 +93,24 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
     count("series_status", (q) => q.neq("status", "removed")),
     count("movie_status", (q) => q),
     count("watched_episodes", (q) => q),
+    /**
+     * Web vs mobile — o app mobile usa o MESMO banco e as mesmas
+     * tabelas do site, sem marcar de onde veio a ação, então não dá
+     * pra separar por ação. `push_tokens` é o melhor sinal que já
+     * existe: só é gravado por quem instalou o app e permitiu
+     * notificação, com `platform` e `last_seen_at` próprios.
+     *
+     * Limitação importante pra não interpretar errado: quem usa o
+     * app mas RECUSOU notificação não aparece aqui. É um piso do
+     * número de usuários mobile, não o total. Pra medir com
+     * precisão seria preciso gravar a origem em cada ação (ou usar
+     * uma ferramenta de produto tipo PostHog) — decisão maior, fora
+     * do escopo deste painel.
+     */
+    count("push_tokens", (q) => q),
+    count("push_tokens", (q) => q.gte("last_seen_at", d30)),
+    count("push_tokens", (q) => q.eq("platform", "android")),
+    count("push_tokens", (q) => q.eq("platform", "ios")),
   ]);
 
   const n = (r: { count: number | null }) => r.count ?? 0;
@@ -115,6 +138,12 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
       pendingReports: n(pendingReports),
       feedbackTotal: n(feedbackTotal),
       feedbackLast7d: n(feedbackLast7d),
+    },
+    platform: {
+      mobileInstalls: n(mobileInstalls),
+      mobileActive30d: n(mobileActive30d),
+      android: n(androidTokens),
+      ios: n(iosTokens),
     },
     library: {
       seriesTracked: n(seriesTracked),
