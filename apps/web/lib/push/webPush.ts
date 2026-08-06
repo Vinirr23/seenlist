@@ -16,16 +16,17 @@ const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 /**
  * O navegador exige a chave como bytes, não string.
  *
- * `ArrayBuffer` explícito (em vez do `Uint8Array` genérico) porque o
- * TypeScript recente distingue `ArrayBuffer` de `SharedArrayBuffer`,
- * e a API de push só aceita o primeiro.
+ * Sem parâmetro genérico no `Uint8Array` de propósito: o TypeScript
+ * 6 aceita (`Uint8Array<ArrayBuffer>`), mas o projeto usa 5.6, onde
+ * esse tipo NÃO é genérico e o build quebra. A conversão para
+ * `BufferSource` é feita no ponto de uso, o que funciona nas duas
+ * versões.
  */
-function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = window.atob(base64);
-  const buffer = new ArrayBuffer(raw.length);
-  const output = new Uint8Array(buffer);
+  const output = new Uint8Array(new ArrayBuffer(raw.length));
   for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
   return output;
 }
@@ -81,7 +82,7 @@ export async function subscribeToWebPush(): Promise<
       existing ??
       (await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
       }));
 
     const json = subscription.toJSON();
