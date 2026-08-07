@@ -222,17 +222,23 @@ const styles = StyleSheet.create({
   },
   capsule: {
     /*
-     * CORREÇÃO — altura FIXA em vez de `top`+`bottom` (que "estica"
-     * pra preencher o pai). Mesmo com o teto no `insets.bottom` acima
-     * já resolvendo a causa raiz, isso é uma segunda camada de
-     * proteção: mesmo que a barra volte a ficar com altura errada
-     * por outro motivo no futuro, a cápsula não infla junto — ela
-     * sempre tem o tamanho de um botão normal, não importa o pai.
+     * CORREÇÃO (bug real, reportado com print — cápsula colada em
+     * cima, com folga só embaixo) — a versão anterior usava altura
+     * FIXA (44) como proteção contra o `insets.bottom` inflado. Essa
+     * proteção real já foi resolvida na RAIZ (teto em
+     * `safeBottomInset`, ver o `const safeInset` acima) — com o pai
+     * agora sempre bem-comportado, altura fixa parou de fazer
+     * sentido: ela não se adapta à altura de verdade do conteúdo
+     * (ícone+rótulo), então sobra folga só de um lado.
+     *
+     * `top`+`bottom` SIMÉTRICOS (6 dos dois lados) resolve isso —
+     * a cápsula se ajusta sozinha à altura real do item, sempre com
+     * o mesmo respiro em cima e embaixo, não importa o valor exato.
      */
     position: "absolute",
     top: 6,
     left: 0,
-    height: 44,
+    bottom: 6,
     borderRadius: 14,
     backgroundColor: colors.primary + "26",
     borderWidth: 1,
