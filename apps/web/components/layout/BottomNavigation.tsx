@@ -66,12 +66,16 @@ export function BottomNavigation() {
       {activeIndex >= 0 && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-1.5 rounded-xl bg-primary/15 border border-primary/40 transition-transform duration-300 ease-out"
-          style={{
-            width: `${100 / tabs.length}%`,
-            left: 0,
-            transform: `translateX(${activeIndex * 100}%)`,
-          }}
+          // A PEDIDO — cápsula com largura FIXA (84px), centralizada
+          // dentro da coluna de cada aba, em vez de ocupar a coluna
+          // inteira (~101px numa barra de 404px/4 abas — bem maior
+          // que o ícone+nome que deveria destacar). Mistura % (a
+          // posição da coluna) com px (a largura fixa) no mesmo
+          // `calc()` — CSS lida bem com unidades misturadas, então
+          // não precisou medir a barra em JavaScript como no mobile
+          // (lá o `transform` não aceita mistura de unidade assim).
+          className="pointer-events-none absolute inset-y-1.5 w-[84px] rounded-xl bg-primary/15 border border-primary/40 transition-[left] duration-300 ease-out"
+          style={{ left: `calc(${activeIndex} * ${100 / tabs.length}% + (${100 / tabs.length}% - 84px) / 2)` }}
         />
       )}
       {tabs.map((tab) => (

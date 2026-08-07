@@ -19,6 +19,8 @@ const UNREAD_POLL_INTERVAL_MS = 30_000;
  */
 export const BOTTOM_MARGIN = 8;
 export const TOP_PADDING = 10;
+/** Largura fixa da cápsula deslizante — ver comentário completo onde é usada, mais abaixo. */
+const CAPSULE_WIDTH = 84;
 
 const ROUTE_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   series: "tv",
@@ -145,10 +147,20 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     Animated.timing(capsuleAnim, { toValue: activeVisibleIndex, duration: motion.normal, useNativeDriver: true }).start();
   }, [activeVisibleIndex, capsuleAnim]);
 
+  /*
+   * A PEDIDO — cápsula com largura FIXA (não mais a coluna inteira),
+   * centralizada dentro do espaço de cada aba. `CAPSULE_WIDTH` (84)
+   * cabe confortavelmente o rótulo mais largo ("Explorar") sem
+   * encostar nas bordas, mas é bem menor que a coluna inteira (~100+
+   * num aparelho comum) — antes a cápsula ficava esticada até quase
+   * a aba vizinha, bem maior que o ícone+nome que ela deveria
+   * destacar.
+   */
   const itemWidth = barWidth / (visibleRoutes.length || 1);
+  const capsuleOffset = (itemWidth - CAPSULE_WIDTH) / 2;
   const capsuleTranslate = capsuleAnim.interpolate({
     inputRange: visibleRoutes.map((_, i) => i),
-    outputRange: visibleRoutes.map((_, i) => i * itemWidth),
+    outputRange: visibleRoutes.map((_, i) => i * itemWidth + capsuleOffset),
   });
 
   return (
@@ -162,7 +174,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           style={[
             styles.capsule,
             {
-              width: itemWidth,
+              width: CAPSULE_WIDTH,
               transform: [{ translateX: capsuleTranslate }],
             },
           ]}
