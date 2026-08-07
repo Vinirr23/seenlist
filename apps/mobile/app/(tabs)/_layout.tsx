@@ -3,6 +3,7 @@ import { View, Pressable, Text as RNText, Animated, StyleSheet } from "react-nat
 import { Tabs } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { safeBottomInset } from "@/lib/safeBottomInset";
 import { Feather } from "@expo/vector-icons";
 import { colors, motion } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
@@ -71,6 +72,8 @@ const ROUTE_LABEL_KEY: Record<string, string> = {
  */
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  // CORREÇÃO (bug real, reportado com foto) — ver `lib/safeBottomInset.ts` pro motivo completo.
+  const safeInset = safeBottomInset(insets.bottom);
   const [unreadCount, setUnreadCount] = useState(0);
   /*
    * CORREÇÃO (bug real, reportado com print — "a barra não desliza")
@@ -129,7 +132,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      style={[styles.tabBar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}
+      style={[styles.tabBar, { height: 56 + safeInset, paddingBottom: safeInset }]}
       onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
     >
       {activeVisibleIndex >= 0 && barWidth > 0 && (
@@ -218,10 +221,18 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   capsule: {
+    /*
+     * CORREÇÃO — altura FIXA em vez de `top`+`bottom` (que "estica"
+     * pra preencher o pai). Mesmo com o teto no `insets.bottom` acima
+     * já resolvendo a causa raiz, isso é uma segunda camada de
+     * proteção: mesmo que a barra volte a ficar com altura errada
+     * por outro motivo no futuro, a cápsula não infla junto — ela
+     * sempre tem o tamanho de um botão normal, não importa o pai.
+     */
     position: "absolute",
     top: 6,
     left: 0,
-    bottom: 6,
+    height: 44,
     borderRadius: 14,
     backgroundColor: colors.primary + "26",
     borderWidth: 1,

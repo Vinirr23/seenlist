@@ -1,4 +1,5 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { safeBottomInset } from "./safeBottomInset";
 
 const TAB_BAR_HEIGHT = 56;
 const EXTRA_GAP = 16;
@@ -22,5 +23,5 @@ const EXTRA_GAP = 16;
  */
 export function useTabBarClearance(): number {
   const insets = useSafeAreaInsets();
-  return TAB_BAR_HEIGHT + EXTRA_GAP + insets.bottom;
+  return TAB_BAR_HEIGHT + EXTRA_GAP + safeBottomInset(insets.bottom);
 }
