@@ -18,20 +18,14 @@ const UNREAD_POLL_INTERVAL_MS = 30_000;
  * legitimamente vir zero (ver comentário completo em `styles.tabBar`).
  */
 /*
- * CORREÇÃO (a pedido — "você subiu a barra, não é pra subir") —
- * `TOP_PADDING` foi removido. A causa real do "subiu": a barra é
- * ancorada por BAIXO (`bottom: BOTTOM_MARGIN`), então aumentar a
- * ALTURA dela (`TOP_PADDING` somava na altura total) empurra o topo
- * pra cima — é isso que "subir" significa aqui, diferente de
- * "afastar da borda de baixo" (que é só o `BOTTOM_MARGIN`, e não
- * muda a altura da barra, só a posição dela). Os dois efeitos
- * pareciam a mesma coisa, mas não são.
- *
- * `BOTTOM_MARGIN` sozinho continua de pé — ele É o afastamento leve
- * do sistema que foi pedido, sem crescer a barra.
+ * REVERTIDO POR COMPLETO (a pedido, com print circulado mostrando a
+ * barra colada nos botões do sistema, sem afastamento nenhum) — todo
+ * ajuste de posição/altura da barra (`TOP_PADDING`, `BOTTOM_MARGIN`)
+ * foi removido nesta rodada. A barra volta a ser exatamente como
+ * sempre foi (`bottom: 0`, `height: 56 + insets.bottom`, sem margem
+ * extra nenhuma) — só a cápsula (deslizar + tamanho) continua com a
+ * correção, porque isso nunca foi questionado.
  */
-export const BOTTOM_MARGIN = 6;
-/** Cápsula voltou a ocupar a coluna inteira — a pedido, revertendo o tamanho fixo/centralizado da tentativa anterior. */
 
 const ROUTE_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   series: "tv",
@@ -249,21 +243,10 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    /*
-     * A PEDIDO (bug real, reportado com print — barra encostada direto
-     * nos botões do sistema, sem respiro nenhum) — aparelho com
-     * navegação de 3 botões pode reportar `insets.bottom` como ZERO
-     * de verdade: a área dos botões já fica reservada pelo sistema
-     * FORA da tela do app, então não sobra "inset" nenhum pra
-     * reportar — não é bug de leitura, é comportamento correto do
-     * sistema nesse modo. `bottom: BOTTOM_MARGIN` (fixo, somado ao
-     * que já vier de `insets.bottom`) garante um respiro mínimo
-     * sempre, não importa o que o sistema reporte.
-     */
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: BOTTOM_MARGIN,
+    bottom: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
