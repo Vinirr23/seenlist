@@ -17,8 +17,16 @@ const UNREAD_POLL_INTERVAL_MS = 30_000;
  * `insets.bottom`, que em aparelho com navegação de 3 botões pode
  * legitimamente vir zero (ver comentário completo em `styles.tabBar`).
  */
-export const BOTTOM_MARGIN = 8;
-export const TOP_PADDING = 10;
+/*
+ * CORREÇÃO (a pedido — "subiu a barra, não é pra subir") — valores
+ * reduzidos. A primeira tentativa (8/10) exagerou: o pedido original
+ * era um afastamento LEVE do sistema, não uma barra visivelmente
+ * mais alta/mais para cima. Metade do valor mantém a mecânica (ainda
+ * não depende do que o sistema reportar) sem mudar a posição da
+ * barra de forma perceptível.
+ */
+export const BOTTOM_MARGIN = 4;
+export const TOP_PADDING = 4;
 /** Largura fixa da cápsula deslizante — ver comentário completo onde é usada, mais abaixo. */
 const CAPSULE_WIDTH = 84;
 
