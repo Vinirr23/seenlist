@@ -241,36 +241,52 @@ export async function getAniListCharacters(title: string, year: number | null): 
   const candidates = body.data?.Page?.media ?? [];
   if (candidates.length === 0) return { characters: [], searchFailed: false };
 
-  let best: { media: AniListMedia; score: number } | null = null;
-  for (const media of candidates) {
-    const scoreRomaji = media.title.romaji ? tokenOverlapScore(title, media.title.romaji) : 0;
-    const scoreEnglish = media.title.english ? tokenOverlapScore(title, media.title.english) : 0;
-    let score = Math.max(scoreRomaji, scoreEnglish);
-    if (year && media.startDate?.year && Math.abs(year - media.startDate.year) <= 1) score += 0.05;
-    if (!best || score > best.score) best = { media, score };
-  }
+  const scored = candidates
+    .map((media) => {
+      const scoreRomaji = media.title.romaji ? tokenOverlapScore(title, media.title.romaji) : 0;
+      const scoreEnglish = media.title.english ? tokenOverlapScore(title, media.title.english) : 0;
+      let score = Math.max(scoreRomaji, scoreEnglish);
+      if (year && media.startDate?.year && Math.abs(year - media.startDate.year) <= 1) score += 0.05;
+      return { media, score };
+    })
+    .filter((c) => c.score >= 0.6)
+    .sort((a, b) => b.score - a.score);
 
-  if (!best || best.score < 0.7) return { characters: [], searchFailed: false };
+  if (scored.length === 0 || scored[0]!.score < 0.7) return { characters: [], searchFailed: false };
 
   /*
-   * CORREÇÃO (bug real, reportado com print — "mistura personagem e
-   * dublador na mesma fileira"). Duas causas, as duas aqui:
-   * 1. `perPage: 12` — só 12 personagens buscados, enquanto o elenco
-   *    do TMDB mostra até 15.
-   * 2. `main.length >= 3 ? main : edges` — os SECUNDÁRIOS eram
-   *    descartados de propósito quando havia 3+ principais. Como o
-   *    elenco do TMDB inclui secundários, eles nunca casavam e caíam
-   *    pro dublador.
-   * Mesma correção espelhada no mobile (`lib/anilist.ts`).
+   * CORREÇÃO (bug real, reportado com print — Souei, Gobta e Gabiru
+   * continuavam "Sem foto" mesmo depois de aumentar pra 50
+   * personagens). A causa não era mais o limite — era pegar só UMA
+   * entrada do AniList.
+   *
+   * O TMDB junta a franquia inteira numa série só, elenco unificado
+   * de todas as temporadas. O AniList SEPARA por temporada — "Temp.
+   * 1", "Temp. 2", "Temp. 3" são entradas diferentes, cada uma com a
+   * própria lista de personagens. Escolher só a de maior pontuação
+   * (geralmente a Temporada 1) deixava de fora quem só ganha
+   * destaque numa temporada posterior.
+   *
+   * Agora busca em TODAS as entradas com pontuação razoável (0.6+,
+   * mais permissivo que o corte de 0.7 pra aceitar, porque aqui é
+   * pra SOMAR cobertura, não escolher uma só) e junta os personagens,
+   * sem repetir (por id do AniList — mantém a primeira ocorrência, da
+   * entrada mais bem pontuada). Mesma correção espelhada no mobile
+   * (`lib/anilist.ts`).
    */
-  const edges = best.media.characters.edges;
+  const seenIds = new Set<number>();
+  const characters: AnimeCharacter[] = [];
+  for (const { media } of scored) {
+    for (const edge of media.characters.edges) {
+      if (seenIds.has(edge.node.id)) continue;
+      seenIds.add(edge.node.id);
+      characters.push({
+        id: edge.node.id,
+        name: edge.node.name.full ?? "?",
+        imageUrl: edge.node.image?.large ?? null,
+      });
+    }
+  }
 
-  return {
-    characters: edges.map((edge) => ({
-      id: edge.node.id,
-      name: edge.node.name.full ?? "?",
-      imageUrl: edge.node.image?.large ?? null,
-    })),
-    searchFailed: false,
-  };
+  return { characters, searchFailed: false };
 }

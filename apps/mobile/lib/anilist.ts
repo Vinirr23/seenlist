@@ -137,45 +137,53 @@ export async function getAniListCharacters(title: string, year: number | null): 
   const candidates = body.data?.Page?.media ?? [];
   if (candidates.length === 0) return { characters: [], searchFailed: false };
 
-  let best: { media: AniListMedia; score: number } | null = null;
-  for (const media of candidates) {
-    const scoreRomaji = media.title.romaji ? tokenOverlapScore(title, media.title.romaji) : 0;
-    const scoreEnglish = media.title.english ? tokenOverlapScore(title, media.title.english) : 0;
-    let score = Math.max(scoreRomaji, scoreEnglish);
-    if (year && media.startDate?.year && Math.abs(year - media.startDate.year) <= 1) score += 0.05;
-    if (!best || score > best.score) best = { media, score };
-  }
+  const scored = candidates
+    .map((media) => {
+      const scoreRomaji = media.title.romaji ? tokenOverlapScore(title, media.title.romaji) : 0;
+      const scoreEnglish = media.title.english ? tokenOverlapScore(title, media.title.english) : 0;
+      let score = Math.max(scoreRomaji, scoreEnglish);
+      if (year && media.startDate?.year && Math.abs(year - media.startDate.year) <= 1) score += 0.05;
+      return { media, score };
+    })
+    .filter((c) => c.score >= 0.6)
+    .sort((a, b) => b.score - a.score);
 
-  if (!best || best.score < 0.7) return { characters: [], searchFailed: false };
+  if (scored.length === 0 || scored[0]!.score < 0.7) return { characters: [], searchFailed: false };
 
   /*
-   * CORREÇÃO (bug real, reportado com print — "mistura personagem e
-   * dublador na mesma fileira"): Rimuru aparecia com foto do
-   * personagem e Veldora/Souei/Hakurou com foto do dublador.
+   * CORREÇÃO (bug real, reportado com print — Souei, Gobta e Gabiru
+   * continuavam "Sem foto" mesmo depois de aumentar pra 50
+   * personagens). A causa não era mais o limite — era pegar só UMA
+   * entrada do AniList.
    *
-   * Duas causas, as duas aqui:
+   * O TMDB junta a franquia inteira numa série só, elenco unificado
+   * de todas as temporadas. O AniList SEPARA por temporada — "Temp.
+   * 1", "Temp. 2", "Temp. 3" são entradas diferentes, cada uma com a
+   * própria lista de personagens. Escolher só a de maior pontuação
+   * (geralmente a Temporada 1, que bate melhor com o título de
+   * busca) deixava de fora quem só ganha destaque numa temporada
+   * posterior.
    *
-   * 1. `perPage: 12` — só 12 personagens eram buscados, enquanto o
-   *    elenco do TMDB mostra até 15. Personagem secundário nem
-   *    chegava a ser considerado.
-   * 2. `main.length >= 3 ? main : edges` — quando havia 3+
-   *    principais, os SECUNDÁRIOS eram DESCARTADOS de propósito.
-   *    Como o elenco do TMDB é ordenado por relevância e inclui
-   *    secundários, eles nunca achavam correspondência e caíam pro
-   *    dublador.
-   *
-   * Agora traz todos (50), com os principais primeiro (`sort: ROLE`
-   * já garante isso) — quem casa, casa; e a lista é grande o
-   * suficiente pra cobrir o elenco inteiro que o TMDB mostra.
+   * Agora busca em TODAS as entradas com pontuação razoável (0.6+,
+   * um pouco mais permissivo que o corte de 0.7 pra aceitar, porque
+   * aqui é pra SOMAR cobertura, não pra escolher uma só) e junta os
+   * personagens, sem repetir (por id do AniList — o mesmo Rimuru
+   * aparece em várias temporadas, mantém só a primeira ocorrência,
+   * da entrada mais bem pontuada).
    */
-  const edges = best.media.characters.edges;
+  const seenIds = new Set<number>();
+  const characters: AnimeCharacter[] = [];
+  for (const { media } of scored) {
+    for (const edge of media.characters.edges) {
+      if (seenIds.has(edge.node.id)) continue;
+      seenIds.add(edge.node.id);
+      characters.push({
+        id: edge.node.id,
+        name: edge.node.name.full ?? "?",
+        imageUrl: edge.node.image?.large ?? null,
+      });
+    }
+  }
 
-  return {
-    characters: edges.map((edge) => ({
-      id: edge.node.id,
-      name: edge.node.name.full ?? "?",
-      imageUrl: edge.node.image?.large ?? null,
-    })),
-    searchFailed: false,
-  };
+  return { characters, searchFailed: false };
 }
