@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { View, Pressable, Text as RNText, StyleSheet } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { View, Pressable, Text as RNText, Animated, StyleSheet } from "react-native";
 import { Tabs } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { colors } from "@/lib/theme";
+import { colors, motion } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -58,9 +58,21 @@ const ROUTE_LABEL_KEY: Record<string, string> = {
  * escondendo o último item atrás da barra) foi atualizado junto —
  * não tinha mais os 12px de margem que existiam antes.
  */
+/**
+ * A PEDIDO — cápsula deslizante por trás da aba ativa, espelhando a
+ * mesma ideia da web (`BottomNavigation.tsx`). Antes, o destaque era
+ * uma pílula que só existia (ou não) na aba ativa — trocar de aba
+ * fazia o rótulo "pipocar", sem nenhum movimento entre as posições.
+ * Agora existe UMA cápsula só, que desliza da posição antiga pra
+ * nova — e por isso o rótulo passou a ficar SEMPRE visível nas 4
+ * abas (antes só aparecia na ativa): a cápsula precisa de algo fixo
+ * pra deslizar por trás, senão o "salto" de layout (ícone sozinho →
+ * ícone+texto) atrapalharia a animação.
+ */
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const [unreadCount, setUnreadCount] = useState(0);
+  const { t } = useTranslation();
 
   useEffect(() => {
     let cancelled = false;
@@ -77,15 +89,46 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     };
   }, []);
 
-  const { t } = useTranslation();
+  /*
+   * `state.routes` inclui a aba "feed" escondida (ela continua
+   * registrada em `<Tabs.Screen>`, só não aparece — `href: null` tira
+   * da navegação visível, não da lista). Se a cápsula usasse o índice
+   * CRU de `state`, ela deslizaria pra posição errada sempre que a
+   * aba ativa estivesse depois do Feed na lista (Explorar/Perfil) —
+   * por isso filtra ANTES de calcular qualquer posição.
+   */
+  const visibleRoutes = state.routes.filter((route) => ROUTE_ICON[route.name] && ROUTE_LABEL_KEY[route.name]);
+  const activeVisibleIndex = visibleRoutes.findIndex((route) => route.key === state.routes[state.index]?.key);
+
+  const capsuleAnim = useRef(new Animated.Value(activeVisibleIndex)).current;
+  useEffect(() => {
+    if (activeVisibleIndex < 0) return;
+    Animated.timing(capsuleAnim, { toValue: activeVisibleIndex, duration: motion.normal, useNativeDriver: true }).start();
+  }, [activeVisibleIndex, capsuleAnim]);
+
+  const capsuleTranslate = capsuleAnim.interpolate({
+    inputRange: visibleRoutes.map((_, i) => i),
+    outputRange: visibleRoutes.map((_, i) => `${i * 100}%`),
+  });
 
   return (
     <View style={[styles.tabBar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}>
-      {state.routes.map((route, index) => {
-        const icon = ROUTE_ICON[route.name];
-        const labelKey = ROUTE_LABEL_KEY[route.name];
-        if (!icon || !labelKey) return null;
-        const focused = state.index === index;
+      {activeVisibleIndex >= 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.capsule,
+            {
+              width: `${100 / visibleRoutes.length}%`,
+              transform: [{ translateX: capsuleTranslate }],
+            },
+          ]}
+        />
+      )}
+      {visibleRoutes.map((route) => {
+        const icon = ROUTE_ICON[route.name]!;
+        const labelKey = ROUTE_LABEL_KEY[route.name]!;
+        const focused = route.key === state.routes[state.index]?.key;
 
         function handlePress() {
           const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
@@ -96,23 +139,17 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
         return (
           <Pressable key={route.key} onPress={handlePress} style={styles.tabItem}>
-            {focused ? (
-              <View style={styles.activePill}>
-                <Feather name={icon} color={colors.background} size={15} />
-                <RNText style={styles.activePillLabel} numberOfLines={1}>
-                  {t(labelKey)}
-                </RNText>
-              </View>
-            ) : (
-              <View style={styles.iconWrapper}>
-                <Feather name={icon} color={colors.muted} size={20} />
-                {route.name === "profile" && unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <RNText style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</RNText>
-                  </View>
-                )}
-              </View>
-            )}
+            <View style={styles.iconWrapper}>
+              <Feather name={icon} color={focused ? colors.primary : colors.muted} size={22} />
+              {route.name === "profile" && unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <RNText style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</RNText>
+                </View>
+              )}
+            </View>
+            <RNText style={[styles.label, focused && styles.labelActive]} numberOfLines={1}>
+              {t(labelKey)}
+            </RNText>
           </Pressable>
         );
       })}
@@ -161,31 +198,35 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
+  capsule: {
+    position: "absolute",
+    top: 6,
+    left: 0,
+    bottom: 6,
+    borderRadius: 14,
+    backgroundColor: colors.primary + "26",
+    borderWidth: 1,
+    borderColor: colors.primary + "66",
+  },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: 3,
+    paddingVertical: 6,
   },
   iconWrapper: {
-    height: 36,
-    width: 36,
+    height: 26,
+    width: 26,
     alignItems: "center",
     justifyContent: "center",
   },
-  activePill: {
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 1,
-    height: 44,
-    minWidth: 52,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
+  label: {
+    fontSize: 10.5,
+    color: colors.muted,
   },
-  activePillLabel: {
-    color: colors.background,
-    fontSize: 10,
+  labelActive: {
+    color: colors.primary,
     fontWeight: "700",
   },
   badge: {

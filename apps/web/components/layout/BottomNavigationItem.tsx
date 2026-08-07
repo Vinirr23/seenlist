@@ -22,16 +22,21 @@ export function BottomNavigationItem({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5"
+      className="relative z-10 flex flex-1 flex-col items-center justify-center gap-1 py-2.5"
     >
-      <span
-        className={cn(
-          "relative flex h-9 w-9 items-center justify-center rounded-full transition-colors",
-          active && "bg-primary/15"
-        )}
-      >
+      {/*
+        * A PEDIDO — a cápsula que desliza (renderizada em
+        * `BottomNavigation.tsx`, por trás de todos os itens) passou
+        * a ser o ÚNICO indicador de aba ativa. O círculo individual
+        * que cada ícone tinha (`bg-primary/15` só nele) foi removido
+        * — os dois juntos ficariam redundantes, dois destaques
+        * dizendo a mesma coisa. `z-10` no link garante que o ícone
+        * fique por CIMA da cápsula (que não tem z-index próprio),
+        * não escondido atrás dela.
+        */}
+      <span className="relative flex h-9 w-9 items-center justify-center">
         <Icon
-          className={cn("h-5 w-5", active ? "text-primary" : "text-muted")}
+          className={cn("h-5 w-5 transition-colors", active ? "text-primary" : "text-muted")}
           strokeWidth={active ? 2.4 : 2}
         />
         {badge && (
