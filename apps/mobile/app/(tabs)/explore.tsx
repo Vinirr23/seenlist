@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { View, ScrollView, Pressable, StyleSheet } from "react-native";
-import { Screen, Text } from "@/components/ui";
+import { View, ScrollView, StyleSheet } from "react-native";
+import { Screen, Text, SlidingTabs } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { SearchBar } from "@/components/explore/SearchBar";
@@ -9,7 +9,7 @@ import { DiscoverCarousel } from "@/components/explore/DiscoverCarousel";
 import { ActivityFeedRow } from "@/components/explore/ActivityFeedRow";
 import { useDiscoverList } from "@/lib/useDiscoverList";
 import { useActivityFeed } from "@/lib/useActivityFeed";
-import { colors, spacing, radius } from "@/lib/theme";
+import { spacing } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -57,9 +57,21 @@ export default function ExploreScreen() {
         </ScrollView>
       ) : (
         <>
+          {/*
+            * A PEDIDO — cópia local de "trilha de 2 abas" migrada pro
+            * componente compartilhado (`SlidingTabs`, achado depois de
+            * corrigir a mesma coisa em `HomeTabs.tsx` e só então notar
+            * que existia uma segunda cópia aqui).
+            */}
           <View style={styles.tabs}>
-            <TabButton label={t("explore.tab.discover")} active={tab === "discover"} onPress={() => setTab("discover")} />
-            <TabButton label={t("explore.tab.activity")} active={tab === "activity"} onPress={() => setTab("activity")} />
+            <SlidingTabs
+              active={tab}
+              onChange={setTab}
+              options={[
+                { value: "discover", label: t("explore.tab.discover") },
+                { value: "activity", label: t("explore.tab.activity") },
+              ]}
+            />
           </View>
 
           {tab === "discover" ? (
@@ -121,16 +133,6 @@ function ActivityTabContent() {
   );
 }
 
-function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={[styles.tabButton, active && styles.tabButtonActive]}>
-      <Text variant="label" style={active ? styles.tabLabelActive : styles.tabLabel}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   searchArea: {
     paddingHorizontal: spacing.lg,
@@ -142,25 +144,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   tabs: {
-    flexDirection: "row",
-    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
-  },
-  tabButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-  },
-  tabButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  tabLabel: {
-    color: colors.muted,
-  },
-  tabLabelActive: {
-    color: colors.background,
   },
   discoverContent: {
     paddingTop: spacing.xs,
