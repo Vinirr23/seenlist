@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { View, Modal, TextInput, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { safeBottomInset } from "@/lib/safeBottomInset";
 import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { createTextPost } from "@/lib/posts";
@@ -137,7 +136,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Pressable hitSlop={8} style={[styles.fab, { bottom: 84 + safeBottomInset(insets.bottom) }]} onPress={handleOpen}>
+      <Pressable hitSlop={8} style={[styles.fab, { bottom: 84 + insets.bottom }]} onPress={handleOpen}>
         <Feather name="plus" size={24} color={colors.background} />
       </Pressable>
 
@@ -155,7 +154,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
             * `insets.bottom || spacing.md` garante um respiro
             * mínimo mesmo em aparelho que reporta 0.
             */}
-          <View style={[styles.sheet, { paddingBottom: spacing.lg + (safeBottomInset(insets.bottom) || spacing.md) }]}>
+          <View style={[styles.sheet, { paddingBottom: spacing.lg + (insets.bottom || spacing.md) }]}>
             <View style={styles.sheetHeader}>
               <Pressable onPress={() => setOpen(false)} hitSlop={8}>
                 <Text variant="muted">{t("common.cancel")}</Text>

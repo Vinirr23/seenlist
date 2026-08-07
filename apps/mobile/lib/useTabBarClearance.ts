@@ -1,5 +1,4 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { safeBottomInset } from "./safeBottomInset";
 
 const TAB_BAR_HEIGHT = 56;
 const EXTRA_GAP = 16;
@@ -21,7 +20,8 @@ const EXTRA_GAP = 16;
  * barra (56) + respiro (16) + a área segura de baixo (`insets.bottom`,
  * que a própria barra já absorve como padding interno agora).
  */
+// CORREÇÃO — revertido teto artificial (ver comentário completo em `app/(tabs)/_layout.tsx`); confia no valor real do sistema, como já era antes desta sessão.
 export function useTabBarClearance(): number {
   const insets = useSafeAreaInsets();
-  return TAB_BAR_HEIGHT + EXTRA_GAP + safeBottomInset(insets.bottom);
+  return TAB_BAR_HEIGHT + EXTRA_GAP + insets.bottom;
 }

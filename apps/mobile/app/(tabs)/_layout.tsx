@@ -3,7 +3,6 @@ import { View, Pressable, Text as RNText, Animated, StyleSheet } from "react-nat
 import { Tabs } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { safeBottomInset } from "@/lib/safeBottomInset";
 import { Feather } from "@expo/vector-icons";
 import { colors, motion } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
@@ -72,8 +71,20 @@ const ROUTE_LABEL_KEY: Record<string, string> = {
  */
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  // CORREÇÃO (bug real, reportado com foto) — ver `lib/safeBottomInset.ts` pro motivo completo.
-  const safeInset = safeBottomInset(insets.bottom);
+  /*
+   * CORREÇÃO (revertendo um diagnóstico errado meu) — cheguei a
+   * limitar este valor a um teto artificial (34, emprestado da
+   * altura da barra de gestos do iPhone — nada a ver com Android),
+   * achando que `insets.bottom` vinha "inflado" nesse aparelho. Era
+   * engano: aparelho com navegação de 3 botões PRECISA de mais
+   * espaço mesmo (frequentemente ~48dp ou mais) — o valor do sistema
+   * provavelmente sempre esteve certo. O teto cortava um valor
+   * legítimo, recriando o bug antigo (barra encostando nos botões
+   * do sistema) que já tinha sido corrigido antes desta sessão. A
+   * causa real do "tamanho bugado" era só a cápsula em si (já
+   * corrigida, ver comentário nela abaixo), não este valor.
+   */
+  const safeInset = insets.bottom;
   const [unreadCount, setUnreadCount] = useState(0);
   /*
    * CORREÇÃO (bug real, reportado com print — "a barra não desliza")
@@ -224,12 +235,11 @@ const styles = StyleSheet.create({
     /*
      * CORREÇÃO (bug real, reportado com print — cápsula colada em
      * cima, com folga só embaixo) — a versão anterior usava altura
-     * FIXA (44) como proteção contra o `insets.bottom` inflado. Essa
-     * proteção real já foi resolvida na RAIZ (teto em
-     * `safeBottomInset`, ver o `const safeInset` acima) — com o pai
-     * agora sempre bem-comportado, altura fixa parou de fazer
-     * sentido: ela não se adapta à altura de verdade do conteúdo
-     * (ícone+rótulo), então sobra folga só de um lado.
+     * FIXA (44), pensada como proteção contra `insets.bottom`
+     * inflado. Essa suposição era enganada (ver correção grande logo
+     * acima, em `safeInset`) — altura fixa nunca fez sentido: ela não
+     * se adapta à altura de verdade do conteúdo (ícone+rótulo), então
+     * sobrava folga só de um lado.
      *
      * `top`+`bottom` SIMÉTRICOS (6 dos dois lados) resolve isso —
      * a cápsula se ajusta sozinha à altura real do item, sempre com
