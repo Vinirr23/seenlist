@@ -1,4 +1,5 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BOTTOM_MARGIN, TOP_PADDING } from "@/app/(tabs)/_layout";
 
 const TAB_BAR_HEIGHT = 56;
 const EXTRA_GAP = 16;
@@ -13,15 +14,13 @@ const EXTRA_GAP = 16;
  * escondido atrás dela — mesmo cálculo já usado pro botão de criar
  * post (`CreatePostButton.tsx`).
  *
- * Ajuste (a pedido — barra virou fixa, borda a borda, em vez de
- * flutuante com margem) — removidos os 12px de margem que existiam
- * antes entre a barra e a borda da tela (não existem mais nesse
- * formato); a altura reservada agora é só a altura de conteúdo da
- * barra (56) + respiro (16) + a área segura de baixo (`insets.bottom`,
- * que a própria barra já absorve como padding interno agora).
+ * CORREÇÃO (a pedido — barra ganhou respiro no topo e margem
+ * intencional da borda de baixo, ver `_layout.tsx`) — `BOTTOM_MARGIN`
+ * + `TOP_PADDING` somados aqui, importados do MESMO lugar que os
+ * define, pra nunca ficar dessincronizado se aqueles valores mudarem
+ * de novo no futuro.
  */
-// CORREÇÃO — revertido teto artificial (ver comentário completo em `app/(tabs)/_layout.tsx`); confia no valor real do sistema, como já era antes desta sessão.
 export function useTabBarClearance(): number {
   const insets = useSafeAreaInsets();
-  return TAB_BAR_HEIGHT + EXTRA_GAP + insets.bottom;
+  return TAB_BAR_HEIGHT + TOP_PADDING + BOTTOM_MARGIN + EXTRA_GAP + insets.bottom;
 }

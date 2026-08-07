@@ -10,6 +10,16 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const UNREAD_POLL_INTERVAL_MS = 30_000;
 
+/**
+ * A PEDIDO — margem intencional entre a barra e a borda de baixo da
+ * tela, e mais respiro no topo dos itens (ícone/rótulo coladas na
+ * borda superior antes). Fixo, de propósito: não depende de
+ * `insets.bottom`, que em aparelho com navegação de 3 botões pode
+ * legitimamente vir zero (ver comentário completo em `styles.tabBar`).
+ */
+export const BOTTOM_MARGIN = 8;
+export const TOP_PADDING = 10;
+
 const ROUTE_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   series: "tv",
   movies: "film",
@@ -143,7 +153,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      style={[styles.tabBar, { height: 56 + safeInset, paddingBottom: safeInset }]}
+      style={[styles.tabBar, { height: 56 + TOP_PADDING + safeInset, paddingTop: TOP_PADDING, paddingBottom: safeInset }]}
       onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
     >
       {activeVisibleIndex >= 0 && barWidth > 0 && (
@@ -220,10 +230,21 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
+    /*
+     * A PEDIDO (bug real, reportado com print — barra encostada direto
+     * nos botões do sistema, sem respiro nenhum) — aparelho com
+     * navegação de 3 botões pode reportar `insets.bottom` como ZERO
+     * de verdade: a área dos botões já fica reservada pelo sistema
+     * FORA da tela do app, então não sobra "inset" nenhum pra
+     * reportar — não é bug de leitura, é comportamento correto do
+     * sistema nesse modo. `bottom: BOTTOM_MARGIN` (fixo, somado ao
+     * que já vier de `insets.bottom`) garante um respiro mínimo
+     * sempre, não importa o que o sistema reporte.
+     */
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: BOTTOM_MARGIN,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
