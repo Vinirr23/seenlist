@@ -72,6 +72,21 @@ const ROUTE_LABEL_KEY: Record<string, string> = {
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const [unreadCount, setUnreadCount] = useState(0);
+  /*
+   * CORREÇÃO (bug real, reportado com print — "a barra não desliza")
+   * — a versão anterior usava `translateX` com PORCENTAGEM
+   * (`"25%"`, `"50%"`...). Diferente do CSS na web, o `transform` do
+   * React Native não é confiável com string de porcentagem — só
+   * aceita número (pixel de verdade). Funcionava "por acaso" na
+   * posição inicial (0% sempre vira 0, não importa o motor), mas
+   * falhava ao tentar deslizar pra qualquer outra posição.
+   *
+   * Corrigido medindo a largura REAL da barra (`onLayout`, só
+   * dispara depois que o layout já existe de verdade) e movendo em
+   * pixel — a forma que o React Native sempre suporta, sem
+   * depender de porcentagem em transform.
+   */
+  const [barWidth, setBarWidth] = useState(0);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -106,20 +121,24 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     Animated.timing(capsuleAnim, { toValue: activeVisibleIndex, duration: motion.normal, useNativeDriver: true }).start();
   }, [activeVisibleIndex, capsuleAnim]);
 
+  const itemWidth = barWidth / (visibleRoutes.length || 1);
   const capsuleTranslate = capsuleAnim.interpolate({
     inputRange: visibleRoutes.map((_, i) => i),
-    outputRange: visibleRoutes.map((_, i) => `${i * 100}%`),
+    outputRange: visibleRoutes.map((_, i) => i * itemWidth),
   });
 
   return (
-    <View style={[styles.tabBar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}>
-      {activeVisibleIndex >= 0 && (
+    <View
+      style={[styles.tabBar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}
+      onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
+    >
+      {activeVisibleIndex >= 0 && barWidth > 0 && (
         <Animated.View
           pointerEvents="none"
           style={[
             styles.capsule,
             {
-              width: `${100 / visibleRoutes.length}%`,
+              width: itemWidth,
               transform: [{ translateX: capsuleTranslate }],
             },
           ]}
