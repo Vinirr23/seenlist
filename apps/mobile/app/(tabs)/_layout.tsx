@@ -18,17 +18,20 @@ const UNREAD_POLL_INTERVAL_MS = 30_000;
  * legitimamente vir zero (ver comentário completo em `styles.tabBar`).
  */
 /*
- * CORREÇÃO (a pedido — "subiu a barra, não é pra subir") — valores
- * reduzidos. A primeira tentativa (8/10) exagerou: o pedido original
- * era um afastamento LEVE do sistema, não uma barra visivelmente
- * mais alta/mais para cima. Metade do valor mantém a mecânica (ainda
- * não depende do que o sistema reportar) sem mudar a posição da
- * barra de forma perceptível.
+ * CORREÇÃO (a pedido — "você subiu a barra, não é pra subir") —
+ * `TOP_PADDING` foi removido. A causa real do "subiu": a barra é
+ * ancorada por BAIXO (`bottom: BOTTOM_MARGIN`), então aumentar a
+ * ALTURA dela (`TOP_PADDING` somava na altura total) empurra o topo
+ * pra cima — é isso que "subir" significa aqui, diferente de
+ * "afastar da borda de baixo" (que é só o `BOTTOM_MARGIN`, e não
+ * muda a altura da barra, só a posição dela). Os dois efeitos
+ * pareciam a mesma coisa, mas não são.
+ *
+ * `BOTTOM_MARGIN` sozinho continua de pé — ele É o afastamento leve
+ * do sistema que foi pedido, sem crescer a barra.
  */
-export const BOTTOM_MARGIN = 4;
-export const TOP_PADDING = 4;
-/** Largura fixa da cápsula deslizante — ver comentário completo onde é usada, mais abaixo. */
-const CAPSULE_WIDTH = 84;
+export const BOTTOM_MARGIN = 6;
+/** Cápsula voltou a ocupar a coluna inteira — a pedido, revertendo o tamanho fixo/centralizado da tentativa anterior. */
 
 const ROUTE_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   series: "tv",
@@ -156,24 +159,20 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   }, [activeVisibleIndex, capsuleAnim]);
 
   /*
-   * A PEDIDO — cápsula com largura FIXA (não mais a coluna inteira),
-   * centralizada dentro do espaço de cada aba. `CAPSULE_WIDTH` (84)
-   * cabe confortavelmente o rótulo mais largo ("Explorar") sem
-   * encostar nas bordas, mas é bem menor que a coluna inteira (~100+
-   * num aparelho comum) — antes a cápsula ficava esticada até quase
-   * a aba vizinha, bem maior que o ícone+nome que ela deveria
-   * destacar.
+   * REVERTIDO (a pedido, com print circulado mostrando o tamanho
+   * correto) — cápsula volta a ocupar a coluna inteira. A tentativa
+   * anterior (largura fixa de 84, centralizada) não era o que se
+   * queria — o tamanho já estava certo antes dela.
    */
   const itemWidth = barWidth / (visibleRoutes.length || 1);
-  const capsuleOffset = (itemWidth - CAPSULE_WIDTH) / 2;
   const capsuleTranslate = capsuleAnim.interpolate({
     inputRange: visibleRoutes.map((_, i) => i),
-    outputRange: visibleRoutes.map((_, i) => i * itemWidth + capsuleOffset),
+    outputRange: visibleRoutes.map((_, i) => i * itemWidth),
   });
 
   return (
     <View
-      style={[styles.tabBar, { height: 56 + TOP_PADDING + safeInset, paddingTop: TOP_PADDING, paddingBottom: safeInset }]}
+      style={[styles.tabBar, { height: 56 + safeInset, paddingBottom: safeInset }]}
       onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
     >
       {activeVisibleIndex >= 0 && barWidth > 0 && (
@@ -182,7 +181,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           style={[
             styles.capsule,
             {
-              width: CAPSULE_WIDTH,
+              width: itemWidth,
               transform: [{ translateX: capsuleTranslate }],
             },
           ]}

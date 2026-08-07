@@ -10,7 +10,7 @@ import { Text, Button } from "@/components/ui";
 import { hapticTick, hapticSuccess } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize, elevation, scrim } from "@/lib/theme";
-import { BOTTOM_MARGIN, TOP_PADDING } from "@/app/(tabs)/_layout";
+import { BOTTOM_MARGIN } from "@/app/(tabs)/_layout";
 
 const MAX_LENGTH = 500;
 const MAX_POLL_OPTIONS = 4;
@@ -137,7 +137,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Pressable hitSlop={8} style={[styles.fab, { bottom: 84 + TOP_PADDING + BOTTOM_MARGIN + insets.bottom }]} onPress={handleOpen}>
+      <Pressable hitSlop={8} style={[styles.fab, { bottom: 84 + BOTTOM_MARGIN + insets.bottom }]} onPress={handleOpen}>
         <Feather name="plus" size={24} color={colors.background} />
       </Pressable>
 
