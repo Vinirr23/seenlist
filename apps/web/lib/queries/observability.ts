@@ -67,7 +67,7 @@ export interface ObservabilityMetrics {
   librarians: { withSeries: number; withMovies: number };
   advanced: AdvancedStats;
   users: { total: number; newLast7d: number };
-  platform: { mobileInstalls: number; mobileActive30d: number; android: number; ios: number };
+  platform: { mobileInstalls: number; mobileActive30d: number; android: number; ios: number; webPushSubs: number; webPushLast7d: number };
   activity: { episodesToday: number; episodes7d: number; reviews7d: number; posts7d: number };
   social: { follows: number; recommendations7d: number; comments7d: number };
   health: { pendingReports: number; feedbackTotal: number; feedbackLast7d: number };
@@ -129,6 +129,8 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
     mobileActive30d,
     androidTokens,
     iosTokens,
+    webPushSubs,
+    webPushLast7d,
   ] = await Promise.all([
     count("profiles", (q) => q),
     count("profiles", (q) => q.gte("created_at", d7)),
@@ -163,6 +165,15 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
     count("push_tokens", (q) => q.gte("last_seen_at", d30)),
     count("push_tokens", (q) => q.eq("platform", "android")),
     count("push_tokens", (q) => q.eq("platform", "ios")),
+    /*
+     * A PEDIDO — inscrições de Web Push. É a métrica que diz se a
+     * aposta está funcionando: a hipótese é que o aviso de episódio
+     * explica o D7 de 36% (com app) vs 4% (só site), e o Web Push
+     * leva esse aviso pros 81% que estão só no site. Se este número
+     * subir e o D7 de "só site" acompanhar, a hipótese se confirma.
+     */
+    count("web_push_subscriptions", (q) => q),
+    count("web_push_subscriptions", (q) => q.gte("created_at", d7)),
   ]);
 
   const n = (r: { count: number | null }) => r.count ?? 0;
@@ -250,6 +261,8 @@ export async function fetchObservabilityMetrics(): Promise<ObservabilityMetrics>
       mobileActive30d: n(mobileActive30d),
       android: n(androidTokens),
       ios: n(iosTokens),
+      webPushSubs: n(webPushSubs),
+      webPushLast7d: n(webPushLast7d),
     },
     library: {
       seriesTracked: n(seriesTracked),

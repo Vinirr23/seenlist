@@ -153,6 +153,7 @@ interface TmdbTvDetailsResponse {
   seasons: { season_number: number; name: string; episode_count: number }[];
   credits?: { cast: { id: number; name: string; character: string; profile_path: string | null }[] };
   similar?: { results: TmdbMultiSearchItem[] };
+  recommendations?: { results: TmdbMultiSearchItem[] };
   alternative_titles?: { results: { iso_3166_1: string; title: string }[] };
   videos?: { results: { key: string; site: string; type: string; official?: boolean }[] };
   images?: { backdrops: { file_path: string }[] };
@@ -251,7 +252,7 @@ export async function getSeriesDetails(
 ): Promise<Omit<SeriesDetails, "seasons">> {
   const [data, englishData] = await Promise.all([
     tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, {
-      append_to_response: "credits,similar,alternative_titles,videos,images",
+      append_to_response: "credits,recommendations,similar,alternative_titles,videos,images",
     }),
     // TASK-168 (correção 2) — depender só de `alternative_titles` não
     // bastava: muita série/anime não tem uma entrada "US" cadastrada
@@ -272,7 +273,27 @@ export async function getSeriesDetails(
     profilePath: member.profile_path,
   }));
 
-  const similar: MediaSearchResult[] = (data.similar?.results ?? [])
+  /*
+   * CORREÇÃO (bug real, reportado com print — "as séries semelhantes
+   * não têm nada a ver com o anime": um anime mostrando Game of
+   * Thrones, The Walking Dead e Pessoa de Interesse).
+   *
+   * A causa é o endpoint escolhido, não o nosso código. O `/similar`
+   * do TMDB compara por PALAVRA-CHAVE E GÊNERO — como quase todo
+   * anime de fantasia compartilha "fantasy"/"drama" com séries
+   * ocidentais grandes, o resultado vira uma lista de populares sem
+   * relação nenhuma. É uma limitação conhecida (já estava registrada
+   * como pendência: "limitação do algoritmo do próprio TMDB").
+   *
+   * O `/recommendations` do mesmo TMDB é baseado em COMPORTAMENTO
+   * de quem assiste (quem viu isto também viu aquilo) — muito mais
+   * próximo do que a pessoa espera. Mantemos `/similar` como reserva
+   * pra títulos obscuros, onde não há dados de comportamento
+   * suficientes e o endpoint bom volta vazio.
+   */
+  const recommended = data.recommendations?.results ?? [];
+  const similarFallback = data.similar?.results ?? [];
+  const similar: MediaSearchResult[] = (recommended.length > 0 ? recommended : similarFallback)
     .slice(0, 12)
     .map((item) => normalizeSearchItem({ ...item, media_type: "tv" }));
 
@@ -462,6 +483,7 @@ interface TmdbMovieDetailsResponse {
     crew: { id: number; name: string; job: string }[];
   };
   similar?: { results: TmdbMultiSearchItem[] };
+  recommendations?: { results: TmdbMultiSearchItem[] };
   "watch/providers"?: TmdbWatchProvidersResponse;
   videos?: { results: { key: string; site: string; type: string; official?: boolean }[] };
 }
@@ -548,7 +570,7 @@ export async function getSeriesWatchProviders(seriesId: string): Promise<WatchPr
  */
 export async function getMovieDetails(movieId: string): Promise<MovieDetails> {
   const data = await tmdbGet<TmdbMovieDetailsResponse>(`/movie/${movieId}`, {
-    append_to_response: "credits,similar,watch/providers,videos",
+    append_to_response: "credits,recommendations,similar,watch/providers,videos",
   });
 
   const cast: CastMember[] = (data.credits?.cast ?? []).slice(0, 15).map((member) => ({
@@ -560,7 +582,12 @@ export async function getMovieDetails(movieId: string): Promise<MovieDetails> {
 
   const director = data.credits?.crew.find((member) => member.job === "Director")?.name ?? null;
 
-  const similar: MediaSearchResult[] = (data.similar?.results ?? [])
+  // Mesma correção da série (ver comentário longo em
+  // `fetchSeriesDetailsBase`): `/recommendations` é baseado em
+  // comportamento de quem assiste, `/similar` só em palavra-chave.
+  const recommendedMovies = data.recommendations?.results ?? [];
+  const similarMoviesFallback = data.similar?.results ?? [];
+  const similar: MediaSearchResult[] = (recommendedMovies.length > 0 ? recommendedMovies : similarMoviesFallback)
     .slice(0, 12)
     .map((item) => normalizeSearchItem({ ...item, media_type: "movie" }));
 

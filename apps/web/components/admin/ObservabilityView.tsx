@@ -275,6 +275,33 @@ export function ObservabilityView({ metrics }: { metrics: ObservabilityMetrics }
         <StatCard label="iOS" value={platform.ios} />
       </Section>
 
+      {/*
+        * A PEDIDO — acompanhamento do Web Push. Separado de
+        * "Plataforma" de propósito: não é um recorte de quem são os
+        * usuários, é o placar de uma aposta específica. A hipótese é
+        * que o aviso de episódio explica o D7 de 36% (com app) vs 4%
+        * (só site) — se estas inscrições subirem E o D7 de "só site"
+        * acompanhar, a hipótese se confirma; se subirem e o D7 não
+        * mexer, a explicação da diferença está em outro lugar.
+        */}
+      <Section title="Web Push (aviso no navegador)">
+        <StatCard
+          label="Inscrições"
+          value={platform.webPushSubs}
+          hint={`${cohorts.webOnly.total} pessoas usam só o site`}
+        />
+        <StatCard label="Novas (7 dias)" value={platform.webPushLast7d} />
+        <StatCard
+          label="Cobertura"
+          value={
+            cohorts.webOnly.total > 0
+              ? `${Math.round((platform.webPushSubs / cohorts.webOnly.total) * 100)}%`
+              : "—"
+          }
+          hint="de quem usa só o site"
+        />
+      </Section>
+
       <Section title="Biblioteca">
         <StatCard label="Séries acompanhadas" value={library.seriesTracked} />
         <StatCard label="Filmes na biblioteca" value={library.moviesTracked} />
