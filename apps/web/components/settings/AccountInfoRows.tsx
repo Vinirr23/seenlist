@@ -16,7 +16,20 @@ export function AccountInfoRows() {
   const { data: user } = useCurrentUser();
   const { t } = useTranslation();
 
-  if (!user) return null;
+  /*
+   * CORREÇÃO (a pedido — auditoria de consistência web/mobile, mesmo
+   * achado do Bloco 2 no mobile) — `if (!user) return null` deixava
+   * a seção Conta em branco enquanto carregava, sem esqueleto
+   * nenhum — pior que um spinner, parecia que a seção nem existia.
+   */
+  if (!user) {
+    return (
+      <div className="space-y-3 p-3">
+        <div className="h-4 w-2/3 animate-pulse rounded bg-background" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-background" />
+      </div>
+    );
+  }
 
   return (
     <>

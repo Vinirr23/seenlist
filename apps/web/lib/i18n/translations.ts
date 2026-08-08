@@ -721,6 +721,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     "error.tryAgain": "Tentar de novo",
     "error.generic": "Algo deu errado. Tente de novo.",
+    "error.offline": "Sem conexão com a internet. Verifique sua rede e tente de novo.",
     "offline.banner": "Você está offline. Algumas coisas podem não funcionar até a conexão voltar.",
   },
   en: {
@@ -1401,6 +1402,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     "error.tryAgain": "Try again",
     "error.generic": "Something went wrong. Please try again.",
+    "error.offline": "No internet connection. Check your network and try again.",
     "offline.banner": "You're offline. Some things may not work until your connection comes back.",
   },
   es: {
@@ -2081,6 +2083,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     "error.tryAgain": "Intentar de nuevo",
     "error.generic": "Algo salió mal. Inténtalo de nuevo.",
+    "error.offline": "Sin conexión a internet. Revisa tu red e inténtalo de nuevo.",
     "offline.banner": "Estás sin conexión. Algunas cosas pueden no funcionar hasta que vuelva la conexión.",
   },
 };

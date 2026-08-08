@@ -72,7 +72,17 @@ export function VisibilityRow({ label, field, value, last }: VisibilityRowProps)
 export function PrivacySection() {
   const { data: profile } = useMyProfile();
   const { t } = useTranslation();
-  if (!profile) return null;
+
+  // CORREÇÃO (a pedido — mesmo achado de AccountInfoRows.tsx acima) — sem esqueleto, esta seção sumia por completo enquanto carregava.
+  if (!profile) {
+    return (
+      <div className="space-y-3 p-3">
+        <div className="h-4 w-1/2 animate-pulse rounded bg-background" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-background" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-background" />
+      </div>
+    );
+  }
 
   return (
     <>

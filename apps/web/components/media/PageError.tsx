@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, WifiOff } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useOnlineStatus } from "@/lib/useOnlineStatus";
 
 export interface PageErrorProps {
   message?: string;
@@ -24,11 +25,28 @@ export interface PageErrorProps {
  */
 export function PageError({ message, onRetry, secondaryAction }: PageErrorProps) {
   const { t } = useTranslation();
+  const isOnline = useOnlineStatus();
+
+  /*
+   * CORREÇÃO (a pedido — auditoria de consistência web/mobile, mesmo
+   * achado do Bloco 2 no mobile) — toda falha mostrava a mesma
+   * mensagem genérica, sem distinguir "você está sem internet" de
+   * "nosso servidor/o TMDB falhou". São situações com AÇÕES
+   * diferentes: numa, checar o Wi-Fi; na outra, só esperar. O hook
+   * já existia (`useOnlineStatus`, usado no `OfflineBanner`) — só
+   * nunca tinha sido usado aqui. Estar offline vence a mensagem
+   * específica da tela.
+   */
+  const displayMessage = !isOnline ? t("error.offline") : (message ?? t("error.generic"));
 
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <AlertTriangle className="h-8 w-8 text-danger" strokeWidth={1.75} />
-      <p className="text-sm text-muted">{message ?? t("error.generic")}</p>
+      {isOnline ? (
+        <AlertTriangle className="h-8 w-8 text-danger" strokeWidth={1.75} />
+      ) : (
+        <WifiOff className="h-8 w-8 text-danger" strokeWidth={1.75} />
+      )}
+      <p className="text-sm text-muted">{displayMessage}</p>
       <div className="flex items-center gap-4">
         {onRetry && (
           <button
