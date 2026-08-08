@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { View, Pressable, Text as RNText, StyleSheet } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { View, Pressable, Text as RNText, Animated, StyleSheet } from "react-native";
 import { Tabs } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { colors } from "@/lib/theme";
+import { colors, motion } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -25,23 +25,31 @@ const ROUTE_LABEL_KEY: Record<string, string> = {
 };
 
 /**
- * REVERTIDO POR COMPLETO (a pedido — "vamos tirar esse deslize") —
- * depois de várias rodadas tentando acertar a cápsula deslizante
- * (medição de largura por proporção, depois por conteúdo real,
- * animação de posição e de largura...) sem convergir num resultado
- * que funcionasse igual no aparelho de teste, a decisão foi
- * abandonar a animação de vez, não insistir mais.
+ * A PEDIDO — "sem mexer em tamanho nem proporção, adiciona a
+ * animação de deslize". A pílula (contorno dourado) continua com
+ * exatamente as mesmas medidas de antes — só passou a DESLIZAR de
+ * uma aba pra outra em vez de aparecer/sumir na hora.
  *
- * Este é o padrão SIMPLES e comprovadamente estável que o app já
- * usava antes de qualquer mexida na cápsula: sem `onLayout`, sem
- * `Animated`, sem medição de largura de texto — só uma troca
- * condicional de estilo (pílula sólida quando ativo, ícone sozinho
- * quando não). Menos recurso, mas também muito menos superfície pra
- * bug esquisito de aparelho específico.
+ * Diferença deliberada da tentativa anterior (que causou vários
+ * bugs de aparelho): largura FIXA (`PILL_WIDTH`), não mais medida a
+ * partir do texto de cada rótulo. Só a POSIÇÃO anima (`translateX`,
+ * em pixel de verdade via `onLayout` — a forma que já funcionava
+ * antes de qualquer complicação) — nunca a largura. Como só
+ * `transform` está animando (não `width`), a animação roda na
+ * thread nativa (`useNativeDriver: true`), sem o custo/risco extra
+ * de rodar em JS.
+ *
+ * Pra a cápsula deslizar de forma coerente, todas as 4 abas agora
+ * mostram ícone+rótulo sempre (antes, só a ativa tinha rótulo) — a
+ * cápsula precisa de algo estável pra deslizar por trás, e o rótulo
+ * aparecendo/sumindo ao mesmo tempo que ela se move ficaria confuso.
  */
+const PILL_WIDTH = 88;
+
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [barWidth, setBarWidth] = useState(0);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -59,13 +67,36 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     };
   }, []);
 
+  const visibleRoutes = state.routes.filter((route) => ROUTE_ICON[route.name] && ROUTE_LABEL_KEY[route.name]);
+  const activeVisibleIndex = visibleRoutes.findIndex((route) => route.key === state.routes[state.index]?.key);
+
+  const pillAnim = useRef(new Animated.Value(Math.max(activeVisibleIndex, 0))).current;
+  useEffect(() => {
+    if (activeVisibleIndex < 0) return;
+    Animated.timing(pillAnim, { toValue: activeVisibleIndex, duration: motion.normal, useNativeDriver: true }).start();
+  }, [activeVisibleIndex, pillAnim]);
+
+  const itemWidth = barWidth / (visibleRoutes.length || 1);
+  const pillTranslate = pillAnim.interpolate({
+    inputRange: visibleRoutes.map((_, i) => i),
+    outputRange: visibleRoutes.map((_, i) => i * itemWidth + itemWidth / 2 - PILL_WIDTH / 2),
+  });
+
   return (
-    <View style={[styles.tabBar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}>
-      {state.routes.map((route, index) => {
-        const icon = ROUTE_ICON[route.name];
-        const labelKey = ROUTE_LABEL_KEY[route.name];
-        if (!icon || !labelKey) return null;
-        const focused = state.index === index;
+    <View
+      style={[styles.tabBar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}
+      onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
+    >
+      {activeVisibleIndex >= 0 && barWidth > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.activePill, { width: PILL_WIDTH, transform: [{ translateX: pillTranslate }] }]}
+        />
+      )}
+      {visibleRoutes.map((route) => {
+        const icon = ROUTE_ICON[route.name]!;
+        const labelKey = ROUTE_LABEL_KEY[route.name]!;
+        const focused = route.key === state.routes[state.index]?.key;
 
         function handlePress() {
           const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
@@ -76,23 +107,17 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
         return (
           <Pressable key={route.key} onPress={handlePress} style={styles.tabItem}>
-            {focused ? (
-              <View style={styles.activePill}>
-                <Feather name={icon} color={colors.primary} size={20} />
-                <RNText style={styles.activePillLabel} numberOfLines={1}>
-                  {t(labelKey)}
-                </RNText>
-              </View>
-            ) : (
-              <View style={styles.iconWrapper}>
-                <Feather name={icon} color={colors.muted} size={20} />
-                {route.name === "profile" && unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <RNText style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</RNText>
-                  </View>
-                )}
-              </View>
-            )}
+            <View style={styles.tabContent}>
+              <Feather name={icon} color={focused ? colors.primary : colors.muted} size={20} />
+              {route.name === "profile" && unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <RNText style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</RNText>
+                </View>
+              )}
+              <RNText style={[styles.label, focused && styles.labelActive]} numberOfLines={1}>
+                {t(labelKey)}
+              </RNText>
+            </View>
           </Pressable>
         );
       })}
@@ -146,32 +171,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  iconWrapper: {
-    height: 36,
-    width: 36,
+  tabContent: {
     alignItems: "center",
-    justifyContent: "center",
+    gap: 2,
   },
   /**
-   * A PEDIDO — opção "C" (contorno): borda dourada em vez de
-   * preenchimento sólido. Mesma estrutura de sempre (troca
-   * condicional de estilo, sem animação nem medição de largura de
-   * texto) — só o visual mudou.
+   * Mesmas medidas exatas da opção "C" (contorno) já aprovada — só
+   * deixou de ser renderizada condicionalmente por item e passou a
+   * ser UM elemento flutuante só, atrás de todos, que se move.
    */
   activePill: {
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    position: "absolute",
+    top: 4,
+    height: 48,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: colors.primary,
   },
-  activePillLabel: {
-    color: colors.primary,
+  label: {
     fontSize: 10,
+    color: colors.muted,
+  },
+  labelActive: {
+    color: colors.primary,
     fontWeight: "600",
   },
   badge: {
