@@ -1,31 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import { View, Pressable, Text as RNText, Animated, StyleSheet } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Pressable, Text as RNText, StyleSheet } from "react-native";
 import { Tabs } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { colors, motion } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const UNREAD_POLL_INTERVAL_MS = 30_000;
-
-/**
- * A PEDIDO — margem intencional entre a barra e a borda de baixo da
- * tela, e mais respiro no topo dos itens (ícone/rótulo coladas na
- * borda superior antes). Fixo, de propósito: não depende de
- * `insets.bottom`, que em aparelho com navegação de 3 botões pode
- * legitimamente vir zero (ver comentário completo em `styles.tabBar`).
- */
-/*
- * REVERTIDO POR COMPLETO (a pedido, com print circulado mostrando a
- * barra colada nos botões do sistema, sem afastamento nenhum) — todo
- * ajuste de posição/altura da barra (`TOP_PADDING`, `BOTTOM_MARGIN`)
- * foi removido nesta rodada. A barra volta a ser exatamente como
- * sempre foi (`bottom: 0`, `height: 56 + insets.bottom`, sem margem
- * extra nenhuma) — só a cápsula (deslizar + tamanho) continua com a
- * correção, porque isso nunca foi questionado.
- */
 
 const ROUTE_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   series: "tv",
@@ -42,82 +25,23 @@ const ROUTE_LABEL_KEY: Record<string, string> = {
 };
 
 /**
- * TASK-090 — mesmas 5 abas e mesma ordem do web
- * (`apps/web/lib/navigation.ts`): Séries, Filmes, Feed, Explorar,
- * Perfil. Ícones via `@expo/vector-icons` (Feather) em vez de
- * `lucide-react-native` — evita adicionar mais uma dependência
- * nativa nova; `@expo/vector-icons` já vem dentro do pacote `expo`
- * (histórico da EAS: cota de build já estourou uma vez, então cada
- * dependência nova evitada é um risco a menos).
+ * REVERTIDO POR COMPLETO (a pedido — "vamos tirar esse deslize") —
+ * depois de várias rodadas tentando acertar a cápsula deslizante
+ * (medição de largura por proporção, depois por conteúdo real,
+ * animação de posição e de largura...) sem convergir num resultado
+ * que funcionasse igual no aparelho de teste, a decisão foi
+ * abandonar a animação de vez, não insistir mais.
  *
- * TASK-169 — badge de recomendações não lidas, redesenhado à mão
- * (ver abaixo) — busca de novo a cada 30s enquanto o app está
- * aberto — não é tempo real (evita gastar conexão do Supabase
- * Realtime só por isso), atualiza rápido o bastante pra não parecer
- * travado.
- *
- * Redesign (a pedido, 3ª rodada — achado real: mesmo desenhando o
- * conteúdo dentro de `tabBarIcon`, o React Navigation reserva um
- * ESPAÇO FIXO pro slot de ícone, pensado pra conteúdo de largura
- * constante — a pílula (mais larga que um ícone sozinho, só quando
- * ativa) ficava cortada por esse limite, em vez de simplesmente
- * ocupar mais espaço) — a solução de verdade é parar de usar
- * `tabBarIcon`/`tabBarLabel` (o sistema padrão) e desenhar a barra
- * inteira à mão, via prop `tabBar` — controle total, sem nenhum
- * limite escondido de tamanho.
- *
- * Ajuste (a pedido) — a barra deixou de ser flutuante (cantos
- * arredondados, margem de 16 dos dois lados, sombra) e virou FIXA:
- * borda a borda, encostada no fundo de verdade (`left/right/bottom:
- * 0`), fundo sólido (não mais semi-transparente) e uma borda
- * superior fina em vez de sombra. `useTabBarClearance()` (o cálculo
- * de espaço reservado que TODA tela com lista usa, pra não ficar
- * escondendo o último item atrás da barra) foi atualizado junto —
- * não tinha mais os 12px de margem que existiam antes.
- */
-/**
- * A PEDIDO — cápsula deslizante por trás da aba ativa, espelhando a
- * mesma ideia da web (`BottomNavigation.tsx`). Antes, o destaque era
- * uma pílula que só existia (ou não) na aba ativa — trocar de aba
- * fazia o rótulo "pipocar", sem nenhum movimento entre as posições.
- * Agora existe UMA cápsula só, que desliza da posição antiga pra
- * nova — e por isso o rótulo passou a ficar SEMPRE visível nas 4
- * abas (antes só aparecia na ativa): a cápsula precisa de algo fixo
- * pra deslizar por trás, senão o "salto" de layout (ícone sozinho →
- * ícone+texto) atrapalharia a animação.
+ * Este é o padrão SIMPLES e comprovadamente estável que o app já
+ * usava antes de qualquer mexida na cápsula: sem `onLayout`, sem
+ * `Animated`, sem medição de largura de texto — só uma troca
+ * condicional de estilo (pílula sólida quando ativo, ícone sozinho
+ * quando não). Menos recurso, mas também muito menos superfície pra
+ * bug esquisito de aparelho específico.
  */
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  /*
-   * CORREÇÃO (revertendo um diagnóstico errado meu) — cheguei a
-   * limitar este valor a um teto artificial (34, emprestado da
-   * altura da barra de gestos do iPhone — nada a ver com Android),
-   * achando que `insets.bottom` vinha "inflado" nesse aparelho. Era
-   * engano: aparelho com navegação de 3 botões PRECISA de mais
-   * espaço mesmo (frequentemente ~48dp ou mais) — o valor do sistema
-   * provavelmente sempre esteve certo. O teto cortava um valor
-   * legítimo, recriando o bug antigo (barra encostando nos botões
-   * do sistema) que já tinha sido corrigido antes desta sessão. A
-   * causa real do "tamanho bugado" era só a cápsula em si (já
-   * corrigida, ver comentário nela abaixo), não este valor.
-   */
-  const safeInset = insets.bottom;
   const [unreadCount, setUnreadCount] = useState(0);
-  /*
-   * CORREÇÃO (bug real, reportado com print — "a barra não desliza")
-   * — a versão anterior usava `translateX` com PORCENTAGEM
-   * (`"25%"`, `"50%"`...). Diferente do CSS na web, o `transform` do
-   * React Native não é confiável com string de porcentagem — só
-   * aceita número (pixel de verdade). Funcionava "por acaso" na
-   * posição inicial (0% sempre vira 0, não importa o motor), mas
-   * falhava ao tentar deslizar pra qualquer outra posição.
-   *
-   * Corrigido medindo a largura REAL da barra (`onLayout`, só
-   * dispara depois que o layout já existe de verdade) e movendo em
-   * pixel — a forma que o React Native sempre suporta, sem
-   * depender de porcentagem em transform.
-   */
-  const [barWidth, setBarWidth] = useState(0);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -135,88 +59,13 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     };
   }, []);
 
-  /*
-   * `state.routes` inclui a aba "feed" escondida (ela continua
-   * registrada em `<Tabs.Screen>`, só não aparece — `href: null` tira
-   * da navegação visível, não da lista). Se a cápsula usasse o índice
-   * CRU de `state`, ela deslizaria pra posição errada sempre que a
-   * aba ativa estivesse depois do Feed na lista (Explorar/Perfil) —
-   * por isso filtra ANTES de calcular qualquer posição.
-   */
-  const visibleRoutes = state.routes.filter((route) => ROUTE_ICON[route.name] && ROUTE_LABEL_KEY[route.name]);
-  const activeVisibleIndex = visibleRoutes.findIndex((route) => route.key === state.routes[state.index]?.key);
-
-  /*
-   * CORREÇÃO (a pedido, especificação técnica precisa — "pill =
-   * content-sized, não pill = item-sized") — a versão anterior
-   * dimensionava a cápsula como uma FRAÇÃO da célula (62% da
-   * coluna), o que ainda é "tamanho da célula" por baixo dos panos,
-   * só que menor. O pedido é outra coisa: a cápsula deve ter o
-   * tamanho do PRÓPRIO CONTEÚDO (ícone+texto), medido de verdade —
-   * não uma fração de nada.
-   *
-   * Cada aba mede a própria largura de conteúdo via `onLayout` (no
-   * wrapper que envolve ícone+texto, não no item inteiro, que é
-   * `flex: 1` e ocupa a célula toda). `contentWidths` guarda essas 4
-   * medições, por nome de rota — a barra só sabe o tamanho de
-   * verdade depois que o React Native termina de desenhar o texto
-   * de cada rótulo (rótulos diferentes = larguras diferentes:
-   * "Explorar" é bem mais largo que "Séries").
-   */
-  const [contentWidths, setContentWidths] = useState<Record<string, number>>({});
-  const CAPSULE_PADDING_H = 14;
-
-  const capsuleAnim = useRef(new Animated.Value(activeVisibleIndex)).current;
-  useEffect(() => {
-    if (activeVisibleIndex < 0) return;
-    /*
-     * `useNativeDriver: false` aqui, de propósito — o driver nativo
-     * só sabe animar `transform`/`opacity`. Como a cápsula agora
-     * também anima a LARGURA (`width`, pra crescer/encolher ao trocar
-     * pra uma aba com rótulo de tamanho diferente), essa animação
-     * PRECISA rodar na thread de JS. Sem problema de performance
-     * aqui: é um retângulo pequeno, só quando alguém troca de aba.
-     */
-    Animated.timing(capsuleAnim, { toValue: activeVisibleIndex, duration: motion.normal, useNativeDriver: false }).start();
-  }, [activeVisibleIndex, capsuleAnim]);
-
-  const itemWidth = barWidth / (visibleRoutes.length || 1);
-  const capsuleWidths = visibleRoutes.map((route) => (contentWidths[route.name] ?? 0) + CAPSULE_PADDING_H * 2);
-  // Centro de cada célula MENOS metade da largura da cápsula daquela aba — cada aba pode ter uma largura de cápsula diferente (rótulo maior/menor), então a posição de repouso também muda por aba.
-  const capsuleLefts = visibleRoutes.map((_, i) => i * itemWidth + itemWidth / 2 - capsuleWidths[i]! / 2);
-
-  const capsuleTranslate = capsuleAnim.interpolate({
-    inputRange: visibleRoutes.map((_, i) => i),
-    outputRange: capsuleLefts,
-  });
-  const capsuleWidthAnim = capsuleAnim.interpolate({
-    inputRange: visibleRoutes.map((_, i) => i),
-    outputRange: capsuleWidths,
-  });
-
-  const hasAllMeasurements = visibleRoutes.every((route) => (contentWidths[route.name] ?? 0) > 0);
-
   return (
-    <View
-      style={[styles.tabBar, { height: 56 + safeInset, paddingBottom: safeInset }]}
-      onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
-    >
-      {activeVisibleIndex >= 0 && barWidth > 0 && hasAllMeasurements && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.capsule,
-            {
-              width: capsuleWidthAnim,
-              transform: [{ translateX: capsuleTranslate }],
-            },
-          ]}
-        />
-      )}
-      {visibleRoutes.map((route) => {
-        const icon = ROUTE_ICON[route.name]!;
-        const labelKey = ROUTE_LABEL_KEY[route.name]!;
-        const focused = route.key === state.routes[state.index]?.key;
+    <View style={[styles.tabBar, { height: 56 + insets.bottom, paddingBottom: insets.bottom }]}>
+      {state.routes.map((route, index) => {
+        const icon = ROUTE_ICON[route.name];
+        const labelKey = ROUTE_LABEL_KEY[route.name];
+        if (!icon || !labelKey) return null;
+        const focused = state.index === index;
 
         function handlePress() {
           const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
@@ -227,25 +76,23 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
         return (
           <Pressable key={route.key} onPress={handlePress} style={styles.tabItem}>
-            <View
-              style={styles.tabContent}
-              onLayout={(event) => {
-                const measured = event.nativeEvent.layout.width;
-                setContentWidths((prev) => (prev[route.name] === measured ? prev : { ...prev, [route.name]: measured }));
-              }}
-            >
+            {focused ? (
+              <View style={styles.activePill}>
+                <Feather name={icon} color={colors.background} size={15} />
+                <RNText style={styles.activePillLabel} numberOfLines={1}>
+                  {t(labelKey)}
+                </RNText>
+              </View>
+            ) : (
               <View style={styles.iconWrapper}>
-                <Feather name={icon} color={focused ? colors.primary : colors.muted} size={22} />
+                <Feather name={icon} color={colors.muted} size={20} />
                 {route.name === "profile" && unreadCount > 0 && (
                   <View style={styles.badge}>
                     <RNText style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</RNText>
                   </View>
                 )}
               </View>
-              <RNText style={[styles.label, focused && styles.labelActive]} numberOfLines={1}>
-                {t(labelKey)}
-              </RNText>
-            </View>
+            )}
           </Pressable>
         );
       })}
@@ -294,58 +141,31 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  capsule: {
-    /*
-     * CORREÇÃO (bug real, reportado com print — cápsula colada em
-     * cima, com folga só embaixo) — a versão anterior usava altura
-     * FIXA (44), pensada como proteção contra `insets.bottom`
-     * inflado. Essa suposição era enganada (ver correção grande logo
-     * acima, em `safeInset`) — altura fixa nunca fez sentido: ela não
-     * se adapta à altura de verdade do conteúdo (ícone+rótulo), então
-     * sobrava folga só de um lado.
-     *
-     * `top`+`bottom` SIMÉTRICOS (6 dos dois lados) resolve isso —
-     * a cápsula se ajusta sozinha à altura real do item, sempre com
-     * o mesmo respiro em cima e embaixo, não importa o valor exato.
-     */
-    position: "absolute",
-    top: 6,
-    left: 0,
-    bottom: 6,
-    borderRadius: 14,
-    backgroundColor: colors.primary + "26",
-    borderWidth: 1,
-    borderColor: colors.primary + "66",
-  },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  /*
-   * A PEDIDO — wrapper SÓ do conteúdo (ícone+texto), separado da
-   * célula (`tabItem`, que é `flex: 1` e ocupa a coluna inteira). É
-   * ESTE que o `onLayout` mede — medir a célula daria a largura da
-   * coluna (errado, era o próprio bug); medir isto dá a largura real
-   * do conteúdo, que é o que a cápsula deve seguir.
-   */
-  tabContent: {
-    alignItems: "center",
-    gap: 3,
-    paddingVertical: 6,
-  },
   iconWrapper: {
-    height: 26,
-    width: 26,
+    height: 36,
+    width: 36,
     alignItems: "center",
     justifyContent: "center",
   },
-  label: {
-    fontSize: 10.5,
-    color: colors.muted,
+  activePill: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 1,
+    height: 44,
+    minWidth: 52,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
   },
-  labelActive: {
-    color: colors.primary,
+  activePillLabel: {
+    color: colors.background,
+    fontSize: 10,
     fontWeight: "700",
   },
   badge: {
