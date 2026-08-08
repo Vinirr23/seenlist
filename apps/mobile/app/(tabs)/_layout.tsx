@@ -153,15 +153,24 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   }, [activeVisibleIndex, capsuleAnim]);
 
   /*
-   * REVERTIDO (a pedido, com print circulado mostrando o tamanho
-   * correto) — cápsula volta a ocupar a coluna inteira. A tentativa
-   * anterior (largura fixa de 84, centralizada) não era o que se
-   * queria — o tamanho já estava certo antes dela.
+   * A PEDIDO (medido com código, pixel a pixel, no print de
+   * referência — não mais chute) — a cápsula ocupa ~62% da largura
+   * da coluna, centralizada. Medido de duas formas independentes no
+   * print (borda-a-borda da barra ÷ 4, e distância entre os centros
+   * dos 4 ícones), as duas bateram perto de 61-64%.
+   *
+   * PROPORÇÃO, não pixel fixo — a tentativa anterior (84px fixo) foi
+   * chute sem medição, e por isso não escalava certo: um valor em
+   * pixel fica errado em telas de tamanho diferente, uma proporção
+   * (% da coluna) funciona igual em qualquer aparelho.
    */
+  const CAPSULE_RATIO = 0.62;
   const itemWidth = barWidth / (visibleRoutes.length || 1);
+  const capsuleWidth = itemWidth * CAPSULE_RATIO;
+  const capsuleOffset = (itemWidth - capsuleWidth) / 2;
   const capsuleTranslate = capsuleAnim.interpolate({
     inputRange: visibleRoutes.map((_, i) => i),
-    outputRange: visibleRoutes.map((_, i) => i * itemWidth),
+    outputRange: visibleRoutes.map((_, i) => i * itemWidth + capsuleOffset),
   });
 
   return (
@@ -175,7 +184,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           style={[
             styles.capsule,
             {
-              width: itemWidth,
+              width: capsuleWidth,
               transform: [{ translateX: capsuleTranslate }],
             },
           ]}
