@@ -31,8 +31,18 @@ const BADGE_CLASSNAME: Record<Exclude<UpcomingBadge, null>, string> = {
  * TASK-055 — "próximo episódio não assistido", ordenado por
  * (temporada, episódio) — a mesma noção de "assistir a seguir" que a
  * tela de detalhe da série já usa, só aplicada série por série aqui.
+ *
+ * CORREÇÃO (a pedido, achado real — "o card não mostra +N episódios
+ * como no mobile") — reescrito pra devolver a lista INTEIRA de
+ * pendentes (não só o primeiro), espelhando exatamente
+ * `lib/nextEpisodeToWatch.ts` do mobile: mesmo filtro (episódio sem
+ * data conhecida OU já ao ar — nunca exclui por "data desconhecida",
+ * mesma correção do Tanya the Evil/Daemons já aplicada aqui antes),
+ * mesma ordenação. `additionalPendingCount` (o "+N") é
+ * `pending.length - 1` — quantos outros episódios além do mostrado
+ * já estão liberados pra assistir.
  */
-function findNextUnwatched(
+function findPendingEpisodes(
   seasons: {
     seasonNumber: number;
     episodes: { episodeNumber: number; name: string; airDate: string | null }[];
@@ -40,15 +50,17 @@ function findNextUnwatched(
   watched: Set<WatchedEpisodeKey> | undefined
 ) {
   const sorted = [...seasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
+  const pending: { seasonNumber: number; episode: (typeof seasons)[number]["episodes"][number] }[] = [];
   for (const season of sorted) {
     const episodes = [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber);
     for (const ep of episodes) {
+      if (ep.airDate && !hasEpisodeAired(ep.airDate)) continue;
       if (!isEpisodeWatched(watched, season.seasonNumber, ep.episodeNumber)) {
-        return { seasonNumber: season.seasonNumber, episode: ep };
+        pending.push({ seasonNumber: season.seasonNumber, episode: ep });
       }
     }
   }
-  return null;
+  return pending;
 }
 
 /**
@@ -76,40 +88,12 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
 
   const next = useMemo(() => {
     if (!episodes) return null;
-    return findNextUnwatched(groupBySeason(episodes), watched);
+    return findPendingEpisodes(groupBySeason(episodes), watched);
   }, [episodes, watched]);
 
-  if (!episodes || !next) return null;
-
-  /*
-   * Correção (bug real, reportado): depois de "Continue assistindo"
-   * passar a incluir séries "Em dia" (pra série que ganhou episódio
-   * novo poder voltar a aparecer com o selo NOVO), sobrou um efeito
-   * colateral — uma série "Em dia" cujo único episódio não assistido
-   * ainda não foi ao ar (ex.: T03E06 previsto pra daqui a 2 dias)
-   * também batia aqui, e o card aparecia como se já desse pra marcar
-   * como assistido. Episódio que ainda não foi ao ar não é "continue
-   * assistindo" — é "Em breve" (outra aba). Guard: se o próximo não
-   * assistido ainda não tem data de exibição já passada, não mostra
-   * o card aqui (a série continua listada normalmente em "Em breve"
-   * enquanto isso).
-   *
-   * CORREÇÃO 2 (bug real, reportado — Tanya the Evil e Daemons do
-   * Reino das Sombras, os dois animes em exibição semanal) — o guard
-   * acima tratava "data de exibição desconhecida" (`airDate: null`)
-   * exatamente igual a "com certeza ainda não foi ao ar", escondendo
-   * o card. Na prática, o TMDB às vezes demora a preencher a data do
-   * episódio mais recente de um anime em exibição — o episódio já
-   * tinha saído de verdade (confirmado pelo usuário), só a `airDate`
-   * ainda não tinha chegado no TMDB. Resultado: episódio pendente de
-   * verdade sumia da lista (mas continuava aparecendo na grade, que
-   * não faz essa checagem — foi assim que o bug foi encontrado).
-   * Agora só esconde quando a data É CONHECIDA e está no futuro —
-   * `airDate: null` (desconhecida) não esconde mais.
-   */
-  if (next.episode.airDate && !hasEpisodeAired(next.episode.airDate)) return null;
-
-  const { seasonNumber, episode } = next;
+  if (!episodes || next === null || next.length === 0) return null;
+  const { seasonNumber, episode } = next[0]!;
+  const additionalPendingCount = next.length - 1;
   const badge =
     episode.airDate && watched
       ? computeBadge(
@@ -156,7 +140,15 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
           {item.title}
           <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
         </span>
-        <p className="font-mono text-sm font-bold text-text">{episodeCode}</p>
+        <p className="flex items-center gap-1.5 font-mono text-sm font-bold text-text">
+          {episodeCode}
+          {/* A PEDIDO (achado real — "falta o +N que o mobile tem") — quantos outros episódios além deste já estão liberados pra assistir. */}
+          {additionalPendingCount > 0 && (
+            <span className="rounded bg-primary/15 px-1 font-sans text-[10px] font-bold text-primary">
+              +{additionalPendingCount}
+            </span>
+          )}
+        </p>
         <p className="truncate text-sm text-muted">{episode.name}</p>
         {badgeConfig && (
           <span
