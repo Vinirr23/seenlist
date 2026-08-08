@@ -78,7 +78,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           <Pressable key={route.key} onPress={handlePress} style={styles.tabItem}>
             {focused ? (
               <View style={styles.activePill}>
-                <Feather name={icon} color={colors.background} size={15} />
+                <Feather name={icon} color={colors.primary} size={20} />
                 <RNText style={styles.activePillLabel} numberOfLines={1}>
                   {t(labelKey)}
                 </RNText>
@@ -152,21 +152,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  /**
+   * A PEDIDO — opção "C" (contorno): borda dourada em vez de
+   * preenchimento sólido. Mesma estrutura de sempre (troca
+   * condicional de estilo, sem animação nem medição de largura de
+   * texto) — só o visual mudou.
+   */
   activePill: {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 1,
-    height: 44,
-    minWidth: 52,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
+    gap: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
   },
   activePillLabel: {
-    color: colors.background,
+    color: colors.primary,
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   badge: {
     position: "absolute",
