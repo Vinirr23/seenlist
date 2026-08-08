@@ -34,8 +34,31 @@ interface TmdbSeriesResponse {
   } | null;
 }
 
+/**
+ * CORREÇÃO (a pedido — "não chegou notificação de episódio novo do
+ * Slime, mesmo tendo saído ontem") — mesmo bug já corrigido em TRÊS
+ * outros lugares nesta sessão (`ContinueWatchingCard.tsx` no web,
+ * `nextEpisodeToWatch.ts` no mobile): o TMDB às vezes demora a
+ * preencher a data de exibição do episódio mais recente de um anime
+ * em exibição semanal — o episódio já saiu de verdade, só a data
+ * ainda não chegou na API. Aqui era o único lugar que ainda tratava
+ * "data desconhecida" como "definitivamente NÃO recente" (`!airDate
+ * → false`), pulando a série (`continue`, linha ~78) e nunca criando
+ * a notificação — o cron só roda 1x/dia, então perder essa janela
+ * significa a pessoa nunca saber que saiu.
+ *
+ * Agora trata data desconhecida como "pode estar dentro da janela"
+ * (mesmo espírito das outras 3 correções): o `last_episode_to_air`
+ * do TMDB só passa a apontar pra um episódio novo quando ele
+ * realmente está saindo/saiu, então confiar nisso mesmo sem a data
+ * exata preenchida é uma aposta razoável — e o índice único de
+ * dedup (`notifications_dedup_episode_idx`) já impede notificar o
+ * mesmo episódio duas vezes, então o pior cenário de um falso
+ * positivo aqui é uma notificação só um pouco adiantada, nunca
+ * duplicada.
+ */
 function isWithinRecentWindow(airDate: string | null): boolean {
-  if (!airDate) return false;
+  if (!airDate) return true;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const date = new Date(`${airDate}T00:00:00`);
