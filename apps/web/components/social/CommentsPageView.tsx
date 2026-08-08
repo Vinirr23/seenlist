@@ -37,7 +37,7 @@ export function CommentsPageView({ backHref, title, target, media }: CommentsPag
         <Link href={backHref} aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-base font-semibold text-text">{title}</h1>
+        <h1 className="text-xl font-bold text-text">{title}</h1>
       </div>
       <PageContainer>
         <div className="py-4">

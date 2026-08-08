@@ -13,7 +13,7 @@ export const DiscoverCard = memo(function DiscoverCard({ item }: { item: Discove
   const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
 
   return (
-    <Link href={href} className="block w-28 shrink-0 rounded-lg shadow-md shadow-black/20">
+    <Link href={href} className="block w-28 shrink-0 rounded-lg shadow-md shadow-black/20 transition-transform active:scale-95">
       <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-surface">
         {posterUrl ? (
           <Image src={posterUrl} alt="" fill sizes="112px" loading="lazy" className="object-cover" />

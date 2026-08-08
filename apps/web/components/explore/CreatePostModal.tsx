@@ -154,7 +154,7 @@ export function CreatePostModal({ onClose }: { onClose: () => void }) {
                 type="button"
                 onClick={handleRemoveImage}
                 aria-label={t("social.removeImage")}
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-text"
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-text after:absolute after:-inset-2 after:content-['']"
               >
                 <X className="h-3.5 w-3.5" strokeWidth={2} />
               </button>

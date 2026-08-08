@@ -42,7 +42,7 @@ export function DiscoverAllView({ list }: { list: DiscoverListKey }) {
         <Link href="/explore" aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-lg font-bold text-text">{t(TITLE_KEYS[list])}</h1>
+        <h1 className="text-xl font-bold text-text">{t(TITLE_KEYS[list])}</h1>
       </div>
 
       {isLoading ? (

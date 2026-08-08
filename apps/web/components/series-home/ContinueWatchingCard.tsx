@@ -123,7 +123,7 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
   return (
     <Link
       href={`/series/${item.id}/season/${seasonNumber}/episode/${episode.episodeNumber}`}
-      className="flex items-stretch gap-3 rounded-lg border border-border bg-surface p-3"
+      className="flex items-stretch gap-3 rounded-lg border border-border bg-surface p-3 transition-transform active:scale-[0.98]"
     >
       <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded bg-background">
         {posterUrl ? (

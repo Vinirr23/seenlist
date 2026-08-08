@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import { X, Trophy, Share2, TrendingUp, Calendar, Moon, Sunrise, Sun, Sunset, Play, CheckCircle2 } from "lucide-react";
+import { X, Trophy, Share2, Calendar, Moon, Sunrise, Sun, Sunset, Play, CheckCircle2 } from "lucide-react";
 import { useYearInReview, type YearInReview, type PosterRef } from "@/lib/queries/yearInReview";
 import { usePosterColor } from "@/lib/usePosterColor";
 import { tmdbImage } from "@/lib/tmdb/image";
@@ -122,15 +122,6 @@ function Eyebrow({ children, color }: { children: React.ReactNode; color?: strin
     <p className="text-xs font-semibold uppercase tracking-wide text-muted" style={color ? { color: `rgb(${color})` } : undefined}>
       ✦ {children}
     </p>
-  );
-}
-
-function StatChip({ value, label }: { value: string | number; label: string }) {
-  return (
-    <div className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-      <p className="text-xl font-extrabold text-primary">{value}</p>
-      <p className="text-[10px] leading-tight text-muted">{label}</p>
-    </div>
   );
 }
 
@@ -349,7 +340,12 @@ export function YearInReviewModal() {
       aria-modal="true"
     >
       <ProgressBars total={TOTAL_SLIDES} current={index} />
-      <button type="button" onClick={handleClose} aria-label={t("social.close")} className="absolute right-3 top-8 z-20 text-white/80">
+      <button
+        type="button"
+        onClick={handleClose}
+        aria-label={t("social.close")}
+        className="absolute right-3 top-8 z-20 text-white/80 after:absolute after:-inset-3 after:content-['']"
+      >
         <X className="h-5 w-5" strokeWidth={2} />
       </button>
       <button type="button" onClick={prev} aria-label={t("common.back")} className="absolute inset-y-0 left-0 z-20 w-1/3" />

@@ -88,7 +88,7 @@ export function PendingImportsView() {
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-lg font-bold text-text">Pendências de importação</h1>
+        <h1 className="text-xl font-bold text-text">Pendências de importação</h1>
       </div>
       <ManualMatchStep pendingMatches={pending} onComplete={handleComplete} />
     </div>

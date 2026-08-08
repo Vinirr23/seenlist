@@ -40,7 +40,7 @@ export function UserListPageView({ userId, direction, title }: UserListPageViewP
         <Link href="/profile" aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="flex-1 text-lg font-bold text-text">{title}</h1>
+        <h1 className="flex-1 text-xl font-bold text-text">{title}</h1>
         <Link href="/profile/discover-people" aria-label={t("profile.discoverPeople")} className="text-text">
           <UserPlus className="h-5 w-5" strokeWidth={2} />
         </Link>

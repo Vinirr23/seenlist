@@ -57,7 +57,7 @@ export function PostCommentDetailView({ postId, commentId }: { postId: string; c
         <Link href={`/explore/posts/${postId}`} aria-label={t("common.back")} className="text-text">
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-lg font-bold text-text">{t("social.comment")}</h1>
+        <h1 className="text-xl font-bold text-text">{t("social.comment")}</h1>
       </div>
 
       <div className="px-4 pt-4">
