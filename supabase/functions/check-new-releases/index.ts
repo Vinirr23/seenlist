@@ -18,7 +18,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY")!;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-
 const ACTIVE_STATUSES = ["watching", "up_to_date", "paused"];
 /** Considera "lançado" um episódio com air_date dentro dessa janela — cobre o cron não ter rodado ontem por algum motivo, sem re-notificar o catálogo inteiro. */
 const RECENT_WINDOW_DAYS = 2;
@@ -114,9 +113,25 @@ Deno.serve(async () => {
     const results = await Promise.all(
       batch.map(async (seriesId) => {
         try {
-          const response = await fetch(`${TMDB_BASE_URL}/tv/${seriesId}`, {
-            headers: { Authorization: `Bearer ${TMDB_API_KEY}` },
-          });
+          /*
+           * CORREÇÃO (bug real — 776 de 776 séries falhando com o
+           * mesmo padrão, achado depois de resolver o timeout) — o
+           * TMDB tem DOIS jeitos de autenticar: a API Key clássica
+           * (v3, string curta, vai como parâmetro `?api_key=` na
+           * URL) e o Read Access Token (v4, token longo, vai como
+           * `Authorization: Bearer`). Esta função usava Bearer, mas
+           * o segredo `TMDB_API_KEY` — MESMO NOME usado pelo app web
+           * (`apps/web/lib/tmdb/client.ts`), quase certamente com o
+           * mesmo valor copiado de lá — é do tipo clássico (o web já
+           * usa `api_key=` na URL, nunca Bearer). Bearer com uma
+           * chave v3 dá 401 sempre, pra qualquer série, o que bate
+           * exatamente com o "0 de 776" observado.
+           *
+           * Agora usa o MESMO formato que o web já usa de verdade —
+           * reaproveita o segredo que já existe, sem precisar de
+           * credencial nova.
+           */
+          const response = await fetch(`${TMDB_BASE_URL}/tv/${seriesId}?api_key=${TMDB_API_KEY}`);
           if (!response.ok) return null; // série pode ter sido removida do TMDB — não trava o resto do lote
           return (await response.json()) as TmdbSeriesResponse;
         } catch (error) {
