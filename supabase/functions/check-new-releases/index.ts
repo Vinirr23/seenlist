@@ -81,21 +81,62 @@ Deno.serve(async () => {
   }
 
   const uniqueSeriesIds = [...new Set((statusRows ?? []).map((r) => r.series_id))];
+
+  /*
+   * CORREÇÃO (bug real, achado investigando "não chegou notificação
+   * de episódio novo" — a causa raiz de verdade, não as três
+   * hipóteses anteriores que já tinham sido descartadas: Realtime,
+   * inscrição de Web Push e a própria lógica de detecção estavam
+   * todas corretas). A função nunca tinha conseguido RODAR ATÉ O
+   * FIM: buscava o TMDB uma série de cada vez, num `for` comum com
+   * `await` dentro — com centenas de séries diferentes sendo
+   * acompanhadas, isso passa fácil de um minuto, bem além do tempo
+   * que a chamada HTTP que dispara a função (`net.http_post`, via
+   * cron) espera por resposta. Confirmado direto no banco:
+   * `net._http_response` tinha uma linha com `status_code: null,
+   * content: null` bem no horário do cron diário — a marca exata de
+   * um timeout, conexão abandonada antes da função terminar.
+   *
+   * Corrigido separando a parte LENTA (rede, TMDB) da RÁPIDA (banco,
+   * já era rápido antes): busca todas as séries em LOTES paralelos
+   * (`TMDB_CONCURRENCY` de cada vez, não todas de uma vez — evita
+   * estourar limite de requisição do próprio TMDB), e só DEPOIS
+   * processa a lógica de notificação, série por série, sequencial
+   * (essa parte já era rápida, não precisa mudar). Com paralelismo,
+   * o tempo total passa a ser "tempo de UM lote", não "soma de
+   * todas as séries" — ordens de grandeza mais rápido.
+   */
+  const TMDB_CONCURRENCY = 15;
+  const tmdbDataBySeriesId = new Map<number, TmdbSeriesResponse>();
+
+  for (let i = 0; i < uniqueSeriesIds.length; i += TMDB_CONCURRENCY) {
+    const batch = uniqueSeriesIds.slice(i, i + TMDB_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (seriesId) => {
+        try {
+          const response = await fetch(`${TMDB_BASE_URL}/tv/${seriesId}`, {
+            headers: { Authorization: `Bearer ${TMDB_API_KEY}` },
+          });
+          if (!response.ok) return null; // série pode ter sido removida do TMDB — não trava o resto do lote
+          return (await response.json()) as TmdbSeriesResponse;
+        } catch (error) {
+          console.error(`[check-new-releases] Falha ao buscar série ${seriesId} no TMDB`, error);
+          return null;
+        }
+      })
+    );
+    batch.forEach((seriesId, idx) => {
+      const data = results[idx];
+      if (data) tmdbDataBySeriesId.set(seriesId, data);
+    });
+  }
+
   let episodeNotifications = 0;
   let seasonNotifications = 0;
 
   for (const seriesId of uniqueSeriesIds) {
-    let tmdbData: TmdbSeriesResponse;
-    try {
-      const response = await fetch(`${TMDB_BASE_URL}/tv/${seriesId}`, {
-        headers: { Authorization: `Bearer ${TMDB_API_KEY}` },
-      });
-      if (!response.ok) continue; // série pode ter sido removida do TMDB — não trava o resto do lote
-      tmdbData = await response.json();
-    } catch (error) {
-      console.error(`[check-new-releases] Falha ao buscar série ${seriesId} no TMDB`, error);
-      continue;
-    }
+    const tmdbData = tmdbDataBySeriesId.get(seriesId);
+    if (!tmdbData) continue;
 
     const latest = tmdbData.last_episode_to_air;
     if (!latest || !isWithinRecentWindow(latest.air_date)) continue;
@@ -170,6 +211,8 @@ Deno.serve(async () => {
   return new Response(
     JSON.stringify({
       seriesChecked: uniqueSeriesIds.length,
+      // A PEDIDO — quantas séries realmente tinham dado do TMDB, vs quantas falharam/foram puladas. Ajuda a diagnosticar sem precisar ler _http_response de novo.
+      seriesWithTmdbData: tmdbDataBySeriesId.size,
       episodeNotifications,
       seasonNotifications,
     }),
