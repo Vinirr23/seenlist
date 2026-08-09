@@ -65,7 +65,26 @@ function isWithinRecentWindow(airDate: string | null): boolean {
   return diffDays >= 0 && diffDays <= RECENT_WINDOW_DAYS;
 }
 
-Deno.serve(async () => {
+/**
+ * CORREÇÃO (bug real — timeout voltou depois de corrigir a
+ * autenticação do TMDB) — o paralelismo em lotes (`TMDB_CONCURRENCY`)
+ * já ajudava, mas não resolve o problema de raiz: o tempo total
+ * ainda depende de quantas séries existem E de quão rápido o TMDB
+ * responde naquele momento — variável demais pra garantir que fique
+ * sempre abaixo do tempo que `net.http_post` espera por resposta.
+ * Prova disso: antes da chave estar certa, todo pedido falhava com
+ * 401 RÁPIDO (parecia terminar a tempo); com a chave certa, os
+ * pedidos passaram a esperar o TMDB de verdade responder, e o
+ * timeout voltou.
+ *
+ * A correção estrutural: parar de tentar terminar a tempo da própria
+ * chamada HTTP. `EdgeRuntime.waitUntil` (recurso do runtime do
+ * Supabase, feito exatamente pra isso) deixa responder JÁ, na hora
+ * — o cron nunca mais espera nada — enquanto o processamento de
+ * verdade continua rodando por trás, sem prazo nenhum imposto por
+ * quem chamou.
+ */
+async function checkNewReleases(): Promise<void> {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   // 1. Série única por status ativo — sem duplicar chamada por usuário.
@@ -76,7 +95,7 @@ Deno.serve(async () => {
 
   if (statusError) {
     console.error("[check-new-releases] Falha ao buscar series_status", statusError);
-    return new Response(JSON.stringify({ error: statusError.message }), { status: 500 });
+    return;
   }
 
   const uniqueSeriesIds = [...new Set((statusRows ?? []).map((r) => r.series_id))];
@@ -223,14 +242,20 @@ Deno.serve(async () => {
     else episodeNotifications += count ?? 0;
   }
 
-  return new Response(
-    JSON.stringify({
-      seriesChecked: uniqueSeriesIds.length,
-      // A PEDIDO — quantas séries realmente tinham dado do TMDB, vs quantas falharam/foram puladas. Ajuda a diagnosticar sem precisar ler _http_response de novo.
-      seriesWithTmdbData: tmdbDataBySeriesId.size,
-      episodeNotifications,
-      seasonNotifications,
-    }),
-    { headers: { "Content-Type": "application/json" } }
+  // A PEDIDO — resumo vai pro log (console), não mais no corpo da
+  // resposta HTTP: quem chama já recebeu resposta muito antes disso
+  // terminar. Pra conferir o resultado depois, é aqui — Edge
+  // Functions → check-new-releases → Logs.
+  console.log(
+    `[check-new-releases] concluído — seriesChecked=${uniqueSeriesIds.length} seriesWithTmdbData=${tmdbDataBySeriesId.size} episodeNotifications=${episodeNotifications} seasonNotifications=${seasonNotifications}`
   );
+}
+
+Deno.serve(() => {
+  // @ts-expect-error — EdgeRuntime é uma global do runtime do Supabase (Deno Deploy), não existe no tipo padrão do Deno.
+  EdgeRuntime.waitUntil(checkNewReleases());
+  return new Response(JSON.stringify({ accepted: true }), {
+    status: 202,
+    headers: { "Content-Type": "application/json" },
+  });
 });
