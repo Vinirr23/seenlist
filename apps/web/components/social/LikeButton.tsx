@@ -3,6 +3,7 @@
 import { Heart } from "lucide-react";
 import { cn } from "@seenlist/utils";
 import { useLikeCount, useHasLiked, useToggleLike } from "@/lib/queries/social/likes";
+import { useRealtimePublicInvalidate } from "@/lib/supabase/useRealtimePublicInvalidate";
 import type { LikeTargetType } from "@/lib/queries/social/types";
 import { hapticTick } from "@/lib/haptics";
 
@@ -24,6 +25,25 @@ export function LikeButton({
   const { data: count = 0 } = useLikeCount(targetType, targetId, initial?.count);
   const { data: hasLiked = false } = useHasLiked(targetType, targetId, initial?.hasLiked);
   const toggleLike = useToggleLike(targetType, targetId);
+
+  /*
+   * CORREÇÃO (achado real, auditoria de Realtime) — quando este
+   * botão é usado SOZINHO (sem `initial` vindo de um pai com lote
+   * próprio — ex.: a tela de detalhe de um post), não existia
+   * NENHUMA inscrição de Realtime cobrindo ele. Curtida de outra
+   * pessoa só aparecia recarregando a página inteira. Os contextos
+   * em LISTA (Feed, comentários, avaliações) já têm sua própria
+   * inscrição no componente pai — `enabled: initial === undefined`
+   * evita criar uma conexão a mais, redundante, por instância.
+   */
+  useRealtimePublicInvalidate(["likes"], ["like-count", targetType, targetId], {
+    filter: `target_type=eq.${targetType}`,
+    enabled: initial === undefined,
+  });
+  useRealtimePublicInvalidate(["likes"], ["has-liked", targetType, targetId], {
+    filter: `target_type=eq.${targetType}`,
+    enabled: initial === undefined,
+  });
 
   return (
     <button

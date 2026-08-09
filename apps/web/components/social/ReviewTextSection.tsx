@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { MediaTarget } from "@/lib/queries/social/types";
 import { useReviews, useMyReview, useUpsertReview, useDeleteReview } from "@/lib/queries/social/reviews";
 import { useLikeInfoBatch } from "@/lib/queries/social/likes";
+import { useRealtimePublicInvalidate } from "@/lib/supabase/useRealtimePublicInvalidate";
 import { usePublishReviewToFeed } from "@/lib/queries/posts";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -40,6 +41,8 @@ export function ReviewTextSection({ target, media }: ReviewTextSectionProps) {
   /** AUDITORIA (perf) — mesma correção de CommentsSection.tsx: 1 consulta pra todas as reviews visíveis, não uma por review. */
   const reviewIds = useMemo(() => othersReviews.map((r) => r.id), [othersReviews]);
   const { data: likeInfoByReviewId } = useLikeInfoBatch("review", reviewIds);
+  // CORREÇÃO (mesmo achado de CommentsSection.tsx) — lote existia, inscrição de Realtime pra invalidar quando alguém curte, não.
+  useRealtimePublicInvalidate(["likes"], ["like-info-batch"], { filter: "target_type=eq.review", exact: false });
 
   function handleSubmit(rating: number, reviewText: string | null, shareToFeed: boolean) {
     upsertReview.mutate(

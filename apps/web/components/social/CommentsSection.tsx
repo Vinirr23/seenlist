@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { MediaTarget } from "@/lib/queries/social/types";
 import { useComments, usePostComment, useEditComment, useDeleteComment, type Comment } from "@/lib/queries/social/comments";
 import { useLikeInfoBatch } from "@/lib/queries/social/likes";
+import { useRealtimePublicInvalidate } from "@/lib/supabase/useRealtimePublicInvalidate";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { CommentItem } from "./CommentItem";
 import { CommentComposer } from "./CommentComposer";
@@ -89,6 +90,15 @@ export function CommentsSection({ target, highlightCommentId, media }: CommentsS
    */
   const commentIds = useMemo(() => comments.map((c) => c.id), [comments]);
   const { data: likeInfoByCommentId } = useLikeInfoBatch("comment", commentIds);
+  /*
+   * CORREÇÃO (achado real, auditoria — "curtida de comentário não
+   * atualiza sozinha") — o comentário acima já registrava que essa
+   * mesma correção tinha sido feita no Feed e no mobile, mas nunca
+   * chegou até aqui: a busca em lote existia, a INSCRIÇÃO de
+   * Realtime que invalida esse lote quando ALGUÉM curte, não. Mesmo
+   * padrão exato do Feed (`ExploreFeedTab.tsx`).
+   */
+  useRealtimePublicInvalidate(["likes"], ["like-info-batch"], { filter: "target_type=eq.comment", exact: false });
 
   const tree = useMemo(() => buildTree(comments), [comments]);
   const isMutating = postComment.isPending || editComment.isPending || deleteComment.isPending;
