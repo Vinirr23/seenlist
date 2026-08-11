@@ -215,20 +215,35 @@ async function checkNewReleases(): Promise<void> {
         target_media_type: "series" as const,
         target_media_id: seriesId,
         target_season_number: latest.season_number,
-        target_episode_number: isSeasonPremiere ? null : latest.episode_number,
+        /*
+         * CORREÇÃO (a pedido — erro 42P10, "no unique or exclusion
+         * constraint matching") — antes gravava `null` aqui pra
+         * estreia de temporada. O índice único (ver migration
+         * `20260830000000`) precisa ser um índice NORMAL, sem
+         * `where` — e num índice normal, `NULL` nunca é igual a
+         * `NULL`, então duplicata de estreia de temporada passaria
+         * batida. `0` nunca é um episódio de verdade (TMDB sempre
+         * começa em 1), serve de "valor vazio" comparável.
+         */
+        target_episode_number: isSeasonPremiere ? 0 : latest.episode_number,
         payload,
       }));
 
     if (rowsToInsert.length === 0) continue;
 
-    // ON CONFLICT DO NOTHING via os índices únicos parciais da migration —
-    // garante que rodar esta função duas vezes nunca duplica notificação.
+    /*
+     * ON CONFLICT DO NOTHING via `notifications_dedup_idx` (migration
+     * `20260830000000`) — garante que rodar esta função duas vezes
+     * nunca duplica notificação. `onConflict` UNIFICADO (sempre as
+     * 4 colunas, não mais um valor por tipo) — o índice agora
+     * também é um só, sem `where`; o PostgREST (a camada que o
+     * `.upsert()` usa por baixo) não consegue mirar num índice
+     * ÚNICO PARCIAL através desse parâmetro, só um normal.
+     */
     const { error: insertError, count } = await supabase
       .from("notifications")
       .upsert(rowsToInsert, {
-        onConflict: isSeasonPremiere
-          ? "user_id,target_media_id,target_season_number"
-          : "user_id,target_media_id,target_season_number,target_episode_number",
+        onConflict: "user_id,target_media_id,target_season_number,target_episode_number",
         ignoreDuplicates: true,
         count: "exact",
       });

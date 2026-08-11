@@ -157,6 +157,28 @@ Deno.serve(async () => {
     return new Response(JSON.stringify({ sent: 0 }), { headers: { "Content-Type": "application/json" } });
   }
 
+  /*
+   * CORREÇÃO (bug real, reportado com print — mesmo episódio
+   * chegando ~30 vezes) — antes, `pushed_at` só era marcado no FIM
+   * da função, depois de todo o trabalho de montar mensagem, buscar
+   * token e ENVIAR de verdade (Expo + Web Push, com criptografia por
+   * pessoa — trabalho real, não instantâneo). Com muita gente
+   * seguindo a mesma série, isso passa fácil dos 2 minutos entre uma
+   * execução do cron e a próxima — a rodada seguinte fazia a MESMA
+   * busca (`pushed_at is null`), encontrava as MESMAS linhas ainda
+   * sem marca, e reenviava tudo de novo. Quanto mais gente seguindo,
+   * pior o efeito bola de neve.
+   *
+   * Corrigido "reservando" as linhas ANTES de gastar tempo com elas
+   * — marca `pushed_at` aqui, logo depois de buscar, não no fim. Se
+   * o envio falhar de verdade pra alguém depois disso, essa pessoa
+   * específica não recebe (pior que reenviar 30x é reenviar 30x) —
+   * troca deliberada, "no máximo uma vez" é melhor que "trinta vezes
+   * sem querer" pra notificação que o usuário vê na tela de bloqueio.
+   */
+  const pendingIds = pending.map((n) => n.id);
+  await supabase.from("notifications").update({ pushed_at: new Date().toISOString() }).in("id", pendingIds);
+
   // Actor names (só pro que precisa: comment_reply/comment_like/review_like)
   const actorIds = [...new Set(pending.map((n) => n.actor_id).filter((id): id is string => !!id))];
   const { data: actors } = actorIds.length
@@ -309,12 +331,9 @@ Deno.serve(async () => {
     }
   }
 
-  // Marca todas as notificações processadas nesta rodada — mesmo as
-  // que não tinham token (usuário sem dispositivo registrado): não
-  // ficam pendentes pra sempre, só não geraram push nenhum.
-  if (processedNotificationIds.length > 0) {
-    await supabase.from("notifications").update({ pushed_at: new Date().toISOString() }).in("id", processedNotificationIds);
-  }
+  // A marcação de `pushed_at` agora acontece bem antes (ver comentário
+  // grande logo depois de buscar `pending`, no início da função) —
+  // esse bloco no fim virou redundante, removido.
 
   return new Response(
     JSON.stringify({
