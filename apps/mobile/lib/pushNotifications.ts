@@ -73,9 +73,19 @@ export async function registerForPushNotifications(supabase: SupabaseClient): Pr
 
   const platform = Platform.OS === "ios" ? "ios" : "android";
 
+  /*
+   * CORREÇÃO (a pedido — 24 tokens acumulados pro mesmo usuário,
+   * causando notificação em rajada) — `onConflict` trocado de
+   * "token" pra "user_id,platform". Antes, só evitava duplicata se o
+   * TOKEN STRING batesse exatamente — e o Expo pode gerar um token
+   * novo a cada build/reinstalação, então o antigo nunca era
+   * substituído, só somava mais uma linha. Agora, registrar de novo
+   * SUBSTITUI o token anterior daquele usuário naquela plataforma —
+   * no máximo 1 Android + 1 iOS por pessoa, sempre.
+   */
   const { error } = await supabase
     .from("push_tokens")
-    .upsert({ user_id: user.id, token, platform, last_seen_at: new Date().toISOString() }, { onConflict: "token" });
+    .upsert({ user_id: user.id, token, platform, last_seen_at: new Date().toISOString() }, { onConflict: "user_id,platform" });
 
   if (error) {
     console.error("[push] Falha ao salvar token de push", error);
