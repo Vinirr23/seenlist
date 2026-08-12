@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Dimensions } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -29,6 +29,25 @@ import { tmdbImageUrl } from "@/lib/library";
 export const ONBOARDING_SEEN_KEY = "seenlist:onboarding-seen";
 
 const POSTER_COLUMNS = 3;
+/*
+ * CORREÇÃO (bug real, confirmado com diagnóstico em tela — a busca
+ * retornava 15 URLs certas, mas nenhum pôster desenhava) — a versão
+ * anterior dimensionava cada célula por PORCENTAGEM (`width: 33%`) +
+ * `aspectRatio`, sem altura numérica nenhuma. Essa combinação é um
+ * caso conhecido de falha no React Native: dentro de um container
+ * `position: absolute` (o mosaico inteiro é posicionado assim, pra
+ * ficar atrás do conteúdo), o motor de layout pode nunca resolver a
+ * largura percentual pra um número de verdade a tempo — resultado:
+ * imagem "existe" na árvore (por isso os dados chegavam certos),
+ * mas com tamanho final zero, invisível.
+ *
+ * Corrigido com PIXEL explícito: mede a largura real da tela
+ * (`Dimensions.get`) uma vez, calcula a largura de cada célula em
+ * número — sem ambiguidade nenhuma pro React Native resolver.
+ */
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const TILE_WIDTH = SCREEN_WIDTH / POSTER_COLUMNS;
+const TILE_HEIGHT = TILE_WIDTH * 1.5; // proporção 2:3 de pôster, em pixel — mesmo cálculo que "aspectRatio: 2/3" fazia, só que resolvido de antemão
 /** Rotação alternada por posição — pequena o bastante pra não cortar borda de pôster vizinho, grande o bastante pra parecer colagem, não grade. */
 const TILE_ROTATIONS = [-3, 2, -2, 3, -2, 3, -3, 2];
 
@@ -57,7 +76,7 @@ export default function OnboardingScreen() {
         }
         const finalUrls = urls.slice(0, 15);
         setPosterUrls(finalUrls);
-        setDebugStatus(`ok: série=${series.length} filme=${movies.length} urls=${finalUrls.length}`);
+        setDebugStatus(`ok: série=${series.length} filme=${movies.length} urls=${finalUrls.length} tile=${TILE_WIDTH.toFixed(0)}x${TILE_HEIGHT.toFixed(0)}`);
       })
       .catch((error) => {
         console.warn("[onboarding] Falha ao buscar pôsteres de fundo", error);
@@ -137,8 +156,8 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   posterCell: {
-    width: `${100 / POSTER_COLUMNS}%`,
-    aspectRatio: 2 / 3,
+    width: TILE_WIDTH,
+    height: TILE_HEIGHT,
   },
   content: {
     flex: 1,
