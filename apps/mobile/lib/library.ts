@@ -325,14 +325,36 @@ export async function fetchLibraryItems(userId?: string): Promise<LibraryItem[]>
     targetUserId = user.id;
   }
 
-  const [movieResult, seriesResult, episodeStats] = await Promise.all([
+  /*
+   * A PEDIDO — auditoria a fundo, mesmo padrão de bug já confirmado
+   * em `check-new-releases` (Supabase corta em 1000 linhas por
+   * padrão) e corrigido no web (`library-state.ts`, mesma consulta
+   * exata). Sem confirmação de que algum usuário já passou de 1000
+   * séries acompanhadas, mas o mesmo risco existe — corrigido por
+   * precaução, mesmo padrão de paginação.
+   */
+  const { count: seriesStatusCount } = await supabase
+    .from("series_status")
+    .select("series_id", { count: "exact", head: true })
+    .eq("user_id", targetUserId);
+  const SERIES_STATUS_PAGE_SIZE = 1000;
+  const seriesStatusPages = await Promise.all(
+    Array.from({ length: Math.ceil((seriesStatusCount ?? 0) / SERIES_STATUS_PAGE_SIZE) }, (_, i) =>
+      supabase
+        .from("series_status")
+        .select("series_id, status, created_at, updated_at, total_watch_events")
+        .eq("user_id", targetUserId)
+        .range(i * SERIES_STATUS_PAGE_SIZE, i * SERIES_STATUS_PAGE_SIZE + SERIES_STATUS_PAGE_SIZE - 1)
+    )
+  );
+  const seriesStatusError = seriesStatusPages.find((p) => p.error)?.error;
+  const seriesStatusData = seriesStatusPages.flatMap((p) => p.data ?? []);
+
+  const [movieResult, episodeStats] = await Promise.all([
     supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", targetUserId),
-    supabase
-      .from("series_status")
-      .select("series_id, status, created_at, updated_at, total_watch_events")
-      .eq("user_id", targetUserId),
     fetchWatchedEpisodeStats(targetUserId),
   ]);
+  const seriesResult = { data: seriesStatusData, error: seriesStatusError };
 
   if (movieResult.error) throw movieResult.error;
   if (seriesResult.error) throw seriesResult.error;

@@ -305,14 +305,39 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
   // inteira do usuário atual podia se misturar com a de qualquer
   // pessoa cujo perfil ele segue/é público — a causa raiz real por
   // trás de "mesclou" ao reimportar.
-  const [movieResult, seriesResult, episodeStats] = await Promise.all([
+  /*
+   * A PEDIDO — auditoria a fundo, mesmo padrão de bug já confirmado
+   * em `check-new-releases` (Supabase corta em 1000 linhas por
+   * padrão). Diferente daquele caso (consulta cruzando TODOS os
+   * usuários, corte confirmado com dado real), aqui é uma consulta
+   * por USUÁRIO — sem confirmação de que algum já passou de 1000
+   * séries acompanhadas, mas o mesmo risco existe pra quem tem
+   * biblioteca grande o bastante, então corrigido por precaução,
+   * mesmo padrão de paginação (contagem primeiro, todas as páginas
+   * em paralelo).
+   */
+  const { count: seriesStatusCount } = await supabase
+    .from("series_status")
+    .select("series_id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+  const SERIES_STATUS_PAGE_SIZE = 1000;
+  const seriesStatusPages = await Promise.all(
+    Array.from({ length: Math.ceil((seriesStatusCount ?? 0) / SERIES_STATUS_PAGE_SIZE) }, (_, i) =>
+      supabase
+        .from("series_status")
+        .select("series_id, status, created_at, updated_at, total_watch_events")
+        .eq("user_id", user.id)
+        .range(i * SERIES_STATUS_PAGE_SIZE, i * SERIES_STATUS_PAGE_SIZE + SERIES_STATUS_PAGE_SIZE - 1)
+    )
+  );
+  const seriesStatusError = seriesStatusPages.find((p) => p.error)?.error;
+  const seriesStatusData = seriesStatusPages.flatMap((p) => p.data ?? []);
+
+  const [movieResult, episodeStats] = await Promise.all([
     supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", user.id),
-    supabase
-      .from("series_status")
-      .select("series_id, status, created_at, updated_at, total_watch_events")
-      .eq("user_id", user.id),
     fetchWatchedEpisodeStats(supabase, user.id),
   ]);
+  const seriesResult = { data: seriesStatusData, error: seriesStatusError };
 
   if (movieResult.error) {
     console.error("[library] Falha ao buscar movie_status", movieResult.error);

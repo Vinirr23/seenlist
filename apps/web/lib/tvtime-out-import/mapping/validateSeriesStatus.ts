@@ -55,12 +55,21 @@ export function validateSeriesStatus(
   );
 
   const totalEpisodesAtExport = exportDate
-    ? nonSpecialTmdbEpisodes.filter((e) => e.airDate !== null && e.airDate <= exportDate).length
+    ? nonSpecialTmdbEpisodes.filter((e) => e.airDate === null || e.airDate <= exportDate).length
     : 0;
 
-  // Regra real: só conta episódio "pendente" quem JÁ FOI AO AR até hoje. Um episódio futuro/anunciado nunca entra nessa contagem.
-  const today = new Date().toISOString().slice(0, 10);
-  const episodesAiredByNow = nonSpecialTmdbEpisodes.filter((e) => e.airDate !== null && e.airDate <= today);
+  /*
+   * CORREÇÃO (a pedido — auditoria a fundo, mesmo padrão de bug já
+   * corrigido em outros 5 lugares nesta sessão) — "hoje" agora é fuso
+   * LOCAL, não UTC; e `airDate === null` não exclui mais um episódio
+   * da contagem (TMDB às vezes demora a preencher a data do mais
+   * recente — sem isso, um episódio que já saiu de verdade podia ser
+   * ignorado na hora de decidir "watching" vs "up_to_date" durante a
+   * importação).
+   */
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const episodesAiredByNow = nonSpecialTmdbEpisodes.filter((e) => e.airDate === null || e.airDate <= today);
   const hasUnwatchedAiredEpisode = watchedNonSpecialCount < episodesAiredByNow.length;
   // Mantido só como dado de diagnóstico (outros módulos já leem esse campo) — não decide mais nada sozinho.
   const hasNewerEpisode = exportDate
