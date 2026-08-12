@@ -127,14 +127,27 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   } = await getCurrentAuthUser(supabase);
   if (!user) return;
 
+  /*
+   * CORREÇÃO (bug real, reportado — Re:Zero, Tanya the Evil e Tomb
+   * Raider King com episódio novo saindo, mas nunca voltando a
+   * aparecer em "Continue assistindo") — mesmo bug corrigido no
+   * mobile (`apps/mobile/lib/seriesDetails.ts`): esta consulta nunca
+   * incluía `"completed"` — uma vez que a série entra nesse status
+   * (usuário assistiu tudo que existia até então), ela ficava PRESA
+   * lá pra sempre, mesmo com episódio novo saindo depois (comum em
+   * anime semanal). A lógica de decisão abaixo já está preparada pra
+   * reconsiderar — só faltava incluir o status na busca.
+   */
   const { data: statusRows, error: statusError } = await supabase
     .from("series_status")
     .select("series_id, status")
     .eq("user_id", user.id)
-    .in("status", ["up_to_date", "watching"]);
+    .in("status", ["up_to_date", "watching", "completed"]);
   if (statusError || !statusRows || statusRows.length === 0) return;
 
-  const currentStatusBySeriesId = new Map(statusRows.map((row) => [row.series_id as number, row.status as "up_to_date" | "watching"]));
+  const currentStatusBySeriesId = new Map(
+    statusRows.map((row) => [row.series_id as number, row.status as "up_to_date" | "watching" | "completed"])
+  );
   const seriesIds = statusRows.map((row) => row.series_id as number);
 
   let watchedCountBySeriesId: Map<number, number>;
@@ -269,11 +282,19 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
    * já correta).
    */
   const currentStatus = statusRow?.status ?? "watching";
+  /*
+   * CORREÇÃO (a pedido — mesma auditoria de Re:Zero/Tanya/Tomb Raider
+   * King) — `"completed"` também estava fora daqui. Mesmo raciocínio
+   * da função em lote (`recalculateUpToDateSeriesCategories`, logo
+   * acima): série completed que ganha episódio novo precisa poder
+   * ser reconsiderada, não ficar presa.
+   */
   const eligibleForRecalc =
     currentStatus === "watching" ||
     currentStatus === "up_to_date" ||
     currentStatus === "want_to_watch" ||
-    currentStatus === "paused";
+    currentStatus === "paused" ||
+    currentStatus === "completed";
   if (!eligibleForRecalc) return;
 
   const { count: watchedCount } = await supabase

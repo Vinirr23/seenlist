@@ -300,14 +300,32 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   } = await getCurrentAuthUser();
   if (!user) return;
 
+  /*
+   * CORREÇÃO (bug real, reportado — Re:Zero, Tanya the Evil e Tomb
+   * Raider King com episódio novo saindo, mas nunca voltando a
+   * aparecer em "Continue assistindo") — esta função só reconsiderava
+   * série já em `"up_to_date"`. Uma vez que o usuário assiste tudo
+   * que existe até então e a série entra em `"completed"` (comum:
+   * anime semanal onde a pessoa fica em dia, aí a série "acaba" — só
+   * que volta com temporada/episódio novo depois), ela ficava PRESA
+   * em completed pra sempre — nada nunca reconsiderava esse status de
+   * novo, mesmo o TMDB reportando episódio novo disponível.
+   *
+   * Agora busca as duas: `up_to_date` E `completed`. A lógica de
+   * decisão em si (linha ~334) já estava preparada pra isso — ela
+   * calcula a categoria certa do zero a cada vez, a partir do
+   * episódio/assistido de verdade, não presume nada do status atual.
+   * Só faltava DAR a chance dela reconsiderar série completed.
+   */
   const { data: statusRows, error: statusError } = await supabase
     .from("series_status")
-    .select("series_id")
+    .select("series_id, status")
     .eq("user_id", user.id)
-    .eq("status", "up_to_date");
+    .in("status", ["up_to_date", "completed"]);
   if (statusError || !statusRows || statusRows.length === 0) return;
 
   const seriesIds = statusRows.map((row) => row.series_id);
+  const currentStatusBySeriesId = new Map(statusRows.map((row) => [row.series_id, row.status as LibraryStatus]));
 
   let watchedCountBySeriesId: Map<number, number>;
   let episodesBySeriesId: Map<number, { airDate: string | null }[]>;
@@ -333,7 +351,9 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     const allEpisodesWatched = watched >= liveEpisodes.length;
     const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
 
-    if (newCategory !== "up_to_date") {
+    // Compara com o status ATUAL de cada série (não mais presume que todas começaram como "up_to_date") — só grava se realmente mudou.
+    const currentStatus = currentStatusBySeriesId.get(seriesId);
+    if (newCategory !== currentStatus) {
       updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
     }
   }
@@ -362,14 +382,19 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   if (statusError) return;
 
   const currentStatus = statusRow?.status ?? "watching";
+  /*
+   * CORREÇÃO (a pedido — Re:Zero/Tanya the Evil/Tomb Raider King
+   * presos em "completed" mesmo com episódio novo saindo) — mesmo
+   * bug corrigido no web (`seriesCategoryRecalc.ts`) e na função em
+   * lote logo acima (`recalculateUpToDateSeriesCategories`):
+   * "completed" nunca era elegível pra reconsideração aqui.
+   */
   const eligible =
     currentStatus === "watching" ||
     currentStatus === "up_to_date" ||
     currentStatus === "want_to_watch" ||
-    currentStatus === "paused";
-
-  // TASK-141 (diagnóstico temporário — série não aparece em Assistindo) — remover depois de descobrir a causa.
-  console.log("[recalcularCategoria DIAGNÓSTICO] início", { seriesId, statusRowEncontrada: !!statusRow, currentStatus, eligible });
+    currentStatus === "paused" ||
+    currentStatus === "completed";
 
   if (!eligible) return;
 
@@ -411,23 +436,12 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   }
 
   if (liveEpisodes.length === 0) {
-    console.log("[recalcularCategoria DIAGNÓSTICO] SAINDO — TMDB não devolveu episódios pra esta série", { seriesId });
     return;
   }
 
   const watched = watchedCount ?? 0;
   const allEpisodesWatched = watched >= liveEpisodes.length;
   const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
-
-  console.log("[recalcularCategoria DIAGNÓSTICO] resultado", {
-    seriesId,
-    watched,
-    totalEpisodiosNoTmdb: liveEpisodes.length,
-    ended,
-    currentStatus,
-    newCategory,
-    vaiGravar: newCategory !== currentStatus,
-  });
 
   if (newCategory === currentStatus) return;
 
