@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View, StyleSheet, Dimensions, Text as RNText } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Text, Button } from "@/components/ui";
@@ -164,38 +165,23 @@ export default function OnboardingScreen() {
       />
 
       {/*
-        * A PEDIDO (v7 — refinamento só do centro, sem escurecer mais)
-        * — os 4 gradientes acima ficam EXATAMENTE como estavam (a
-        * hierarquia já estava aprovada). Esta é uma camada NOVA,
-        * separada, só pra "amaciar" o pôster bem atrás do texto —
-        * cinza NEUTRO (não preto), sugerindo saturação/contraste
-        * reduzidos, não mais escuridão. `expo-blur` daria o efeito
-        * pedido de verdade (desfoque real), mas é dependência nativa
-        * nova — decisão explícita de não instalar agora, aproximar
-        * só com cor mesmo.
+        * A PEDIDO (v8 — desfoque de verdade, `expo-blur`) — a
+        * aproximação em cinza (v7) foi reprovada de vez ("ficou uma
+        * mancha suja") — confirmou o teto do que dava pra fazer só
+        * com cor. `BlurView` desfoca o que está ATRÁS dela de
+        * verdade, na mesma faixa central de antes (ícone até abaixo
+        * do texto secundário) — as laterais continuam nítidas, fora
+        * dessa faixa.
         *
-        * Duas camadas cruzadas (vertical + horizontal), como o resto
-        * da vinheta, mas numa FAIXA — não a tela inteira. `top`/
-        * `height` em porcentagem aproximam onde o bloco de texto
-        * realmente fica (ícone até abaixo do texto secundário, dado
-        * o layout com espaçadores 2:1) — as laterais, fora dessa
-        * faixa, não são tocadas por esta camada, só pelos 4
-        * gradientes de sempre.
+        * `intensity` 40 é moderado de propósito — forte o bastante
+        * pra reduzir detalhe (rosto, texto de pôster), sem virar uma
+        * mancha branca lavada por cima do mosaico. `borderRadius`
+        * grande nos 4 cantos evita uma borda reta óbvia onde o
+        * desfoque começa/termina — não é o mesmo que uma borda
+        * suave de verdade (precisaria de máscara em gradiente, mais
+        * uma dependência), mas já evita o corte mais chapado.
         */}
-      <View style={styles.centerSoftenZone} pointerEvents="none">
-        <LinearGradient
-          colors={["rgba(140,147,168,0)", "rgba(140,147,168,0.4)", "rgba(140,147,168,0)"]}
-          locations={[0, 0.5, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-        <LinearGradient
-          colors={["rgba(140,147,168,0)", "rgba(140,147,168,0.4)", "rgba(140,147,168,0)"]}
-          locations={[0, 0.5, 1]}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </View>
+      <BlurView intensity={40} tint="dark" style={styles.centerSoftenZone} pointerEvents="none" />
 
       <View style={styles.content}>
         <View style={styles.spacerTop} />
@@ -258,6 +244,8 @@ const styles = StyleSheet.create({
     bottom: "32%",
     left: "8%",
     right: "8%",
+    borderRadius: 999,
+    overflow: "hidden",
   },
   content: {
     flex: 1,
