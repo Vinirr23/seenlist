@@ -36,6 +36,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const [posterUrls, setPosterUrls] = useState<string[]>([]);
+  const [debugStatus, setDebugStatus] = useState("carregando...");
 
   useEffect(() => {
     Promise.all([fetchDiscoverList("trending_series"), fetchDiscoverList("trending_movies")])
@@ -54,20 +55,13 @@ export default function OnboardingScreen() {
             if (url) urls.push(url);
           }
         }
-        setPosterUrls(urls.slice(0, 15));
+        const finalUrls = urls.slice(0, 15);
+        setPosterUrls(finalUrls);
+        setDebugStatus(`ok: série=${series.length} filme=${movies.length} urls=${finalUrls.length}`);
       })
       .catch((error) => {
-        /*
-         * CORREÇÃO (a pedido — "não aparece as capas") — antes, uma
-         * falha aqui era 100% silenciosa (nem no console). Sem
-         * registro nenhum, não dava pra saber se estava FALHANDO de
-         * verdade ou só demorando (primeira chamada de uma função
-         * "dormindo" pode ser mais lenta) — a tela continua
-         * funcionando igual sem o mosaico (nunca trava o onboarding
-         * por causa disso), mas agora pelo menos fica um rastro real
-         * pra investigar via `adb logcat` ou o log do Metro.
-         */
         console.warn("[onboarding] Falha ao buscar pôsteres de fundo", error);
+        setDebugStatus(`erro: ${error instanceof Error ? error.message : String(error)}`);
       });
   }, []);
 
@@ -78,6 +72,13 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
+      {/*
+       * TEMPORÁRIO — diagnóstico visível na própria tela, sem precisar
+       * de ferramenta de desenvolvedor nenhuma. Remover depois de
+       * achar a causa real do "não aparece as capas".
+       */}
+      <Text style={styles.debugBadge}>{debugStatus}</Text>
+
       <View style={styles.posterGrid} pointerEvents="none">
         {posterUrls.map((url, i) => (
           <Image
@@ -157,6 +158,18 @@ const styles = StyleSheet.create({
   },
   spacerBottom: {
     flex: 1,
+  },
+  debugBadge: {
+    position: "absolute",
+    top: 50,
+    left: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    color: "#4FD1C5",
+    fontSize: 10,
+    padding: 6,
+    borderRadius: 6,
   },
   textBlock: {
     alignItems: "center",
