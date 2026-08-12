@@ -113,25 +113,28 @@ export default function OnboardingScreen() {
       </View>
 
       {/*
-        * A PEDIDO (ajuste — "fundo com informação demais competindo
-        * com o conteúdo") — a vinheta virou DOIS gradientes cruzados
-        * (vertical + horizontal) em vez de um só. `expo-linear-gradient`
-        * não faz gradiente radial de verdade (precisaria de SVG,
-        * dependência nova = build novo) — cruzar um vertical com um
-        * horizontal, os dois mais escuros no meio, aproxima bem o
-        * efeito: o CENTRO (onde os dois se sobrepõem) fica bem mais
-        * escuro que qualquer ponto isolado nas bordas, em qualquer
-        * direção — o pôster ainda aparece nos cantos e larguras, só
-        * não compete mais com o texto no meio.
+        * A PEDIDO (recalibrado — "fundo escuro demais, quero
+        * equilíbrio entre a v2 e a v3") — a v3 cruzava dois
+        * gradientes com valores de borda ainda altos (0.72 e 0.35),
+        * e como opacidades sobrepostas SE SOMAM (não ficam só a
+        * maior das duas), o resultado combinado nas bordas já batia
+        * ~82% — quase tão escuro quanto o centro (~99%), por isso
+        * pareceu "tudo escuro igual", sem separação real entre
+        * centro e lateral. Recalculado com valores de borda bem mais
+        * baixos: agora canto ≈ 41% opaco (pôster bem reconhecível),
+        * centro ≈ 81% (ainda forte, contraste bom pro texto), lateral
+        * na altura do texto ≈ 66% (visível, mas não compete com o
+        * conteúdo). Mesma técnica (dois gradientes cruzados), só a
+        * matemática da composição foi respeitada desta vez.
         */}
       <LinearGradient
-        colors={["rgba(11,14,20,0.72)", "rgba(11,14,20,0.97)", "rgba(11,14,20,0.72)"]}
+        colors={["rgba(11,14,20,0.28)", "rgba(11,14,20,0.58)", "rgba(11,14,20,0.28)"]}
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={["rgba(11,14,20,0.35)", "rgba(11,14,20,0.75)", "rgba(11,14,20,0.35)"]}
+        colors={["rgba(11,14,20,0.18)", "rgba(11,14,20,0.55)", "rgba(11,14,20,0.18)"]}
         locations={[0, 0.5, 1]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
