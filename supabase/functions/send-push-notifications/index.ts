@@ -206,7 +206,31 @@ Deno.serve(async () => {
 
   // Tokens de todos os destinatários de uma vez.
   const userIds = [...new Set(pending.map((n) => n.user_id))];
-  const { data: tokenRows } = await supabase.from("push_tokens").select("id, user_id, token").in("user_id", userIds);
+  /*
+   * A PEDIDO — auditoria a fundo, mesmo padrão de bug do
+   * check-new-releases. Com até 500 notificações pendentes por
+   * rodada, e cada usuário podendo ter múltiplos tokens/inscrições,
+   * essas duas buscas podiam chegar perto (ou passar) do limite de
+   * 1000 linhas do Supabase — menos certeza de que já estava
+   * acontecendo de verdade (diferente de `series_status`, onde a
+   * conta batia claramente), mas o mesmo risco existe, então
+   * corrigido por precaução, mesmo padrão de paginação (contagem
+   * primeiro, depois todas as páginas em paralelo).
+   */
+  const PAGE_SIZE = 1000;
+
+  const { count: tokenCount } = await supabase.from("push_tokens").select("id", { count: "exact", head: true }).in("user_id", userIds);
+  const tokenPages = await Promise.all(
+    Array.from({ length: Math.ceil((tokenCount ?? 0) / PAGE_SIZE) }, (_, i) =>
+      supabase
+        .from("push_tokens")
+        .select("id, user_id, token")
+        .in("user_id", userIds)
+        .range(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE - 1)
+        .then(({ data }) => data ?? [])
+    )
+  );
+  const tokenRows = tokenPages.flat();
 
   /*
    * A PEDIDO — envio Web Push (navegador), em paralelo ao Expo (app).
@@ -215,10 +239,23 @@ Deno.serve(async () => {
    * é o comportamento certo: a pessoa pode estar no computador com o
    * celular longe.
    */
-  const { data: webSubRows } = await supabase
-    .from("web_push_subscriptions")
-    .select("id, user_id, endpoint, p256dh, auth")
-    .in("user_id", userIds);
+  const { data: webSubRows } = await (async () => {
+    const { count: webSubCount } = await supabase
+      .from("web_push_subscriptions")
+      .select("id", { count: "exact", head: true })
+      .in("user_id", userIds);
+    const pages = await Promise.all(
+      Array.from({ length: Math.ceil((webSubCount ?? 0) / PAGE_SIZE) }, (_, i) =>
+        supabase
+          .from("web_push_subscriptions")
+          .select("id, user_id, endpoint, p256dh, auth")
+          .in("user_id", userIds)
+          .range(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE - 1)
+          .then(({ data }) => data ?? [])
+      )
+    );
+    return { data: pages.flat() };
+  })();
   const webSubsByUser = new Map<string, WebPushSubscription[]>();
   for (const s of (webSubRows ?? []) as WebPushSubscription[]) {
     const list = webSubsByUser.get(s.user_id) ?? [];

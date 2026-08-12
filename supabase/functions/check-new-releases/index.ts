@@ -1,16 +1,21 @@
 // supabase/functions/check-new-releases/index.ts
 //
-// TASK-052 — roda uma vez por dia (cron, ver supabase/functions/README-cron.md
-// pra configuração). Responsabilidade única: detectar episódio novo /
-// estreia de temporada e GRAVAR notificação — nunca envia push
-// (isso é da função send-push-notifications, separada de propósito).
+// TASK-052 — roda a cada 4 horas (cron, ver supabase/functions/README-cron.md
+// pra configuração — frequência aumentada depois de confirmar que
+// episódios de séries populares às vezes ficam disponíveis no TMDB
+// horas depois do horário em que a função roda, perdendo a janela de
+// 1x/dia). Responsabilidade única: detectar episódio novo / estreia
+// de temporada e GRAVAR notificação — nunca envia push (isso é da
+// função send-push-notifications, separada de propósito).
 //
 // Uma chamada ao TMDB por SÉRIE ÚNICA, não por usuário — se 500
 // pessoas seguem a mesma série, é 1 chamada, não 500. A dedução de
-// "já notificado" é garantida pelos índices únicos parciais da
-// migration (notifications_dedup_episode_idx/season_idx) — o insert
-// usa ON CONFLICT DO NOTHING, então mesmo que esta função rode duas
-// vezes (retry, cron duplicado), nunca duplica notificação.
+// "já notificado" é garantida pelo índice único da migration
+// (notifications_dedup_idx, versão sem `where` — ver comentário
+// completo onde o insert acontece, mais abaixo) — o insert usa ON
+// CONFLICT DO NOTHING, então mesmo que esta função rode duas vezes
+// (retry, ou duas janelas de 4h sem novidade), nunca duplica
+// notificação.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -34,6 +39,23 @@ interface TmdbSeriesResponse {
 }
 
 /**
+ * CORREÇÃO (bug real, achado numa auditoria a fundo depois de "não
+ * chegou notificação de novo") — as duas consultas desta função
+ * (série ativa por status, e seguidores por série) buscavam TODAS as
+ * linhas de uma vez, sem paginar. O Supabase corta em 1000 linhas por
+ * padrão — e `series_status` tinha, por volta da época desta
+ * correção, ~39 mil linhas ao todo (visto no painel de
+ * observabilidade). Ou seja: a consulta quase certamente estava sendo
+ * cortada nas primeiras 1000, e a função só via UMA FRAÇÃO das séries
+ * que deveria — silenciosamente, sem erro nenhum denunciando o corte.
+ * Séries que "por acaso" caíam fora das primeiras 1000 linhas nunca
+ * eram checadas — o mesmo padrão de bug já documentado (e corrigido)
+ * várias vezes neste projeto em OUTROS lugares, só que nunca tinha
+ * chegado até aqui.
+ */
+const PAGE_SIZE = 1000;
+
+/**
  * CORREÇÃO (a pedido — "não chegou notificação de episódio novo do
  * Slime, mesmo tendo saído ontem") — mesmo bug já corrigido em TRÊS
  * outros lugares nesta sessão (`ContinueWatchingCard.tsx` no web,
@@ -51,7 +73,7 @@ interface TmdbSeriesResponse {
  * do TMDB só passa a apontar pra um episódio novo quando ele
  * realmente está saindo/saiu, então confiar nisso mesmo sem a data
  * exata preenchida é uma aposta razoável — e o índice único de
- * dedup (`notifications_dedup_episode_idx`) já impede notificar o
+ * dedup (`notifications_dedup_idx`) já impede notificar o
  * mesmo episódio duas vezes, então o pior cenário de um falso
  * positivo aqui é uma notificação só um pouco adiantada, nunca
  * duplicada.
@@ -88,17 +110,37 @@ async function checkNewReleases(): Promise<void> {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   // 1. Série única por status ativo — sem duplicar chamada por usuário.
-  const { data: statusRows, error: statusError } = await supabase
+  // Paginado (ver comentário grande acima, em `PAGE_SIZE`) — contagem
+  // primeiro, depois todas as páginas em paralelo.
+  const { count: statusCount, error: countError } = await supabase
     .from("series_status")
-    .select("series_id")
+    .select("series_id", { count: "exact", head: true })
     .in("status", ACTIVE_STATUSES);
 
-  if (statusError) {
-    console.error("[check-new-releases] Falha ao buscar series_status", statusError);
+  if (countError) {
+    console.error("[check-new-releases] Falha ao contar series_status", countError);
     return;
   }
 
-  const uniqueSeriesIds = [...new Set((statusRows ?? []).map((r) => r.series_id))];
+  const statusPageCount = Math.ceil((statusCount ?? 0) / PAGE_SIZE);
+  const statusPages = await Promise.all(
+    Array.from({ length: statusPageCount }, async (_, i) => {
+      const from = i * PAGE_SIZE;
+      const { data, error } = await supabase
+        .from("series_status")
+        .select("series_id")
+        .in("status", ACTIVE_STATUSES)
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) {
+        console.error(`[check-new-releases] Falha ao paginar series_status (linhas ${from}+)`, error);
+        return [];
+      }
+      return data ?? [];
+    })
+  );
+  const statusRows = statusPages.flat();
+
+  const uniqueSeriesIds = [...new Set(statusRows.map((r) => r.series_id))];
 
   /*
    * CORREÇÃO (bug real, achado investigando "não chegou notificação
@@ -178,16 +220,35 @@ async function checkNewReleases(): Promise<void> {
     const isSeasonPremiere = latest.episode_number === 1 && latest.season_number > 1;
 
     // 2. Quem segue esta série, com a preferência correspondente ligada.
-    const { data: followers, error: followersError } = await supabase
+    // Paginado — mesma razão da consulta principal: sem isso, uma
+    // série muito popular (>1000 seguidores) teria notificação
+    // cortada pra só uma fração de quem segue.
+    const { count: followerCount } = await supabase
       .from("series_status")
-      .select("user_id")
+      .select("user_id", { count: "exact", head: true })
       .eq("series_id", seriesId)
       .in("status", ACTIVE_STATUSES);
 
-    if (followersError || !followers) {
-      console.error(`[check-new-releases] Falha ao buscar seguidores da série ${seriesId}`, followersError);
-      continue;
-    }
+    const followerPageCount = Math.ceil((followerCount ?? 0) / PAGE_SIZE);
+    const followerPages = await Promise.all(
+      Array.from({ length: followerPageCount }, async (_, i) => {
+        const from = i * PAGE_SIZE;
+        const { data, error } = await supabase
+          .from("series_status")
+          .select("user_id")
+          .eq("series_id", seriesId)
+          .in("status", ACTIVE_STATUSES)
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) {
+          console.error(`[check-new-releases] Falha ao paginar seguidores da série ${seriesId} (linhas ${from}+)`, error);
+          return [];
+        }
+        return data ?? [];
+      })
+    );
+    const followers = followerPages.flat();
+
+    if (followers.length === 0) continue;
 
     const prefColumn = isSeasonPremiere ? "season_premiere" : "episode_new";
     const { data: prefs } = await supabase
