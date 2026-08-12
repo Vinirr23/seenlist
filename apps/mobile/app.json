@@ -3,7 +3,7 @@
     "name": "SeenList",
     "slug": "seenlist",
     "scheme": "seenlist",
-    "version": "0.0.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0E14",
