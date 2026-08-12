@@ -9,6 +9,7 @@ import { Text, Button } from "@/components/ui";
 import { AuthBrand } from "@/components/auth/AuthBrand";
 import { colors, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { fetchDiscoverList } from "@/lib/discover";
 import { tmdbImageUrl } from "@/lib/library";
 
@@ -67,11 +68,21 @@ const TILE_ROTATIONS = [-3, 2, -2, 3, -2, 3, -3, 2];
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [posterUrls, setPosterUrls] = useState<string[]>([]);
 
   useEffect(() => {
-    Promise.all([fetchDiscoverList("trending_series"), fetchDiscoverList("trending_movies")])
+    /*
+     * CORREÇÃO (a pedido — "capas aparecem em português mesmo com o
+     * app noutro idioma") — a causa era no backend do web (todo
+     * chamada ao TMDB vinha fixa em pt-BR, `lib/tmdb/client.ts`),
+     * corrigido lá E aqui: agora passa o idioma REAL do app
+     * (`INTL_LOCALES`, mesmo mapeamento que `Intl.DateTimeFormat` já
+     * usa — pt-BR→pt-BR, en→en-US, es→es-ES, formato que o TMDB
+     * espera).
+     */
+    const tmdbLanguage = INTL_LOCALES[locale];
+    Promise.all([fetchDiscoverList("trending_series", tmdbLanguage), fetchDiscoverList("trending_movies", tmdbLanguage)])
       .then(([series, movies]) => {
         const urls: string[] = [];
         const max = Math.max(series.length, movies.length);
@@ -93,7 +104,8 @@ export default function OnboardingScreen() {
         // Sem pôster nenhum não é erro — a tela funciona igual, só sem o mosaico de fundo. Nunca bloqueia o onboarding.
         console.warn("[onboarding] Falha ao buscar pôsteres de fundo", error);
       });
-  }, []);
+    // `locale` na dependência — o idioma real só fica pronto depois de ler o armazenamento local; sem isso, a busca podia disparar com o idioma padrão antes do valor certo chegar.
+  }, [locale]);
 
   async function handleContinue() {
     await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, "1");

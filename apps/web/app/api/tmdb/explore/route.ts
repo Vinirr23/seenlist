@@ -30,13 +30,15 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const list = searchParams.get("list") as ListKey | null;
   const includeGenres = searchParams.get("genres") === "1";
+  // A PEDIDO — capas do onboarding (mobile) vinham sempre em português, mesmo com o app noutro idioma. `?language=en-US` (formato TMDB, BCP 47) — sem o parâmetro, comportamento de sempre (pt-BR).
+  const language = searchParams.get("language") ?? "pt-BR";
 
   if (!list || !(list in LISTS)) {
     return NextResponse.json({ error: "list inválida" }, { status: 400 });
   }
 
   try {
-    const [items, genreMap] = await Promise.all([LISTS[list](), includeGenres ? getGenreMap() : Promise.resolve(null)]);
+    const [items, genreMap] = await Promise.all([LISTS[list](language), includeGenres ? getGenreMap() : Promise.resolve(null)]);
     return NextResponse.json({ items, genreMap });
   } catch (error) {
     console.error(`[api/tmdb/explore] Falha ao buscar lista "${list}"`, error);

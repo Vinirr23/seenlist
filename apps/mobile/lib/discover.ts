@@ -27,8 +27,9 @@ interface DiscoverListResponse {
 }
 
 /** Idêntico a lib/queries/discover.ts do web — mesma rota (/api/tmdb/explore, já liberada no middleware pro app nativo). */
-export async function fetchDiscoverList(list: DiscoverListKey): Promise<DiscoverItem[]> {
-  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${list}`);
+export async function fetchDiscoverList(list: DiscoverListKey, language?: string): Promise<DiscoverItem[]> {
+  const languageParam = language ? `&language=${encodeURIComponent(language)}` : "";
+  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${list}${languageParam}`);
   if (!response.ok) throw new Error("discover fetch failed");
   const data = (await response.json()) as DiscoverListResponse;
   return data.items;

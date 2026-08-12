@@ -839,33 +839,43 @@ function fromListRow(row: TmdbListResponse["results"][number], mediaType: "movie
   };
 }
 
-export async function getTrendingSeries(): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/trending/tv/week");
+/*
+ * A PEDIDO — as capas do onboarding (mobile) sempre vinham com título
+ * em português, mesmo com o app noutro idioma. Causa: `tmdbGet` já
+ * aceitava `language` por chamada (ver comentário dela e o uso em
+ * `getEnglishSeriesName`, mais abaixo), só ninguém tinha passado isso
+ * aqui — o padrão pt-BR (linha ~23) sempre vencia. `language`
+ * opcional, default `"pt-BR"` (preserva TODO comportamento já
+ * existente em quem chama sem passar nada — só o onboarding passa o
+ * idioma real do app agora).
+ */
+export async function getTrendingSeries(language = "pt-BR"): Promise<DiscoverItem[]> {
+  const data = await tmdbGet<TmdbListResponse>("/trending/tv/week", { language });
   return data.results.map((r) => fromListRow(r, "series"));
 }
 
-export async function getTrendingMovies(): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/trending/movie/week");
+export async function getTrendingMovies(language = "pt-BR"): Promise<DiscoverItem[]> {
+  const data = await tmdbGet<TmdbListResponse>("/trending/movie/week", { language });
   return data.results.map((r) => fromListRow(r, "movie"));
 }
 
-export async function getPopularSeries(): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/tv/popular");
+export async function getPopularSeries(language = "pt-BR"): Promise<DiscoverItem[]> {
+  const data = await tmdbGet<TmdbListResponse>("/tv/popular", { language });
   return data.results.map((r) => fromListRow(r, "series"));
 }
 
-export async function getPopularMovies(): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/movie/popular");
+export async function getPopularMovies(language = "pt-BR"): Promise<DiscoverItem[]> {
+  const data = await tmdbGet<TmdbListResponse>("/movie/popular", { language });
   return data.results.map((r) => fromListRow(r, "movie"));
 }
 
-export async function getUpcomingMovies(): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/movie/upcoming");
+export async function getUpcomingMovies(language = "pt-BR"): Promise<DiscoverItem[]> {
+  const data = await tmdbGet<TmdbListResponse>("/movie/upcoming", { language });
   return data.results.map((r) => fromListRow(r, "movie"));
 }
 
-export async function getOnTheAirSeries(): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/tv/on_the_air");
+export async function getOnTheAirSeries(language = "pt-BR"): Promise<DiscoverItem[]> {
+  const data = await tmdbGet<TmdbListResponse>("/tv/on_the_air", { language });
   return data.results.map((r) => fromListRow(r, "series"));
 }
 
