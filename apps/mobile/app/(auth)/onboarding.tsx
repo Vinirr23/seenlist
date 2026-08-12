@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, StyleSheet, Dimensions } from "react-native";
+import { View, StyleSheet, Dimensions, Text as RNText } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -27,6 +27,22 @@ import { tmdbImageUrl } from "@/lib/library";
  * diferença visual não paga.
  */
 export const ONBOARDING_SEEN_KEY = "seenlist:onboarding-seen";
+
+/*
+ * A PEDIDO — sombra de texto, reaproveitada em título/subtítulo/link.
+ * Sem isso, texto claro em cima de um trecho claro do mosaico de
+ * pôster (ex.: uma capa com fundo branco) ficava quase ilegível —
+ * "Já tenho conta" foi o exemplo apontado, mas o mesmo risco existe
+ * em qualquer texto sobre a colagem, não só ali. A vinheta
+ * (gradiente) já ajuda no meio da tela, mas nas bordas (onde ela é
+ * mais clara, de propósito) o texto sozinho não tinha proteção
+ * nenhuma.
+ */
+const textShadow = {
+  textShadowColor: "rgba(0,0,0,0.85)",
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 6,
+};
 
 const POSTER_COLUMNS = 3;
 /*
@@ -121,12 +137,15 @@ export default function OnboardingScreen() {
         <View style={styles.spacerTop} />
 
         <View style={styles.textBlock}>
-          <AuthBrand />
+          <View style={styles.brandWrapper}>
+            <AuthBrand />
+          </View>
 
           <Text style={styles.title}>
             {t("onboarding.titleLine1")}
             {"\n"}
-            {t("onboarding.titleLine2Prefix")} <Text style={styles.titleAccent}>{t("onboarding.titleLine2Accent")}</Text>
+            {t("onboarding.titleLine2Prefix")}{" "}
+            <RNText style={[styles.title, styles.titleAccent]}>{t("onboarding.titleLine2Accent")}</RNText>
           </Text>
           <Text style={styles.subtitle}>{t("onboarding.subtitle")}</Text>
         </View>
@@ -194,12 +213,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
+  /*
+   * A PEDIDO — respiro entre a logo e o título. `AuthBrand` já tem
+   * uma margem própria pequena (pensada pra ficar coladinho num
+   * formulário de login logo abaixo) — aqui o contexto é diferente
+   * (título grande vem depois, não um campo de formulário), por
+   * isso a margem extra é adicionada de FORA, sem mexer no
+   * componente compartilhado (que continua certo do jeito que está
+   * pras outras telas que o usam).
+   */
+  brandWrapper: {
+    marginBottom: spacing.lg,
+  },
   title: {
     fontSize: 26,
     fontWeight: "700",
     color: colors.text,
     textAlign: "center",
     lineHeight: 32,
+    ...textShadow,
   },
   titleAccent: {
     color: colors.primary,
@@ -211,6 +243,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingHorizontal: spacing.sm,
     marginTop: spacing.sm,
+    ...textShadow,
   },
   footer: {
     gap: spacing.sm,
@@ -221,5 +254,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: fontSize.sm,
     paddingVertical: spacing.sm,
+    ...textShadow,
   },
 });
