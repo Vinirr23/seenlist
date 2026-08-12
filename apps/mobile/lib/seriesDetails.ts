@@ -350,10 +350,31 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     const ended = endedBySeriesId.get(seriesId) ?? false;
     const allEpisodesWatched = watched >= liveEpisodes.length;
     const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
-
-    // Compara com o status ATUAL de cada série (não mais presume que todas começaram como "up_to_date") — só grava se realmente mudou.
     const currentStatus = currentStatusBySeriesId.get(seriesId);
-    if (newCategory !== currentStatus) {
+
+    /*
+     * CORREÇÃO (bug real, achado reanalisando "Re:Zero, Tanya the
+     * Evil, Tomb Raider King sem aparecer em Continue assistindo" —
+     * Tanya e Tomb Raider King NÃO estavam presas em completed, já
+     * estavam corretamente em "watching"/"up_to_date". A causa real
+     * dessas duas é OUTRA: "Continue assistindo" corta em
+     * `CONTINUE_LIMIT` (8) séries, ordenadas por `updated_at` — e
+     * esse campo só era tocado quando a CATEGORIA mudava. Uma série
+     * que já estava certa (sem mudança de categoria) nunca tinha
+     * `updated_at` atualizado, mesmo ganhando episódio novo de
+     * verdade — podia afundar no ranking, perdida pra outras séries
+     * "mexidas" por qualquer outro motivo, e sair das 8 vagas.
+     *
+     * Agora, sempre que a categoria calculada é "watching" (existe
+     * episódio pendente de verdade — "up_to_date"/"completed" não
+     * têm nada pendente, não faz sentido subir no ranking à toa),
+     * grava mesmo que a categoria não tenha mudado — só pra
+     * atualizar `updated_at`, refletindo "esta série tem conteúdo
+     * pendente confirmado agora". Essa função já é limitada por
+     * throttle (não roda a cada render), então não vira escrita
+     * excessiva.
+     */
+    if (newCategory !== currentStatus || newCategory === "watching") {
       updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
     }
   }
@@ -443,7 +464,17 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   const allEpisodesWatched = watched >= liveEpisodes.length;
   const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
 
-  if (newCategory === currentStatus) return;
+  /*
+   * CORREÇÃO (mesma auditoria — consistência com
+   * `recalculateUpToDateSeriesCategories`, mesmo arquivo) — antes,
+   * categoria sem mudança = SEM gravar nada, nem quando o usuário
+   * tinha acabado de marcar episódio (interação real, agora mesmo).
+   * "watching" sem mudança de categoria ainda assim atualiza
+   * `updated_at` — é o campo que decide a ordem de "Continue
+   * assistindo" (corte de `CONTINUE_LIMIT`), e essa série tem
+   * episódio pendente de verdade, merece refletir isso na ordenação.
+   */
+  if (newCategory === currentStatus && newCategory !== "watching") return;
 
   const { error: updateError } = await supabase
     .from("series_status")

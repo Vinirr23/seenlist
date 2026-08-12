@@ -179,8 +179,26 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     const ended = endedBySeriesId.get(seriesId) ?? false;
     const allEpisodesWatched = watched >= liveEpisodes.length;
     const newCategory = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes).category;
+    const currentStatus = currentStatusBySeriesId.get(seriesId);
 
-    if (newCategory !== currentStatusBySeriesId.get(seriesId)) {
+    /*
+     * CORREÇÃO (bug real, achado reanalisando "Tanya the Evil, Tomb
+     * Raider King sem aparecer em Continue assistindo" — mesmo bug do
+     * mobile, `apps/mobile/lib/seriesDetails.ts`) — "Continue
+     * assistindo" corta em `CONTINUE_ASSISTINDO_LIMIT` (8), ordenado
+     * por `updated_at` — campo que só era tocado quando a CATEGORIA
+     * mudava. Série já corretamente em "watching" (sem mudança de
+     * categoria) nunca tinha `updated_at` atualizado, mesmo ganhando
+     * episódio novo de verdade — podia afundar no ranking, perdida
+     * pra outra série "mexida" por qualquer motivo, e sair das 8
+     * vagas visíveis.
+     *
+     * Agora grava (bate `updated_at`) sempre que a categoria
+     * calculada é "watching" — existe episódio pendente de verdade —
+     * mesmo sem mudança de categoria. "up_to_date"/"completed" não
+     * têm nada pendente, não sobem no ranking à toa.
+     */
+    if (newCategory !== currentStatus || newCategory === "watching") {
       updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
     }
   }
@@ -344,7 +362,17 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   const newCategory =
     ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes).category;
 
-  if (newCategory === currentStatus) return;
+  /*
+   * CORREÇÃO (mesma auditoria — consistência com
+   * `recalculateUpToDateSeriesCategories`, logo acima) — antes,
+   * categoria sem mudança = SEM gravar nada, nem quando o usuário
+   * tinha acabado de marcar episódio (interação real, agora mesmo).
+   * "watching" sem mudança de categoria ainda assim atualiza
+   * `updated_at` — é o campo que decide a ordem de "Continue
+   * assistindo" (corte de 8), e essa série tem episódio pendente de
+   * verdade, merece refletir isso na ordenação.
+   */
+  if (newCategory === currentStatus && newCategory !== "watching") return;
 
   /**
    * TASK-062 — `upsert` em vez de `update`: séries sem linha prévia
