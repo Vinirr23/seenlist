@@ -113,32 +113,33 @@ export default function OnboardingScreen() {
       </View>
 
       {/*
-        * A PEDIDO (v5 — halo/foco central, não mais "cruz") — o
-        * problema real da v4 não era o nível de escurecimento, era a
-        * FORMA: dois gradientes cruzados (só vertical+horizontal)
-        * criam um padrão de "mais" (+), mais escuro nas duas linhas
-        * centrais — mas os CANTOS, longe dessas duas linhas, ficam
-        * sempre mais claros que o resto do centro, competindo por
-        * atenção (exatamente o que o print mostrou: "A CASA DO
-        * DRAGÃO" e "TED LASSO" nos cantos, vívidos).
+        * A PEDIDO (v6 — segundo ajuste, mais força e pico realinhado)
+        * — a v5 (4 gradientes cruzados, cobrindo diagonais) melhorou
+        * a FORMA (menos "cruz", mais suave), mas ainda não bastava.
+        * Dois problemas achados comparando a v5 renderizada com a
+        * intenção original:
         *
-        * Sem `react-native-svg` (decisão explícita — ficaria perfeito
-        * com gradiente radial de verdade, mas exigiria build novo,
-        * não só `eas update`), a aproximação é cobrir mais DIREÇÕES:
-        * 4 gradientes agora (vertical + horizontal + as duas
-        * diagonais), não mais 2. Isso preenche exatamente o vão que
-        * sobrava nos cantos — não é um halo perfeitamente circular,
-        * mas a transição fica muito mais suave, sem a divisão nítida
-        * "cruz escura, canto claro" de antes.
+        * 1. O pico de escurecimento mirava o meio EXATO da tela
+        *    (0.5), mas o bloco de texto não fica no meio exato — o
+        *    layout usa espaçadores 2:1 (mais espaço em cima que
+        *    embaixo), empurrando o conteúdo pra baixo do centro
+        *    geométrico. Corrigido só no gradiente VERTICAL e nas
+        *    diagonais (0.58, não mais 0.5) — o HORIZONTAL continua em
+        *    0.5, de propósito: o texto é centralizado na horizontal,
+        *    não tem por que deslocar esse eixo.
+        * 2. Opacidade de pico mais forte (0.42 → 0.52 por camada,
+        *    ~89% → ~95% combinado no centro) — mesmo com a forma
+        *    melhorada na v5, a força ali ainda não bastava pra
+        *    separar o conteúdo do pôster atrás com folga.
         */}
       <LinearGradient
-        colors={["rgba(11,14,20,0.15)", "rgba(11,14,20,0.42)", "rgba(11,14,20,0.15)"]}
-        locations={[0, 0.5, 1]}
+        colors={["rgba(11,14,20,0.12)", "rgba(11,14,20,0.52)", "rgba(11,14,20,0.12)"]}
+        locations={[0, 0.58, 1]}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={["rgba(11,14,20,0.15)", "rgba(11,14,20,0.42)", "rgba(11,14,20,0.15)"]}
+        colors={["rgba(11,14,20,0.12)", "rgba(11,14,20,0.52)", "rgba(11,14,20,0.12)"]}
         locations={[0, 0.5, 1]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
@@ -146,21 +147,55 @@ export default function OnboardingScreen() {
         pointerEvents="none"
       />
       <LinearGradient
-        colors={["rgba(11,14,20,0.15)", "rgba(11,14,20,0.42)", "rgba(11,14,20,0.15)"]}
-        locations={[0, 0.5, 1]}
+        colors={["rgba(11,14,20,0.12)", "rgba(11,14,20,0.52)", "rgba(11,14,20,0.12)"]}
+        locations={[0, 0.58, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={["rgba(11,14,20,0.15)", "rgba(11,14,20,0.42)", "rgba(11,14,20,0.15)"]}
-        locations={[0, 0.5, 1]}
+        colors={["rgba(11,14,20,0.12)", "rgba(11,14,20,0.52)", "rgba(11,14,20,0.12)"]}
+        locations={[0, 0.58, 1]}
         start={{ x: 1, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
+
+      {/*
+        * A PEDIDO (v7 — refinamento só do centro, sem escurecer mais)
+        * — os 4 gradientes acima ficam EXATAMENTE como estavam (a
+        * hierarquia já estava aprovada). Esta é uma camada NOVA,
+        * separada, só pra "amaciar" o pôster bem atrás do texto —
+        * cinza NEUTRO (não preto), sugerindo saturação/contraste
+        * reduzidos, não mais escuridão. `expo-blur` daria o efeito
+        * pedido de verdade (desfoque real), mas é dependência nativa
+        * nova — decisão explícita de não instalar agora, aproximar
+        * só com cor mesmo.
+        *
+        * Duas camadas cruzadas (vertical + horizontal), como o resto
+        * da vinheta, mas numa FAIXA — não a tela inteira. `top`/
+        * `height` em porcentagem aproximam onde o bloco de texto
+        * realmente fica (ícone até abaixo do texto secundário, dado
+        * o layout com espaçadores 2:1) — as laterais, fora dessa
+        * faixa, não são tocadas por esta camada, só pelos 4
+        * gradientes de sempre.
+        */}
+      <View style={styles.centerSoftenZone} pointerEvents="none">
+        <LinearGradient
+          colors={["rgba(140,147,168,0)", "rgba(140,147,168,0.4)", "rgba(140,147,168,0)"]}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <LinearGradient
+          colors={["rgba(140,147,168,0)", "rgba(140,147,168,0.4)", "rgba(140,147,168,0)"]}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
 
       <View style={styles.content}>
         <View style={styles.spacerTop} />
@@ -206,6 +241,23 @@ const styles = StyleSheet.create({
   posterCell: {
     width: TILE_WIDTH,
     height: TILE_HEIGHT,
+  },
+  /*
+   * A PEDIDO — faixa da "amaciada" central (v7), não a tela inteira.
+   * `top`/`bottom` em porcentagem aproximam a altura do ícone até
+   * abaixo do texto secundário (o layout usa espaçadores 2:1, então
+   * o bloco de texto fica um pouco abaixo do meio geométrico — não é
+   * medido em tempo real, é estimativa baseada na proporção dos
+   * espaçadores; ajustar aqui se o alinhamento não bater exatamente
+   * depois de testar no aparelho). `left`/`right` deixam de fora as
+   * bordas de verdade, reforçando que essa camada é só do centro.
+   */
+  centerSoftenZone: {
+    position: "absolute",
+    top: "30%",
+    bottom: "32%",
+    left: "8%",
+    right: "8%",
   },
   content: {
     flex: 1,
