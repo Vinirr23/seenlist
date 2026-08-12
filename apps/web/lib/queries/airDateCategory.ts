@@ -30,8 +30,28 @@ export function decideWatchingVsUpToDate(
   const nonSpecialLiveEpisodes = liveEpisodes.filter(
     (e) => !specialEpisodeKeys.has(`${e.seasonNumber}-${e.episodeNumber}`)
   );
-  const today = new Date().toISOString().slice(0, 10);
-  const airedByNow = nonSpecialLiveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today);
+  /*
+   * CORREÇÃO (a pedido — Re:Zero preso em up_to_date há mais de um
+   * mês, mesmo com episódio novo saindo) — dois ajustes juntos,
+   * achados comparando com o mobile (`todayLocalKey()`,
+   * `nextEpisodeToWatch.ts`):
+   *
+   * 1. "Hoje" agora é fuso LOCAL, não UTC (`new Date().toISOString()`
+   *    calcula em UTC — pra quem está no Brasil, isso diverge todo dia
+   *    das 21h à meia-noite, mesma classe de bug já documentada e
+   *    corrigida no mobile em `lib/localDate.ts`).
+   * 2. `airDate === null` não exclui mais um episódio da contagem —
+   *    mesmo padrão já corrigido em TRÊS outros lugares nesta sessão
+   *    (`ContinueWatchingCard.tsx`, `nextEpisodeToWatch.ts` mobile,
+   *    `check-new-releases`), só que esta função específica — a que
+   *    decide "watching" vs "up_to_date" pra série já catalogada —
+   *    tinha ficado de fora daquela rodada. TMDB às vezes demora a
+   *    preencher a data do episódio mais recente — o episódio já
+   *    saiu de verdade, só a data ainda não chegou na API.
+   */
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const airedByNow = nonSpecialLiveEpisodes.filter((e) => e.airDate === null || e.airDate <= today);
   const hasUnwatchedAiredEpisode = mainEpisodesWatched < airedByNow.length;
 
   if (hasUnwatchedAiredEpisode) {

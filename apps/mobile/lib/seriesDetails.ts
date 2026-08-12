@@ -141,7 +141,24 @@ export async function fetchWatchedEpisodes(seriesId: number): Promise<Set<Watche
  */
 function decideWatchingVsUpToDate(mainEpisodesWatched: number, liveEpisodes: { airDate: string | null }[]): LibraryStatus {
   const today = todayLocalKey();
-  const airedByNow = liveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today);
+  /*
+   * CORREÇÃO (bug real, achado investigando "Re:Zero com episódio
+   * novo, mas preso em up_to_date há mais de um mês") — mesmo padrão
+   * de bug já corrigido em TRÊS outros lugares nesta sessão
+   * (`ContinueWatchingCard.tsx` web, `nextEpisodeToWatch.ts` mobile,
+   * `check-new-releases`), só que esta função específica — a que
+   * decide "watching" vs "up_to_date" pra série já catalogada — tinha
+   * ficado de fora daquela rodada. `e.airDate !== null` excluía da
+   * contagem qualquer episódio sem data conhecida, mesmo que já
+   * tivesse saído de verdade (TMDB às vezes demora a preencher a
+   * data do episódio mais recente). Resultado: a conta de "quantos
+   * já saíram" ficava artificialmente baixa, a série nunca era
+   * promovida de volta pra "watching" — o próprio card de "Continue
+   * assistindo" (`nextEpisodeToWatch.ts`) já sabia mostrar o
+   * episódio corretamente, só o STATUS da série é que nunca
+   * acompanhava.
+   */
+  const airedByNow = liveEpisodes.filter((e) => e.airDate === null || e.airDate <= today);
   return mainEpisodesWatched < airedByNow.length ? "watching" : "up_to_date";
 }
 
