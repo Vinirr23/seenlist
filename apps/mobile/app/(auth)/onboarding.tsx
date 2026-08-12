@@ -12,19 +12,16 @@ import { fetchDiscoverList } from "@/lib/discover";
 import { tmdbImageUrl } from "@/lib/library";
 
 /**
- * A PEDIDO (v2 — reformulação com referência visual) — mosaico de
- * pôster real (TMDB, em alta — mesma fonte de antes, `fetchDiscoverList`,
- * funciona sem sessão) com rotação leve por peça (efeito "colagem",
- * não grade rígida) e VINHETA de verdade via `expo-linear-gradient`
- * (gradiente vertical: mais escuro no meio da tela, mais claro nas
- * bordas de cima/baixo) — antes era um véu plano uniforme, sem
- * variação nenhuma.
- *
- * O gradiente é só VERTICAL, de propósito — testando contra a
- * referência, as laterais continuam mostrando pôster mesmo na altura
- * do texto central; um degradê radial completo (escurecer também
- * lateralmente) precisaria de SVG, complexidade a mais que essa
- * diferença visual não paga.
+ * A PEDIDO (v3 — ajuste de hierarquia e legibilidade, mesmo conceito
+ * visual mantido) — mosaico de pôster real (TMDB, em alta —
+ * `fetchDiscoverList`, funciona sem sessão) com rotação leve por
+ * peça (efeito "colagem", não grade rígida). Vinheta com DOIS
+ * gradientes cruzados (`expo-linear-gradient`) — vertical E
+ * horizontal, os dois mais escuros no meio — aproxima um efeito de
+ * vinheta central sem precisar de gradiente radial de verdade (que
+ * pediria SVG, dependência nova = build novo). O pôster continua
+ * visível nos cantos/bordas; o centro, onde o texto fica, é bem mais
+ * escuro que qualquer ponto isolado nas bordas.
  */
 export const ONBOARDING_SEEN_KEY = "seenlist:onboarding-seen";
 
@@ -71,7 +68,6 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const [posterUrls, setPosterUrls] = useState<string[]>([]);
-  const [debugStatus, setDebugStatus] = useState("carregando...");
 
   useEffect(() => {
     Promise.all([fetchDiscoverList("trending_series"), fetchDiscoverList("trending_movies")])
@@ -90,13 +86,11 @@ export default function OnboardingScreen() {
             if (url) urls.push(url);
           }
         }
-        const finalUrls = urls.slice(0, 15);
-        setPosterUrls(finalUrls);
-        setDebugStatus(`ok: série=${series.length} filme=${movies.length} urls=${finalUrls.length} tile=${TILE_WIDTH.toFixed(0)}x${TILE_HEIGHT.toFixed(0)}`);
+        setPosterUrls(urls.slice(0, 15));
       })
       .catch((error) => {
+        // Sem pôster nenhum não é erro — a tela funciona igual, só sem o mosaico de fundo. Nunca bloqueia o onboarding.
         console.warn("[onboarding] Falha ao buscar pôsteres de fundo", error);
-        setDebugStatus(`erro: ${error instanceof Error ? error.message : String(error)}`);
       });
   }, []);
 
@@ -107,13 +101,6 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      {/*
-       * TEMPORÁRIO — diagnóstico visível na própria tela, sem precisar
-       * de ferramenta de desenvolvedor nenhuma. Remover depois de
-       * achar a causa real do "não aparece as capas".
-       */}
-      <Text style={styles.debugBadge}>{debugStatus}</Text>
-
       <View style={styles.posterGrid} pointerEvents="none">
         {posterUrls.map((url, i) => (
           <Image
@@ -125,10 +112,29 @@ export default function OnboardingScreen() {
         ))}
       </View>
 
-      {/* Vinheta — gradiente vertical de verdade (`expo-linear-gradient`), não mais um véu plano. Mais escuro no meio (onde o texto fica), mais claro nas bordas. */}
+      {/*
+        * A PEDIDO (ajuste — "fundo com informação demais competindo
+        * com o conteúdo") — a vinheta virou DOIS gradientes cruzados
+        * (vertical + horizontal) em vez de um só. `expo-linear-gradient`
+        * não faz gradiente radial de verdade (precisaria de SVG,
+        * dependência nova = build novo) — cruzar um vertical com um
+        * horizontal, os dois mais escuros no meio, aproxima bem o
+        * efeito: o CENTRO (onde os dois se sobrepõem) fica bem mais
+        * escuro que qualquer ponto isolado nas bordas, em qualquer
+        * direção — o pôster ainda aparece nos cantos e larguras, só
+        * não compete mais com o texto no meio.
+        */}
       <LinearGradient
-        colors={["rgba(11,14,20,0.55)", "rgba(11,14,20,0.93)", "rgba(11,14,20,0.55)"]}
-        locations={[0, 0.52, 1]}
+        colors={["rgba(11,14,20,0.72)", "rgba(11,14,20,0.97)", "rgba(11,14,20,0.72)"]}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={["rgba(11,14,20,0.35)", "rgba(11,14,20,0.75)", "rgba(11,14,20,0.35)"]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
@@ -197,18 +203,6 @@ const styles = StyleSheet.create({
   spacerBottom: {
     flex: 1,
   },
-  debugBadge: {
-    position: "absolute",
-    top: 50,
-    left: 12,
-    right: 12,
-    zIndex: 10,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    color: "#4FD1C5",
-    fontSize: 10,
-    padding: 6,
-    borderRadius: 6,
-  },
   textBlock: {
     alignItems: "center",
     gap: spacing.xs,
@@ -251,7 +245,17 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     textAlign: "center",
-    color: colors.muted,
+    /*
+     * CORREÇÃO (a pedido — "quase invisível") — era `colors.muted`
+     * (cinza escurecido, pensado pra texto secundário sobre fundo
+     * SÓLIDO). Sobre o mosaico de pôster, esse cinza não tinha
+     * contraste suficiente. Trocado pra `colors.text` (quase
+     * branco, mesma cor do título) — a hierarquia "ação secundária"
+     * continua clara pelo TAMANHO (menor) e PESO (sem negrito), não
+     * mais tentando fazer isso só com uma cor mais fraca, que aqui
+     * também significava "difícil de ler".
+     */
+    color: colors.text,
     fontSize: fontSize.sm,
     paddingVertical: spacing.sm,
     ...textShadow,
