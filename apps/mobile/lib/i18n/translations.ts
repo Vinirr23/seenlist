@@ -93,6 +93,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.visibility.followersOnly": "Apenas seguidores",
     "settings.visibility.private": "Privado",
 
+    "onboarding.titleLine1": "Acompanhe tudo",
+    "onboarding.titleLine2Prefix": "o que",
+    "onboarding.titleLine2Accent": "você assiste",
+    "onboarding.subtitle": "Acompanhe filmes, séries e animes e não perca nenhum episódio novo.",
+    "onboarding.cta": "Começar",
+    "onboarding.alreadyHaveAccount": "Já tenho conta",
     "auth.email": "E-mail",
 
     "lang.en": "Inglês",
@@ -290,6 +296,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.visibility.followersOnly": "Followers only",
     "settings.visibility.private": "Private",
 
+    "onboarding.titleLine1": "Track everything",
+    "onboarding.titleLine2Prefix": "you",
+    "onboarding.titleLine2Accent": "watch",
+    "onboarding.subtitle": "Track movies, shows and anime, and never miss a new episode.",
+    "onboarding.cta": "Get started",
+    "onboarding.alreadyHaveAccount": "I already have an account",
     "auth.email": "Email",
 
     "lang.en": "English",
@@ -487,6 +499,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.visibility.followersOnly": "Solo seguidores",
     "settings.visibility.private": "Privado",
 
+    "onboarding.titleLine1": "Sigue todo",
+    "onboarding.titleLine2Prefix": "lo que",
+    "onboarding.titleLine2Accent": "ves",
+    "onboarding.subtitle": "Sigue películas, series y animes, y no te pierdas ningún episodio nuevo.",
+    "onboarding.cta": "Empezar",
+    "onboarding.alreadyHaveAccount": "Ya tengo cuenta",
     "auth.email": "Correo electrónico",
 
     "lang.en": "Inglés",

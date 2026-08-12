@@ -1,8 +1,11 @@
+import { useEffect, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Redirect } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { colors } from "@/lib/theme";
+import { ONBOARDING_SEEN_KEY } from "@/app/(auth)/onboarding";
 
 /**
  * TASK-165 (splash screen) — versão original tinha 3 segundos FIXOS
@@ -15,9 +18,26 @@ import { colors } from "@/lib/theme";
  * flash) entre a splash nativa sumir e o `useAuth()` terminar de
  * checar a sessão local — na prática dura uma fração de segundo,
  * não os 3s fixos de antes.
+ *
+ * A PEDIDO — onboarding de uma tela, mostrado só na primeira
+ * abertura. Duas checagens independentes precisam terminar antes de
+ * decidir pra onde navegar: a de sessão (já existia) e a de "já viu
+ * o onboarding" (nova, `AsyncStorage`) — por isso `loading` agora
+ * combina os dois (`authLoading || onboardingLoading`), não só o da
+ * sessão. Sem essa segunda checagem, todo mundo (inclusive quem já
+ * usa o app) veria brevemente o splash resolver "sem sessão" e só
+ * depois decidir — a checagem do onboarding é praticamente
+ * instantânea (leitura local), mas ainda assim é assíncrona.
  */
 export default function IndexGate() {
-  const { session, loading } = useAuth();
+  const { session, loading: authLoading } = useAuth();
+  const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_SEEN_KEY).then((value) => setOnboardingSeen(value === "1"));
+  }, []);
+
+  const loading = authLoading || onboardingSeen === null;
 
   if (loading) {
     return (
@@ -27,7 +47,8 @@ export default function IndexGate() {
     );
   }
 
-  return <Redirect href={session ? "/(tabs)/series" : "/(auth)/login"} />;
+  if (session) return <Redirect href="/(tabs)/series" />;
+  return <Redirect href={onboardingSeen ? "/(auth)/login" : "/(auth)/onboarding"} />;
 }
 
 const styles = StyleSheet.create({
