@@ -36,8 +36,6 @@
     "expo-store-review": "~9.0.9",
     "expo-updates": "~29.0.19",
     "expo-web-browser": "~15.0.11",
-    "gradient": "^0.2.0",
-    "linear": "^1.0.5",
     "react": "19.1.0",
     "react-native": "0.81.4",
     "react-native-gesture-handler": "~2.28.0",
