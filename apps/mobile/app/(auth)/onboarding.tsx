@@ -113,31 +113,51 @@ export default function OnboardingScreen() {
       </View>
 
       {/*
-        * A PEDIDO (recalibrado — "fundo escuro demais, quero
-        * equilíbrio entre a v2 e a v3") — a v3 cruzava dois
-        * gradientes com valores de borda ainda altos (0.72 e 0.35),
-        * e como opacidades sobrepostas SE SOMAM (não ficam só a
-        * maior das duas), o resultado combinado nas bordas já batia
-        * ~82% — quase tão escuro quanto o centro (~99%), por isso
-        * pareceu "tudo escuro igual", sem separação real entre
-        * centro e lateral. Recalculado com valores de borda bem mais
-        * baixos: agora canto ≈ 41% opaco (pôster bem reconhecível),
-        * centro ≈ 81% (ainda forte, contraste bom pro texto), lateral
-        * na altura do texto ≈ 66% (visível, mas não compete com o
-        * conteúdo). Mesma técnica (dois gradientes cruzados), só a
-        * matemática da composição foi respeitada desta vez.
+        * A PEDIDO (v5 — halo/foco central, não mais "cruz") — o
+        * problema real da v4 não era o nível de escurecimento, era a
+        * FORMA: dois gradientes cruzados (só vertical+horizontal)
+        * criam um padrão de "mais" (+), mais escuro nas duas linhas
+        * centrais — mas os CANTOS, longe dessas duas linhas, ficam
+        * sempre mais claros que o resto do centro, competindo por
+        * atenção (exatamente o que o print mostrou: "A CASA DO
+        * DRAGÃO" e "TED LASSO" nos cantos, vívidos).
+        *
+        * Sem `react-native-svg` (decisão explícita — ficaria perfeito
+        * com gradiente radial de verdade, mas exigiria build novo,
+        * não só `eas update`), a aproximação é cobrir mais DIREÇÕES:
+        * 4 gradientes agora (vertical + horizontal + as duas
+        * diagonais), não mais 2. Isso preenche exatamente o vão que
+        * sobrava nos cantos — não é um halo perfeitamente circular,
+        * mas a transição fica muito mais suave, sem a divisão nítida
+        * "cruz escura, canto claro" de antes.
         */}
       <LinearGradient
-        colors={["rgba(11,14,20,0.28)", "rgba(11,14,20,0.58)", "rgba(11,14,20,0.28)"]}
+        colors={["rgba(11,14,20,0.15)", "rgba(11,14,20,0.42)", "rgba(11,14,20,0.15)"]}
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={["rgba(11,14,20,0.18)", "rgba(11,14,20,0.55)", "rgba(11,14,20,0.18)"]}
+        colors={["rgba(11,14,20,0.15)", "rgba(11,14,20,0.42)", "rgba(11,14,20,0.15)"]}
         locations={[0, 0.5, 1]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={["rgba(11,14,20,0.15)", "rgba(11,14,20,0.42)", "rgba(11,14,20,0.15)"]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={["rgba(11,14,20,0.15)", "rgba(11,14,20,0.42)", "rgba(11,14,20,0.15)"]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
