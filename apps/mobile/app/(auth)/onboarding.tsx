@@ -56,8 +56,18 @@ export default function OnboardingScreen() {
         }
         setPosterUrls(urls.slice(0, 15));
       })
-      .catch(() => {
-        // Sem pôster nenhum não é erro — a tela funciona igual, só sem o mosaico de fundo. Nunca bloqueia o onboarding.
+      .catch((error) => {
+        /*
+         * CORREÇÃO (a pedido — "não aparece as capas") — antes, uma
+         * falha aqui era 100% silenciosa (nem no console). Sem
+         * registro nenhum, não dava pra saber se estava FALHANDO de
+         * verdade ou só demorando (primeira chamada de uma função
+         * "dormindo" pode ser mais lenta) — a tela continua
+         * funcionando igual sem o mosaico (nunca trava o onboarding
+         * por causa disso), mas agora pelo menos fica um rastro real
+         * pra investigar via `adb logcat` ou o log do Metro.
+         */
+        console.warn("[onboarding] Falha ao buscar pôsteres de fundo", error);
       });
   }, []);
 
@@ -88,7 +98,7 @@ export default function OnboardingScreen() {
       />
 
       <View style={styles.content}>
-        <View style={styles.spacer} />
+        <View style={styles.spacerTop} />
 
         <View style={styles.textBlock}>
           <AuthBrand />
@@ -100,6 +110,8 @@ export default function OnboardingScreen() {
           </Text>
           <Text style={styles.subtitle}>{t("onboarding.subtitle")}</Text>
         </View>
+
+        <View style={styles.spacerBottom} />
 
         <View style={styles.footer}>
           <Button onPress={handleContinue}>{t("onboarding.cta")}</Button>
@@ -130,9 +142,20 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: spacing.xl,
-    justifyContent: "space-between",
   },
-  spacer: {
+  /*
+   * CORREÇÃO (bug real, reportado com print — "tudo embaixo") — antes
+   * era UM espaçador só (flex:1) empurrando tudo pro fundo absoluto
+   * da tela, com o resto ficando espremido na borda. Dois
+   * espaçadores, com pesos diferentes (2 em cima, 1 embaixo),
+   * distribui o espaço vazio nos dois lados — o bloco de texto fica
+   * um pouco abaixo do meio da tela (como na referência), e o rodapé
+   * ainda tem respiro antes da borda de baixo, sem ficar colado nela.
+   */
+  spacerTop: {
+    flex: 2,
+  },
+  spacerBottom: {
     flex: 1,
   },
   textBlock: {
