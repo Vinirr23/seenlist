@@ -13,6 +13,7 @@ import { SeriesQuickActionsSheet } from "@/components/series-detail/SeriesQuickA
 import { RecommendationQuickActionsSheet } from "@/components/social/RecommendationQuickActionsSheet";
 import { ConfettiBurst } from "@/components/series-detail/ConfettiBurst";
 import { hapticSuccess } from "@/lib/haptics";
+import { maybeRequestReviewAfterSeriesCompleted } from "@/lib/rating";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
 import { BackdropGallery } from "@/components/media/BackdropGallery";
@@ -76,6 +77,14 @@ export default function SeriesDetailScreen() {
       // desligado e não estava olhando na hora não sentia nada.
       hapticSuccess();
       setShowConfetti(true);
+      /*
+       * A PEDIDO — pedir avaliação na Play Store, no MESMO momento do
+       * confete (terminar uma série é o pico de satisfação real do
+       * app). `maybeRequestReviewAfterSeriesCompleted` já tem suas
+       * próprias regras de bom senso (não pede cedo demais, não pede
+       * com frequência abusiva) — só chama aqui, sem lógica extra.
+       */
+      maybeRequestReviewAfterSeriesCompleted();
     }
     badgeBaselineRef.current.value = caughtUpBadge;
   }, [caughtUpBadge, series]);
