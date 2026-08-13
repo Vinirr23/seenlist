@@ -23,6 +23,13 @@ export type SeriesCaughtUpBadge = "ongoing" | "ended" | null;
  * selo "em dia"/confete de conclusão podia disparar cedo demais,
  * ignorando um episódio que já saiu de verdade só porque a data
  * ainda não chegou na API); e "hoje" agora é fuso LOCAL, não UTC.
+ *
+ * CORREÇÃO 2 (bug NOVO, introduzido pela correção acima — reportado
+ * "temporada nova confirmada mas SEM data de lançamento apareceu
+ * como pendente à toa") — um episódio sem data só conta como "já
+ * saiu" se a MESMA temporada tiver pelo menos um outro episódio com
+ * data confirmada e já passada. Temporada inteira sem nenhuma data
+ * (especulação de futuro, ainda sem estreia) não conta.
  */
 export function computeSeriesCaughtUpBadge(
   series: Pick<SeriesDetails, "seasons" | "status">,
@@ -33,8 +40,12 @@ export function computeSeriesCaughtUpBadge(
 
   const airedNonSpecialEpisodes = series.seasons
     .filter((season) => season.seasonNumber > 0)
-    .flatMap((season) => season.episodes)
-    .filter((episode) => episode.airDate === null || episode.airDate <= today);
+    .flatMap((season) => {
+      const seasonHasConfirmedAiring = season.episodes.some((e) => e.airDate !== null && e.airDate <= today);
+      return season.episodes.filter(
+        (episode) => (episode.airDate !== null && episode.airDate <= today) || (episode.airDate === null && seasonHasConfirmedAiring)
+      );
+    });
 
   if (airedNonSpecialEpisodes.length === 0) return null;
 

@@ -41,6 +41,13 @@ const BADGE_CLASSNAME: Record<Exclude<UpcomingBadge, null>, string> = {
  * mesma ordenação. `additionalPendingCount` (o "+N") é
  * `pending.length - 1` — quantos outros episódios além do mostrado
  * já estão liberados pra assistir.
+ *
+ * CORREÇÃO 2 (a pedido — bug NOVO, introduzido pela correção acima —
+ * "temporada nova confirmada mas SEM data de lançamento apareceu
+ * como pendente à toa") — episódio sem data só conta como "pode já
+ * ter saído" se a MESMA temporada tiver pelo menos um outro episódio
+ * com data confirmada e já passada. Temporada inteira sem nenhuma
+ * data (especulação de futuro, ainda sem estreia) não conta mais.
  */
 function findPendingEpisodes(
   seasons: {
@@ -52,9 +59,11 @@ function findPendingEpisodes(
   const sorted = [...seasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
   const pending: { seasonNumber: number; episode: (typeof seasons)[number]["episodes"][number] }[] = [];
   for (const season of sorted) {
+    const seasonHasConfirmedAiring = season.episodes.some((ep) => ep.airDate !== null && hasEpisodeAired(ep.airDate));
     const episodes = [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber);
     for (const ep of episodes) {
-      if (ep.airDate && !hasEpisodeAired(ep.airDate)) continue;
+      const aired = ep.airDate ? hasEpisodeAired(ep.airDate) : seasonHasConfirmedAiring;
+      if (!aired) continue;
       if (!isEpisodeWatched(watched, season.seasonNumber, ep.episodeNumber)) {
         pending.push({ seasonNumber: season.seasonNumber, episode: ep });
       }

@@ -66,10 +66,21 @@ export function validateSeriesStatus(
    * recente — sem isso, um episódio que já saiu de verdade podia ser
    * ignorado na hora de decidir "watching" vs "up_to_date" durante a
    * importação).
+   *
+   * CORREÇÃO 2 (bug NOVO, introduzido pela correção acima) — um
+   * episódio sem data só conta como "já saiu" se a MESMA temporada
+   * tiver pelo menos um outro episódio com data confirmada e já
+   * passada — sem isso, temporada anunciada sem estreia nenhuma
+   * (especulação de futuro) contava como pendente à toa.
    */
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const episodesAiredByNow = nonSpecialTmdbEpisodes.filter((e) => e.airDate === null || e.airDate <= today);
+  const seasonsWithConfirmedAiring = new Set(
+    nonSpecialTmdbEpisodes.filter((e) => e.airDate !== null && e.airDate <= today).map((e) => e.seasonNumber)
+  );
+  const episodesAiredByNow = nonSpecialTmdbEpisodes.filter(
+    (e) => (e.airDate !== null && e.airDate <= today) || (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber))
+  );
   const hasUnwatchedAiredEpisode = watchedNonSpecialCount < episodesAiredByNow.length;
   // Mantido só como dado de diagnóstico (outros módulos já leem esse campo) — não decide mais nada sozinho.
   const hasNewerEpisode = exportDate

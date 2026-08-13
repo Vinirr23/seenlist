@@ -15,6 +15,14 @@ export type SeriesCaughtUpBadge = "ongoing" | "ended" | null;
  * saiu de verdade); e "hoje" agora usa `todayLocalKey()` (fuso
  * local), não `toISOString()` (UTC) — esse arquivo especificamente
  * nunca tinha adotado o helper que o resto do mobile já usa.
+ *
+ * CORREÇÃO 2 (bug NOVO, introduzido pela correção acima — reportado
+ * "temporada nova confirmada mas SEM data de lançamento apareceu
+ * como pendente à toa") — um episódio sem data só conta como "já
+ * saiu" se a MESMA temporada tiver pelo menos um outro episódio com
+ * data confirmada e já passada (sinal de que a temporada já começou
+ * a ir ao ar de verdade). Temporada inteira sem nenhuma data
+ * (especulação de futuro, ainda sem estreia) não conta.
  */
 export function computeSeriesCaughtUpBadge(
   series: Pick<SeriesDetails, "seasons" | "status">,
@@ -24,8 +32,12 @@ export function computeSeriesCaughtUpBadge(
 
   const airedNonSpecialEpisodes = series.seasons
     .filter((season) => season.seasonNumber > 0)
-    .flatMap((season) => season.episodes)
-    .filter((episode) => episode.airDate === null || episode.airDate <= today);
+    .flatMap((season) => {
+      const seasonHasConfirmedAiring = season.episodes.some((e) => e.airDate !== null && e.airDate <= today);
+      return season.episodes.filter(
+        (episode) => (episode.airDate !== null && episode.airDate <= today) || (episode.airDate === null && seasonHasConfirmedAiring)
+      );
+    });
 
   if (airedNonSpecialEpisodes.length === 0) return null;
 

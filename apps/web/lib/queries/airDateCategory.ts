@@ -48,10 +48,30 @@ export function decideWatchingVsUpToDate(
    *    tinha ficado de fora daquela rodada. TMDB às vezes demora a
    *    preencher a data do episódio mais recente — o episódio já
    *    saiu de verdade, só a data ainda não chegou na API.
+   *
+   * CORREÇÃO 3 (bug NOVO, introduzido pela correção 2 acima —
+   * reportado "temporada nova confirmada mas SEM data de lançamento
+   * foi pra Continue assistindo à toa") — tratar todo `airDate: null`
+   * como "já saiu" também captura o caso OPOSTO: temporada anunciada
+   * sem nenhuma previsão de estreia (não confundir com "TMDB atrasado
+   * pra atualizar episódio que JÁ saiu" — são duas coisas diferentes,
+   * as duas com `airDate: null`).
+   *
+   * A distinção certa: um episódio sem data só conta como "já saiu"
+   * se EXISTIR pelo menos um outro episódio da MESMA temporada com
+   * data confirmada e já passada — sinal de que a temporada já
+   * começou a ir ao ar de verdade, e é só ESSE episódio específico
+   * que o TMDB ainda não atualizou. Temporada inteira sem nenhuma
+   * data (especulação de futuro) não conta mais.
    */
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const airedByNow = nonSpecialLiveEpisodes.filter((e) => e.airDate === null || e.airDate <= today);
+  const seasonsWithConfirmedAiring = new Set(
+    nonSpecialLiveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today).map((e) => e.seasonNumber)
+  );
+  const airedByNow = nonSpecialLiveEpisodes.filter(
+    (e) => (e.airDate !== null && e.airDate <= today) || (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber))
+  );
   const hasUnwatchedAiredEpisode = mainEpisodesWatched < airedByNow.length;
 
   if (hasUnwatchedAiredEpisode) {

@@ -105,9 +105,22 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[]): Promise<Map
      * CONHECIDA e está no futuro — data desconhecida (`null`) não
      * exclui mais, mesmo espírito da correção já aplicada no web
      * (`ContinueWatchingCard.tsx`).
+     *
+     * CORREÇÃO 2 (bug NOVO, introduzido pela correção acima —
+     * reportado "temporada nova confirmada mas SEM data de
+     * lançamento foi pra Continue assistindo à toa") — episódio sem
+     * data só conta como "pode já ter saído" se a MESMA temporada
+     * tiver pelo menos um outro episódio com data confirmada e já
+     * passada. Temporada inteira sem nenhuma data (especulação de
+     * futuro, ainda sem estreia) não conta mais — evita mostrar
+     * "próximo episódio" de uma temporada que nem tem previsão de
+     * estrear ainda.
      */
+    const seasonsWithConfirmedAiring = new Set(
+      liveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today).map((e) => e.seasonNumber)
+    );
     const pending = liveEpisodes
-      .filter((e) => e.airDate === null || e.airDate <= today)
+      .filter((e) => (e.airDate !== null && e.airDate <= today) || (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber)))
       .filter((e) => !watchedKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
       .sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)
       .map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, name: e.name, airDate: e.airDate }));

@@ -139,7 +139,10 @@ export async function fetchWatchedEpisodes(seriesId: number): Promise<Set<Watche
  * tinha sido exibido. A comparação certa é só contra o que JÁ FOI AO
  * AR até hoje (`airDate <= hoje`).
  */
-function decideWatchingVsUpToDate(mainEpisodesWatched: number, liveEpisodes: { airDate: string | null }[]): LibraryStatus {
+function decideWatchingVsUpToDate(
+  mainEpisodesWatched: number,
+  liveEpisodes: { seasonNumber: number; airDate: string | null }[]
+): LibraryStatus {
   const today = todayLocalKey();
   /*
    * CORREÇÃO (bug real, achado investigando "Re:Zero com episódio
@@ -157,8 +160,27 @@ function decideWatchingVsUpToDate(mainEpisodesWatched: number, liveEpisodes: { a
    * assistindo" (`nextEpisodeToWatch.ts`) já sabia mostrar o
    * episódio corretamente, só o STATUS da série é que nunca
    * acompanhava.
+   *
+   * CORREÇÃO 2 (bug NOVO, introduzido pela correção acima — reportado
+   * "série com temporada nova confirmada mas SEM data de lançamento
+   * foi pra Continue assistindo à toa") — tratar todo `airDate: null`
+   * como "já saiu" também captura o caso OPOSTO: temporada anunciada
+   * sem nenhuma previsão de estreia — que também tem `airDate: null`,
+   * só que por não ter saído NADA ainda, não por atraso do TMDB.
+   *
+   * A distinção certa: um episódio sem data só conta como "já saiu"
+   * se EXISTIR pelo menos um outro episódio da MESMA temporada com
+   * data confirmada e já passada — sinal de que a temporada já
+   * começou a ir ao ar de verdade, e é só ESSE episódio específico
+   * que o TMDB ainda não atualizou. Temporada inteira sem nenhuma
+   * data (especulação de futuro) não conta mais.
    */
-  const airedByNow = liveEpisodes.filter((e) => e.airDate === null || e.airDate <= today);
+  const seasonsWithConfirmedAiring = new Set(
+    liveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today).map((e) => e.seasonNumber)
+  );
+  const airedByNow = liveEpisodes.filter(
+    (e) => (e.airDate !== null && e.airDate <= today) || (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber))
+  );
   return mainEpisodesWatched < airedByNow.length ? "watching" : "up_to_date";
 }
 
@@ -345,7 +367,7 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   const currentStatusBySeriesId = new Map(statusRows.map((row) => [row.series_id, row.status as LibraryStatus]));
 
   let watchedCountBySeriesId: Map<number, number>;
-  let episodesBySeriesId: Map<number, { airDate: string | null }[]>;
+  let episodesBySeriesId: Map<number, { seasonNumber: number; airDate: string | null }[]>;
   let endedBySeriesId: Map<number, boolean>;
   try {
     [watchedCountBySeriesId, episodesBySeriesId, endedBySeriesId] = await Promise.all([
