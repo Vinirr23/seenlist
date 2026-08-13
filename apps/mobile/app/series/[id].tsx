@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSeriesDetails, useWatchedEpisodes, useSeriesStatus, useIsFavorite, removeSeries } from "@/lib/useSeriesDetails";
 import { dismissRecommendation } from "@/lib/recommendations";
 import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
+import { episodeKey } from "@/lib/seriesDetails";
 import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
@@ -13,7 +14,7 @@ import { SeriesQuickActionsSheet } from "@/components/series-detail/SeriesQuickA
 import { RecommendationQuickActionsSheet } from "@/components/social/RecommendationQuickActionsSheet";
 import { ConfettiBurst } from "@/components/series-detail/ConfettiBurst";
 import { hapticSuccess } from "@/lib/haptics";
-import { maybeRequestReviewAfterSeriesCompleted } from "@/lib/rating";
+import { maybeRequestReviewAfterSeasonCompleted } from "@/lib/rating";
 import { CastCarousel } from "@/components/series-detail/CastCarousel";
 import { SimilarTitlesCarousel } from "@/components/media/SimilarTitlesCarousel";
 import { BackdropGallery } from "@/components/media/BackdropGallery";
@@ -77,17 +78,49 @@ export default function SeriesDetailScreen() {
       // desligado e não estava olhando na hora não sentia nada.
       hapticSuccess();
       setShowConfetti(true);
-      /*
-       * A PEDIDO — pedir avaliação na Play Store, no MESMO momento do
-       * confete (terminar uma série é o pico de satisfação real do
-       * app). `maybeRequestReviewAfterSeriesCompleted` já tem suas
-       * próprias regras de bom senso (não pede cedo demais, não pede
-       * com frequência abusiva) — só chama aqui, sem lógica extra.
-       */
-      maybeRequestReviewAfterSeriesCompleted();
     }
     badgeBaselineRef.current.value = caughtUpBadge;
   }, [caughtUpBadge, series]);
+
+  /*
+   * A PEDIDO — pedir avaliação na Play Store ao terminar uma
+   * TEMPORADA (trocado de "série inteira" — ver `lib/rating.ts` pro
+   * raciocínio completo). Mesmo padrão de "linha de base" do efeito
+   * acima, só que rastreando cada temporada separadamente (um
+   * `Map`, não um valor único) — sem isso, toda temporada já
+   * completa desde a primeira renderização ia disparar o pedido à
+   * toa assim que a tela abrisse.
+   */
+  const seasonWatchedBaselineRef = useRef<{ established: boolean; value: Map<number, boolean> }>({
+    established: false,
+    value: new Map(),
+  });
+
+  useEffect(() => {
+    if (!series) return;
+
+    const currentSeasonWatched = new Map<number, boolean>();
+    for (const season of series.seasons) {
+      if (season.seasonNumber === 0 || season.episodes.length === 0) continue; // temporada 0 (especiais) não conta pra esse gatilho
+      const allWatched = season.episodes.every((ep) => watched.has(episodeKey(ep.seasonNumber, ep.episodeNumber)));
+      currentSeasonWatched.set(season.seasonNumber, allWatched);
+    }
+
+    if (!seasonWatchedBaselineRef.current.established) {
+      seasonWatchedBaselineRef.current = { established: true, value: currentSeasonWatched };
+      return;
+    }
+
+    const previous = seasonWatchedBaselineRef.current.value;
+    for (const [seasonNumber, isWatchedNow] of currentSeasonWatched) {
+      if (isWatchedNow && previous.get(seasonNumber) !== true) {
+        maybeRequestReviewAfterSeasonCompleted();
+        break; // uma temporada por vez basta — não precisa disparar mais de uma vez no mesmo momento, mesmo que várias transicionem juntas (ex.: marcar várias de uma vez via "marcar temporada inteira")
+      }
+    }
+
+    seasonWatchedBaselineRef.current.value = currentSeasonWatched;
+  }, [series, watched]);
 
   if (isLoading) {
     return (
