@@ -5,12 +5,6 @@ import { X, Smartphone, Bell, Zap, RefreshCw, ArrowUpRight } from "lucide-react"
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-/** Dispensa temporária (fechou no X) — só nesta sessão. */
-const DISMISS_SESSION_KEY = "seenlist:android-promo-dismissed";
-/** Dispensa permanente — só pra quem clicou em baixar. */
-const INSTALLED_KEY = "seenlist:android-promo-clicked-install";
-const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.seenlist.app";
-
 /**
  * A PEDIDO — substitui o antigo `BetaPromoBanner` (removido antes
  * nesta sessão): aquele convidava pra fase fechada de teste; este
@@ -19,17 +13,29 @@ const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.seenli
  * lugar nenhum, com link real pra Play Store.
  *
  * CORREÇÃO (a pedido — "aparece só uma vez e nunca mais") — usava
- * `localStorage`, que é permanente: quem dispensasse UMA vez nunca
- * mais veria o card, em nenhuma sessão, pra sempre. Trocado por
- * `sessionStorage` (mesmo comportamento do antigo banner de beta):
- * dispensar vale só pra sessão atual, e o card volta na próxima
- * visita.
+ * `localStorage` permanente, depois foi trocado pra `sessionStorage`
+ * (achando que resolvia). Não resolveu: reportado com teste real —
+ * fechar o navegador por completo e reabrir não trouxe o banner de
+ * volta. Causa real: `sessionStorage` depende do navegador tratar
+ * aquilo como uma sessão "nova" de verdade — recursos como
+ * "continuar de onde parou" (Chrome e outros) podem preservar sessão
+ * mesmo fechando aba/janela, então não é confiável pro que se
+ * precisa aqui.
+ *
+ * Trocado pro MESMO padrão já usado em `WebPushPrompt.tsx`:
+ * `localStorage` com PRAZO (não sessão do navegador, não permanente)
+ * — dispensar vale por `DISMISS_DAYS`, independe de como o navegador
+ * decide tratar "sessão".
  *
  * Quem CLICA em baixar continua com a dispensa permanente
- * (`localStorage`) — essa pessoa já foi pra Play Store, não faz
- * sentido continuar oferecendo. São dois casos diferentes que antes
- * eram tratados igual.
+ * (`INSTALLED_KEY`, sem prazo) — essa pessoa já foi pra Play Store,
+ * não faz sentido continuar oferecendo.
  */
+const DISMISS_KEY = "seenlist:android-promo-dismissed-until";
+const DISMISS_DAYS = 7;
+const INSTALLED_KEY = "seenlist:android-promo-clicked-install";
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.seenlist.app";
+
 export function AndroidAppPromoBanner() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -55,8 +61,9 @@ export function AndroidAppPromoBanner() {
     if (!isAndroid) return;
 
     const clickedInstall = localStorage.getItem(INSTALLED_KEY) === "1";
-    const dismissedThisSession = sessionStorage.getItem(DISMISS_SESSION_KEY) === "1";
-    if (!clickedInstall && !dismissedThisSession) setOpen(true);
+    const dismissedUntil = Number(localStorage.getItem(DISMISS_KEY) ?? 0);
+    const stillDismissed = dismissedUntil > Date.now();
+    if (!clickedInstall && !stillDismissed) setOpen(true);
   }, []);
 
   useEffect(() => {
@@ -66,7 +73,7 @@ export function AndroidAppPromoBanner() {
   }, [open]);
 
   function handleDismiss() {
-    sessionStorage.setItem(DISMISS_SESSION_KEY, "1");
+    localStorage.setItem(DISMISS_KEY, String(Date.now() + DISMISS_DAYS * 24 * 60 * 60 * 1000));
     setMounted(false);
     setTimeout(() => setOpen(false), 200);
   }
