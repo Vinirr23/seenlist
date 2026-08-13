@@ -381,6 +381,7 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   }
 
   const updates: { user_id: string; series_id: number; status: LibraryStatus; updated_at: string }[] = [];
+  const categoryBySeriesId = new Map<number, LibraryStatus>();
   for (const seriesId of seriesIds) {
     const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
     if (liveEpisodes.length === 0) continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
@@ -389,6 +390,54 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     const ended = endedBySeriesId.get(seriesId) ?? false;
     const allEpisodesWatched = watched >= liveEpisodes.length;
     const newCategory: LibraryStatus = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes);
+    categoryBySeriesId.set(seriesId, newCategory);
+  }
+
+  /*
+   * CORREÇÃO (bug real, específico — Re:Zero "em dia" segundo a lista
+   * completa por temporada, mas com episódio novo de verdade
+   * (S01E78) que o TMDB só expõe via `next_episode_to_air`, campo
+   * separado da lista de temporadas — mesma correção aplicada no web
+   * (`seriesCategoryRecalc.ts`). Catálogo desse anime específico
+   * numera de forma inconsistente entre "temporada oficial" e
+   * "número absoluto", confirmado numa discussão pública no próprio
+   * TMDB — a lista completa ainda não tinha esse episódio; o campo
+   * `next_episode_to_air` já sabia.
+   *
+   * Checagem extra, só pras séries que a lista completa concluiu "em
+   * dia" — reaproveita `/api/tmdb/upcoming`, a MESMA rota que "Em
+   * breve" já usa (`lib/upcomingEpisodes.ts`). Se essa fonte separada
+   * indica episódio com data confirmada e já passada pra uma série
+   * que a lista completa achou "sem pendência", promove pra
+   * "watching" — sem precisar casar número de temporada/episódio
+   * entre as duas fontes.
+   */
+  const upToDateSeriesIds = seriesIds.filter((id) => categoryBySeriesId.get(id) === "up_to_date");
+  if (upToDateSeriesIds.length > 0) {
+    try {
+      const response = await fetch(`${SITE_URL}/api/tmdb/upcoming`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seriesIds: upToDateSeriesIds }),
+      });
+      if (response.ok) {
+        const today = todayLocalKey();
+        const data = (await response.json()) as { episodes: { seriesId: number; airDate: string | null }[] };
+        for (const ep of data.episodes) {
+          if (ep.airDate && ep.airDate <= today) {
+            categoryBySeriesId.set(ep.seriesId, "watching");
+          }
+        }
+      }
+    } catch (error) {
+      // Não bloqueia a recalculação principal por causa dessa checagem extra — é um refinamento, não a base.
+      console.error("[recalculateUpToDateSeriesCategories] Falha na checagem extra via next_episode_to_air", error);
+    }
+  }
+
+  for (const seriesId of seriesIds) {
+    const newCategory = categoryBySeriesId.get(seriesId);
+    if (!newCategory) continue;
     const currentStatus = currentStatusBySeriesId.get(seriesId);
 
     /*
