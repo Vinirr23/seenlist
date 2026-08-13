@@ -36,6 +36,27 @@ interface TmdbSeriesResponse {
     name: string;
     air_date: string | null;
   } | null;
+  /*
+   * CORREÇÃO (bug real, reportado — Re:Zero/Tanya the Evil/Tomb
+   * Raider King/De Caipira notificando ~20h depois do episódio já
+   * ter saído, mesmo com o cron rodando a cada 4h) — confirmado numa
+   * investigação anterior desta mesma sessão (tela de "Continue
+   * assistindo", `seriesCategoryRecalc.ts`): esses títulos
+   * específicos têm uma inconsistência de numeração conhecida e
+   * documentada publicamente pelo próprio TMDB — `last_episode_to_air`
+   * demora a atualizar, mas `next_episode_to_air` (campo separado, JÁ
+   * incluído nesta mesma resposta de `/tv/{id}`, sem custo de
+   * chamada extra) reflete o episódio mais cedo. Quando
+   * `next_episode_to_air` já tem `air_date` no passado/hoje, é sinal
+   * de que esse "próximo" episódio já saiu de verdade — o TMDB só
+   * não promoveu ele pra `last_episode_to_air` ainda.
+   */
+  next_episode_to_air: {
+    season_number: number;
+    episode_number: number;
+    name: string;
+    air_date: string | null;
+  } | null;
 }
 
 /**
@@ -214,8 +235,26 @@ async function checkNewReleases(): Promise<void> {
     const tmdbData = tmdbDataBySeriesId.get(seriesId);
     if (!tmdbData) continue;
 
-    const latest = tmdbData.last_episode_to_air;
-    if (!latest || !isWithinRecentWindow(latest.air_date)) continue;
+    const lastAired = tmdbData.last_episode_to_air;
+    const nextAired = tmdbData.next_episode_to_air;
+    /*
+     * CORREÇÃO (mesmo achado documentado na interface acima) — usa
+     * `next_episode_to_air` como fonte extra quando ele já tem data
+     * confirmada e já passada (ou seja: já saiu de verdade, TMDB só
+     * não promoveu ainda pra `last_episode_to_air`). Se os dois
+     * apontam pra episódio dentro da janela, prefere o mais recente
+     * dos dois — nunca ignora um episódio mais novo por já ter
+     * achado um mais velho primeiro.
+     */
+    const lastCandidate = lastAired && isWithinRecentWindow(lastAired.air_date) ? lastAired : null;
+    const nextCandidate = nextAired && nextAired.air_date && isWithinRecentWindow(nextAired.air_date) ? nextAired : null;
+    const latest =
+      lastCandidate && nextCandidate
+        ? (nextCandidate.air_date ?? "") > (lastCandidate.air_date ?? "")
+          ? nextCandidate
+          : lastCandidate
+        : (lastCandidate ?? nextCandidate);
+    if (!latest) continue;
 
     const isSeasonPremiere = latest.episode_number === 1 && latest.season_number > 1;
 
