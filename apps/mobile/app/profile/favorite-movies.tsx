@@ -14,6 +14,7 @@ import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-116 (correção — Perfil) — porta de FavoriteMoviesPageView.tsx.
@@ -24,6 +25,7 @@ import { colors, spacing } from "@/lib/theme";
  */
 export default function FavoriteMoviesScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { session } = useAuth();
   const { items, isLoading, isError, refetch } = usePublicFavorites(session?.user.id ?? "");
   const { viewMode, setViewMode } = useViewModePreference("profile-favorite-movies");
@@ -41,7 +43,7 @@ export default function FavoriteMoviesScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Filmes favoritos</Text>
+        <Text variant="subtitle">{t("profile.favoriteMovies")}</Text>
       </View>
 
       <View style={styles.toggleRow}>
@@ -52,14 +54,14 @@ export default function FavoriteMoviesScreen() {
         <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
       ) : isError ? (
         <View style={styles.content}>
-          <PageError message="Não foi possível carregar seus favoritos agora." onRetry={() => refetch()} />
+          <PageError message={t("error.loadFavoritesFailed")} onRetry={() => refetch()} />
         </View>
       ) : movies.length === 0 ? (
         <View style={styles.content}>
           <EmptyShelf
             icon="heart"
-            message="Você ainda não favoritou nenhum filme."
-            actionLabel="Explorar filmes"
+            message={t("profile.emptyFavoriteMovies")}
+            actionLabel={t("moviesHome.exploreMovies")}
             actionHref="/(tabs)/explore"
           />
         </View>

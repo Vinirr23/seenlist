@@ -7,6 +7,7 @@ import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-106 (Listas) — porta de `ListsPageView.tsx` + `ListsView.tsx`
@@ -17,6 +18,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  */
 export default function ListsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { lists, isLoading, isError, creating, create, refetch } = useMyLists();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -36,14 +38,14 @@ export default function ListsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Minhas listas</Text>
+        <Text variant="subtitle">{t("profile.myLists")}</Text>
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content}>
           <Pressable style={styles.createButton} onPress={() => setShowForm((v) => !v)}>
             <Feather name="plus" size={16} color={colors.background} />
-            <Text style={styles.createButtonText}>Criar nova lista</Text>
+            <Text style={styles.createButtonText}>{t("profile.createNewList")}</Text>
           </Pressable>
 
           {showForm && (
@@ -51,14 +53,14 @@ export default function ListsScreen() {
               <TextInput
                 value={name}
                 onChangeText={setName}
-                placeholder="Nome da lista"
+                placeholder={t("profile.listNamePlaceholder")}
                 placeholderTextColor={colors.muted}
                 maxLength={80}
                 autoFocus
                 style={styles.input}
               />
               <Pressable style={styles.saveButton} onPress={handleCreate} disabled={!name.trim() || creating}>
-                <Text style={styles.saveButtonText}>{creating ? "Criando…" : "Salvar"}</Text>
+                <Text style={styles.saveButtonText}>{creating ? t("common.creating") : t("common.save")}</Text>
               </Pressable>
             </View>
           )}
@@ -66,10 +68,10 @@ export default function ListsScreen() {
           {isLoading ? (
             <AvatarRowSkeleton />
           ) : isError ? (
-            <PageError message="Não foi possível carregar suas listas agora." onRetry={() => refetch()} />
+            <PageError message={t("error.loadListsFailed")} onRetry={() => refetch()} />
           ) : !lists || lists.length === 0 ? (
             <Text variant="muted" style={styles.centerText}>
-              Você ainda não criou nenhuma lista.
+              {t("profile.noListsYet")}
             </Text>
           ) : (
             <View style={styles.list}>

@@ -7,6 +7,7 @@ import { fetchMyLists, fetchListItems, removeFromList, deleteList, type UserList
 import { usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { Screen, Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-172 — porta de `ListDetailView.tsx` do web.
@@ -20,6 +21,7 @@ import { colors, radius, spacing, scrim } from "@/lib/theme";
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const [list, setList] = useState<UserList | null>(null);
   const [items, setItems] = useState<ListItem[] | null>(null);
   const cardWidth = usePosterCardWidth();
@@ -37,10 +39,10 @@ export default function ListDetailScreen() {
   }
 
   function handleDeleteList() {
-    Alert.alert("Apagar essa lista?", "Os itens dentro dela somem junto (sua biblioteca não é afetada).", [
-      { text: "Cancelar", style: "cancel" },
+    Alert.alert(t("profile.deleteListTitle"), t("profile.deleteListMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Apagar",
+        text: t("social.delete"),
         style: "destructive",
         onPress: () => deleteList(id).then(() => router.replace("/lists")),
       },
@@ -54,7 +56,7 @@ export default function ListDetailScreen() {
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
         <Text variant="subtitle" style={{ flex: 1 }} numberOfLines={1}>
-          {list?.name ?? "Lista"}
+          {list?.name ?? t("profile.listFallbackName")}
         </Text>
         <Pressable onPress={handleDeleteList} hitSlop={8}>
           <Feather name="trash-2" size={20} color={colors.muted} />
@@ -78,7 +80,7 @@ export default function ListDetailScreen() {
           columnWrapperStyle={styles.gridRow}
           ListEmptyComponent={
             <Text variant="muted" style={styles.centerText}>
-              Essa lista ainda não tem nada. Adicione pelo menu &quot;...&quot; na tela de uma série ou filme.
+              {t("profile.emptyListMessage")}
             </Text>
           }
           renderItem={({ item }) => (

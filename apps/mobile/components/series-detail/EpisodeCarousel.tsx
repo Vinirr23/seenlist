@@ -10,6 +10,7 @@ import type { SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { Text } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 type CarouselItem =
   | ({ kind: "episode" } & EpisodeRef)
@@ -31,6 +32,7 @@ export function EpisodeCarousel({
   /** TASK-170 (ajuste — a pedido) — o card "mais episódios a caminho"/"série encerrada" mora aqui, não depois das temporadas (diferente do web, decisão explícita pro mobile). */
   caughtUpBadge?: SeriesCaughtUpBadge;
 }) {
+  const { t } = useTranslation();
   const episodeItems = resolveCarouselEpisodes(category, seasons, watched);
   /** TASK-170 (ajuste — a pedido, "não é pra tirar a rolagem, é pra incluir no final") — mesma FlatList horizontal de sempre, só com um card a mais no final quando a série está em dia/encerrada, no mesmo tamanho dos cards de episódio. */
   const data: CarouselItem[] = [
@@ -109,7 +111,7 @@ export function EpisodeCarousel({
   return (
     <View style={styles.section}>
       <Text variant="subtitle" style={styles.title}>
-        Episódios
+        {t("seriesHome.episodesTab")}
       </Text>
       {/**
        * TASK-162 (a pedido — desempenho em séries com muitos
@@ -200,6 +202,7 @@ function EpisodeCarouselCard({
 
 /** TASK-170 (ajuste) — mesmo tamanho/formato do `EpisodeCarouselCard` (CARD_WIDTH, `stillWrapper` no lugar da imagem), pra ficar visualmente parte da mesma fileira, não um banner destoante. */
 function CaughtUpMiniCard({ badge }: { badge: Exclude<SeriesCaughtUpBadge, null> }) {
+  const { t } = useTranslation();
   const isEnded = badge === "ended";
   return (
     <View style={styles.card}>
@@ -207,7 +210,7 @@ function CaughtUpMiniCard({ badge }: { badge: Exclude<SeriesCaughtUpBadge, null>
         <Feather name={isEnded ? "award" : "zap"} size={22} color={isEnded ? "#4ade80" : "#60a5fa"} />
       </View>
       <Text numberOfLines={2} style={styles.miniCardText}>
-        {isEnded ? "Série encerrada" : "Em dia! Mais episódios a caminho"}
+        {isEnded ? t("episode.seriesEnded") : t("episode.upToDateMoreComing")}
       </Text>
     </View>
   );

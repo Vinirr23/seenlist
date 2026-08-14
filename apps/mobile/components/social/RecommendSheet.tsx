@@ -9,6 +9,7 @@ import { sendRecommendation } from "@/lib/recommendations";
 import { hapticTick, hapticSuccess } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, tint, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const MAX_MESSAGE_LENGTH = 200;
 
@@ -29,6 +30,7 @@ export function RecommendSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { session } = useAuth();
   const [search, setSearch] = useState("");
   const [following, setFollowing] = useState<FollowListUser[] | null>(null);
@@ -97,7 +99,7 @@ export function RecommendSheet({
         <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.header}>
             <Text numberOfLines={1} style={styles.title}>
-              Recomendar &quot;{mediaTitle}&quot;
+              {t("social.recommendTitle", { title: mediaTitle })}
             </Text>
             <Pressable onPress={onClose} hitSlop={8}>
               <Feather name="x" size={20} color={colors.muted} />
@@ -107,7 +109,7 @@ export function RecommendSheet({
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Buscar entre quem você segue..."
+            placeholder={t("social.searchFollowing")}
             placeholderTextColor={colors.muted}
             style={styles.searchInput}
           />
@@ -128,7 +130,7 @@ export function RecommendSheet({
             )}
             {following && following.length === 0 && (
               <Text variant="muted" style={styles.emptyText}>
-                {search.trim() ? "Ninguém encontrado." : "Você ainda não segue ninguém."}
+                {search.trim() ? t("social.noOneFound") : t("profile.notFollowingAnyone")}
               </Text>
             )}
             <FlatList
@@ -166,7 +168,7 @@ export function RecommendSheet({
           <TextInput
             value={message}
             onChangeText={(text) => setMessage(text.slice(0, MAX_MESSAGE_LENGTH))}
-            placeholder="Escreva uma mensagem (opcional)"
+            placeholder={t("social.messagePlaceholder")}
             placeholderTextColor={colors.muted}
             multiline
             style={styles.messageInput}
@@ -178,7 +180,7 @@ export function RecommendSheet({
             onPress={handleSend}
           >
             <Feather name="send" size={16} color={colors.background} />
-            <Text style={styles.sendButtonText}>{sending ? "Enviando..." : "Enviar recomendação"}</Text>
+            <Text style={styles.sendButtonText}>{sending ? t("common.sending") : t("social.sendRecommendation")}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>

@@ -13,6 +13,7 @@ import { StatsCarousel } from "@/components/profile/StatsCarousel";
 import { PublicFavoritesSection } from "@/components/profile/PublicFavoritesSection";
 import { PublicLibrarySection } from "@/components/profile/PublicLibrarySection";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 
@@ -35,6 +36,7 @@ function initials(name: string): string {
  */
 export default function PublicProfileScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { username: rawUsername } = useLocalSearchParams<{ username: string }>();
   const username = String(rawUsername);
   const { session } = useAuth();
@@ -59,10 +61,10 @@ export default function PublicProfileScreen() {
           <Feather name="arrow-left" size={18} color={colors.text} />
         </Pressable>
         {isError ? (
-          <PageError message="Não foi possível carregar este perfil agora." onRetry={() => refetch()} />
+          <PageError message={t("error.loadProfileFailed")} onRetry={() => refetch()} />
         ) : (
           <Text variant="muted" style={styles.centerText}>
-            Este perfil não existe ou é privado.
+            {t("profile.doesNotExistOrPrivate")}
           </Text>
         )}
       </Screen>
@@ -121,7 +123,7 @@ export default function PublicProfileScreen() {
             <View>
               <Text style={styles.countNumber}>0</Text>
               <Text variant="muted" style={styles.countLabel}>
-                Comentários
+                {t("profile.commentsTitle")}
               </Text>
             </View>
           </View>

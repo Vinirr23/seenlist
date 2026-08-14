@@ -8,11 +8,7 @@ import { hapticTick } from "@/lib/haptics";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, tint } from "@/lib/theme";
-
-const OPTIONS: { status: MovieWatchStatus; label: string; icon: keyof typeof Feather.glyphMap }[] = [
-  { status: "watched", label: "Assistido", icon: "check" },
-  { status: "want_to_watch", label: "Assistir depois", icon: "plus" },
-];
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-172 (ajuste 2 — a pedido, "tudo apertado") — o "..." saiu
@@ -38,6 +34,11 @@ export function MovieActions({
   busy: boolean;
   onChange: (status: MovieWatchStatus) => void;
 }) {
+  const { t } = useTranslation();
+  const OPTIONS: { status: MovieWatchStatus; label: string; icon: keyof typeof Feather.glyphMap }[] = [
+    { status: "watched", label: t("episode.watched"), icon: "check" },
+    { status: "want_to_watch", label: t("seriesCategory.wantToWatch"), icon: "plus" },
+  ];
   const { isFavorite, busy: favoriteBusy, toggle: toggleFavorite } = useIsMovieFavorite(movieId);
   const [showWatchedActions, setShowWatchedActions] = useState(false);
 
@@ -77,11 +78,11 @@ export function MovieActions({
 
       {showWatchedActions && (
         <OptionSheet
-          title="Marcar como..."
+          title={t("episode.markAs")}
           onDismiss={() => setShowWatchedActions(false)}
           actions={[
             {
-              label: "Não assistido",
+              label: t("episode.notWatchedAction"),
               onPress: () => {
                 hapticTick();
                 onChange("watched");
@@ -89,7 +90,7 @@ export function MovieActions({
               },
             },
             {
-              label: "Reassistido",
+              label: t("episode.rewatchedAction"),
               onPress: async () => {
                 hapticTick();
                 setShowWatchedActions(false);

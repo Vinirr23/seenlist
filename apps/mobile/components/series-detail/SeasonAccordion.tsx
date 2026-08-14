@@ -11,6 +11,9 @@ import { Text } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
 import { OptionSheet, type OptionSheetAction } from "@/components/settings/OptionSheet";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+
+type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 type Dialog = { type: "mark-previous"; episodeNumber: number } | { type: "watched-actions"; episodeNumber: number } | { type: "season-toggle" } | null;
 
@@ -43,6 +46,7 @@ export function SeasonAccordion({
   defaultOpen?: boolean;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const [dialog, setDialog] = useState<Dialog>(null);
 
@@ -94,20 +98,24 @@ export function SeasonAccordion({
     setDialog(null);
   }
 
-  const dialogProps = buildDialogProps(dialog, {
-    onMarkUpTo: markUpToEpisode,
-    onMarkOnlyThis: markOnlyThisEpisode,
-    onUnwatch: (episodeNumber) => {
-      onToggleEpisode(season.seasonNumber, episodeNumber);
-      setDialog(null);
+  const dialogProps = buildDialogProps(
+    dialog,
+    {
+      onMarkUpTo: markUpToEpisode,
+      onMarkOnlyThis: markOnlyThisEpisode,
+      onUnwatch: (episodeNumber) => {
+        onToggleEpisode(season.seasonNumber, episodeNumber);
+        setDialog(null);
+      },
+      onRewatch: (episodeNumber) => {
+        onRewatch(season.seasonNumber, episodeNumber);
+        setDialog(null);
+      },
+      onConfirmSeasonToggle: confirmSeasonToggle,
+      allWatched,
     },
-    onRewatch: (episodeNumber) => {
-      onRewatch(season.seasonNumber, episodeNumber);
-      setDialog(null);
-    },
-    onConfirmSeasonToggle: confirmSeasonToggle,
-    allWatched,
-  });
+    t
+  );
 
   return (
     <View style={styles.wrapper}>
@@ -115,7 +123,7 @@ export function SeasonAccordion({
         <View style={styles.headerText}>
           <Text variant="label">{season.name}</Text>
           <Text variant="muted" style={styles.headerCount}>
-            {watchedCount}/{season.episodes.length} assistidos
+            {t("episode.watchedCountLabel", { watched: watchedCount, total: season.episodes.length })}
           </Text>
         </View>
 
@@ -186,38 +194,37 @@ function buildDialogProps(
     onRewatch: (episodeNumber: number) => void;
     onConfirmSeasonToggle: () => void;
     allWatched: boolean;
-  }
+  },
+  t: TFunction
 ): { title: string; message?: string; actions: OptionSheetAction[] } | null {
   if (!dialog) return null;
 
   if (dialog.type === "mark-previous") {
     return {
-      title: "Marcar episódios anteriores?",
-      message: "Você deseja marcar também todos os episódios anteriores como assistidos?",
+      title: t("episode.markPreviousTitle"),
+      message: t("episode.markPreviousMessage"),
       actions: [
-        { label: "Sim", active: true, onPress: () => handlers.onMarkUpTo(dialog.episodeNumber) },
-        { label: "Não", onPress: () => handlers.onMarkOnlyThis(dialog.episodeNumber) },
+        { label: t("common.yes"), active: true, onPress: () => handlers.onMarkUpTo(dialog.episodeNumber) },
+        { label: t("common.no"), onPress: () => handlers.onMarkOnlyThis(dialog.episodeNumber) },
       ],
     };
   }
 
   if (dialog.type === "watched-actions") {
     return {
-      title: "Marcar como...",
+      title: t("episode.markAs"),
       actions: [
-        { label: "Não assistido", onPress: () => handlers.onUnwatch(dialog.episodeNumber) },
-        { label: "Reassistido", onPress: () => handlers.onRewatch(dialog.episodeNumber) },
+        { label: t("episode.notWatchedAction"), onPress: () => handlers.onUnwatch(dialog.episodeNumber) },
+        { label: t("episode.rewatchedAction"), onPress: () => handlers.onRewatch(dialog.episodeNumber) },
       ],
     };
   }
 
   // season-toggle
   return {
-    title: handlers.allWatched ? "Desmarcar toda a temporada?" : "Marcar temporada como assistida?",
-    message: handlers.allWatched
-      ? "Todos os episódios desta temporada voltarão para não assistido."
-      : "Todos os episódios desta temporada serão marcados como assistidos.",
-    actions: [{ label: "Confirmar", active: true, onPress: handlers.onConfirmSeasonToggle }],
+    title: handlers.allWatched ? t("episode.unmarkSeasonTitle") : t("episode.markSeasonTitle"),
+    message: handlers.allWatched ? t("episode.unmarkSeasonMessage") : t("episode.markSeasonMessage"),
+    actions: [{ label: t("common.confirm"), active: true, onPress: handlers.onConfirmSeasonToggle }],
   };
 }
 

@@ -9,6 +9,7 @@ import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowListRow } from "@/components/profile/FollowListRow";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-107 — porta de `UserListPageView.tsx`: uma tela só serve as
@@ -19,6 +20,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  */
 export default function FollowListScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { userId: rawUserId, direction: rawDirection } = useLocalSearchParams<{ userId: string; direction: string }>();
   const userId = String(rawUserId);
   const direction = (rawDirection === "followers" ? "followers" : "following") as FollowDirection;
@@ -26,12 +28,12 @@ export default function FollowListScreen() {
 
   const { users, isLoading, isError, refetch } = useFollowList(userId, direction, search);
 
-  const title = direction === "following" ? "Seguindo" : "Seguidores";
+  const title = direction === "following" ? t("profile.following") : t("profile.followers");
   const emptyMessage = search
-    ? "Nenhum resultado pra essa busca."
+    ? t("social.noSearchResults")
     : direction === "following"
-      ? "Ainda não segue ninguém."
-      : "Ainda não tem seguidores.";
+      ? t("profile.notFollowingAnyone")
+      : t("profile.noFollowersYet");
 
   return (
     <Screen padded={false}>
@@ -53,7 +55,7 @@ export default function FollowListScreen() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Pesquisar"
+            placeholder={t("common.search")}
             placeholderTextColor={colors.muted}
             autoCapitalize="none"
             style={styles.searchInput}
@@ -64,7 +66,7 @@ export default function FollowListScreen() {
       {isLoading ? (
         <AvatarRowSkeleton />
       ) : isError ? (
-        <PageError message="Não foi possível carregar agora." onRetry={() => refetch()} />
+        <PageError message={t("error.loadGeneric")} onRetry={() => refetch()} />
       ) : !users || users.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
           {emptyMessage}

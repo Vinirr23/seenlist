@@ -7,6 +7,7 @@ import { fetchReceivedRecommendations, type ReceivedRecommendation } from "@/lib
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const AVATAR_SIZE = 32;
 
@@ -21,6 +22,7 @@ const AVATAR_SIZE = 32;
  */
 export function ProfileRecommendationsPreview() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [recommendations, setRecommendations] = useState<ReceivedRecommendation[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -62,10 +64,10 @@ export function ProfileRecommendationsPreview() {
           <Feather name="send" size={16} color={colors.primary} />
         </View>
         <Text numberOfLines={1} style={styles.title}>
-          Recomendações
+          {t("profile.recommendationsTitle")}
         </Text>
         <Text variant="muted" style={styles.emptyLabel}>
-          Nenhuma ainda
+          {t("profile.noRecommendationsShort")}
         </Text>
         <Feather name="chevron-right" size={16} color={colors.muted} />
       </Pressable>
@@ -82,12 +84,21 @@ export function ProfileRecommendationsPreview() {
 
   let message: string;
   if (extraCount === 0) {
-    message = `${senderName} recomendou "${latest.title}" pra você`;
+    message = t("profile.recommendedSingle", { sender: senderName, title: latest.title });
   } else if (uniqueSenderIds.length === 1) {
-    message = `${senderName} recomendou "${latest.title}" e mais ${extraCount} ${extraCount === 1 ? "título" : "títulos"}`;
+    message = t("profile.recommendedPlusTitles", {
+      sender: senderName,
+      title: latest.title,
+      count: extraCount,
+      noun: extraCount === 1 ? t("profile.titleSingular") : t("profile.titlePlural"),
+    });
   } else {
     const others = uniqueSenderIds.length - 1;
-    message = `${senderName} e mais ${others} ${others === 1 ? "pessoa" : "pessoas"} te recomendaram títulos`;
+    message = t("profile.recommendedByMultiplePeople", {
+      sender: senderName,
+      count: others,
+      noun: others === 1 ? t("profile.personSingular") : t("profile.personPlural"),
+    });
   }
 
   return (

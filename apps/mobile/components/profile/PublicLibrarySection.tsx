@@ -8,8 +8,10 @@ import { PosterGrid } from "@/components/media/PosterGrid";
 import { Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function PublicLibrarySection({ userId }: { userId: string }) {
+  const { t } = useTranslation();
   const { items, isLoading, isError, refetch } = usePublicLibraryItems(userId);
   const router = useRouter();
 
@@ -30,12 +32,12 @@ export function PublicLibrarySection({ userId }: { userId: string }) {
 
   if (isLoading) return null;
   if (isError) {
-    return <PageError message="Não foi possível carregar a biblioteca agora." onRetry={() => refetch()} />;
+    return <PageError message={t("error.loadLibraryFailed")} onRetry={() => refetch()} />;
   }
   if (nonEmptyCategories.length === 0 && watchedMovies.length === 0) {
     return (
       <Text variant="muted" style={styles.message}>
-        Este perfil ainda não tem biblioteca pública ou está vazia.
+        {t("profile.publicLibraryEmpty")}
       </Text>
     );
   }
@@ -45,13 +47,13 @@ export function PublicLibrarySection({ userId }: { userId: string }) {
       {nonEmptyCategories.length > 0 && (
         <View>
           <Text variant="title" style={styles.groupTitle}>
-            Séries
+            {t("nav.series")}
           </Text>
           <View style={styles.categoryList}>
             {nonEmptyCategories.map((category) => (
-              <View key={category.label}>
+              <View key={category.labelKey}>
                 <Text variant="subtitle" style={styles.categoryTitle}>
-                  {category.label}
+                  {t(category.labelKey)}
                 </Text>
                 <PosterGrid items={category.items} onPressItem={handlePress} barColor={category.barColor} />
               </View>
@@ -63,10 +65,10 @@ export function PublicLibrarySection({ userId }: { userId: string }) {
       {watchedMovies.length > 0 && (
         <View>
           <Text variant="title" style={styles.groupTitle}>
-            Filmes
+            {t("nav.movies")}
           </Text>
           <Text variant="subtitle" style={styles.categoryTitle}>
-            Assistidos
+            {t("profile.watched")}
           </Text>
           <PosterGrid items={watchedMovies} onPressItem={handlePress} />
         </View>

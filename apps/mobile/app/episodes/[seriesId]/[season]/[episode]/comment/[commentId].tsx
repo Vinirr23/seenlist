@@ -15,6 +15,7 @@ import { Screen, Text, Button } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -36,6 +37,7 @@ function initials(name: string): string {
  */
 export default function EpisodeCommentDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { session } = useAuth();
   const { seriesId, season, episode, commentId } = useLocalSearchParams<{
     seriesId: string;
@@ -98,7 +100,7 @@ export default function EpisodeCommentDetailScreen() {
       const result = await uploadCommentImage(imageUri, imageMimeType);
       setUploadingImage(false);
       if (result.error || !result.url) {
-        setUploadError(result.error ?? "Não foi possível enviar a imagem agora.");
+        setUploadError(result.error ?? t("error.uploadImageFailed"));
         return;
       }
       uploadedImageUrl = result.url;
@@ -121,7 +123,7 @@ export default function EpisodeCommentDetailScreen() {
 
   function handleDeleteTop() {
     if (!comment) return;
-    Alert.alert("Apagar este comentário?", "Não dá pra desfazer.", [
+    Alert.alert(t("social.confirmDeleteCommentTitle"), t("social.confirmDeleteCommentMessage"), [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Apagar",
@@ -132,7 +134,7 @@ export default function EpisodeCommentDetailScreen() {
             router.back();
           } catch (error) {
             console.error("[EpisodeCommentDetailScreen] Falha ao apagar comentário", error);
-            Alert.alert("Não foi possível apagar", error instanceof Error ? error.message : "Tente de novo em instantes.");
+            Alert.alert(t("social.errorDeleteComment"), error instanceof Error ? error.message : t("common.tryAgainShortly"));
           }
         },
       },
@@ -148,7 +150,7 @@ export default function EpisodeCommentDetailScreen() {
       load();
     } catch (error) {
       console.error("[EpisodeCommentDetailScreen] Falha ao editar comentário", error);
-      Alert.alert("Não foi possível editar", error instanceof Error ? error.message : "Tente de novo em instantes.");
+      Alert.alert(t("social.errorEditComment"), error instanceof Error ? error.message : t("common.tryAgainShortly"));
     } finally {
       setSavingTop(false);
     }
@@ -175,7 +177,7 @@ export default function EpisodeCommentDetailScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Comentário</Text>
+        <Text variant="subtitle">{t("social.commentSingularTitle")}</Text>
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
@@ -184,7 +186,7 @@ export default function EpisodeCommentDetailScreen() {
           <AvatarRowSkeleton count={1} />
         ) : !comment ? (
           <Text variant="muted" style={styles.centerText}>
-            Este comentário não existe mais.
+            {t("social.commentNoLongerExists")}
           </Text>
         ) : (
           <>
@@ -307,7 +309,7 @@ export default function EpisodeCommentDetailScreen() {
                 <Pressable style={styles.spoilerToggle} onPress={() => setMarkSpoiler((v) => !v)}>
                   <Feather name={markSpoiler ? "check-square" : "square"} size={16} color={markSpoiler ? colors.primary : colors.muted} />
                   <Text variant="muted" style={styles.spoilerLabel}>
-                    Contém spoiler
+                    {t("social.containsSpoilerLabel")}
                   </Text>
                 </Pressable>
                 <Pressable style={styles.sendButton} onPress={handleSubmit} disabled={(!body.trim() && !imageUri) || busy}>

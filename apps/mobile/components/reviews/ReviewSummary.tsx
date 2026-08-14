@@ -3,6 +3,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { ReviewAggregate } from "@/lib/social/reviews";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * A PEDIDO (implementar tudo igual ao web) — porta de
@@ -11,6 +12,7 @@ import { colors, radius, spacing } from "@/lib/theme";
  * quando ninguém avaliou ainda.
  */
 export function ReviewSummary({ aggregate }: { aggregate: ReviewAggregate }) {
+  const { t } = useTranslation();
   if (aggregate.count === 0 || aggregate.average == null) return null;
 
   const maxCount = Math.max(1, ...aggregate.distribution.map((d) => d.count));
@@ -20,7 +22,7 @@ export function ReviewSummary({ aggregate }: { aggregate: ReviewAggregate }) {
       <View style={styles.left}>
         <Text style={styles.average}>{aggregate.average.toFixed(1)}</Text>
         <Text variant="muted" style={styles.count}>
-          {aggregate.count === 1 ? "1 avaliação" : `${aggregate.count} avaliações`}
+          {aggregate.count} {aggregate.count === 1 ? t("episode.ratingSingular") : t("episode.ratingPlural")}
         </Text>
       </View>
       <View style={styles.right}>

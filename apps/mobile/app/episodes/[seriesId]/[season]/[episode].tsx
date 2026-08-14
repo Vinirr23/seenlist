@@ -22,6 +22,7 @@ import { EpisodeFavoriteCharacterPicker, type FavoriteCharacterOption } from "@/
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { hapticTick } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 interface EpisodeRef {
   seasonNumber: number;
@@ -62,6 +63,7 @@ const SWIPE_THRESHOLD_PX = 60;
  */
 export default function EpisodeDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { seriesId, season, episode } = useLocalSearchParams<{ seriesId: string; season: string; episode: string }>();
   const seriesIdStr = String(seriesId);
   const seriesIdNum = Number(seriesId);
@@ -255,7 +257,7 @@ export default function EpisodeDetailScreen() {
 
   async function handleShare() {
     try {
-      await Share.share({ message: data?.episode.name ?? "Episódio" });
+      await Share.share({ message: data?.episode.name ?? t("media.episodeFallback") });
     } catch (error) {
       console.error("[EpisodeDetailScreen] Falha ao compartilhar", error);
     }
@@ -272,7 +274,7 @@ export default function EpisodeDetailScreen() {
   if (isError || !data) {
     return (
       <Screen>
-        <PageError message="Não foi possível carregar este episódio agora." onRetry={() => setReloadToken((n) => n + 1)} />
+        <PageError message={t("error.loadEpisodeFailed")} onRetry={() => setReloadToken((n) => n + 1)} />
       </Screen>
     );
   }
@@ -324,13 +326,13 @@ export default function EpisodeDetailScreen() {
         <View style={styles.body}>
           <View style={styles.watchedRow}>
             <EpisodeWatchedButton watched={watched} onPress={handleToggleWatched} disabled={watchedLoading} size="lg" />
-            <Text variant="label">{watched ? "Assistido" : "Marcar como assistido"}</Text>
+            <Text variant="label">{watched ? t("episode.watched") : t("episode.markAsWatched")}</Text>
           </View>
 
           {watched && (
             <View style={styles.section}>
               <Text variant="subtitle" style={styles.sectionTitle}>
-                Onde você assistiu?
+                {t("episode.whereDidYouWatch")}
               </Text>
               <EpisodeWatchedPlatformPicker providers={watchProviders} value={myReview?.watchedPlatform ?? null} onChange={handleSetPlatform} />
             </View>
@@ -339,7 +341,7 @@ export default function EpisodeDetailScreen() {
           {watched && (
             <View style={styles.section}>
               <Text variant="subtitle" style={styles.sectionTitle}>
-                Sua nota
+                {t("episode.yourRating")}
               </Text>
               <EpisodeStarRatingRow value={myReview?.rating ?? 0} onChange={handleRate} />
             </View>
@@ -348,7 +350,7 @@ export default function EpisodeDetailScreen() {
           {watched && (
             <View style={styles.section}>
               <Text variant="subtitle" style={styles.sectionTitle}>
-                Como você se sentiu?
+                {t("episode.howDidYouFeel")}
               </Text>
               <EpisodeMoodPicker value={myReview?.mood ?? []} onChange={handleSetMood} />
             </View>
@@ -357,7 +359,7 @@ export default function EpisodeDetailScreen() {
           {watched && favoriteCharacterOptions.length > 0 && (
             <View style={styles.section}>
               <Text variant="subtitle" style={styles.sectionTitle}>
-                Quem foi seu personagem favorito?
+                {t("episode.favoriteCharacterQuestion")}
               </Text>
               <EpisodeFavoriteCharacterPicker
                 characters={favoriteCharacterOptions}
@@ -385,15 +387,15 @@ export default function EpisodeDetailScreen() {
                   <Text style={styles.communityAverage}>{aggregate.average.toFixed(1)}/5</Text>
                 </View>
                 <Text variant="muted" style={styles.communityCaption}>
-                  Avaliação da comunidade
+                  {t("episode.communityRating")}
                 </Text>
                 <Text variant="muted" style={styles.communityCaption}>
-                  {aggregate.count} {aggregate.count === 1 ? "avaliação" : "avaliações"}
+                  {aggregate.count} {aggregate.count === 1 ? t("episode.ratingSingular") : t("episode.ratingPlural")}
                 </Text>
               </>
             ) : (
               <Text variant="muted" style={styles.communityCaption}>
-                Ainda sem avaliações da comunidade
+                {t("episode.noCommunityRatingsYet")}
               </Text>
             )}
           </View>
@@ -401,7 +403,7 @@ export default function EpisodeDetailScreen() {
           {!!ep.overview && (
             <View style={styles.section}>
               <Text variant="subtitle" style={styles.sectionTitle}>
-                Sinopse
+                {t("media.synopsis")}
               </Text>
               <Text style={styles.overview}>{ep.overview}</Text>
             </View>
@@ -430,7 +432,7 @@ export default function EpisodeDetailScreen() {
           >
             <Feather name="message-circle" size={16} color={colors.text} />
             <Text style={styles.commentsButtonText}>
-              {commentCount} COMENTÁRIO{commentCount === 1 ? "" : "S"}
+              {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}
             </Text>
             <Feather name="chevron-right" size={16} color={colors.muted} />
           </Pressable>
@@ -439,13 +441,13 @@ export default function EpisodeDetailScreen() {
 
       {showUnwatchedCommentWarning && (
         <OptionSheet
-          title="Você ainda não assistiu esse episódio"
-          message="Os comentários podem conter spoiler. Continuar mesmo assim?"
+          title={t("episode.notWatchedTitle")}
+          message={t("episode.notWatchedMessage")}
           onDismiss={() => setShowUnwatchedCommentWarning(false)}
           actions={[
-            { label: "Cancelar", onPress: () => setShowUnwatchedCommentWarning(false) },
+            { label: t("common.cancel"), onPress: () => setShowUnwatchedCommentWarning(false) },
             {
-              label: "Continuar",
+              label: t("common.continue"),
               active: true,
               onPress: () => {
                 setShowUnwatchedCommentWarning(false);

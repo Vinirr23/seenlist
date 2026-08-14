@@ -5,15 +5,16 @@ import { Feather } from "@expo/vector-icons";
 import { sendFeedback, type FeedbackType } from "@/lib/settings";
 import { Screen, Text, Button } from "@/components/ui";
 import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
-
-const TYPES: { value: FeedbackType; label: string; icon: keyof typeof Feather.glyphMap }[] = [
-  { value: "bug", label: "Achei um bug", icon: "alert-triangle" },
-  { value: "suggestion", label: "Tenho uma sugestão", icon: "zap" },
-  { value: "other", label: "Outro assunto", icon: "message-square" },
-];
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export default function FeedbackScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const TYPES: { value: FeedbackType; label: string; icon: keyof typeof Feather.glyphMap }[] = [
+    { value: "bug", label: t("feedback.typeBug"), icon: "alert-triangle" },
+    { value: "suggestion", label: t("feedback.typeSuggestion"), icon: "zap" },
+    { value: "other", label: t("feedback.typeOther"), icon: "message-square" },
+  ];
   const [type, setType] = useState<FeedbackType>("bug");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
@@ -40,7 +41,7 @@ export default function FeedbackScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Enviar feedback</Text>
+        <Text variant="subtitle">{t("settings.sendFeedback")}</Text>
       </View>
 
       {/*
@@ -57,19 +58,19 @@ export default function FeedbackScreen() {
             <View style={styles.sentIcon}>
               <Feather name="check" size={24} color={colors.primary} />
             </View>
-            <Text variant="subtitle">Feedback enviado, valeu!</Text>
+            <Text variant="subtitle">{t("feedback.sentTitle")}</Text>
             <Text variant="muted" style={styles.sentText}>
-              Toda opinião ajuda a deixar o SeenList melhor pra beta.
+              {t("feedback.sentMessage")}
             </Text>
             <Pressable onPress={() => setSent(false)}>
-              <Text variant="link">Enviar outro</Text>
+              <Text variant="link">{t("feedback.sendAnother")}</Text>
             </Pressable>
           </View>
         ) : (
           <View style={styles.form}>
             <View>
               <Text variant="muted" style={styles.label}>
-                SOBRE O QUÊ?
+                {t("feedback.aboutWhat")}
               </Text>
               <View style={styles.typeList}>
                 {TYPES.map((option) => {
@@ -90,12 +91,12 @@ export default function FeedbackScreen() {
 
             <View>
               <Text variant="muted" style={styles.label}>
-                CONTA COM DETALHES
+                {t("feedback.detailsLabel")}
               </Text>
               <TextInput
                 value={message}
                 onChangeText={setMessage}
-                placeholder="O que aconteceu, o que você esperava que acontecesse, em qual tela..."
+                placeholder={t("feedback.placeholder")}
                 placeholderTextColor={colors.muted}
                 multiline
                 maxLength={2000}
@@ -107,7 +108,7 @@ export default function FeedbackScreen() {
             </View>
 
             <Button onPress={handleSubmit} loading={sending} disabled={!message.trim()}>
-              Enviar feedback
+              {t("settings.sendFeedback")}
             </Button>
           </View>
         )}

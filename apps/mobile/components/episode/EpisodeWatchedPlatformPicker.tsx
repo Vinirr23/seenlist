@@ -6,11 +6,7 @@ import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
 import { hapticSelection } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
-
-const FIXED_OPTIONS = [
-  { key: "other", label: "Outro", icon: "more-horizontal" as const },
-  { key: "unofficial", label: "Não oficial", icon: "shield-off" as const },
-];
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-115 (episódio) — porta de EpisodeWatchedPlatformPicker.tsx.
@@ -27,6 +23,11 @@ export function EpisodeWatchedPlatformPicker({
   value: string | null;
   onChange: (platform: string | null) => void;
 }) {
+  const { t } = useTranslation();
+  const FIXED_OPTIONS = [
+    { key: "other", label: t("episode.platformOther"), icon: "more-horizontal" as const },
+    { key: "unofficial", label: t("episode.platformUnofficial"), icon: "shield-off" as const },
+  ];
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       {providers.map((provider) => {

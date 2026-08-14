@@ -6,6 +6,7 @@ import { useSeriesDetails, useWatchedEpisodes, useSeriesStatus, useIsFavorite, r
 import { dismissRecommendation } from "@/lib/recommendations";
 import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { episodeKey } from "@/lib/seriesDetails";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
@@ -39,6 +40,7 @@ type DetailTab = "sobre" | "episodios";
  */
 export default function SeriesDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id, recId } = useLocalSearchParams<{ id: string; recId?: string }>();
   const seriesId = String(id);
   const numericId = Number(seriesId);
@@ -133,7 +135,7 @@ export default function SeriesDetailScreen() {
   if (isError || !series) {
     return (
       <Screen>
-        <PageError message="Não foi possível carregar esta série agora." onRetry={() => refetch()} />
+        <PageError message={t("error.loadSeriesFailed")} onRetry={() => refetch()} />
       </Screen>
     );
   }
@@ -157,12 +159,12 @@ export default function SeriesDetailScreen() {
         <View style={styles.body}>
           <View style={styles.tabs}>
             <TabButton label="Sobre" active={tab === "sobre"} onPress={() => setTab("sobre")} />
-            <TabButton label="Episódios" active={tab === "episodios"} onPress={() => setTab("episodios")} />
+            <TabButton label={t("seriesHome.episodesTab")} active={tab === "episodios"} onPress={() => setTab("episodios")} />
           </View>
 
           {tab === "sobre" ? (
             <View style={styles.section}>
-              <Text style={styles.overview}>{series.overview || "Sem sinopse disponível."}</Text>
+              <Text style={styles.overview}>{series.overview || t("media.noSynopsisAvailable")}</Text>
 
               {series.genres.length > 0 && (
                 <View style={styles.genreRow}>
@@ -187,7 +189,7 @@ export default function SeriesDetailScreen() {
                   icon={<Feather name="tv" size={14} color={colors.muted} style={styles.metaIcon} />}
                 />
                 <MetaRow
-                  label="Episódios"
+                  label={t("seriesHome.episodesTab")}
                   value={String(series.numberOfEpisodes)}
                   icon={<Feather name="film" size={14} color={colors.muted} style={styles.metaIcon} />}
                 />
@@ -225,14 +227,14 @@ export default function SeriesDetailScreen() {
 
               <View>
                 <Text variant="subtitle" style={styles.sectionTitle}>
-                  Séries parecidas
+                  {t("media.similarSeries")}
                 </Text>
                 <SimilarTitlesCarousel items={series.similar} />
               </View>
 
               <View>
                 <Text variant="subtitle" style={styles.sectionTitle}>
-                  Avaliações
+                  {t("social.reviews")}
                 </Text>
                 <ReviewsSection
                   target={{ mediaType: "series", mediaId: numericId }}

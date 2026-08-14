@@ -6,14 +6,7 @@ import type { NotificationPreferences } from "@/lib/notificationPreferences";
 import { Screen, Text, Skeleton } from "@/components/ui";
 import { ToggleRow } from "@/components/settings/ToggleRow";
 import { colors, radius, spacing } from "@/lib/theme";
-
-const ITEMS: { field: keyof NotificationPreferences; label: string }[] = [
-  { field: "episodeNew", label: "Novo episódio" },
-  { field: "seasonPremiere", label: "Nova temporada" },
-  { field: "commentReply", label: "Respostas aos meus comentários" },
-  { field: "commentLike", label: "Curtidas em comentários" },
-  { field: "reviewLike", label: "Curtidas em reviews" },
-];
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-114 — porta de `NotificationPreferencesView.tsx`. Só
@@ -24,6 +17,14 @@ const ITEMS: { field: keyof NotificationPreferences; label: string }[] = [
  */
 export default function NotificationSettingsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const ITEMS: { field: keyof NotificationPreferences; label: string }[] = [
+    { field: "episodeNew", label: t("settings.notifEpisodeNew") },
+    { field: "seasonPremiere", label: t("settings.notifSeasonPremiere") },
+    { field: "commentReply", label: t("settings.notifCommentReply") },
+    { field: "commentLike", label: t("settings.notifCommentLike") },
+    { field: "reviewLike", label: t("settings.notifReviewLike") },
+  ];
   const { preferences, isLoading, savingField, setField } = useNotificationPreferences();
 
   return (
@@ -32,7 +33,7 @@ export default function NotificationSettingsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Notificações</Text>
+        <Text variant="subtitle">{t("settings.notifications")}</Text>
       </View>
 
       <View style={styles.content}>

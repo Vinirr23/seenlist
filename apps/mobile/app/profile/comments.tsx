@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { View, Pressable, Alert, FlatList, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -10,8 +10,8 @@ import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 /**
  * TASK-116 (correção — Perfil) — porta de `MyCommentsPageView.tsx` +
@@ -29,6 +29,11 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  */
 export default function MyCommentsScreen() {
   const router = useRouter();
+  const { t, locale } = useTranslation();
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short", year: "numeric" }),
+    [locale]
+  );
   const [comments, setComments] = useState<MyComment[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -57,10 +62,10 @@ export default function MyCommentsScreen() {
   }
 
   function handleDelete(comment: MyComment) {
-    Alert.alert("Apagar este comentário?", "Não dá pra desfazer.", [
-      { text: "Cancelar", style: "cancel" },
+    Alert.alert(t("social.confirmDeleteCommentTitle"), t("social.confirmDeleteCommentMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Apagar",
+        text: t("social.delete"),
         style: "destructive",
         onPress: async () => {
           try {
@@ -99,7 +104,7 @@ export default function MyCommentsScreen() {
                 {dateFormatter.format(new Date(comment.createdAt))}
               </Text>
               <Text numberOfLines={3} style={styles.body}>
-                {comment.containsSpoiler ? "Contém spoiler — toque para ver" : comment.body}
+                {comment.containsSpoiler ? t("social.spoilerTapToReveal") : comment.body}
               </Text>
             </View>
           </Pressable>
@@ -109,8 +114,8 @@ export default function MyCommentsScreen() {
         </View>
       );
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleOpen/handleDelete são recriadas a cada render mas são estáveis o bastante (mesmo padrão de antes); t/dateFormatter SÃO dependências reais agora, precisam entrar na lista pra não travar num idioma antigo.
+    [t, dateFormatter]
   );
 
   return (
@@ -119,7 +124,7 @@ export default function MyCommentsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Comentários</Text>
+        <Text variant="subtitle">{t("profile.commentsTitle")}</Text>
       </View>
 
       {isLoading ? (
@@ -128,11 +133,11 @@ export default function MyCommentsScreen() {
         </View>
       ) : isError ? (
         <View style={styles.content}>
-          <PageError message="Não foi possível carregar seus comentários agora." onRetry={load} />
+          <PageError message={t("error.loadCommentsFailed")} onRetry={load} />
         </View>
       ) : !comments || comments.length === 0 ? (
         <View style={styles.content}>
-          <EmptyShelf icon="message-circle" message="Você ainda não fez nenhum comentário." />
+          <EmptyShelf icon="message-circle" message={t("profile.noCommentsYet")} />
         </View>
       ) : (
         <FlatList

@@ -13,6 +13,7 @@ import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-116 (correção — Perfil) — porta de ProfileMoviesSection.tsx: só filmes "Assistido", sem categorias, sem barra de cor.
@@ -29,6 +30,7 @@ import { colors, spacing } from "@/lib/theme";
  */
 export default function ProfileMoviesScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-movies");
   const cardWidth = usePosterCardWidth();
@@ -55,7 +57,7 @@ export default function ProfileMoviesScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Filmes</Text>
+        <Text variant="subtitle">{t("nav.movies")}</Text>
       </View>
 
       <View style={styles.toggleRow}>
@@ -66,7 +68,7 @@ export default function ProfileMoviesScreen() {
         <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
       ) : watchedMovies.length === 0 ? (
         <View style={styles.content}>
-          <EmptyShelf message="Você ainda não assistiu nenhum filme." actionLabel="Explorar" actionHref="/(tabs)/explore" />
+          <EmptyShelf message={t("profile.emptyWatchedMovies")} actionLabel={t("nav.explore")} actionHref="/(tabs)/explore" />
         </View>
       ) : viewMode === "grid" ? (
         <FlatList

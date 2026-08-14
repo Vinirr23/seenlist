@@ -9,6 +9,7 @@ import { LikeButton } from "@/components/feed/LikeButton";
 import { Text, Button } from "@/components/ui";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -48,6 +49,7 @@ export function EpisodeCommentItem({
   likeInfoByCommentId?: Map<string, { count: number; hasLiked: boolean }>;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { session } = useAuth();
   const isOwn = session?.user.id === comment.author.userId;
   const displayName = comment.author.displayName ?? comment.author.username;
@@ -64,24 +66,24 @@ export function EpisodeCommentItem({
       setEditing(false);
     } catch (error) {
       console.error("[EpisodeCommentItem] Falha ao editar comentário", error);
-      Alert.alert("Não foi possível editar", error instanceof Error ? error.message : "Tente de novo em instantes.");
+      Alert.alert(t("social.errorEditComment"), error instanceof Error ? error.message : t("common.tryAgainShortly"));
     } finally {
       setSaving(false);
     }
   }
 
   function handleDelete() {
-    Alert.alert("Apagar este comentário?", "Não dá pra desfazer.", [
-      { text: "Cancelar", style: "cancel" },
+    Alert.alert(t("social.confirmDeleteCommentTitle"), t("social.confirmDeleteCommentMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Apagar",
+        text: t("social.delete"),
         style: "destructive",
         onPress: async () => {
           try {
             await onDelete(comment.id);
           } catch (error) {
             console.error("[EpisodeCommentItem] Falha ao apagar comentário", error);
-            Alert.alert("Não foi possível apagar", error instanceof Error ? error.message : "Tente de novo em instantes.");
+            Alert.alert(t("social.errorDeleteComment"), error instanceof Error ? error.message : t("common.tryAgainShortly"));
           }
         },
       },

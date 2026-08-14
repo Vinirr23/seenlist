@@ -11,6 +11,7 @@ import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { hapticTick, hapticImpact } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /** TASK-153 — achata a árvore inteira (comentário + respostas, em qualquer nível) numa lista simples de ids, pra buscar curtida de todo mundo de uma vez. */
 function flattenCommentIds(nodes: CommentNode[]): string[] {
@@ -39,6 +40,7 @@ function flattenCommentIds(nodes: CommentNode[]): string[] {
  * (marcado por quem escreveu) continua escondendo.
  */
 export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
+  const { t } = useTranslation();
   const { tree, isLoading, sending, submit, remove, edit } = useEpisodeComments(target);
   const commentsBaseHref = `/episodes/${target.mediaId}/${target.seasonNumber}/${target.episodeNumber}`;
 
@@ -79,7 +81,7 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
       const result = await uploadCommentImage(imageUri, imageMimeType);
       setUploadingImage(false);
       if (result.error || !result.url) {
-        setUploadError(result.error ?? "Não foi possível enviar a imagem agora.");
+        setUploadError(result.error ?? t("error.uploadImageFailed"));
         return;
       }
       uploadedImageUrl = result.url;
@@ -106,7 +108,7 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
         <TextInput
           value={body}
           onChangeText={setBody}
-          placeholder="Escreva um comentário..."
+          placeholder={t("social.commentPlaceholder")}
           placeholderTextColor={colors.muted}
           multiline
           style={styles.input}
@@ -140,7 +142,7 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
           <Pressable style={styles.spoilerToggle} onPress={() => setMarkSpoiler((v) => !v)}>
             <Feather name={markSpoiler ? "check-square" : "square"} size={16} color={markSpoiler ? colors.primary : colors.muted} />
             <Text variant="muted" style={styles.spoilerLabel}>
-              Contém spoiler
+              {t("social.containsSpoilerLabel")}
             </Text>
           </Pressable>
           <Pressable style={styles.sendButton} onPress={handleSubmit} disabled={(!body.trim() && !imageUri) || busy}>
@@ -153,7 +155,7 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
         <AvatarRowSkeleton count={3} />
       ) : tree.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
-          Nenhum comentário ainda. Seja o primeiro a comentar.
+          {t("social.noCommentsYetFull")}
         </Text>
       ) : (
         <View>

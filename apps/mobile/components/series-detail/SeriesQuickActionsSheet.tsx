@@ -8,6 +8,7 @@ import { addToList as addSeriesToList } from "@/lib/lists";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { RecommendSheet } from "../social/RecommendSheet";
 
 export interface SeriesQuickActionsSheetProps {
@@ -39,6 +40,7 @@ export function SeriesQuickActionsSheet({
   onClose,
 }: SeriesQuickActionsSheetProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [view, setView] = useState<SheetView>("menu");
   const { lists, isLoading: listsLoading, creating, create } = useMyLists();
@@ -82,13 +84,13 @@ export function SeriesQuickActionsSheet({
         <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           {confirmingRemove ? (
             <View style={styles.confirm}>
-              <Text style={styles.confirmTitle}>Remover esta série?</Text>
+              <Text style={styles.confirmTitle}>{t("series.removeThisSeries")}</Text>
               <Text variant="muted" style={styles.confirmMessage}>
-                Isso apaga o progresso de "{seriesTitle}" — não dá pra desfazer.
+                {t("series.removeSeriesMessage", { title: seriesTitle })}
               </Text>
               <View style={styles.confirmButtons}>
                 <Pressable style={styles.confirmCancelButton} onPress={() => setConfirmingRemove(false)}>
-                  <Text>Cancelar</Text>
+                  <Text>{t("common.cancel")}</Text>
                 </Pressable>
                 <Pressable
                   style={styles.confirmRemoveButton}
@@ -97,7 +99,7 @@ export function SeriesQuickActionsSheet({
                     onRemove();
                   }}
                 >
-                  <Text style={styles.confirmRemoveText}>Remover</Text>
+                  <Text style={styles.confirmRemoveText}>{t("common.remove")}</Text>
                 </Pressable>
               </View>
             </View>
@@ -108,7 +110,7 @@ export function SeriesQuickActionsSheet({
                   <Feather name="arrow-left" size={16} color={colors.muted} />
                 </Pressable>
                 <Text numberOfLines={1} variant="muted" style={styles.sheetTitle}>
-                  Adicionar "{seriesTitle}" a uma lista
+                  {t("movie.addToListTitle", { title: seriesTitle })}
                 </Text>
               </View>
 
@@ -121,7 +123,7 @@ export function SeriesQuickActionsSheet({
 
               {!listsLoading && lists && lists.length === 0 && !showNewListForm && (
                 <Text variant="muted" style={styles.loadingLists}>
-                  Você ainda não tem nenhuma lista.
+                  {t("movie.noListsYet")}
                 </Text>
               )}
 
@@ -138,7 +140,7 @@ export function SeriesQuickActionsSheet({
                     autoFocus
                     value={newListName}
                     onChangeText={setNewListName}
-                    placeholder="Nome da lista"
+                    placeholder={t("profile.listNamePlaceholder")}
                     placeholderTextColor={colors.muted}
                     maxLength={80}
                     style={styles.newListInput}
@@ -150,7 +152,7 @@ export function SeriesQuickActionsSheet({
               ) : (
                 <Pressable style={styles.actionRow} onPress={() => setShowNewListForm(true)}>
                   <Feather name="plus" size={16} color={colors.primary} />
-                  <Text style={[styles.actionLabel, { color: colors.primary }]}>Criar nova lista</Text>
+                  <Text style={[styles.actionLabel, { color: colors.primary }]}>{t("profile.createNewList")}</Text>
                 </Pressable>
               )}
             </View>
@@ -162,20 +164,20 @@ export function SeriesQuickActionsSheet({
 
               <ActionRow
                 icon="heart"
-                label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                label={isFavorite ? t("profile.removeFromFavorites") : t("profile.addToFavorites")}
                 active={isFavorite}
                 onPress={onToggleFavorite}
               />
-              <ActionRow icon="list" label="Adicionar a lista" onPress={() => setView("pick-list")} />
-              <ActionRow icon="clock" label="Assistir depois" onPress={() => onSetStatus("want_to_watch")} />
-              <ActionRow icon="send" label="Recomendar pra alguém" onPress={() => setShowRecommend(true)} />
-              <ActionRow icon="pause-circle" label="Parar de assistir" onPress={() => onSetStatus("paused")} />
-              <ActionRow icon="trash-2" label="Remover série" danger onPress={() => setConfirmingRemove(true)} />
-              <ActionRow icon="share-2" label="Compartilhar" onPress={handleShare} />
+              <ActionRow icon="list" label={t("movie.addToList")} onPress={() => setView("pick-list")} />
+              <ActionRow icon="clock" label={t("seriesCategory.wantToWatch")} onPress={() => onSetStatus("want_to_watch")} />
+              <ActionRow icon="send" label={t("social.recommendToSomeone")} onPress={() => setShowRecommend(true)} />
+              <ActionRow icon="pause-circle" label={t("series.stopWatching")} onPress={() => onSetStatus("paused")} />
+              <ActionRow icon="trash-2" label={t("series.removeSeries")} danger onPress={() => setConfirmingRemove(true)} />
+              <ActionRow icon="share-2" label={t("social.share")} onPress={handleShare} />
 
               <Pressable style={styles.cancelButton} onPress={onClose}>
                 <Feather name="x" size={16} color={colors.muted} />
-                <Text variant="muted">Cancelar</Text>
+                <Text variant="muted">{t("common.cancel")}</Text>
               </Pressable>
             </View>
           )}

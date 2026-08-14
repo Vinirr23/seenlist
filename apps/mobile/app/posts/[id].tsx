@@ -7,6 +7,7 @@ import { PageError } from "@/components/media/PageError";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { PostCard } from "@/components/feed/PostCard";
 import { colors, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-102 — porta de `PostDetailView.tsx` do web: o mesmo
@@ -15,6 +16,7 @@ import { colors, spacing } from "@/lib/theme";
  */
 export default function PostDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const postId = String(id);
 
@@ -34,9 +36,9 @@ export default function PostDetailScreen() {
           {isLoading ? (
             <PostCardSkeleton count={1} />
           ) : isError ? (
-            <PageError message="Não foi possível carregar este post." onRetry={() => refetch()} />
+            <PageError message={t("feed.errorLoadPost")} onRetry={() => refetch()} />
           ) : !post ? (
-            <Text variant="muted">Este post não existe mais.</Text>
+            <Text variant="muted">{t("feed.postNoLongerExists")}</Text>
           ) : (
             <PostCard post={post} detail />
           )}

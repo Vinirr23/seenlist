@@ -13,6 +13,7 @@ import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 function chunk<T>(items: T[], size: number): T[][] {
   const rows: T[][] = [];
@@ -40,6 +41,7 @@ function chunk<T>(items: T[], size: number): T[][] {
  */
 export default function ProfileSeriesScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { items, isLoading } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("profile-series");
   const cardWidth = usePosterCardWidth();
@@ -63,7 +65,7 @@ export default function ProfileSeriesScreen() {
     () =>
       nonEmptyCategories.map((category) => ({
         slug: category.slug,
-        title: category.label,
+        title: t(category.labelKey),
         barColor: category.barColor,
         // Cada "linha" da lista virtualizada já vem pronta como um
         // array — 1 item por linha no modo lista, até 3 no modo
@@ -72,7 +74,7 @@ export default function ProfileSeriesScreen() {
         // `SectionList` variar entre os dois modos.
         data: chunk(category.items, viewMode === "grid" ? 3 : 1),
       })),
-    [nonEmptyCategories, viewMode]
+    [nonEmptyCategories, viewMode, t]
   );
 
   function handlePress(item: { mediaType: "movie" | "series"; id: number }) {
@@ -85,7 +87,7 @@ export default function ProfileSeriesScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Séries</Text>
+        <Text variant="subtitle">{t("nav.series")}</Text>
       </View>
 
       <View style={styles.toggleRow}>
@@ -96,7 +98,7 @@ export default function ProfileSeriesScreen() {
         <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
       ) : nonEmptyCategories.length === 0 ? (
         <View style={styles.content}>
-          <EmptyShelf message="Você ainda não tem nenhuma série na sua biblioteca." actionLabel="Explorar" actionHref="/(tabs)/explore" />
+          <EmptyShelf message={t("profile.emptyLibrarySeries")} actionLabel={t("nav.explore")} actionHref="/(tabs)/explore" />
         </View>
       ) : (
         <SectionList
@@ -132,7 +134,10 @@ export default function ProfileSeriesScreen() {
                     onPress={handlePress}
                     secondaryText={
                       rowItem.progress && rowItem.progress.totalEpisodes > 0
-                        ? `${rowItem.progress.watchedEpisodes}/${rowItem.progress.totalEpisodes} episódios`
+                        ? t("seriesHome.episodeProgress", {
+                            watched: rowItem.progress.watchedEpisodes,
+                            total: rowItem.progress.totalEpisodes,
+                          })
                         : ""
                     }
                   />

@@ -8,8 +8,10 @@ import { usePublicFavorites } from "@/lib/usePublicProfile";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function PublicFavoritesSection({ userId }: { userId: string }) {
+  const { t } = useTranslation();
   const { items, isLoading } = usePublicFavorites(userId);
 
   const favoriteSeries = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -20,8 +22,8 @@ export function PublicFavoritesSection({ userId }: { userId: string }) {
 
   return (
     <View style={styles.wrapper}>
-      {favoriteSeries.length > 0 && <FavoritesRow title="Séries favoritas" items={favoriteSeries} />}
-      {favoriteMovies.length > 0 && <FavoritesRow title="Filmes favoritos" items={favoriteMovies} />}
+      {favoriteSeries.length > 0 && <FavoritesRow title={t("profile.favoriteSeries")} items={favoriteSeries} />}
+      {favoriteMovies.length > 0 && <FavoritesRow title={t("profile.favoriteMovies")} items={favoriteMovies} />}
     </View>
   );
 }

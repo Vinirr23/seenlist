@@ -7,6 +7,7 @@ import { fetchEditableProfile, saveEditableProfile } from "@/lib/editProfile";
 import { pickImageFromLibrary, uploadAvatar, uploadBanner } from "@/lib/imageUpload";
 import { Screen, Text, Button, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 function initials(name: string): string {
   return name
@@ -25,6 +26,7 @@ function initials(name: string): string {
  */
 export default function EditProfileScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -89,7 +91,7 @@ export default function EditProfileScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Editar perfil</Text>
+        <Text variant="subtitle">{t("profile.editProfile")}</Text>
       </View>
 
       {/*
@@ -134,7 +136,7 @@ export default function EditProfileScreen() {
               <View style={styles.bannerFallback} />
             )}
             <Pressable style={styles.bannerButton} onPress={handleChangeBanner} disabled={uploadingBanner}>
-              <Text style={styles.bannerButtonText}>{uploadingBanner ? "Enviando…" : "Alterar banner"}</Text>
+              <Text style={styles.bannerButtonText}>{uploadingBanner ? t("common.uploading") : t("profile.changeBanner")}</Text>
             </Pressable>
 
             <View style={styles.avatarWrapper}>
@@ -148,24 +150,24 @@ export default function EditProfileScreen() {
 
           <Pressable style={styles.avatarButton} onPress={handleChangeAvatar} disabled={uploadingAvatar}>
             <Feather name="camera" size={14} color={colors.text} />
-            <Text style={styles.avatarButtonText}>{uploadingAvatar ? "Enviando…" : "Alterar foto"}</Text>
+            <Text style={styles.avatarButtonText}>{uploadingAvatar ? t("common.uploading") : t("profile.changePhoto")}</Text>
           </Pressable>
 
-          <Field label="Nome" value={name} onChangeText={setName} />
+          <Field label={t("profile.name")} value={name} onChangeText={setName} />
           <Field
-            label="Username"
+            label={t("profile.username")}
             value={username}
             onChangeText={(v) => setUsername(v.toLowerCase().replace(/\s/g, ""))}
             prefix="@"
             autoCapitalize="none"
           />
-          <Field label="Bio" value={bio} onChangeText={setBio} multiline maxLength={280} />
-          <Field label="País (opcional)" value={country} onChangeText={setCountry} placeholder="Brasil" />
+          <Field label={t("profile.bio")} value={bio} onChangeText={setBio} multiline maxLength={280} />
+          <Field label={t("profile.countryOptional")} value={country} onChangeText={setCountry} placeholder={t("profile.countryPlaceholder")} />
 
           {!!error && <Text variant="error">{error}</Text>}
 
           <Button onPress={handleSave} loading={saving} disabled={!name.trim() || !username.trim()}>
-            Salvar
+            {t("common.save")}
           </Button>
           </ScrollView>
         </KeyboardAvoidingView>

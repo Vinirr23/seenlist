@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { View, Pressable, Alert, FlatList, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -16,8 +16,8 @@ import {
 import { Screen, Text, Skeleton } from "@/components/ui";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { colors, radius, spacing, tint } from "@/lib/theme";
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
 /**
  * TASK-169 — porta de `RecommendationsPageView.tsx` do web. Marca
@@ -36,6 +36,8 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  */
 export default function RecommendationsScreen() {
   const router = useRouter();
+  const { t, locale } = useTranslation();
+  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" }), [locale]);
   const [recommendations, setRecommendations] = useState<ReceivedRecommendation[] | null>(null);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [showBlocked, setShowBlocked] = useState(false);
@@ -61,18 +63,14 @@ export default function RecommendationsScreen() {
   }
 
   function handleBlock(rec: ReceivedRecommendation) {
-    Alert.alert(
-      `Bloquear @${rec.sender.username}?`,
-      "Você não vai mais receber recomendações dessa pessoa.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Bloquear",
-          style: "destructive",
-          onPress: () => blockUser(rec.sender.userId).then(reload),
-        },
-      ]
-    );
+    Alert.alert(t("profile.blockUserTitle", { username: rec.sender.username }), t("profile.blockUserMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("profile.block"),
+        style: "destructive",
+        onPress: () => blockUser(rec.sender.userId).then(reload),
+      },
+    ]);
   }
 
   return (
@@ -81,7 +79,7 @@ export default function RecommendationsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Recomendações</Text>
+        <Text variant="subtitle">{t("profile.recommendationsTitle")}</Text>
       </View>
 
       {recommendations === null ? (
@@ -102,7 +100,7 @@ export default function RecommendationsScreen() {
           data={recommendations}
           keyExtractor={(rec) => rec.id}
           contentContainerStyle={styles.content}
-          ListEmptyComponent={<EmptyShelf icon="send" message="Ninguém te recomendou nada ainda." />}
+          ListEmptyComponent={<EmptyShelf icon="send" message={t("profile.noRecommendationsYet")} />}
           renderItem={({ item: rec }) => (
             <View style={[styles.card, !rec.readAt && styles.cardUnread]}>
               <Pressable style={styles.cardMain} onPress={() => handleOpen(rec)}>
@@ -113,7 +111,8 @@ export default function RecommendationsScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text variant="muted" style={styles.senderLine}>
-                    <Text style={styles.senderName}>{rec.sender.displayName ?? `@${rec.sender.username}`}</Text> recomendou
+                    <Text style={styles.senderName}>{rec.sender.displayName ?? `@${rec.sender.username}`}</Text>{" "}
+                    {t("profile.recommendedVerb")}
                   </Text>
                   <Text numberOfLines={1} style={styles.mediaTitle}>
                     {rec.title}
@@ -145,7 +144,7 @@ export default function RecommendationsScreen() {
               <View style={styles.blockedSection}>
                 <Pressable style={styles.blockedToggle} onPress={() => setShowBlocked((v) => !v)}>
                   <Text variant="muted" style={styles.blockedToggleText}>
-                    Usuários bloqueados ({blockedUsers.length})
+                    {t("profile.blockedUsersCount", { count: blockedUsers.length })}
                   </Text>
                   <Feather name={showBlocked ? "chevron-up" : "chevron-down"} size={16} color={colors.muted} />
                 </Pressable>
@@ -155,7 +154,7 @@ export default function RecommendationsScreen() {
                     <View key={user.userId} style={styles.blockedRow}>
                       <Text style={styles.blockedName}>{user.displayName ?? `@${user.username}`}</Text>
                       <Pressable onPress={() => unblockUser(user.userId).then(reload)}>
-                        <Text style={styles.unblockText}>Desbloquear</Text>
+                        <Text style={styles.unblockText}>{t("profile.unblock")}</Text>
                       </Pressable>
                     </View>
                   ))}

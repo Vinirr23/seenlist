@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ScrollView, View, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMovieDetails, useMovieStatus } from "@/lib/useMovieDetails";
@@ -17,21 +17,21 @@ import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { TrailerCard } from "@/components/media/TrailerCard";
 import { MetaRow } from "@/components/media/MetaRow";
 import { colors, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 
-/** A PEDIDO (confirmação de paridade web/mobile) — mesmo mapa do web (`MovieInfo.tsx`), só que fixo em português (esta tela nunca usou o sistema de tradução, mesmo padrão de todo o resto dela — trocar isso é maior que o pedido aqui). */
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "Inglês",
-  pt: "Português",
-  es: "Espanhol",
-  fr: "Francês",
-  ja: "Japonês",
-  ko: "Coreano",
-  de: "Alemão",
-  it: "Italiano",
-  zh: "Mandarim",
+/** Mesmo mapa do web (`MovieInfo.tsx`) — código de idioma do TMDB pra chave de tradução, não texto fixo. */
+const LANGUAGE_KEYS: Record<string, string> = {
+  en: "media.lang.en",
+  pt: "media.lang.pt",
+  es: "media.lang.es",
+  fr: "media.lang.fr",
+  ja: "media.lang.ja",
+  ko: "media.lang.ko",
+  de: "media.lang.de",
+  it: "media.lang.it",
+  zh: "media.lang.zh",
 };
-
-const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 /**
  * TASK-097 — porta de `MovieDetailsView.tsx` + `MovieHeader.tsx` +
@@ -45,6 +45,11 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", cu
  */
 export default function MovieDetailScreen() {
   const router = useRouter();
+  const { t, locale } = useTranslation();
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat(INTL_LOCALES[locale], { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
+    [locale]
+  );
   const { id, recId } = useLocalSearchParams<{ id: string; recId?: string }>();
   const movieId = String(id);
   const numericId = Number(movieId);
@@ -65,7 +70,7 @@ export default function MovieDetailScreen() {
   if (isError || !movie) {
     return (
       <Screen>
-        <PageError message="Não foi possível carregar este filme agora." onRetry={() => refetch()} />
+        <PageError message={t("error.loadMovieFailed")} onRetry={() => refetch()} />
       </Screen>
     );
   }
@@ -78,21 +83,24 @@ export default function MovieDetailScreen() {
         <View style={styles.body}>
           <MovieActions movieId={numericId} currentStatus={status} busy={busy} onChange={changeStatus} />
 
-          <Text style={styles.overview}>{movie.overview || "Sem sinopse disponível."}</Text>
+          <Text style={styles.overview}>{movie.overview || t("media.noSynopsisAvailable")}</Text>
 
           <View style={styles.metaGrid}>
-            <MetaRow label="Diretor" value={movie.director ?? "—"} />
-            <MetaRow label="Estúdios" value={movie.studios.join(", ") || "—"} />
-            <MetaRow label="País" value={movie.country ?? "—"} />
-            <MetaRow label="Idioma" value={(movie.language && LANGUAGE_NAMES[movie.language]) || movie.language || "—"} />
-            {movie.budget !== null && <MetaRow label="Orçamento" value={currencyFormatter.format(movie.budget)} />}
-            {movie.revenue !== null && <MetaRow label="Bilheteria" value={currencyFormatter.format(movie.revenue)} />}
+            <MetaRow label={t("media.director")} value={movie.director ?? "—"} />
+            <MetaRow label={t("media.studios")} value={movie.studios.join(", ") || "—"} />
+            <MetaRow label={t("media.country")} value={movie.country ?? "—"} />
+            <MetaRow
+              label={t("media.language")}
+              value={(movie.language && t(LANGUAGE_KEYS[movie.language] ?? "")) || movie.language || "—"}
+            />
+            {movie.budget !== null && <MetaRow label={t("media.budget")} value={currencyFormatter.format(movie.budget)} />}
+            {movie.revenue !== null && <MetaRow label={t("media.revenue")} value={currencyFormatter.format(movie.revenue)} />}
           </View>
 
           {!!movie.trailerKey && (
             <View>
               <Text variant="subtitle" style={styles.sectionTitle}>
-                Trailer
+                {t("media.trailer")}
               </Text>
               <TrailerCard videoKey={movie.trailerKey} />
             </View>
@@ -100,7 +108,7 @@ export default function MovieDetailScreen() {
 
           <View>
             <Text variant="subtitle" style={styles.sectionTitle}>
-              Elenco principal
+              {t("media.mainCast")}
             </Text>
             <CastCarousel cast={movie.cast} />
           </View>
@@ -110,14 +118,14 @@ export default function MovieDetailScreen() {
 
           <View>
             <Text variant="subtitle" style={styles.sectionTitle}>
-              Filmes parecidos
+              {t("media.similarMovies")}
             </Text>
             <SimilarTitlesCarousel items={movie.similar} />
           </View>
 
           <View>
             <Text variant="subtitle" style={styles.sectionTitle}>
-              Avaliações
+              {t("social.reviews")}
             </Text>
             <ReviewsSection
               target={{ mediaType: "movie", mediaId: numericId }}

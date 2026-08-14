@@ -18,6 +18,7 @@ import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { ReviewComposer } from "./ReviewComposer";
 import { ReviewCard } from "./ReviewCard";
 import { colors, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface ReviewsFullViewProps {
   target: ReviewTarget;
@@ -37,6 +38,7 @@ export interface ReviewsFullViewProps {
  * falhar, a avaliação já está salva de qualquer forma.
  */
 export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
+  const { t } = useTranslation();
   const { othersReviews, myReview, isLoading, saving, submit, remove } = useReviews(target);
   const [postError, setPostError] = useState<string | null>(null);
   const [promptRating, setPromptRating] = useState<number | null>(null);
@@ -94,7 +96,7 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
       });
     } catch (error) {
       console.error("[ReviewsFullView] Avaliação salva, mas falhou ao publicar no Feed", error);
-      setPostError("Avaliação salva, mas não foi possível publicar no Feed agora.");
+      setPostError(t("review.savedButFeedPublishFailed"));
     }
   }
 
@@ -146,7 +148,7 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
       {!!myReview && (
         <Pressable onPress={remove} disabled={saving}>
           <Text variant="error" style={styles.removeLink}>
-            Remover minha avaliação
+            {t("review.removeMyReview")}
           </Text>
         </Pressable>
       )}
@@ -154,7 +156,7 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
       {isLoading ? (
         <AvatarRowSkeleton count={3} />
       ) : othersReviews.length === 0 ? (
-        <EmptyShelf icon="star" message="Nenhuma outra avaliação ainda." />
+        <EmptyShelf icon="star" message={t("review.noOtherReviewsYet")} />
       ) : (
         <View style={styles.list}>
           {othersReviews.map((review) => (

@@ -8,6 +8,7 @@ import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowListRow } from "@/components/profile/FollowListRow";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-110 — porta de `DiscoverUsersView.tsx`. Reaproveita
@@ -16,6 +17,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  */
 export default function DiscoverPeopleScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const { users, isLoading, isError, refetch } = useUserSearch(search);
 
@@ -25,7 +27,7 @@ export default function DiscoverPeopleScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Descobrir pessoas</Text>
+        <Text variant="subtitle">{t("social.discoverPeople")}</Text>
       </View>
 
       <View style={styles.searchArea}>
@@ -34,7 +36,7 @@ export default function DiscoverPeopleScreen() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Pesquisar pessoas"
+            placeholder={t("social.searchPeople")}
             placeholderTextColor={colors.muted}
             autoCapitalize="none"
             style={styles.searchInput}
@@ -44,17 +46,17 @@ export default function DiscoverPeopleScreen() {
 
       {!search && !isLoading && users && users.length > 0 && (
         <Text variant="muted" style={styles.suggestionsLabel}>
-          SUGESTÕES
+          {t("social.suggestions")}
         </Text>
       )}
 
       {isLoading ? (
         <AvatarRowSkeleton />
       ) : isError ? (
-        <PageError message="Não foi possível carregar agora." onRetry={() => refetch()} />
+        <PageError message={t("error.loadGeneric")} onRetry={() => refetch()} />
       ) : !users || users.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
-          Nenhum resultado pra essa busca.
+          {t("social.noSearchResults")}
         </Text>
       ) : (
         <FlatList data={users} keyExtractor={(item) => item.userId} renderItem={({ item }) => <FollowListRow user={item} />} />
