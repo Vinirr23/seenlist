@@ -12,6 +12,7 @@ import { useBannerUpload } from "@/lib/queries/banner-upload";
 import { updateName } from "@/lib/actions/account";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { COUNTRIES } from "@/lib/countries";
 
 function initials(name: string): string {
   return name
@@ -207,14 +208,31 @@ export function EditProfileView() {
             <label htmlFor="profile-country" className="mb-1 block text-xs text-muted">
               {t("settings.countryOptional")}
             </label>
-            <input
+            {/*
+              * A PEDIDO — troca de campo de texto livre pra lista
+              * fechada. Mesmo motivo do mobile: `check-new-releases`
+              * (notificação de episódio novo) decide "isso é hoje?"
+              * usando o fuso do país de cada pessoa — texto livre
+              * ("Brasil"/"brazil"/"BR"/erro de digitação) exigia um
+              * mapeamento cada vez mais frágil. `<select>` nativo do
+              * navegador — mais simples que construir um dropdown
+              * customizado, já vem com busca por teclado embutida.
+              */}
+            <select
               id="profile-country"
-              type="text"
               value={country}
               onChange={(event) => setCountry(event.target.value)}
-              placeholder={t("settings.countryPlaceholder")}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
-            />
+            >
+              <option value="">{t("settings.countryPlaceholder")}</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {t(c.labelKey)}
+                </option>
+              ))}
+              {/* Usuário antigo pode ter texto livre salvo de antes da troca — mostra como opção extra, pra não sumir/forçar troca sem querer, mas some sozinho assim que a pessoa escolher um país da lista. */}
+              {!!country && !COUNTRIES.some((c) => c.value === country) && <option value={country}>{country}</option>}
+            </select>
           </div>
         </div>
 

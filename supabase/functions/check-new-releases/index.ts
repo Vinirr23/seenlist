@@ -167,6 +167,36 @@ const COUNTRY_TIMEZONE_MAP: Record<string, string> = {
   colômbia: "America/Bogota",
   chile: "America/Santiago",
   peru: "America/Lima",
+  /*
+   * A PEDIDO — expandido junto da lista fixa de países do seletor
+   * (`lib/countries.ts` mobile, `lib/countries.ts` web) — antes de
+   * hoje, escolher um desses países no perfil caía sempre no padrão
+   * (Brasil), mesmo já sendo uma opção real na lista. Agora tem fuso
+   * próprio, igual aos outros.
+   */
+  italia: "Europe/Rome",
+  itália: "Europe/Rome",
+  italy: "Europe/Rome",
+  franca: "Europe/Paris",
+  frança: "Europe/Paris",
+  france: "Europe/Paris",
+  alemanha: "Europe/Berlin",
+  germany: "Europe/Berlin",
+  australia: "Australia/Sydney",
+  austrália: "Australia/Sydney",
+  uruguai: "America/Montevideo",
+  uruguay: "America/Montevideo",
+  paraguai: "America/Asuncion",
+  paraguay: "America/Asuncion",
+  venezuela: "America/Caracas",
+  equador: "America/Guayaquil",
+  ecuador: "America/Guayaquil",
+  bolivia: "America/La_Paz",
+  bolívia: "America/La_Paz",
+  angola: "Africa/Luanda",
+  mocambique: "Africa/Maputo",
+  moçambique: "Africa/Maputo",
+  mozambique: "Africa/Maputo",
 };
 /** Padrão pra quem não preencheu país, ou digitou algo não reconhecido — é a maioria real da base hoje. */
 const DEFAULT_TIMEZONE = "America/Sao_Paulo";

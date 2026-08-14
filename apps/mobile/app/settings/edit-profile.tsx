@@ -5,7 +5,9 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchEditableProfile, saveEditableProfile } from "@/lib/editProfile";
 import { pickImageFromLibrary, uploadAvatar, uploadBanner } from "@/lib/imageUpload";
+import { COUNTRIES } from "@/lib/countries";
 import { Screen, Text, Button, Skeleton } from "@/components/ui";
+import { CountryPicker } from "@/components/settings/CountryPicker";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -31,6 +33,7 @@ export default function EditProfileScreen() {
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [country, setCountry] = useState("");
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -162,7 +165,17 @@ export default function EditProfileScreen() {
             autoCapitalize="none"
           />
           <Field label={t("profile.bio")} value={bio} onChangeText={setBio} multiline maxLength={280} />
-          <Field label={t("profile.countryOptional")} value={country} onChangeText={setCountry} placeholder={t("profile.countryPlaceholder")} />
+          <Pressable style={styles.field} onPress={() => setShowCountryPicker(true)}>
+            <Text variant="muted" style={styles.fieldLabel}>
+              {t("profile.countryOptional")}
+            </Text>
+            <View style={styles.inputRow}>
+              <Text style={country ? styles.countryValueText : styles.countryPlaceholderText}>
+                {country ? countryDisplayLabel(country, t) : t("profile.countryPlaceholder")}
+              </Text>
+              <Feather name="chevron-right" size={16} color={colors.muted} />
+            </View>
+          </Pressable>
 
           {!!error && <Text variant="error">{error}</Text>}
 
@@ -172,8 +185,23 @@ export default function EditProfileScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       )}
+
+      <CountryPicker value={country} onChange={setCountry} visible={showCountryPicker} onClose={() => setShowCountryPicker(false)} />
     </Screen>
   );
+}
+
+/**
+ * Usuário antigo pode ter texto livre salvo de antes da troca pra
+ * lista fixa (ex.: "brazil" minúsculo, "BR", erro de digitação) —
+ * nesse caso, mostra o valor cru salvo, em vez de forçar um
+ * país da lista nova ou deixar em branco. Só busca corresponder
+ * exato com o valor canônico (ex.: "Brasil") pra mostrar o nome
+ * traduzido; sem correspondência, mostra como está.
+ */
+function countryDisplayLabel(country: string, t: (key: string) => string): string {
+  const match = COUNTRIES.find((c) => c.value === country);
+  return match ? t(match.labelKey) : country;
 }
 
 function Field({
@@ -220,6 +248,14 @@ function Field({
 const AVATAR_SIZE = 80;
 
 const styles = StyleSheet.create({
+  countryValueText: {
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  countryPlaceholderText: {
+    fontSize: fontSize.sm,
+    color: colors.muted,
+  },
   flex: {
     flex: 1,
   },
