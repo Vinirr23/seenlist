@@ -103,10 +103,11 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
   return (
     <Tabs tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="series" options={{ title: "Séries" }} />
-      <Tabs.Screen name="movies" options={{ title: "Filmes" }} />
+      <Tabs.Screen name="series" options={{ title: t("nav.series") }} />
+      <Tabs.Screen name="movies" options={{ title: t("nav.movies") }} />
       {/*
        * DECISÃO DE PRODUTO (a pedido, com base em dado real do painel
        * de observabilidade) — aba Feed descontinuada. Os números: 20
@@ -124,8 +125,8 @@ export default function TabsLayout() {
        * nota média 4,27), comentários de episódio, recomendar, seguir.
        */}
       <Tabs.Screen name="feed" options={{ href: null }} />
-      <Tabs.Screen name="explore" options={{ title: "Explorar" }} />
-      <Tabs.Screen name="profile" options={{ title: "Perfil" }} />
+      <Tabs.Screen name="explore" options={{ title: t("nav.explore") }} />
+      <Tabs.Screen name="profile" options={{ title: t("nav.profile") }} />
     </Tabs>
   );
 }

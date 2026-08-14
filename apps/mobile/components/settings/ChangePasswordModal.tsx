@@ -3,8 +3,10 @@ import { View, Modal, TextInput, Pressable, StyleSheet } from "react-native";
 import { updatePassword } from "@/lib/settings";
 import { Text, Button } from "@/components/ui";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,14 +29,14 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
           <Text variant="subtitle" style={styles.title}>
-            Alterar senha
+            {t("settings.changePassword")}
           </Text>
 
           <View style={styles.form}>
             <TextInput
               value={password}
               onChangeText={setPassword}
-              placeholder="Nova senha"
+              placeholder={t("auth.newPassword")}
               placeholderTextColor={colors.muted}
               secureTextEntry
               style={styles.input}
@@ -42,7 +44,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
             <TextInput
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              placeholder="Confirmar nova senha"
+              placeholder={t("auth.confirmNewPassword")}
               placeholderTextColor={colors.muted}
               secureTextEntry
               style={styles.input}
@@ -52,11 +54,11 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
 
           <View style={styles.buttons}>
             <Pressable style={styles.cancelButton} onPress={onClose}>
-              <Text variant="muted">Cancelar</Text>
+              <Text variant="muted">{t("common.cancel")}</Text>
             </Pressable>
             <View style={styles.saveButton}>
               <Button onPress={handleSubmit} loading={saving}>
-                Salvar
+                {t("common.save")}
               </Button>
             </View>
           </View>

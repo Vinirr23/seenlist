@@ -2,10 +2,9 @@ import { View, StyleSheet } from "react-native";
 import { useProfileStats } from "@/lib/useProfileStats";
 import { formatWatchDuration } from "@/lib/profileStats";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { BigStatCard } from "./BigStatCard";
 import { colors, spacing } from "@/lib/theme";
-
-const numberFormatter = new Intl.NumberFormat("pt-BR");
 
 /**
  * TASK-117 — porta de StatsMoviesTab.tsx. Mesma auditoria do web:
@@ -15,7 +14,8 @@ const numberFormatter = new Intl.NumberFormat("pt-BR");
  */
 export function StatsMoviesTab() {
   const { stats, isLoading } = useProfileStats();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(INTL_LOCALES[locale]);
 
   if (isLoading || !stats) {
     return (
@@ -31,14 +31,14 @@ export function StatsMoviesTab() {
 
   return (
     <View style={styles.list}>
-      <BigStatCard title="Tempo assistindo filmes" value={watchTime.primary} subtext={watchTime.secondary} />
+      <BigStatCard title={t("profile.stats.timeWatchingMovies")} value={watchTime.primary} subtext={watchTime.secondary} />
 
       <View style={styles.row2}>
         <View style={styles.flex1}>
-          <BigStatCard title="Filmes assistidos" value={numberFormatter.format(stats.moviesCompleted)} />
+          <BigStatCard title={t("profile.stats.moviesWatched")} value={numberFormatter.format(stats.moviesCompleted)} />
         </View>
         <View style={styles.flex1}>
-          <BigStatCard title="Filmes na biblioteca" value={numberFormatter.format(stats.moviesInLibrary)} />
+          <BigStatCard title={t("profile.stats.moviesInLibrary")} value={numberFormatter.format(stats.moviesInLibrary)} />
         </View>
       </View>
     </View>

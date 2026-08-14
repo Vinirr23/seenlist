@@ -1,11 +1,15 @@
 import { Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function FollowButton({ isFollowing, busy, onPress }: { isFollowing: boolean; busy: boolean; onPress: () => void }) {
+  const { t } = useTranslation();
   return (
     <Pressable style={[styles.button, isFollowing ? styles.following : styles.notFollowing]} onPress={onPress} disabled={busy}>
-      <Text style={isFollowing ? styles.followingText : styles.notFollowingText}>{isFollowing ? "Seguindo" : "Seguir"}</Text>
+      <Text style={isFollowing ? styles.followingText : styles.notFollowingText}>
+        {isFollowing ? t("profile.following") : t("profile.follow")}
+      </Text>
     </Pressable>
   );
 }

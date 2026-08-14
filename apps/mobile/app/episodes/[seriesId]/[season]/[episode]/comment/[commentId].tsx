@@ -124,9 +124,9 @@ export default function EpisodeCommentDetailScreen() {
   function handleDeleteTop() {
     if (!comment) return;
     Alert.alert(t("social.confirmDeleteCommentTitle"), t("social.confirmDeleteCommentMessage"), [
-      { text: "Cancelar", style: "cancel" },
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Apagar",
+        text: t("social.delete"),
         style: "destructive",
         onPress: async () => {
           try {
@@ -313,7 +313,7 @@ export default function EpisodeCommentDetailScreen() {
                   </Text>
                 </Pressable>
                 <Pressable style={styles.sendButton} onPress={handleSubmit} disabled={(!body.trim() && !imageUri) || busy}>
-                  <Text style={styles.sendButtonText}>{uploadingImage ? "Enviando…" : "Enviar"}</Text>
+                  <Text style={styles.sendButtonText}>{uploadingImage ? t("common.uploading") : t("common.send")}</Text>
                 </Pressable>
               </View>
             </View>

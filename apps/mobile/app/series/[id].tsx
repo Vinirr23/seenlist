@@ -158,7 +158,7 @@ export default function SeriesDetailScreen() {
 
         <View style={styles.body}>
           <View style={styles.tabs}>
-            <TabButton label="Sobre" active={tab === "sobre"} onPress={() => setTab("sobre")} />
+            <TabButton label={t("media.aboutTab")} active={tab === "sobre"} onPress={() => setTab("sobre")} />
             <TabButton label={t("seriesHome.episodesTab")} active={tab === "episodios"} onPress={() => setTab("episodios")} />
           </View>
 
@@ -177,14 +177,14 @@ export default function SeriesDetailScreen() {
               )}
 
               <View style={styles.metaGrid}>
-                <MetaRow label="Status" value={series.status} icon={<Feather name="layers" size={14} color={colors.muted} style={styles.metaIcon} />} />
+                <MetaRow label={t("media.status")} value={series.status} icon={<Feather name="layers" size={14} color={colors.muted} style={styles.metaIcon} />} />
                 <MetaRow
-                  label="Estreia"
+                  label={t("media.premiere")}
                   value={series.firstAirDate?.slice(0, 4) ?? "—"}
                   icon={<Feather name="calendar" size={14} color={colors.muted} style={styles.metaIcon} />}
                 />
                 <MetaRow
-                  label="Temporadas"
+                  label={t("media.seasons")}
                   value={String(series.numberOfSeasons)}
                   icon={<Feather name="tv" size={14} color={colors.muted} style={styles.metaIcon} />}
                 />
@@ -193,7 +193,7 @@ export default function SeriesDetailScreen() {
                   value={String(series.numberOfEpisodes)}
                   icon={<Feather name="film" size={14} color={colors.muted} style={styles.metaIcon} />}
                 />
-                <MetaRow label="Rede" value={series.networks.join(", ") || "—"} />
+                <MetaRow label={t("media.network")} value={series.networks.join(", ") || "—"} />
               </View>
 
               {!!series.trailerKey && (

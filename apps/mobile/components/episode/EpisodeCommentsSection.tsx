@@ -146,7 +146,7 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
             </Text>
           </Pressable>
           <Pressable style={styles.sendButton} onPress={handleSubmit} disabled={(!body.trim() && !imageUri) || busy}>
-            <Text style={styles.sendButtonText}>{uploadingImage ? "Enviando…" : "Enviar"}</Text>
+            <Text style={styles.sendButtonText}>{uploadingImage ? t("common.uploading") : t("common.send")}</Text>
           </Pressable>
         </View>
       </View>
