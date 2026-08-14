@@ -24,8 +24,10 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY")!;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const ACTIVE_STATUSES = ["watching", "up_to_date", "paused"];
-/** Considera "lançado" um episódio com air_date dentro dessa janela — cobre o cron não ter rodado ontem por algum motivo, sem re-notificar o catálogo inteiro. */
+/** Considera "lançado" um episódio com air_date dentro dessa janela — cobre o cron não ter rodado ontem por algum motivo, sem re-notificar o catálogo inteiro. Comparação FINA (por fuso de cada pessoa) acontece por seguidor, mais abaixo — ver `isWithinRecentWindowForTimezone`. */
 const RECENT_WINDOW_DAYS = 2;
+/** Pré-filtro em nível de SÉRIE, mais largo que `RECENT_WINDOW_DAYS` — evita descartar cedo demais um episódio que ainda está "dentro da janela" pro fuso de algum seguidor específico, mesmo já tendo passado da janela em UTC puro. A checagem fina de verdade acontece depois, por pessoa. */
+const WIDE_PRE_FILTER_DAYS = RECENT_WINDOW_DAYS + 2;
 
 interface TmdbSeriesResponse {
   id: number;
@@ -99,10 +101,90 @@ const PAGE_SIZE = 1000;
  * positivo aqui é uma notificação só um pouco adiantada, nunca
  * duplicada.
  */
+/** Pré-filtro largo, em UTC puro — só pra decidir se vale a pena buscar seguidor pra essa série (a checagem fina de verdade é por pessoa, mais abaixo). */
 function isWithinRecentWindow(airDate: string | null): boolean {
   if (!airDate) return true;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const date = new Date(`${airDate}T00:00:00`);
+  const diffDays = Math.floor((today.getTime() - date.getTime()) / (24 * 60 * 60 * 1000));
+  return diffDays >= 0 && diffDays <= WIDE_PRE_FILTER_DAYS;
+}
+
+/**
+ * CORREÇÃO (a pedido — "notificação chegou 3h adiantada, comparado
+ * com meu fuso" — Slime, S04E18) — a função inteira decidia "isso é
+ * hoje?" comparando com o relógio UTC do próprio servidor, não o
+ * fuso de quem ia RECEBER a notificação. Resultado: pra quem está no
+ * Brasil (UTC-3), o dia virava no servidor 3h antes de virar no
+ * relógio da pessoa — notificação "adiantada" pelo calendário dela.
+ *
+ * Correção de verdade (não só trocar UTC por um fuso fixo — a base
+ * já tem usuário de fora do Brasil): decide "isso é hoje" PRA CADA
+ * PESSOA, usando o país cadastrado no perfil dela (texto livre,
+ * então o mapeamento abaixo cobre as variações mais comuns — quem
+ * não preencheu ou digitou algo não reconhecido cai no fuso do
+ * Brasil, que é a maioria real da base hoje).
+ *
+ * RECOMENDAÇÃO REGISTRADA, fora do escopo desta correção: o campo
+ * "país" do perfil é texto livre — merece virar uma lista fixa
+ * (seletor) num momento futuro, tornaria esse tipo de mapeamento (e
+ * qualquer outro que dependa de país) muito mais confiável. Não
+ * mexido agora, pra não misturar duas tarefas diferentes.
+ */
+const COUNTRY_TIMEZONE_MAP: Record<string, string> = {
+  brasil: "America/Sao_Paulo",
+  brazil: "America/Sao_Paulo",
+  br: "America/Sao_Paulo",
+  portugal: "Europe/Lisbon",
+  pt: "Europe/Lisbon",
+  "estados unidos": "America/New_York",
+  "united states": "America/New_York",
+  "united states of america": "America/New_York",
+  usa: "America/New_York",
+  us: "America/New_York",
+  eua: "America/New_York",
+  espanha: "Europe/Madrid",
+  spain: "Europe/Madrid",
+  espana: "Europe/Madrid",
+  españa: "Europe/Madrid",
+  mexico: "America/Mexico_City",
+  méxico: "America/Mexico_City",
+  mx: "America/Mexico_City",
+  argentina: "America/Argentina/Buenos_Aires",
+  ar: "America/Argentina/Buenos_Aires",
+  "reino unido": "Europe/London",
+  "united kingdom": "Europe/London",
+  uk: "Europe/London",
+  england: "Europe/London",
+  inglaterra: "Europe/London",
+  japao: "Asia/Tokyo",
+  japão: "Asia/Tokyo",
+  japan: "Asia/Tokyo",
+  canada: "America/Toronto",
+  canadá: "America/Toronto",
+  colombia: "America/Bogota",
+  colômbia: "America/Bogota",
+  chile: "America/Santiago",
+  peru: "America/Lima",
+};
+/** Padrão pra quem não preencheu país, ou digitou algo não reconhecido — é a maioria real da base hoje. */
+const DEFAULT_TIMEZONE = "America/Sao_Paulo";
+
+function resolveTimezone(country: string | null | undefined): string {
+  if (!country) return DEFAULT_TIMEZONE;
+  const key = country.trim().toLowerCase();
+  return COUNTRY_TIMEZONE_MAP[key] ?? DEFAULT_TIMEZONE;
+}
+
+/** "Hoje" no fuso de verdade da pessoa, não do servidor — usa `Intl.DateTimeFormat` (lida com horário de verão certo, não é só subtrair hora fixa). `en-CA` devolve direto no formato YYYY-MM-DD. */
+function todayInTimezone(timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+function isWithinRecentWindowForTimezone(airDate: string | null, timeZone: string): boolean {
+  if (!airDate) return true;
+  const today = new Date(`${todayInTimezone(timeZone)}T00:00:00`);
   const date = new Date(`${airDate}T00:00:00`);
   const diffDays = Math.floor((today.getTime() - date.getTime()) / (24 * 60 * 60 * 1000));
   return diffDays >= 0 && diffDays <= RECENT_WINDOW_DAYS;
@@ -289,13 +371,50 @@ async function checkNewReleases(): Promise<void> {
 
     if (followers.length === 0) continue;
 
+    /*
+     * A PEDIDO — busca o país de cada seguidor (`profiles`, mesma
+     * paginação de sempre) pra decidir "isso é hoje" no fuso de CADA
+     * pessoa, não um fuso só pro sistema inteiro. Ver comentário
+     * grande em `resolveTimezone`/`isWithinRecentWindowForTimezone`,
+     * lá em cima, pro raciocínio completo.
+     */
+    const followerIds = followers.map((f) => f.user_id);
+    const { count: profileCount } = await supabase
+      .from("profiles")
+      .select("user_id", { count: "exact", head: true })
+      .in("user_id", followerIds);
+    const profilePageCount = Math.ceil((profileCount ?? 0) / PAGE_SIZE);
+    const profilePages = await Promise.all(
+      Array.from({ length: profilePageCount }, async (_, i) => {
+        const from = i * PAGE_SIZE;
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("user_id, country")
+          .in("user_id", followerIds)
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) {
+          console.error(`[check-new-releases] Falha ao paginar países dos seguidores da série ${seriesId} (linhas ${from}+)`, error);
+          return [];
+        }
+        return data ?? [];
+      })
+    );
+    const timezoneByUser = new Map(profilePages.flat().map((p) => [p.user_id, resolveTimezone(p.country)]));
+
+    // Só quem, NO FUSO DELE, já considera esse episódio "de hoje ou recente" — não o pré-filtro largo usado pra decidir se valia a pena chegar até aqui.
+    const followersWithinTheirWindow = followers.filter((f) =>
+      isWithinRecentWindowForTimezone(latest.air_date, timezoneByUser.get(f.user_id) ?? DEFAULT_TIMEZONE)
+    );
+
+    if (followersWithinTheirWindow.length === 0) continue;
+
     const prefColumn = isSeasonPremiere ? "season_premiere" : "episode_new";
     const { data: prefs } = await supabase
       .from("notification_preferences")
       .select(`user_id, ${prefColumn}`)
       .in(
         "user_id",
-        followers.map((f) => f.user_id)
+        followersWithinTheirWindow.map((f) => f.user_id)
       );
 
     const prefByUser = new Map((prefs ?? []).map((p) => [p.user_id, p[prefColumn as keyof typeof p]]));
@@ -305,7 +424,7 @@ async function checkNewReleases(): Promise<void> {
       ? { seriesTitle: tmdbData.name, seasonNumber: latest.season_number }
       : { seriesTitle: tmdbData.name, episodeName: latest.name, episodeCode };
 
-    const rowsToInsert = followers
+    const rowsToInsert = followersWithinTheirWindow
       .filter((f) => prefByUser.get(f.user_id) !== false) // sem linha de preferência = padrão ligado (opt-out)
       .map((f) => ({
         user_id: f.user_id,
