@@ -176,6 +176,31 @@ Deno.serve(async () => {
    * troca deliberada, "no máximo uma vez" é melhor que "trinta vezes
    * sem querer" pra notificação que o usuário vê na tela de bloqueio.
    */
+  /*
+   * A PEDIDO — depois de uma investigação longa (tokens, logs,
+   * cruzar tabela) pra descobrir que uma notificação específica não
+   * chegou, fica registrado aqui: em vez de só `pushed_at` (um
+   * timestamp cego, que não diz se o envio deu certo), cada
+   * notificação processada agora grava um resumo de verdade do que
+   * aconteceu — quantos tokens/inscrições existiam, quantos deram
+   * certo, e o motivo de cada falha. Da próxima vez que "não
+   * chegou" acontecer, uma consulta só (`select push_result from
+   * notifications where id = ...`) já responde, sem precisar
+   * reconstruir a investigação inteira de novo.
+   */
+  const pushResultByNotificationId = new Map<
+    string,
+    { hasToken: boolean; hasWebSub: boolean; appSent: number; appFailed: number; webSent: number; webFailed: number; webErrors: string[] }
+  >();
+  function getResult(notificationId: string) {
+    let result = pushResultByNotificationId.get(notificationId);
+    if (!result) {
+      result = { hasToken: false, hasWebSub: false, appSent: 0, appFailed: 0, webSent: 0, webFailed: 0, webErrors: [] };
+      pushResultByNotificationId.set(notificationId, result);
+    }
+    return result;
+  }
+
   const pendingIds = pending.map((n) => n.id);
   await supabase.from("notifications").update({ pushed_at: new Date().toISOString() }).in("id", pendingIds);
 
@@ -283,12 +308,15 @@ Deno.serve(async () => {
     if (!message) continue;
 
     const tokens = tokensByUser.get(n.user_id) ?? [];
+    if (tokens.length > 0) getResult(n.id).hasToken = true;
     for (const t of tokens) {
       tokenIdByExpoToken.set(t.token, t.id);
       expoMessages.push({ to: t.token, title: message.title, body: message.body, data: { deepLink: message.deepLink, notificationId: n.id } });
     }
 
-    for (const sub of webSubsByUser.get(n.user_id) ?? []) {
+    const webSubs = webSubsByUser.get(n.user_id) ?? [];
+    if (webSubs.length > 0) getResult(n.id).hasWebSub = true;
+    for (const sub of webSubs) {
       webQueue.push({
         sub,
         title: message.title,
@@ -315,18 +343,22 @@ Deno.serve(async () => {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(batch),
       });
-      const result = await response.json();
-      const tickets: { status: string; details?: { error?: string } }[] = result.data ?? [];
+      const apiResult = await response.json();
+      const tickets: { status: string; details?: { error?: string } }[] = apiResult.data ?? [];
 
       tickets.forEach((ticket, index) => {
         const originalMessage = batch[index];
+        const notifResult = getResult(originalMessage.data.notificationId);
         if (ticket.status === "ok") {
           sentCount += 1;
+          notifResult.appSent += 1;
         } else if (ticket.details?.error === "DeviceNotRegistered") {
           invalidTokens.push(originalMessage.to);
+          notifResult.appFailed += 1;
         } else {
           console.error("[send-push-notifications] Ticket com erro", ticket);
           ticketErrors.push(ticket);
+          notifResult.appFailed += 1;
         }
       });
     } catch (error) {
@@ -345,11 +377,18 @@ Deno.serve(async () => {
     const results = await Promise.all(
       webQueue.map(async (item) => {
         const result = await sendWebPush(item.sub, { title: item.title, body: item.body, url: item.url, tag: item.tag });
-        return { id: item.sub.id, ...result };
+        return { id: item.sub.id, notificationId: item.tag, ...result };
       })
     );
     for (const r of results) {
-      if (r.ok) webSentCount += 1;
+      const trackedResult = getResult(r.notificationId);
+      if (r.ok) {
+        webSentCount += 1;
+        trackedResult.webSent += 1;
+      } else {
+        trackedResult.webFailed += 1;
+        if (r.error) trackedResult.webErrors.push(r.expired ? `expirado (${r.error})` : r.error);
+      }
       if (r.expired) expiredWebSubIds.push(r.id);
     }
   }
@@ -371,6 +410,20 @@ Deno.serve(async () => {
   // A marcação de `pushed_at` agora acontece bem antes (ver comentário
   // grande logo depois de buscar `pending`, no início da função) —
   // esse bloco no fim virou redundante, removido.
+
+  /*
+   * A PEDIDO — grava o resumo por notificação (ver comentário grande
+   * lá em cima, junto de `pushResultByNotificationId`). Só grava
+   * quem teve mensagem construída de verdade (`buildMessage`
+   * retornou algo) — o resto nunca entrou no mapa, não teria nada
+   * útil pra registrar.
+   */
+  const resultUpdates = Array.from(pushResultByNotificationId.entries()).map(([id, result]) => ({ id, result }));
+  if (resultUpdates.length > 0) {
+    await Promise.all(
+      resultUpdates.map(({ id, result }) => supabase.from("notifications").update({ push_result: result }).eq("id", id))
+    );
+  }
 
   return new Response(
     JSON.stringify({

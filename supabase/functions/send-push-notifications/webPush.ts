@@ -177,10 +177,10 @@ export interface WebPushMessage {
 export async function sendWebPush(
   subscription: WebPushSubscription,
   message: WebPushMessage
-): Promise<{ ok: boolean; expired: boolean }> {
+): Promise<{ ok: boolean; expired: boolean; error?: string }> {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     console.error("[webPush] Chaves VAPID não configuradas — envio web ignorado.");
-    return { ok: false, expired: false };
+    return { ok: false, expired: false, error: "VAPID keys not configured" };
   }
 
   try {
@@ -199,14 +199,14 @@ export async function sendWebPush(
       body,
     });
 
-    if (response.status === 404 || response.status === 410) return { ok: false, expired: true };
+    if (response.status === 404 || response.status === 410) return { ok: false, expired: true, error: `HTTP ${response.status}` };
     if (!response.ok) {
       console.error(`[webPush] Falha ${response.status} em ${url.host}`);
-      return { ok: false, expired: false };
+      return { ok: false, expired: false, error: `HTTP ${response.status} (${url.host})` };
     }
     return { ok: true, expired: false };
   } catch (error) {
     console.error("[webPush] Erro ao enviar", error);
-    return { ok: false, expired: false };
+    return { ok: false, expired: false, error: error instanceof Error ? error.message : String(error) };
   }
 }

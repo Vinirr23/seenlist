@@ -24,15 +24,43 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title ?? "SeenList", {
-      body: payload.body ?? "",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      // Agrupa notificações do mesmo assunto em vez de empilhar
-      // várias iguais — evita o efeito "20 avisos da mesma série".
-      tag: payload.tag ?? undefined,
-      data: { url: payload.url ?? "/" },
-    })
+    self.registration
+      .showNotification(payload.title ?? "SeenList", {
+        body: payload.body ?? "",
+        /*
+         * CORREÇÃO (bug real, achado investigando "notificação web
+         * não chegou pra um usuário específico") — apontava pra
+         * `/icon-192.png`, que NUNCA existiu na pasta `public/` (só
+         * `logo.png` e `og-image.png` existem de verdade). Toda
+         * notificação enviada desde que essa funcionalidade existe
+         * tentava carregar um ícone 404. O comportamento exato disso
+         * varia por navegador — em alguns só aparece sem ícone, mas
+         * não dá pra descartar que em algum caso isso interfira na
+         * notificação aparecer. De qualquer forma, era um bug real,
+         * concreto, e agora corrigido — usa o logo que já existe.
+         */
+        icon: "/logo.png",
+        badge: "/logo.png",
+        // Agrupa notificações do mesmo assunto em vez de empilhar
+        // várias iguais — evita o efeito "20 avisos da mesma série".
+        tag: payload.tag ?? undefined,
+        data: { url: payload.url ?? "/" },
+      })
+      /*
+       * A PEDIDO — antes, se `showNotification` falhasse por
+       * QUALQUER motivo (permissão revogada, recurso indisponível,
+       * etc.), falhava em silêncio total: nada aparecia, e não
+       * sobrava rastro nenhum pra investigar depois — nem o próprio
+       * usuário, nem nós, conseguiríamos saber que algo deu errado
+       * aqui especificamente. Esse log fica disponível no DevTools
+       * do navegador da PESSOA (Application → Service Workers →
+       * Console) — não chega até nós automaticamente, mas pelo
+       * menos existe, caso precise pedir pra alguém abrir e olhar
+       * num caso futuro parecido com este.
+       */
+      .catch((error) => {
+        console.error("[sw] Falha ao mostrar notificação", error, payload);
+      })
   );
 });
 
