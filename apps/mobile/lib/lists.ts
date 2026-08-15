@@ -54,7 +54,7 @@ export async function addToList(listId: string, mediaType: "movie" | "series", m
  * pra criar lista e adicionar item, mas nunca pra ver o que tinha
  * dentro. Junta `list_items` com o resumo do TMDB (título/pôster).
  */
-export async function fetchListItems(listId: string): Promise<ListItem[]> {
+export async function fetchListItems(listId: string, language = "pt-BR"): Promise<ListItem[]> {
   const { data: rows, error } = await supabase
     .from("list_items")
     .select("id, media_type, media_id, added_at")
@@ -65,7 +65,7 @@ export async function fetchListItems(listId: string): Promise<ListItem[]> {
 
   const movieIds = rows.filter((r) => r.media_type === "movie").map((r) => r.media_id);
   const seriesIds = rows.filter((r) => r.media_type === "series").map((r) => r.media_id);
-  const summaries = await fetchDisplaySummaries(movieIds, seriesIds);
+  const summaries = await fetchDisplaySummaries(movieIds, seriesIds, language);
 
   return rows.map((row) => {
     const summary = row.media_type === "movie" ? summaries.movies[row.media_id] : summaries.series[row.media_id];
@@ -95,7 +95,7 @@ export async function deleteList(listId: string): Promise<void> {
  * conta pra `itemCount`). Uma única consulta busca os itens de TODAS
  * as listas de uma vez (não uma consulta por lista), evitando N+1.
  */
-export async function fetchMyListsWithPreview(): Promise<ListWithPreview[]> {
+export async function fetchMyListsWithPreview(language = "pt-BR"): Promise<ListWithPreview[]> {
   const { data: lists, error } = await supabase.from("lists").select("id, name, created_at").order("created_at", { ascending: false });
   if (error) throw error;
   if (!lists || lists.length === 0) return [];
@@ -127,7 +127,7 @@ export async function fetchMyListsWithPreview(): Promise<ListWithPreview[]> {
       else seriesIds.push(item.media_id);
     }
   }
-  const { movies, series } = await fetchDisplaySummaries(movieIds, seriesIds);
+  const { movies, series } = await fetchDisplaySummaries(movieIds, seriesIds, language);
 
   return lists.map((list) => {
     const items = previewItemsByList.get(list.id) ?? [];

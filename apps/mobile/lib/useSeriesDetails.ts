@@ -16,8 +16,10 @@ import {
   type WatchedEpisodeKey,
 } from "./seriesDetails";
 import { hapticTick } from "./haptics";
+import { useTranslation } from "./i18n/LocaleProvider";
 
 export function useSeriesDetails(seriesId: string) {
+  const { locale } = useTranslation();
   const [series, setSeries] = useState<SeriesDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -28,7 +30,7 @@ export function useSeriesDetails(seriesId: string) {
     setIsLoading(true);
     setIsError(false);
 
-    fetchSeriesDetails(seriesId)
+    fetchSeriesDetails(seriesId, locale)
       .then((data) => {
         if (!cancelled) setSeries(data);
       })
@@ -43,7 +45,7 @@ export function useSeriesDetails(seriesId: string) {
     return () => {
       cancelled = true;
     };
-  }, [seriesId, reloadToken]);
+  }, [seriesId, reloadToken, locale]);
 
   const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
 

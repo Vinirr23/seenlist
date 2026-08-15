@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import type { LibraryItem } from "@seenlist/types";
 import { fetchLibraryItems } from "./library";
+import { useTranslation } from "./i18n/LocaleProvider";
 
 export interface UseLibraryItemsResult {
   items: LibraryItem[] | null;
@@ -27,29 +28,33 @@ export interface UseLibraryItemsResult {
  * seguintes acontecem em silêncio, sem piscar a tela.
  */
 export function useLibraryItems(): UseLibraryItemsResult {
+  const { locale } = useTranslation();
   const [items, setItems] = useState<LibraryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedOnce = useRef(false);
 
-  const load = useCallback(async (isRefresh: boolean) => {
-    if (isRefresh) setRefreshing(true);
-    else if (!hasLoadedOnce.current) setIsLoading(true);
-    setIsError(false);
+  const load = useCallback(
+    async (isRefresh: boolean) => {
+      if (isRefresh) setRefreshing(true);
+      else if (!hasLoadedOnce.current) setIsLoading(true);
+      setIsError(false);
 
-    try {
-      const data = await fetchLibraryItems();
-      setItems(data);
-      hasLoadedOnce.current = true;
-    } catch (error) {
-      console.error("[useLibraryItems] Falha ao buscar a biblioteca", error);
-      setIsError(true);
-    } finally {
-      if (isRefresh) setRefreshing(false);
-      else setIsLoading(false);
-    }
-  }, []);
+      try {
+        const data = await fetchLibraryItems(undefined, locale);
+        setItems(data);
+        hasLoadedOnce.current = true;
+      } catch (error) {
+        console.error("[useLibraryItems] Falha ao buscar a biblioteca", error);
+        setIsError(true);
+      } finally {
+        if (isRefresh) setRefreshing(false);
+        else setIsLoading(false);
+      }
+    },
+    [locale]
+  );
 
   useEffect(() => {
     load(false);

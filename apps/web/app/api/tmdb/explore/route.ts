@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [items, genreMap] = await Promise.all([LISTS[list](language), includeGenres ? getGenreMap() : Promise.resolve(null)]);
+    const [items, genreMap] = await Promise.all([LISTS[list](language), includeGenres ? getGenreMap(language) : Promise.resolve(null)]);
     return NextResponse.json({ items, genreMap });
   } catch (error) {
     console.error(`[api/tmdb/explore] Falha ao buscar lista "${list}"`, error);

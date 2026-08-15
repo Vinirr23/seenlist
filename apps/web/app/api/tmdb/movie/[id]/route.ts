@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getMovieDetails } from "@/lib/tmdb/client";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const { searchParams } = new URL(request.url);
+  const language = searchParams.get("language") || "pt-BR";
 
   try {
-    const details = await getMovieDetails(id);
+    const details = await getMovieDetails(id, language);
     return NextResponse.json(details);
   } catch (error) {
     // TASK-172 (achado real — dois filmes sem capa/nome que davam

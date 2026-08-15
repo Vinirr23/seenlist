@@ -4,8 +4,8 @@ import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 const SITE_URL = "https://seenlist.app";
 
 /** Idêntico a lib/queries/movie.ts do web. */
-export async function fetchMovieDetails(movieId: string): Promise<MovieDetails> {
-  const response = await fetch(`${SITE_URL}/api/tmdb/movie/${movieId}`);
+export async function fetchMovieDetails(movieId: string, language = "pt-BR"): Promise<MovieDetails> {
+  const response = await fetch(`${SITE_URL}/api/tmdb/movie/${movieId}?language=${language}`);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error ?? "movie details fetch failed");

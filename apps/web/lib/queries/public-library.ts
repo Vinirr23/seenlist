@@ -3,6 +3,7 @@ import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { buildLibraryItemsFromRows, fetchDisplaySummaries, fetchWatchedEpisodeStats } from "./library-state";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 interface MovieStatusRow {
   movie_id: number;
@@ -34,8 +35,9 @@ interface SeriesStatusRow {
  * usado nesse caso.
  */
 export function usePublicLibraryItems(userId: string | null) {
+  const { locale } = useTranslation();
   return useQuery({
-    queryKey: ["public-library", userId],
+    queryKey: ["public-library", userId, locale],
     queryFn: async (): Promise<LibraryItem[]> => {
       if (!userId) return [];
       const supabase = createClient();
@@ -68,7 +70,8 @@ export function usePublicLibraryItems(userId: string | null) {
 
       const summaries = await fetchDisplaySummaries(
         movieRows.map((row) => row.movie_id),
-        [...validSeriesIds]
+        [...validSeriesIds],
+        locale
       );
 
       return buildLibraryItemsFromRows(movieRows, seriesRows, episodeStats, summaries);

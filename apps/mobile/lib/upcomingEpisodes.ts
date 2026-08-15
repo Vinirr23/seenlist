@@ -30,12 +30,12 @@ export interface UpcomingGroup {
   episodes: UpcomingEpisodeWithBadge[];
 }
 
-async function fetchUpcoming(seriesIds: number[]): Promise<NextEpisodeToAir[]> {
+async function fetchUpcoming(seriesIds: number[], language = "pt-BR"): Promise<NextEpisodeToAir[]> {
   if (seriesIds.length === 0) return [];
   const response = await fetch(`${SITE_URL}/api/tmdb/upcoming`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ seriesIds }),
+    body: JSON.stringify({ seriesIds, language }),
   });
   if (!response.ok) throw new Error("upcoming fetch failed");
   const data = (await response.json()) as { episodes: NextEpisodeToAir[] };
@@ -126,11 +126,11 @@ function formatDayLabel(daysUntil: number, dateKey: string): string {
  * quanto pela futura aba "Em breve" de Séries — mesma função, sem
  * duplicar a regra em dois lugares (mesmo espírito do web).
  */
-export async function fetchUpcomingGroups(): Promise<UpcomingGroup[]> {
-  const items = await fetchLibraryItems();
+export async function fetchUpcomingGroups(language = "pt-BR"): Promise<UpcomingGroup[]> {
+  const items = await fetchLibraryItems(undefined, language);
   const seriesIds = items.filter((item) => item.mediaType === "series" && (item.status === "watching" || item.status === "up_to_date")).map((item) => item.id);
 
-  const episodes = await fetchUpcoming(seriesIds);
+  const episodes = await fetchUpcoming(seriesIds, language);
   const watchedKeys = await fetchWatchedStatus(episodes);
   const today = startOfDay(new Date());
 

@@ -22,14 +22,14 @@ const AVATAR_SIZE = 32;
  */
 export function ProfileRecommendationsPreview() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [recommendations, setRecommendations] = useState<ReceivedRecommendation[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      fetchReceivedRecommendations()
+      fetchReceivedRecommendations(locale)
         .then((data) => {
           if (!cancelled) setRecommendations(data);
         })
@@ -43,7 +43,7 @@ export function ProfileRecommendationsPreview() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [locale])
   );
 
   if (isLoading && recommendations === null) {

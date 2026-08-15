@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchUpcomingGroups, type UpcomingGroup } from "./upcomingEpisodes";
+import { useTranslation } from "./i18n/LocaleProvider";
 
 export function useUpcomingEpisodes() {
+  const { locale } = useTranslation();
   const [groups, setGroups] = useState<UpcomingGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -11,7 +13,7 @@ export function useUpcomingEpisodes() {
     let cancelled = false;
     setIsLoading(true);
     setIsError(false);
-    fetchUpcomingGroups()
+    fetchUpcomingGroups(locale)
       .then((data) => {
         if (!cancelled) setGroups(data);
       })
@@ -25,7 +27,7 @@ export function useUpcomingEpisodes() {
     return () => {
       cancelled = true;
     };
-  }, [reloadToken]);
+  }, [reloadToken, locale]);
 
   const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
 

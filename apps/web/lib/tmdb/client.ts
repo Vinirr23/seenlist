@@ -80,10 +80,11 @@ function normalizeSearchItem(item: TmdbMultiSearchItem): MediaSearchResult {
 }
 
 /** A rota `/api/search` é o único chamador. */
-export async function searchMovieAndSeries(query: string): Promise<MediaSearchResult[]> {
+export async function searchMovieAndSeries(query: string, language = "pt-BR"): Promise<MediaSearchResult[]> {
   const data = await tmdbGet<TmdbMultiSearchResponse>("/search/multi", {
     query,
     include_adult: "false",
+    language,
   });
 
   return data.results
@@ -248,11 +249,13 @@ function pickTitleForExternalMatching(data: TmdbTvDetailsResponse): string {
 }
 
 export async function getSeriesDetails(
-  seriesId: string
+  seriesId: string,
+  language = "pt-BR"
 ): Promise<Omit<SeriesDetails, "seasons">> {
   const [data, englishData] = await Promise.all([
     tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, {
       append_to_response: "credits,recommendations,similar,alternative_titles,videos,images",
+      language,
     }),
     // TASK-168 (correção 2) — depender só de `alternative_titles` não
     // bastava: muita série/anime não tem uma entrada "US" cadastrada
@@ -263,6 +266,11 @@ export async function getSeriesDetails(
     // o TMDB usa em inglês pra essa série — muito mais confiável pra
     // comparar com o MyAnimeList. Falha (rede, 404 raríssimo) não
     // derruba a tela inteira — cai pros fallbacks de sempre.
+    //
+    // Este `en-US` é FIXO de propósito — serve só pra comparação
+    // interna com o MyAnimeList (`matchTitle`, nunca exibido na
+    // tela), não tem relação com o idioma que a pessoa está usando
+    // no app. Não confundir com o `language` do parâmetro acima.
     tmdbGet<{ name: string }>(`/tv/${seriesId}`, { language: "en-US" }).catch(() => null),
   ]);
 
@@ -341,8 +349,8 @@ interface TmdbSeasonResponse {
 }
 
 /** Lista de episódios de UMA temporada. Chamada uma vez por temporada, em paralelo, pela rota `/api/tmdb/series/[id]`. */
-export async function getSeasonEpisodes(seriesId: string, seasonNumber: number): Promise<Episode[]> {
-  const data = await tmdbGet<TmdbSeasonResponse>(`/tv/${seriesId}/season/${seasonNumber}`);
+export async function getSeasonEpisodes(seriesId: string, seasonNumber: number, language = "pt-BR"): Promise<Episode[]> {
+  const data = await tmdbGet<TmdbSeasonResponse>(`/tv/${seriesId}/season/${seasonNumber}`, { language });
 
   return data.episodes.map((episode) => ({
     id: episode.id,
@@ -421,9 +429,12 @@ export interface EpisodeDetails {
 export async function getEpisodeDetails(
   seriesId: string,
   seasonNumber: number,
-  episodeNumber: number
+  episodeNumber: number,
+  language = "pt-BR"
 ): Promise<EpisodeDetails> {
-  const data = await tmdbGet<TmdbEpisodeDetailsResponse>(`/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}`);
+  const data = await tmdbGet<TmdbEpisodeDetailsResponse>(`/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}`, {
+    language,
+  });
 
   return {
     id: data.id,
@@ -440,9 +451,10 @@ export async function getEpisodeDetails(
 
 
 export async function getSeriesSeasonList(
-  seriesId: string
+  seriesId: string,
+  language = "pt-BR"
 ): Promise<{ seasonNumber: number; name: string }[]> {
-  const data = await tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`);
+  const data = await tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, { language });
   // Temporada "0" do TMDB costuma ser especiais — fora do escopo pedido.
   return data.seasons
     .filter((season) => season.season_number > 0)
@@ -568,9 +580,10 @@ export async function getSeriesWatchProviders(seriesId: string): Promise<WatchPr
  * Detalhes do filme + elenco/direção + filmes semelhantes + onde
  * assistir, tudo numa chamada só (via `append_to_response`).
  */
-export async function getMovieDetails(movieId: string): Promise<MovieDetails> {
+export async function getMovieDetails(movieId: string, language = "pt-BR"): Promise<MovieDetails> {
   const data = await tmdbGet<TmdbMovieDetailsResponse>(`/movie/${movieId}`, {
     append_to_response: "credits,recommendations,similar,watch/providers,videos",
+    language,
   });
 
   const cast: CastMember[] = (data.credits?.cast ?? []).slice(0, 15).map((member) => ({
@@ -683,8 +696,8 @@ interface TmdbMovieSummaryResponse {
   genres: { id: number; name: string }[];
 }
 
-export async function getMovieSummary(movieId: number): Promise<MediaSummary> {
-  const data = await tmdbGet<TmdbMovieSummaryResponse>(`/movie/${movieId}`);
+export async function getMovieSummary(movieId: number, language = "pt-BR"): Promise<MediaSummary> {
+  const data = await tmdbGet<TmdbMovieSummaryResponse>(`/movie/${movieId}`, { language });
   return {
     id: data.id,
     title: data.title,
@@ -725,8 +738,8 @@ const DEFAULT_EPISODE_RUNTIME_MINUTES = 45;
  * gravando tudo certo. Agora soma só temporada >= 1, mesma convenção
  * já usada em reconstructProgress.ts/resolveStatus.ts.
  */
-export async function getSeriesSummary(seriesId: number): Promise<MediaSummary> {
-  const data = await tmdbGet<TmdbSeriesSummaryResponse>(`/tv/${seriesId}`);
+export async function getSeriesSummary(seriesId: number, language = "pt-BR"): Promise<MediaSummary> {
+  const data = await tmdbGet<TmdbSeriesSummaryResponse>(`/tv/${seriesId}`, { language });
   const totalEpisodesExcludingSpecials = data.seasons
     .filter((season) => season.season_number >= 1)
     .reduce((sum, season) => sum + season.episode_count, 0);
@@ -774,8 +787,8 @@ interface TmdbNextEpisodeResponse {
   } | null;
 }
 
-export async function getNextEpisodeToAir(seriesId: number): Promise<NextEpisodeToAir | null> {
-  const data = await tmdbGet<TmdbNextEpisodeResponse>(`/tv/${seriesId}`);
+export async function getNextEpisodeToAir(seriesId: number, language = "pt-BR"): Promise<NextEpisodeToAir | null> {
+  const data = await tmdbGet<TmdbNextEpisodeResponse>(`/tv/${seriesId}`, { language });
   const next = data.next_episode_to_air;
   if (!next || !next.air_date) return null;
 
@@ -884,11 +897,11 @@ interface TmdbGenreListResponse {
 }
 
 /** Mapa id→nome de gênero, série + filme juntos (os ids não colidem entre os dois na prática do TMDB). Uma chamada só. Cache de 24h, bem maior que o padrão de 5min — lista de gêneros do TMDB praticamente nunca muda. */
-export async function getGenreMap(): Promise<Record<number, string>> {
+export async function getGenreMap(language = "pt-BR"): Promise<Record<number, string>> {
   const ONE_DAY_SECONDS = 24 * 60 * 60;
   const [movieGenres, tvGenres] = await Promise.all([
-    tmdbGet<TmdbGenreListResponse>("/genre/movie/list", {}, ONE_DAY_SECONDS),
-    tmdbGet<TmdbGenreListResponse>("/genre/tv/list", {}, ONE_DAY_SECONDS),
+    tmdbGet<TmdbGenreListResponse>("/genre/movie/list", { language }, ONE_DAY_SECONDS),
+    tmdbGet<TmdbGenreListResponse>("/genre/tv/list", { language }, ONE_DAY_SECONDS),
   ]);
   const map: Record<number, string> = {};
   for (const g of [...movieGenres.genres, ...tvGenres.genres]) map[g.id] = g.name;

@@ -15,18 +15,20 @@ import type { EpisodeContextPayload, EpisodeContextSeason } from "@/lib/queries/
  * exatamente como sempre foi.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string; season: string }> }
 ) {
   const { id, season } = await params;
   const seasonNumber = Number(season);
+  const { searchParams } = new URL(request.url);
+  const language = searchParams.get("language") || "pt-BR";
 
   if (!Number.isInteger(seasonNumber)) {
     return NextResponse.json({ error: "Temporada inválida." }, { status: 400 });
   }
 
   try {
-    const [details, seasonList] = await Promise.all([getSeriesDetails(id), getSeriesSeasonList(id)]);
+    const [details, seasonList] = await Promise.all([getSeriesDetails(id, language), getSeriesSeasonList(id, language)]);
 
     const sortedSeasonNumbers = seasonList.map((s) => s.seasonNumber).sort((a, b) => a - b);
     const currentIndex = sortedSeasonNumbers.indexOf(seasonNumber);
@@ -38,7 +40,7 @@ export async function GET(
 
     const seasons: EpisodeContextSeason[] = await Promise.all(
       neededSeasonNumbers.map(async (sn) => {
-        const episodes = await getSeasonEpisodes(id, sn);
+        const episodes = await getSeasonEpisodes(id, sn, language);
         return {
           seasonNumber: sn,
           episodes: episodes.map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber })),

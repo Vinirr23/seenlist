@@ -15,12 +15,14 @@ export interface EpisodePagePayload {
  * realmente não tem o que mostrar de qualquer forma.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ seriesId: string; season: string; episode: string }> }
 ) {
   const { seriesId, season, episode } = await params;
   const seasonNumber = Number(season);
   const episodeNumber = Number(episode);
+  const { searchParams } = new URL(request.url);
+  const language = searchParams.get("language") || "pt-BR";
 
   if (!Number.isInteger(seasonNumber) || !Number.isInteger(episodeNumber)) {
     return NextResponse.json({ error: "Temporada/episódio inválidos." }, { status: 400 });
@@ -28,7 +30,7 @@ export async function GET(
 
   try {
     const [episodeDetails, watchProviders] = await Promise.all([
-      getEpisodeDetails(seriesId, seasonNumber, episodeNumber),
+      getEpisodeDetails(seriesId, seasonNumber, episodeNumber, language),
       getSeriesWatchProviders(seriesId).catch((error) => {
         console.error(`[api/tmdb/episode] Falha ao buscar providers da série ${seriesId}`, error);
         return [];

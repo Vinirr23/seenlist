@@ -20,7 +20,7 @@ export interface MyComment {
  * Biblioteca/Atividade já usam) — nenhuma integração nova com o
  * TMDB, uma chamada em lote pros ids únicos, não uma por comentário.
  */
-export async function fetchMyComments(): Promise<MyComment[]> {
+export async function fetchMyComments(language = "pt-BR"): Promise<MyComment[]> {
   const {
     data: { user },
   } = await getCurrentAuthUser();
@@ -37,7 +37,7 @@ export async function fetchMyComments(): Promise<MyComment[]> {
   const rows = data ?? [];
   const movieIds = [...new Set(rows.filter((r) => r.media_type === "movie").map((r) => r.media_id))];
   const seriesIds = [...new Set(rows.filter((r) => r.media_type === "series").map((r) => r.media_id))];
-  const summaries = await fetchDisplaySummaries(movieIds, seriesIds);
+  const summaries = await fetchDisplaySummaries(movieIds, seriesIds, language);
 
   return rows.map((r) => {
     const summary = r.media_type === "movie" ? summaries.movies[r.media_id] : summaries.series[r.media_id];

@@ -21,15 +21,15 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [list, setList] = useState<UserList | null>(null);
   const [items, setItems] = useState<ListItem[] | null>(null);
   const cardWidth = usePosterCardWidth();
 
   const reload = useCallback(() => {
     fetchMyLists().then((lists) => setList(lists.find((l) => l.id === id) ?? null));
-    fetchListItems(id).then(setItems);
-  }, [id]);
+    fetchListItems(id, locale).then(setItems);
+  }, [id, locale]);
 
   useEffect(reload, [reload]);
   useFocusEffect(reload);

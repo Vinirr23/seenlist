@@ -22,21 +22,22 @@ const SITE_URL = "https://seenlist.app";
 const SERIES_DETAILS_TTL_MS = 5 * 60 * 1000;
 const seriesDetailsCache = new Map<string, { data: SeriesDetails; expiresAt: number }>();
 
-export async function fetchSeriesDetails(seriesId: string): Promise<SeriesDetails> {
-  const cached = seriesDetailsCache.get(seriesId);
+export async function fetchSeriesDetails(seriesId: string, language = "pt-BR"): Promise<SeriesDetails> {
+  const cacheKey = `${seriesId}:${language}`;
+  const cached = seriesDetailsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
 
-  const response = await fetch(`${SITE_URL}/api/tmdb/series/${seriesId}`);
+  const response = await fetch(`${SITE_URL}/api/tmdb/series/${seriesId}?language=${language}`);
   if (!response.ok) throw new Error("series details fetch failed");
   const data = (await response.json()) as SeriesDetails;
-  seriesDetailsCache.set(seriesId, { data, expiresAt: Date.now() + SERIES_DETAILS_TTL_MS });
+  seriesDetailsCache.set(cacheKey, { data, expiresAt: Date.now() + SERIES_DETAILS_TTL_MS });
   return data;
 }
 
-export function prefetchSeriesDetails(seriesId: string): void {
-  const cached = seriesDetailsCache.get(seriesId);
+export function prefetchSeriesDetails(seriesId: string, language = "pt-BR"): void {
+  const cached = seriesDetailsCache.get(`${seriesId}:${language}`);
   if (cached && cached.expiresAt > Date.now()) return;
-  fetchSeriesDetails(seriesId).catch(() => {
+  fetchSeriesDetails(seriesId, language).catch(() => {
     // Silencioso de propósito — ver comentário acima.
   });
 }
@@ -79,12 +80,12 @@ export interface EpisodeSeriesContext {
 const EPISODE_CONTEXT_TTL_MS = 5 * 60 * 1000;
 const episodeContextCache = new Map<string, { data: EpisodeSeriesContext; expiresAt: number }>();
 
-export async function fetchEpisodeSeriesContext(seriesId: string, season: number): Promise<EpisodeSeriesContext> {
-  const key = `${seriesId}:${season}`;
+export async function fetchEpisodeSeriesContext(seriesId: string, season: number, language = "pt-BR"): Promise<EpisodeSeriesContext> {
+  const key = `${seriesId}:${season}:${language}`;
   const cached = episodeContextCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
 
-  const response = await fetch(`${SITE_URL}/api/tmdb/series/${seriesId}/season/${season}/episode-context`);
+  const response = await fetch(`${SITE_URL}/api/tmdb/series/${seriesId}/season/${season}/episode-context?language=${language}`);
   if (!response.ok) throw new Error("episode series context fetch failed");
   const data = (await response.json()) as EpisodeSeriesContext;
   episodeContextCache.set(key, { data, expiresAt: Date.now() + EPISODE_CONTEXT_TTL_MS });

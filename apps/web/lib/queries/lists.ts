@@ -4,6 +4,7 @@ import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { fetchDisplaySummaries } from "./library-state";
 import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface UserList {
   id: string;
@@ -117,8 +118,9 @@ export function useCreateList() {
  * (`fetchDisplaySummaries`), reaproveitada em vez de duplicada.
  */
 export function useListItems(listId: string | null) {
+  const { locale } = useTranslation();
   return useQuery({
-    queryKey: listItemsKey(listId ?? ""),
+    queryKey: [...listItemsKey(listId ?? ""), locale],
     enabled: Boolean(listId),
     queryFn: async (): Promise<ListItem[]> => {
       const supabase = createClient();
@@ -135,7 +137,7 @@ export function useListItems(listId: string | null) {
 
       const movieIds = rows.filter((r) => r.media_type === "movie").map((r) => r.media_id);
       const seriesIds = rows.filter((r) => r.media_type === "series").map((r) => r.media_id);
-      const summaries = await fetchDisplaySummaries(movieIds, seriesIds);
+      const summaries = await fetchDisplaySummaries(movieIds, seriesIds, locale);
 
       return rows.map((row) => {
         const summary = row.media_type === "movie" ? summaries.movies[row.media_id] : summaries.series[row.media_id];
@@ -212,8 +214,9 @@ export interface ListWithPreview extends UserList {
  * de uma consulta por lista.
  */
 export function useMyListsWithPreview() {
+  const { locale } = useTranslation();
   return useQuery({
-    queryKey: [...LISTS_KEY, "with-preview"],
+    queryKey: [...LISTS_KEY, "with-preview", locale],
     queryFn: async (): Promise<ListWithPreview[]> => {
       const supabase = createClient();
       const { data: lists, error } = await supabase
@@ -250,7 +253,7 @@ export function useMyListsWithPreview() {
           else seriesIds.push(item.media_id);
         }
       }
-      const { movies, series } = await fetchDisplaySummaries(movieIds, seriesIds);
+      const { movies, series } = await fetchDisplaySummaries(movieIds, seriesIds, locale);
 
       return lists.map((list) => {
         const items = previewItemsByList.get(list.id) ?? [];

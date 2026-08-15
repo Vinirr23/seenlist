@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { fetchDisplaySummaries } from "./library-state";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const RECOMMENDATIONS_KEY = ["recommendations"] as const;
 const UNREAD_COUNT_KEY = ["recommendations", "unread-count"] as const;
@@ -74,8 +75,9 @@ export function useSendRecommendation() {
  * reaproveitada em vez de duplicada.
  */
 export function useReceivedRecommendations() {
+  const { locale } = useTranslation();
   return useQuery({
-    queryKey: RECOMMENDATIONS_KEY,
+    queryKey: [...RECOMMENDATIONS_KEY, locale],
     queryFn: async (): Promise<ReceivedRecommendation[]> => {
       const supabase = createClient();
       const {
@@ -103,7 +105,7 @@ export function useReceivedRecommendations() {
 
       const movieIds = rows.filter((r) => r.media_type === "movie").map((r) => r.media_id);
       const seriesIds = rows.filter((r) => r.media_type === "series").map((r) => r.media_id);
-      const summaries = await fetchDisplaySummaries(movieIds, seriesIds);
+      const summaries = await fetchDisplaySummaries(movieIds, seriesIds, locale);
 
       return rows.map((row) => {
         const sender = profileById.get(row.sender_id);

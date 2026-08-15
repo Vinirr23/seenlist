@@ -74,9 +74,9 @@ async function settleSummaries<T>(ids: number[], fetcher: (id: number) => Promis
 }
 
 export async function POST(request: Request) {
-  let body: Partial<RequestBody>;
+  let body: Partial<RequestBody & { language: string }>;
   try {
-    body = (await request.json()) as Partial<RequestBody>;
+    body = (await request.json()) as Partial<RequestBody & { language: string }>;
   } catch (error) {
     console.error("[api/tmdb/library-summaries] Corpo da requisição inválido.", error);
     return NextResponse.json({ error: "Requisição inválida." }, { status: 400 });
@@ -84,10 +84,11 @@ export async function POST(request: Request) {
 
   const movieIds = sanitizeIds(body.movieIds);
   const seriesIds = sanitizeIds(body.seriesIds);
+  const language = body.language || "pt-BR";
 
   const [movies, series] = await Promise.all([
-    settleSummaries(movieIds, getMovieSummary, "filme"),
-    settleSummaries(seriesIds, getSeriesSummary, "série"),
+    settleSummaries(movieIds, (id) => getMovieSummary(id, language), "filme"),
+    settleSummaries(seriesIds, (id) => getSeriesSummary(id, language), "série"),
   ]);
 
   const response: { movies: MediaSummary[]; series: MediaSummary[] } = { movies, series };

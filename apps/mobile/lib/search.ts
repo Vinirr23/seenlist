@@ -6,8 +6,8 @@ const HISTORY_KEY = "seenlist:search-history";
 const HISTORY_LIMIT = 8;
 
 /** Idêntico ao lib/queries/search.ts do web — mesma rota, mesmo formato de resposta. */
-export async function fetchSearchResults(query: string): Promise<MediaSearchResult[]> {
-  const response = await fetch(`${SITE_URL}/api/search?q=${encodeURIComponent(query)}`);
+export async function fetchSearchResults(query: string, language = "pt-BR"): Promise<MediaSearchResult[]> {
+  const response = await fetch(`${SITE_URL}/api/search?q=${encodeURIComponent(query)}&language=${language}`);
   if (!response.ok) throw new Error("search failed");
   const data = (await response.json()) as { results: MediaSearchResult[] };
   return data.results;

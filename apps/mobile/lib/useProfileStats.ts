@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchLibraryItems } from "@/lib/library";
 import { fetchPublicLibraryItems } from "@/lib/publicProfile";
 import { computeProfileStats, type ProfileStats } from "./profileStats";
+import { useTranslation } from "./i18n/LocaleProvider";
 
 export function useProfileStats() {
+  const { locale } = useTranslation();
   const [stats, setStats] = useState<ProfileStats | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -13,7 +15,7 @@ export function useProfileStats() {
     let cancelled = false;
     setIsLoading(true);
     setIsError(false);
-    fetchLibraryItems()
+    fetchLibraryItems(undefined, locale)
       .then((items) => {
         if (!cancelled) setStats(computeProfileStats(items));
       })
@@ -27,7 +29,7 @@ export function useProfileStats() {
     return () => {
       cancelled = true;
     };
-  }, [reloadToken]);
+  }, [reloadToken, locale]);
 
   const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
 
@@ -35,6 +37,7 @@ export function useProfileStats() {
 }
 
 export function usePublicProfileStats(userId: string | null) {
+  const { locale } = useTranslation();
   const [stats, setStats] = useState<ProfileStats | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -45,7 +48,7 @@ export function usePublicProfileStats(userId: string | null) {
     let cancelled = false;
     setIsLoading(true);
     setIsError(false);
-    fetchPublicLibraryItems(userId)
+    fetchPublicLibraryItems(userId, locale)
       .then((items) => {
         if (!cancelled) setStats(computeProfileStats(items));
       })
@@ -59,7 +62,7 @@ export function usePublicProfileStats(userId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [userId, reloadToken]);
+  }, [userId, reloadToken, locale]);
 
   const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
 

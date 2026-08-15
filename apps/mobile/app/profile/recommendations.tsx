@@ -43,9 +43,9 @@ export default function RecommendationsScreen() {
   const [showBlocked, setShowBlocked] = useState(false);
 
   const reload = useCallback(() => {
-    fetchReceivedRecommendations().then(setRecommendations);
+    fetchReceivedRecommendations(locale).then(setRecommendations);
     fetchBlockedUsers().then(setBlockedUsers);
-  }, []);
+  }, [locale]);
 
   useEffect(reload, [reload]);
   useFocusEffect(reload);

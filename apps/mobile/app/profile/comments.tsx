@@ -40,7 +40,7 @@ export default function MyCommentsScreen() {
 
   function load() {
     setIsLoading(true);
-    fetchMyComments()
+    fetchMyComments(locale)
       .then(setComments)
       .catch((error) => {
         console.error("[MyCommentsScreen] Falha ao buscar comentários", error);
@@ -49,7 +49,7 @@ export default function MyCommentsScreen() {
       .finally(() => setIsLoading(false));
   }
 
-  useEffect(load, []);
+  useEffect(load, [locale]);
 
   function handleOpen(comment: MyComment) {
     if (comment.seasonNumber != null && comment.episodeNumber != null) {

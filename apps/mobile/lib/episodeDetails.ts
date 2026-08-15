@@ -20,8 +20,8 @@ export interface EpisodePageData {
 }
 
 /** Idêntico a useEpisodeDetails do web — mesma rota (/api/tmdb/episode/..., já liberada no middleware pro app nativo). */
-export async function fetchEpisodePage(seriesId: string, season: number, episode: number): Promise<EpisodePageData> {
-  const response = await fetch(`${SITE_URL}/api/tmdb/episode/${seriesId}/${season}/${episode}`);
+export async function fetchEpisodePage(seriesId: string, season: number, episode: number, language = "pt-BR"): Promise<EpisodePageData> {
+  const response = await fetch(`${SITE_URL}/api/tmdb/episode/${seriesId}/${season}/${episode}?language=${language}`);
   if (!response.ok) throw new Error("episode fetch failed");
   return response.json() as Promise<EpisodePageData>;
 }

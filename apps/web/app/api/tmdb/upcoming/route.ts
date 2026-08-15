@@ -3,6 +3,7 @@ import { getNextEpisodeToAir, type NextEpisodeToAir } from "@/lib/tmdb/client";
 
 interface RequestBody {
   seriesIds: number[];
+  language?: string;
 }
 
 const MAX_IDS_PER_REQUEST = 100;
@@ -24,9 +25,11 @@ export async function POST(request: Request) {
   }
 
   const seriesIds = sanitizeIds(body.seriesIds);
+  // Opcional de propósito — a checagem de status (`seriesCategoryRecalc.ts`) chama esta rota sem passar idioma, e não deve mudar de comportamento (o nome do episódio nunca é usado pra decidir status, só a data).
+  const language = body.language || "pt-BR";
 
   try {
-    const results = await Promise.all(seriesIds.map((id) => getNextEpisodeToAir(id)));
+    const results = await Promise.all(seriesIds.map((id) => getNextEpisodeToAir(id, language)));
     const episodes: NextEpisodeToAir[] = results.filter((item): item is NextEpisodeToAir => item !== null);
     return NextResponse.json({ episodes });
   } catch (error) {

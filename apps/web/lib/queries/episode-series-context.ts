@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { CastMember } from "@seenlist/types";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
@@ -21,8 +22,8 @@ export interface EpisodeContextPayload {
   seasons: EpisodeContextSeason[];
 }
 
-async function fetchEpisodeSeriesContext(seriesId: string, season: number): Promise<EpisodeContextPayload> {
-  const response = await fetch(`/api/tmdb/series/${seriesId}/season/${season}/episode-context`);
+async function fetchEpisodeSeriesContext(seriesId: string, season: number, language: string): Promise<EpisodeContextPayload> {
+  const response = await fetch(`/api/tmdb/series/${seriesId}/season/${season}/episode-context?language=${language}`);
   if (!response.ok) throw new Error("episode series context fetch failed");
   return response.json() as Promise<EpisodeContextPayload>;
 }
@@ -56,9 +57,10 @@ async function fetchEpisodeSeriesContext(seriesId: string, season: number): Prom
  * página da Série continuam exatamente como sempre foram, intocadas.
  */
 export function useEpisodeSeriesContext(seriesId: string, season: number) {
+  const { locale } = useTranslation();
   return useQuery({
-    queryKey: ["episode-series-context", seriesId, season],
-    queryFn: () => fetchEpisodeSeriesContext(seriesId, season),
+    queryKey: ["episode-series-context", seriesId, season, locale],
+    queryFn: () => fetchEpisodeSeriesContext(seriesId, season, locale),
     staleTime: FIVE_MINUTES_MS,
     gcTime: FIVE_MINUTES_MS,
   });

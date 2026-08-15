@@ -42,7 +42,7 @@ export async function sendRecommendation(
   if (error) throw error;
 }
 
-export async function fetchReceivedRecommendations(): Promise<ReceivedRecommendation[]> {
+export async function fetchReceivedRecommendations(language = "pt-BR"): Promise<ReceivedRecommendation[]> {
   const {
     data: { user },
   } = await getCurrentAuthUser();
@@ -65,7 +65,7 @@ export async function fetchReceivedRecommendations(): Promise<ReceivedRecommenda
 
   const movieIds = rows.filter((r) => r.media_type === "movie").map((r) => r.media_id);
   const seriesIds = rows.filter((r) => r.media_type === "series").map((r) => r.media_id);
-  const summaries = await fetchDisplaySummaries(movieIds, seriesIds);
+  const summaries = await fetchDisplaySummaries(movieIds, seriesIds, language);
 
   return rows.map((row) => {
     const sender = profileById.get(row.sender_id);

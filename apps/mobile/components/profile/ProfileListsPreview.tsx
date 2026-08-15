@@ -7,6 +7,7 @@ import { fetchMyListsWithPreview, type ListWithPreview } from "@/lib/lists";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, Skeleton } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const CARD_SIZE = 112;
 
@@ -28,13 +29,14 @@ const CARD_SIZE = 112;
  */
 export function ProfileListsPreview() {
   const router = useRouter();
+  const { locale } = useTranslation();
   const [lists, setLists] = useState<ListWithPreview[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      fetchMyListsWithPreview()
+      fetchMyListsWithPreview(locale)
         .then((data) => {
           if (!cancelled) setLists(data);
         })
@@ -48,7 +50,7 @@ export function ProfileListsPreview() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [locale])
   );
 
   return (

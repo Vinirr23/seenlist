@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { MediaSearchResult } from "@seenlist/types";
 import { fetchSearchResults } from "./search";
+import { useTranslation } from "./i18n/LocaleProvider";
 
 export function useSearchMedia(query: string) {
+  const { locale } = useTranslation();
   const [data, setData] = useState<MediaSearchResult[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -20,7 +22,7 @@ export function useSearchMedia(query: string) {
     setIsLoading(true);
     setIsError(false);
 
-    fetchSearchResults(trimmed)
+    fetchSearchResults(trimmed, locale)
       .then((results) => {
         if (!cancelled) setData(results);
       })
@@ -35,7 +37,7 @@ export function useSearchMedia(query: string) {
     return () => {
       cancelled = true;
     };
-  }, [query]);
+  }, [query, locale]);
 
   return { data, isLoading, isError };
 }

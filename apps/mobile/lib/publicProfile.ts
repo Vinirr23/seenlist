@@ -105,7 +105,7 @@ interface FavoriteRow {
  * `PosterGrid` não mostra barra de progresso pra favoritos de
  * qualquer forma) — mesma escolha do web.
  */
-export async function fetchPublicFavorites(userId: string): Promise<LibraryItem[]> {
+export async function fetchPublicFavorites(userId: string, language = "pt-BR"): Promise<LibraryItem[]> {
   const { data, error } = await supabase.from("favorites").select("media_type, media_id").eq("user_id", userId);
   if (error) throw error;
 
@@ -114,7 +114,7 @@ export async function fetchPublicFavorites(userId: string): Promise<LibraryItem[
   const seriesIds = rows.filter((r) => r.media_type === "series").map((r) => r.media_id);
   if (movieIds.length === 0 && seriesIds.length === 0) return [];
 
-  const summaries = await fetchDisplaySummaries(movieIds, seriesIds);
+  const summaries = await fetchDisplaySummaries(movieIds, seriesIds, language);
   const now = new Date().toISOString();
 
   const toItem = (mediaType: "movie" | "series") => (summary: MediaSummary): LibraryItem => ({
@@ -133,6 +133,6 @@ export async function fetchPublicFavorites(userId: string): Promise<LibraryItem[
 }
 
 /** Biblioteca pública de outro usuário — mesma função de sempre, só passando o userId do dono do perfil em vez do usuário logado. */
-export async function fetchPublicLibraryItems(userId: string): Promise<LibraryItem[]> {
-  return fetchLibraryItems(userId);
+export async function fetchPublicLibraryItems(userId: string, language = "pt-BR"): Promise<LibraryItem[]> {
+  return fetchLibraryItems(userId, language);
 }

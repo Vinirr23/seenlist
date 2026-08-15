@@ -63,7 +63,7 @@ const SWIPE_THRESHOLD_PX = 60;
  */
 export default function EpisodeDetailScreen() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { seriesId, season, episode } = useLocalSearchParams<{ seriesId: string; season: string; episode: string }>();
   const seriesIdStr = String(seriesId);
   const seriesIdNum = Number(seriesId);
@@ -96,7 +96,7 @@ export default function EpisodeDetailScreen() {
     let cancelled = false;
     setIsLoading(true);
     setIsError(false);
-    fetchEpisodePage(seriesIdStr, seasonNumber, episodeNumber)
+    fetchEpisodePage(seriesIdStr, seasonNumber, episodeNumber, locale)
       .then((result) => {
         if (!cancelled) setData(result);
       })
@@ -122,17 +122,19 @@ export default function EpisodeDetailScreen() {
       if (!cancelled) setAggregate(value);
     });
 
-    fetchEpisodeSeriesContext(seriesIdStr, seasonNumber).then((value) => {
+    fetchEpisodeSeriesContext(seriesIdStr, seasonNumber, locale).then((value) => {
       if (cancelled) return;
       setSeriesContext(value);
       const year = value.firstAirDate ? Number(value.firstAirDate.slice(0, 4)) : null;
-      // TASK-168 — `value.title` vem em português (a API sempre pede
-      // language=pt-BR); o MyAnimeList/Jikan só conhece título em
-      // inglês/romaji, então a busca sempre falhava silenciosamente e
-      // caía pro elenco do TMDB (foto de dublador em vez de
-      // personagem). `matchTitle` é escolhido pra isso especificamente
-      // (título alternativo em inglês do TMDB, nunca exibido na tela)
-      // — ver `pickTitleForExternalMatching` em apps/web/lib/tmdb/client.ts.
+      // TASK-168 — `value.title` vem no idioma do app (a rota agora
+      // aceita `?language=`, ver correção "idioma dos dados do
+      // TMDB"); o MyAnimeList/Jikan só conhece título em
+      // inglês/romaji, então buscar por `title` falharia
+      // silenciosamente sempre que o app não estiver em português.
+      // `matchTitle` é escolhido pra isso especificamente (título
+      // alternativo em inglês do TMDB, sempre em inglês
+      // independente do idioma do app, nunca exibido na tela) — ver
+      // `pickTitleForExternalMatching` em apps/web/lib/tmdb/client.ts.
       // TASK-168 (correção 5, plano B — a pedido) — causa raiz de
       // verdade era instabilidade da própria Jikan (504 repetido, não
       // dá pra saber se a série é anime quando a busca falha de
@@ -150,7 +152,7 @@ export default function EpisodeDetailScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seriesIdStr, seasonNumber, episodeNumber, reloadToken]);
+  }, [seriesIdStr, seasonNumber, episodeNumber, reloadToken, locale]);
 
   const { previous, next } = useMemo(() => findAdjacentEpisodes(seriesContext?.seasons, seasonNumber, episodeNumber), [seriesContext?.seasons, seasonNumber, episodeNumber]);
 

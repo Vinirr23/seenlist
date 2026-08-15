@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { fetchDisplaySummaries } from "./library-state";
 import { STALE_TIME_FEED } from "@/lib/queryStaleTimes";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface ActivityItem {
   id: string;
@@ -32,8 +33,9 @@ const LIMIT_PER_SOURCE = 15;
  * não um dado inventado do zero.
  */
 export function useActivityFeed() {
+  const { locale } = useTranslation();
   return useQuery({
-    queryKey: ["activity-feed"],
+    queryKey: ["activity-feed", locale],
     queryFn: async (): Promise<ActivityItem[]> => {
       const supabase = createClient();
       const since = new Date();
@@ -86,7 +88,7 @@ export function useActivityFeed() {
       const reviewMovieIds = [...new Set((reviewRows.data ?? []).filter((r) => r.media_type === "movie").map((r) => r.media_id))];
       const reviewSeriesIds = [...new Set((reviewRows.data ?? []).filter((r) => r.media_type === "series").map((r) => r.media_id))];
 
-      const summaries = await fetchDisplaySummaries([...movieIds, ...reviewMovieIds], [...seriesIds, ...reviewSeriesIds]);
+      const summaries = await fetchDisplaySummaries([...movieIds, ...reviewMovieIds], [...seriesIds, ...reviewSeriesIds], locale);
 
       const items: ActivityItem[] = [];
 

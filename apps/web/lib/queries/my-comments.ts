@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { fetchDisplaySummaries } from "./library-state";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface MyComment {
   id: string;
@@ -40,8 +41,9 @@ function buildTargetUrl(
  * uma chamada em lote pros ids únicos, não uma por comentário.
  */
 export function useMyComments() {
+  const { locale } = useTranslation();
   return useQuery({
-    queryKey: ["my-comments"],
+    queryKey: ["my-comments", locale],
     queryFn: async (): Promise<MyComment[]> => {
       const supabase = createClient();
       const {
@@ -64,7 +66,7 @@ export function useMyComments() {
       const rows = data ?? [];
       const movieIds = [...new Set(rows.filter((r) => r.media_type === "movie").map((r) => r.media_id))];
       const seriesIds = [...new Set(rows.filter((r) => r.media_type === "series").map((r) => r.media_id))];
-      const summaries = await fetchDisplaySummaries(movieIds, seriesIds);
+      const summaries = await fetchDisplaySummaries(movieIds, seriesIds, locale);
 
       return rows.map((r) => {
         const summary = r.media_type === "movie" ? summaries.movies[r.media_id] : summaries.series[r.media_id];

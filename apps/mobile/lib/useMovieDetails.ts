@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import type { MovieDetails, MovieWatchStatus } from "@seenlist/types";
 import { fetchMovieDetails, fetchMovieStatus, setMovieStatus, fetchIsMovieFavorite, toggleMovieFavorite } from "./movieDetails";
 import { hapticTick } from "./haptics";
+import { useTranslation } from "./i18n/LocaleProvider";
 
 export function useMovieDetails(movieId: string) {
+  const { locale } = useTranslation();
   const [movie, setMovie] = useState<MovieDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -14,7 +16,7 @@ export function useMovieDetails(movieId: string) {
     setIsLoading(true);
     setIsError(false);
 
-    fetchMovieDetails(movieId)
+    fetchMovieDetails(movieId, locale)
       .then((data) => {
         if (!cancelled) setMovie(data);
       })
@@ -29,7 +31,7 @@ export function useMovieDetails(movieId: string) {
     return () => {
       cancelled = true;
     };
-  }, [movieId, reloadToken]);
+  }, [movieId, reloadToken, locale]);
 
   const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
 

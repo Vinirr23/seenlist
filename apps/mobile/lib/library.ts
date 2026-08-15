@@ -103,7 +103,11 @@ function chunkIds(ids: number[], size: number): number[][] {
   return chunks;
 }
 
-async function fetchOneLibrarySummariesPage(movieIds: number[], seriesIds: number[]): Promise<LibrarySummariesResponse> {
+async function fetchOneLibrarySummariesPage(
+  movieIds: number[],
+  seriesIds: number[],
+  language: string
+): Promise<LibrarySummariesResponse> {
   if (movieIds.length === 0 && seriesIds.length === 0) {
     return { movies: [], series: [] };
   }
@@ -111,7 +115,7 @@ async function fetchOneLibrarySummariesPage(movieIds: number[], seriesIds: numbe
     const response = await fetch(`${SITE_URL}/api/tmdb/library-summaries`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ movieIds, seriesIds }),
+      body: JSON.stringify({ movieIds, seriesIds, language }),
     });
     if (!response.ok) {
       console.warn(`[library] /api/tmdb/library-summaries respondeu ${response.status} numa página — itens desta página ficam sem poster/título.`);
@@ -124,9 +128,11 @@ async function fetchOneLibrarySummariesPage(movieIds: number[], seriesIds: numbe
   }
 }
 
+/** A PEDIDO — título/gênero/pôster sempre vinham em português. `language` opcional, default `"pt-BR"` — preserva todo comportamento já existente em quem chama sem passar nada. */
 export async function fetchDisplaySummaries(
   movieIds: number[],
-  seriesIds: number[]
+  seriesIds: number[],
+  language = "pt-BR"
 ): Promise<{ movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }> {
   if (movieIds.length === 0 && seriesIds.length === 0) {
     return { movies: {}, series: {} };
@@ -137,7 +143,9 @@ export async function fetchDisplaySummaries(
   const pageCount = Math.max(movieChunks.length, seriesChunks.length, 1);
 
   const pages = await Promise.all(
-    Array.from({ length: pageCount }, (_, index) => fetchOneLibrarySummariesPage(movieChunks[index] ?? [], seriesChunks[index] ?? []))
+    Array.from({ length: pageCount }, (_, index) =>
+      fetchOneLibrarySummariesPage(movieChunks[index] ?? [], seriesChunks[index] ?? [], language)
+    )
   );
 
   const movies: MediaSummary[] = [];
@@ -172,7 +180,8 @@ const summaryCache = new Map<string, { data: MediaSummary; expiresAt: number }>(
 
 export async function fetchDisplaySummariesCached(
   movieIds: number[],
-  seriesIds: number[]
+  seriesIds: number[],
+  language = "pt-BR"
 ): Promise<{ movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }> {
   const now = Date.now();
   const movies: Record<number, MediaSummary> = {};
@@ -181,7 +190,7 @@ export async function fetchDisplaySummariesCached(
   const missingSeriesIds: number[] = [];
 
   for (const id of movieIds) {
-    const cached = summaryCache.get(`movie:${id}`);
+    const cached = summaryCache.get(`movie:${id}:${language}`);
     if (cached && cached.expiresAt > now) {
       movies[id] = cached.data;
     } else {
@@ -189,7 +198,7 @@ export async function fetchDisplaySummariesCached(
     }
   }
   for (const id of seriesIds) {
-    const cached = summaryCache.get(`series:${id}`);
+    const cached = summaryCache.get(`series:${id}:${language}`);
     if (cached && cached.expiresAt > now) {
       series[id] = cached.data;
     } else {
@@ -198,14 +207,14 @@ export async function fetchDisplaySummariesCached(
   }
 
   if (missingMovieIds.length > 0 || missingSeriesIds.length > 0) {
-    const fetched = await fetchDisplaySummaries(missingMovieIds, missingSeriesIds);
+    const fetched = await fetchDisplaySummaries(missingMovieIds, missingSeriesIds, language);
     const expiresAt = Date.now() + SUMMARY_CACHE_TTL_MS;
     for (const [id, summary] of Object.entries(fetched.movies)) {
-      summaryCache.set(`movie:${id}`, { data: summary, expiresAt });
+      summaryCache.set(`movie:${id}:${language}`, { data: summary, expiresAt });
       movies[Number(id)] = summary;
     }
     for (const [id, summary] of Object.entries(fetched.series)) {
-      summaryCache.set(`series:${id}`, { data: summary, expiresAt });
+      summaryCache.set(`series:${id}:${language}`, { data: summary, expiresAt });
       series[Number(id)] = summary;
     }
   }
@@ -315,7 +324,7 @@ function buildLibraryItemsFromRows(
  * decora depois com poster/título — mesma ordem de responsabilidades
  * do web.
  */
-export async function fetchLibraryItems(userId?: string): Promise<LibraryItem[]> {
+export async function fetchLibraryItems(userId?: string, language = "pt-BR"): Promise<LibraryItem[]> {
   let targetUserId = userId;
   if (!targetUserId) {
     const {
@@ -372,7 +381,8 @@ export async function fetchLibraryItems(userId?: string): Promise<LibraryItem[]>
 
   const summaries = await fetchDisplaySummaries(
     movieRows.map((row) => row.movie_id),
-    [...validSeriesIds]
+    [...validSeriesIds],
+    language
   );
 
   return buildLibraryItemsFromRows(movieRows, seriesRows, episodeStats, summaries);

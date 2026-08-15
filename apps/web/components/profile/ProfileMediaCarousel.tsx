@@ -9,6 +9,7 @@ import { ChevronRight, Clapperboard, Plus } from "lucide-react";
 import { fetchDisplaySummaries } from "@/lib/queries/library-state";
 import type { MediaSummary } from "@/lib/tmdb/client";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const PAGE_SIZE = 20;
 /** Mesma janela do cache de resumo TMDB usado no resto do app (fetch do Next em library-state.ts). */
@@ -49,6 +50,7 @@ export function ProfileMediaCarousel({
   emptyLabel?: string;
   emptyHref?: string;
 }) {
+  const { locale } = useTranslation();
   const [visibleCount, setVisibleCount] = useState(() => Math.min(PAGE_SIZE, ids.length));
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -70,8 +72,8 @@ export function ProfileMediaCarousel({
 
   const chunkResults = useQueries({
     queries: chunks.map((chunkIds) => ({
-      queryKey: ["profile-media-summaries", mediaType, chunkIds.join(",")],
-      queryFn: () => fetchDisplaySummaries(mediaType === "movie" ? chunkIds : [], mediaType === "series" ? chunkIds : []),
+      queryKey: ["profile-media-summaries", mediaType, chunkIds.join(","), locale],
+      queryFn: () => fetchDisplaySummaries(mediaType === "movie" ? chunkIds : [], mediaType === "series" ? chunkIds : [], locale),
       staleTime: SUMMARY_STALE_TIME,
     })),
   });

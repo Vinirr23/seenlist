@@ -4,6 +4,7 @@ import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import type { MediaSummary } from "@/lib/tmdb/client";
 import { useRealtimeInvalidate } from "@/lib/supabase/useRealtimeInvalidate";
 import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export const LIBRARY_QUERY_KEY = ["library"] as const;
 const LIBRARY_REALTIME_TABLES = ["movie_status", "series_status", "watched_episodes"] as const;
@@ -88,7 +89,11 @@ function chunkIds(ids: number[], size: number): number[][] {
   return chunks;
 }
 
-async function fetchOneLibrarySummariesPage(movieIds: number[], seriesIds: number[]): Promise<LibrarySummariesResponse> {
+async function fetchOneLibrarySummariesPage(
+  movieIds: number[],
+  seriesIds: number[],
+  language: string
+): Promise<LibrarySummariesResponse> {
   if (movieIds.length === 0 && seriesIds.length === 0) {
     return { movies: [], series: [] };
   }
@@ -96,7 +101,7 @@ async function fetchOneLibrarySummariesPage(movieIds: number[], seriesIds: numbe
     const response = await fetch("/api/tmdb/library-summaries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ movieIds, seriesIds }),
+      body: JSON.stringify({ movieIds, seriesIds, language }),
     });
     if (!response.ok) {
       console.warn(
@@ -140,9 +145,17 @@ function warnIfAnyIdMissing(label: string, requestedIds: number[], received: Med
  * continua chamando isto uma vez só — a paginação é só daqui pra
  * dentro, nada muda pra quem chama.
  */
+/**
+ * A PEDIDO — título/gênero/pôster desses resumos sempre vinham em
+ * português. `language` opcional, default `"pt-BR"` — preserva TODO
+ * comportamento já existente em quem chama sem passar nada; só quem
+ * atualiza pra passar o idioma real do app recebe o dado no idioma
+ * certo.
+ */
 export async function fetchDisplaySummaries(
   movieIds: number[],
-  seriesIds: number[]
+  seriesIds: number[],
+  language = "pt-BR"
 ): Promise<{ movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }> {
   if (movieIds.length === 0 && seriesIds.length === 0) {
     return { movies: {}, series: {} };
@@ -154,7 +167,7 @@ export async function fetchDisplaySummaries(
 
   const pages = await Promise.all(
     Array.from({ length: pageCount }, (_, index) =>
-      fetchOneLibrarySummariesPage(movieChunks[index] ?? [], seriesChunks[index] ?? [])
+      fetchOneLibrarySummariesPage(movieChunks[index] ?? [], seriesChunks[index] ?? [], language)
     )
   );
 
@@ -291,7 +304,7 @@ export function buildLibraryItemsFromRows(
 }
 
 /** Exportado (só visibilidade, TASK-034) pra ferramentas de comparação chamarem exatamente esta função — não uma reimplementação — garantindo fidelidade 100% com o que a tela real usa. */
-export async function fetchLibraryItems(): Promise<LibraryItem[]> {
+export async function fetchLibraryItems(language = "pt-BR"): Promise<LibraryItem[]> {
   const supabase = createClient();
   const {
     data: { user },
@@ -365,16 +378,19 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
 
   const summaries = await fetchDisplaySummaries(
     movieRows.map((row) => row.movie_id),
-    [...validSeriesIds]
+    [...validSeriesIds],
+    language
   );
 
   return buildLibraryItemsFromRows(movieRows, seriesRows, episodeStats, summaries);
 }
 
+/** A PEDIDO — pôster/título/gênero da Biblioteca sempre vinham em português. `locale` na `queryKey` garante rebusca ao trocar de idioma. */
 export function useLibraryItems() {
+  const { locale } = useTranslation();
   return useQuery({
-    queryKey: LIBRARY_QUERY_KEY,
-    queryFn: fetchLibraryItems,
+    queryKey: [...LIBRARY_QUERY_KEY, locale],
+    queryFn: () => fetchLibraryItems(locale),
     staleTime: STALE_TIME_LIBRARY,
   });
 }

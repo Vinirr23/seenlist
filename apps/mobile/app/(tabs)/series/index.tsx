@@ -60,7 +60,7 @@ export default function SeriesHomeScreen() {
   const { items, isLoading, isError, refreshing, refetch, refetchSilently } = useLibraryItems();
   const upcoming = useUpcomingEpisodes();
   const { viewMode, setViewMode } = useViewModePreference("series-library");
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   /**
    * TASK-143/151 — toda vez que a aba Séries ganha foco, recalcula
@@ -227,7 +227,7 @@ export default function SeriesHomeScreen() {
    */
   useEffect(() => {
     for (const item of continueWatching.slice(0, 2)) {
-      prefetchSeriesDetails(String(item.id));
+      prefetchSeriesDetails(String(item.id), locale);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [continueWatching.map((i) => i.id).join(",")]);
