@@ -260,7 +260,10 @@ async function fetchWatchedEpisodeCountsBySeriesId(userId: string, seriesIds: nu
   return counts;
 }
 
-export async function fetchLiveEpisodesBySeriesId(seriesIds: number[]): Promise<Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[]>> {
+export async function fetchLiveEpisodesBySeriesId(
+  seriesIds: number[],
+  language = "pt-BR"
+): Promise<Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[]>> {
   const result = new Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[]>();
   const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
 
@@ -269,7 +272,7 @@ export async function fetchLiveEpisodesBySeriesId(seriesIds: number[]): Promise<
       fetch(`${SITE_URL}/api/tmdb/series-episodes-at-export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seriesIds: idsChunk }),
+        body: JSON.stringify({ seriesIds: idsChunk, language }),
       })
     )
   );

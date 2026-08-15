@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { fetchDiscoverList, type DiscoverItem, type DiscoverListKey } from "./discover";
+import { useTranslation } from "./i18n/LocaleProvider";
 
 export function useDiscoverList(list: DiscoverListKey) {
+  const { locale } = useTranslation();
   const [items, setItems] = useState<DiscoverItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -11,7 +13,7 @@ export function useDiscoverList(list: DiscoverListKey) {
     setIsLoading(true);
     setIsError(false);
 
-    fetchDiscoverList(list)
+    fetchDiscoverList(list, locale)
       .then((data) => {
         if (!cancelled) setItems(data);
       })
@@ -26,7 +28,7 @@ export function useDiscoverList(list: DiscoverListKey) {
     return () => {
       cancelled = true;
     };
-  }, [list]);
+  }, [list, locale]);
 
   return { items, isLoading, isError };
 }

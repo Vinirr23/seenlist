@@ -376,11 +376,11 @@ interface TmdbSeriesSeasonsResponse {
  * outras. Ignora temporada 0 (especiais), mesma convenção do resto
  * do projeto.
  */
-export async function getAllEpisodesWithAirDates(seriesId: string): Promise<Episode[]> {
+export async function getAllEpisodesWithAirDates(seriesId: string, language = "pt-BR"): Promise<Episode[]> {
   const seasonsData = await tmdbGet<TmdbSeriesSeasonsResponse>(`/tv/${seriesId}`);
   const seasonNumbers = seasonsData.seasons.filter((s) => s.season_number >= 1).map((s) => s.season_number);
 
-  const settled = await Promise.allSettled(seasonNumbers.map((n) => getSeasonEpisodes(seriesId, n)));
+  const settled = await Promise.allSettled(seasonNumbers.map((n) => getSeasonEpisodes(seriesId, n, language)));
   const episodes: Episode[] = [];
   settled.forEach((outcome, index) => {
     if (outcome.status === "fulfilled") {

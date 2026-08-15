@@ -24,7 +24,7 @@ const LIMIT_PER_SOURCE = 15;
  * propósito, por pedido explícito — o próprio web mostra atividade
  * global nesta mesma tela.
  */
-export async function fetchActivityFeed(): Promise<ActivityItem[]> {
+export async function fetchActivityFeed(language = "pt-BR"): Promise<ActivityItem[]> {
   const {
     data: { user: viewer },
   } = await getCurrentAuthUser();
@@ -73,7 +73,7 @@ export async function fetchActivityFeed(): Promise<ActivityItem[]> {
   const reviewMovieIds = [...new Set((reviewRows.data ?? []).filter((r) => r.media_type === "movie").map((r) => r.media_id))];
   const reviewSeriesIds = [...new Set((reviewRows.data ?? []).filter((r) => r.media_type === "series").map((r) => r.media_id))];
 
-  const summaries = await fetchDisplaySummaries([...movieIds, ...reviewMovieIds], [...seriesIds, ...reviewSeriesIds]);
+  const summaries = await fetchDisplaySummaries([...movieIds, ...reviewMovieIds], [...seriesIds, ...reviewSeriesIds], language);
 
   const items: ActivityItem[] = [];
 

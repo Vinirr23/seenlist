@@ -4,10 +4,12 @@ import { Feather } from "@expo/vector-icons";
 import { ReviewsFullView } from "@/components/reviews/ReviewsFullView";
 import { Screen, Text } from "@/components/ui";
 import { colors, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /** A PEDIDO (implementar tudo igual ao web) — mesma tela de `app/series/[id]/reviews.tsx`, pro filme. */
 export default function MovieReviewsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id, title, posterPath } = useLocalSearchParams<{ id: string; title: string; posterPath: string }>();
   const numericId = Number(id);
 
@@ -17,7 +19,7 @@ export default function MovieReviewsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Avaliações</Text>
+        <Text variant="subtitle">{t("social.reviews")}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>

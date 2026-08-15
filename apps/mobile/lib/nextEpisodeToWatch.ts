@@ -71,7 +71,7 @@ async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: numb
  * episódio (mesmo dado, mesma resposta) — sem motivo pra buscar de
  * novo, um por um. Eliminado.
  */
-export async function fetchNextEpisodesToWatch(seriesIds: number[]): Promise<Map<number, NextEpisodeToWatch>> {
+export async function fetchNextEpisodesToWatch(seriesIds: number[], language = "pt-BR"): Promise<Map<number, NextEpisodeToWatch>> {
   const result = new Map<number, NextEpisodeToWatch>();
   if (seriesIds.length === 0) return result;
 
@@ -81,7 +81,7 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[]): Promise<Map
   if (!user) return result;
 
   const [liveEpisodesBySeriesId, watchedKeysBySeriesId] = await Promise.all([
-    fetchLiveEpisodesBySeriesId(seriesIds),
+    fetchLiveEpisodesBySeriesId(seriesIds, language),
     fetchWatchedEpisodeKeysBySeriesId(user.id, seriesIds),
   ]);
 

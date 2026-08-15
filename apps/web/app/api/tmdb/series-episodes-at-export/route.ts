@@ -3,6 +3,7 @@ import { getAllEpisodesWithAirDates } from "@/lib/tmdb/client";
 
 interface RequestBody {
   seriesIds: number[];
+  language?: string;
 }
 
 const MAX_IDS_PER_REQUEST = 20;
@@ -30,11 +31,13 @@ export async function POST(request: Request) {
   }
 
   const seriesIds = sanitizeIds(body.seriesIds);
+  // Opcional, padrão pt-BR — quem chama pra decidir STATUS (não exibição) nunca passa isso, e não deve mudar de comportamento.
+  const language = body.language || "pt-BR";
 
   const settled = await Promise.allSettled(
     seriesIds.map(async (id) => ({
       id,
-      episodes: await getAllEpisodesWithAirDates(String(id)),
+      episodes: await getAllEpisodesWithAirDates(String(id), language),
     }))
   );
 

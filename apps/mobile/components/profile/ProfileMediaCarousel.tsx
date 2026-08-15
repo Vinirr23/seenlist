@@ -6,6 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchDisplaySummariesCached, tmdbImageUrl, type MediaSummary } from "@/lib/library";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const PAGE_SIZE = 20;
 const POSTER_WIDTH = 96;
@@ -39,6 +40,7 @@ export function ProfileMediaCarousel({
   emptyHref?: string;
 }) {
   const router = useRouter();
+  const { locale } = useTranslation();
   const [visibleCount, setVisibleCount] = useState(0);
   const [summaryMap, setSummaryMap] = useState<Record<number, MediaSummary>>({});
   const fetchedUpTo = useRef(0);
@@ -49,17 +51,17 @@ export function ProfileMediaCarousel({
     setSummaryMap({});
     setVisibleCount(Math.min(PAGE_SIZE, ids.length));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey]);
+  }, [idsKey, locale]);
 
   useEffect(() => {
     if (visibleCount <= fetchedUpTo.current) return;
     const newIds = ids.slice(fetchedUpTo.current, visibleCount);
     fetchedUpTo.current = visibleCount;
-    fetchDisplaySummariesCached(mediaType === "movie" ? newIds : [], mediaType === "series" ? newIds : []).then((result) => {
+    fetchDisplaySummariesCached(mediaType === "movie" ? newIds : [], mediaType === "series" ? newIds : [], locale).then((result) => {
       const newMap = mediaType === "movie" ? result.movies : result.series;
       setSummaryMap((prev) => ({ ...prev, ...newMap }));
     });
-  }, [visibleCount, ids, mediaType]);
+  }, [visibleCount, ids, mediaType, locale]);
 
   function loadMore() {
     setVisibleCount((c) => Math.min(c + PAGE_SIZE, ids.length));

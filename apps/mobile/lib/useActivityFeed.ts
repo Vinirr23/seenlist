@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchActivityFeed, type ActivityItem } from "./activityFeed";
+import { useTranslation } from "./i18n/LocaleProvider";
 
 export function useActivityFeed() {
+  const { locale } = useTranslation();
   const [items, setItems] = useState<ActivityItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -11,7 +13,7 @@ export function useActivityFeed() {
     let cancelled = false;
     setIsLoading(true);
     setIsError(false);
-    fetchActivityFeed()
+    fetchActivityFeed(locale)
       .then((data) => {
         if (!cancelled) setItems(data);
       })
@@ -25,7 +27,7 @@ export function useActivityFeed() {
     return () => {
       cancelled = true;
     };
-  }, [reloadToken]);
+  }, [reloadToken, locale]);
 
   const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
 

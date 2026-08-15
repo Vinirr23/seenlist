@@ -247,7 +247,7 @@ export default function SeriesDetailScreen() {
               <EpisodeCarousel seriesId={numericId} category={status} seasons={series.seasons} watched={watched} onToggleEpisode={toggle} caughtUpBadge={caughtUpBadge} />
 
               {series.seasons.length === 0 ? (
-                <Text variant="muted">Nenhuma temporada encontrada.</Text>
+                <Text variant="muted">{t("media.noSeasonsFound")}</Text>
               ) : (
                 series.seasons.map((season, index) => (
                   <SeasonAccordion

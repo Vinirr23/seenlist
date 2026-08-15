@@ -203,7 +203,7 @@ export default function SeriesHomeScreen() {
   const loadNextEpisodes = useCallback(() => {
     if (listNeedingEpisodes.length === 0) return;
     setNextEpisodesLoaded(false);
-    fetchNextEpisodesToWatch(listNeedingEpisodes.map((item) => item.id))
+    fetchNextEpisodesToWatch(listNeedingEpisodes.map((item) => item.id), locale)
       .then((map) => {
         setNextEpisodes(map);
         setNextEpisodesLoaded(true);
@@ -213,7 +213,7 @@ export default function SeriesHomeScreen() {
         setNextEpisodesLoaded(true); // não trava no esqueleto pra sempre se der erro — cai pro cartão simples
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listNeedingEpisodes.map((i) => i.id).join(",")]);
+  }, [listNeedingEpisodes.map((i) => i.id).join(","), locale]);
 
   useEffect(loadNextEpisodes, [loadNextEpisodes]);
 

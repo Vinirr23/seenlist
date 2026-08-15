@@ -6,6 +6,7 @@ import type { SeriesDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text } from "@/components/ui";
 import { colors, spacing, scrim } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * CORREÇÃO (a pedido — auditoria mais rigorosa) — evita
@@ -33,11 +34,12 @@ export function SeriesHeader({
   onMorePress: () => void;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const backdropUrl = tmdbImageUrl(series.backdropPath, "w780");
   const year = series.firstAirDate ? series.firstAirDate.slice(0, 4) : null;
   const showProgress = totalEpisodes > 0;
   const percentage = showProgress ? Math.round((watchedCount / totalEpisodes) * 100) : 0;
-  const seasonsLabel = `${series.numberOfSeasons} ${series.numberOfSeasons === 1 ? "temporada" : "temporadas"}`;
+  const seasonsLabel = `${series.numberOfSeasons} ${series.numberOfSeasons === 1 ? t("media.seasonSingular") : t("media.seasonPlural")}`;
 
   return (
     <View style={styles.wrapper}>
