@@ -1,11 +1,9 @@
+"use client";
+
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export type SeriesHomeTab = "minha-lista" | "em-breve";
-
-const LABELS: Record<SeriesHomeTab, string> = {
-  "minha-lista": "Minha Lista",
-  "em-breve": "Em breve",
-};
 
 const ORDER: SeriesHomeTab[] = ["minha-lista", "em-breve"];
 
@@ -16,6 +14,11 @@ export function SeriesHomeTabs({
   active: SeriesHomeTab;
   onChange: (tab: SeriesHomeTab) => void;
 }) {
+  const { t } = useTranslation();
+  const LABELS: Record<SeriesHomeTab, string> = {
+    "minha-lista": t("seriesHome.tab.myList"),
+    "em-breve": t("seriesHome.tab.upcoming"),
+  };
   return (
     <div role="tablist" className="mb-4 flex gap-1 border-b border-border">
       {ORDER.map((tab) => (

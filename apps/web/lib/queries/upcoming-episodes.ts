@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { NextEpisodeToAir } from "@/lib/tmdb/client";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { useLibraryItems } from "./library";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 /** TASK-051 — "episódio acabou de ser lançado" pro badge NOVO. TMDB não define isso; escolhi 7 dias como corte razoável de "recém-lançado", documentado aqui — sem constraint nenhuma no banco, só uma decisão de UI. */
@@ -24,13 +25,13 @@ export interface UpcomingGroup {
   episodes: UpcomingEpisodeWithBadge[];
 }
 
-async function fetchUpcoming(seriesIds: number[]): Promise<NextEpisodeToAir[]> {
+async function fetchUpcoming(seriesIds: number[], language: string): Promise<NextEpisodeToAir[]> {
   if (seriesIds.length === 0) return [];
 
   const response = await fetch("/api/tmdb/upcoming", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ seriesIds }),
+    body: JSON.stringify({ seriesIds, language }),
   });
   if (!response.ok) throw new Error("upcoming fetch failed");
 
@@ -180,6 +181,7 @@ function formatDayLabel(daysUntil: number, dateKey: string): string {
  * série ativamente; ambos devem aparecer aqui.
  */
 export function useUpcomingEpisodes() {
+  const { locale } = useTranslation();
   const libraryQuery = useLibraryItems();
 
   const seriesIds = useMemo(
@@ -195,8 +197,8 @@ export function useUpcomingEpisodes() {
   );
 
   const upcomingQuery = useQuery({
-    queryKey: ["upcoming-episodes", seriesIds.slice().sort((a, b) => a - b).join(",")],
-    queryFn: () => fetchUpcoming(seriesIds),
+    queryKey: ["upcoming-episodes", seriesIds.slice().sort((a, b) => a - b).join(","), locale],
+    queryFn: () => fetchUpcoming(seriesIds, locale),
     enabled: !libraryQuery.isLoading,
     staleTime: FIVE_MINUTES_MS,
     gcTime: FIVE_MINUTES_MS,

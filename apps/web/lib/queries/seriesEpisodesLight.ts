@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
@@ -34,11 +35,11 @@ export interface LightSeason {
  * usado pela página de detalhe da série (que precisa mesmo de
  * elenco/sinopse/etc.) — nada mudou lá.
  */
-async function fetchLightEpisodes(seriesId: number): Promise<LightEpisode[]> {
+async function fetchLightEpisodes(seriesId: number, language: string): Promise<LightEpisode[]> {
   const response = await fetch("/api/tmdb/series-episodes-at-export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ seriesIds: [seriesId] }),
+    body: JSON.stringify({ seriesIds: [seriesId], language }),
   });
   if (!response.ok) {
     throw new Error("light episodes fetch failed");
@@ -61,9 +62,10 @@ export function groupBySeason(episodes: LightEpisode[]): LightSeason[] {
 }
 
 export function useSeriesEpisodesLight(seriesId: number) {
+  const { locale } = useTranslation();
   return useQuery({
-    queryKey: ["series-episodes-light", seriesId],
-    queryFn: () => fetchLightEpisodes(seriesId),
+    queryKey: ["series-episodes-light", seriesId, locale],
+    queryFn: () => fetchLightEpisodes(seriesId, locale),
     staleTime: FIVE_MINUTES_MS,
     gcTime: FIVE_MINUTES_MS,
   });

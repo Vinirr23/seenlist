@@ -5,6 +5,22 @@ import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { translations, DEFAULT_LOCALE, matchSupportedLocale, type Locale } from "./translations";
 
 const STORAGE_KEY = "seenlist:locale";
+/**
+ * A PEDIDO — achado real, auditoria profunda de tradução: o idioma só
+ * ficava salvo em `localStorage`, que o SERVIDOR nunca consegue ler.
+ * Toda página que busca dado do TMDB no servidor (`async function
+ * Page(...)`, sem "use client") ficava presa no padrão pt-BR, mesmo
+ * com a pessoa tendo trocado de idioma. Cookie espelha o mesmo valor
+ * — `next/headers` (`cookies()`) consegue ler isso em componente de
+ * servidor, ver `getServerLocale()` no fim deste arquivo.
+ */
+const COOKIE_KEY = "seenlist_locale";
+const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365; // 1 ano
+
+function writeLocaleCookie(locale: Locale) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${COOKIE_KEY}=${locale}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+}
 
 interface LocaleContextValue {
   locale: Locale;
@@ -36,6 +52,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     const stored = readStoredLocale();
     if (stored) {
       setLocaleState(stored);
+      writeLocaleCookie(stored);
       return;
     }
     // Sem nada local ainda (primeiro acesso neste navegador) — busca
@@ -46,6 +63,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       const saved = data.user?.user_metadata?.locale as Locale | undefined;
       if (saved && saved in translations) {
         setLocaleState(saved);
+        writeLocaleCookie(saved);
         return;
       }
       // A PEDIDO — pessoa de verdade nova (sem preferência salva em
@@ -53,13 +71,16 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       // de sempre abrir em pt-BR. `navigator.language` é a escolha
       // de verdade da pessoa (o que ela configurou no aparelho), não
       // uma suposição baseada em onde ela está.
-      setLocaleState(matchSupportedLocale(navigator.language));
+      const matched = matchSupportedLocale(navigator.language);
+      setLocaleState(matched);
+      writeLocaleCookie(matched);
     });
   }, []);
 
   function setLocale(next: Locale) {
     setLocaleState(next);
     window.localStorage.setItem(STORAGE_KEY, next);
+    writeLocaleCookie(next);
     const supabase = createClient();
     supabase.auth.updateUser({ data: { locale: next } }).catch((error) => {
       console.error("[locale] Falha ao salvar idioma no perfil", error);

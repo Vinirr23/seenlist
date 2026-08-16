@@ -1,5 +1,6 @@
 import { CommentsPageView } from "@/components/social/CommentsPageView";
 import { getSeriesSummary } from "@/lib/tmdb/client";
+import { getServerLocale, translateServer } from "@/lib/i18n/serverLocale";
 
 /**
  * A PEDIDO — a seção de review em texto (dentro de Comentários
@@ -11,14 +12,15 @@ import { getSeriesSummary } from "@/lib/tmdb/client";
  */
 export default async function SeriesCommentsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const media = await getSeriesSummary(Number(id))
+  const locale = await getServerLocale();
+  const media = await getSeriesSummary(Number(id), locale)
     .then((summary) => ({ type: "series" as const, title: summary.title, posterPath: summary.posterPath }))
     .catch(() => undefined);
 
   return (
     <CommentsPageView
       backHref={`/series/${id}`}
-      title="Avaliações"
+      title={translateServer(locale, "reviews.title")}
       target={{ mediaType: "series", mediaId: Number(id) }}
       media={media}
     />
