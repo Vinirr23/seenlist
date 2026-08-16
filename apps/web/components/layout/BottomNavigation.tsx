@@ -60,7 +60,7 @@ export function BottomNavigation() {
 
   return (
     <nav
-      aria-label="Navegação principal"
+      aria-label={t("nav.mainNavigation")}
       className="fixed inset-x-3 bottom-3 z-40 mx-auto flex max-w-[404px] items-center rounded-2xl border border-border bg-surface/95 shadow-lg shadow-black/20 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]"
     >
       {activeIndex >= 0 && (

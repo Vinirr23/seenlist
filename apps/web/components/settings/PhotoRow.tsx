@@ -50,7 +50,7 @@ export function PhotoRow() {
     } catch (uploadOrUpdateError) {
       console.error("[account] Falha ao enviar foto de perfil — confira se o bucket \"avatars\" existe no Supabase Storage.", uploadOrUpdateError);
       setError(t("common.error"));
-      toast.error("Erro de conexão");
+      toast.error(t("toast.connectionError"));
     } finally {
       setPending(false);
       if (inputRef.current) inputRef.current.value = "";

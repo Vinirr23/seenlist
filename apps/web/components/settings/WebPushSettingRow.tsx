@@ -8,6 +8,7 @@ import {
   subscribeToWebPush,
   unsubscribeFromWebPush,
 } from "@/lib/push/webPush";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * A PEDIDO — controle permanente do aviso no navegador, nas
@@ -22,6 +23,7 @@ import {
  * - ativo / inativo: alternável aqui mesmo
  */
 export function WebPushSettingRow() {
+  const { t } = useTranslation();
   const [state, setState] = useState<"loading" | "unsupported" | "denied" | "active" | "inactive">("loading");
   const [busy, setBusy] = useState(false);
   const [isIos, setIsIos] = useState(false);
@@ -61,29 +63,20 @@ export function WebPushSettingRow() {
 
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
-      <p className="text-sm font-semibold text-text">Avisos neste navegador</p>
+      <p className="text-sm font-semibold text-text">{t("push.settingsTitle")}</p>
 
       {state === "unsupported" && (
         <p className="mt-1 text-xs leading-relaxed text-muted">
-          {isIos
-            ? "No iPhone, adicione o SeenList à tela de início (botão de compartilhar → Adicionar à Tela de Início) para poder receber avisos."
-            : "Este navegador não suporta notificações."}
+          {isIos ? t("push.iosInstructions") : t("push.unsupportedBrowser")}
         </p>
       )}
 
-      {state === "denied" && (
-        <p className="mt-1 text-xs leading-relaxed text-muted">
-          Você bloqueou as notificações deste site. Para reativar, mude a permissão nas configurações do navegador — não
-          conseguimos fazer isso por aqui.
-        </p>
-      )}
+      {state === "denied" && <p className="mt-1 text-xs leading-relaxed text-muted">{t("push.deniedMessage")}</p>}
 
       {(state === "active" || state === "inactive") && (
         <>
           <p className="mt-1 text-xs leading-relaxed text-muted">
-            {state === "active"
-              ? "Você recebe aviso aqui quando sai episódio novo das séries que acompanha."
-              : "Ative para saber na hora quando sair episódio novo das suas séries."}
+            {state === "active" ? t("push.activeMessage") : t("push.inactiveMessage")}
           </p>
           <button
             type="button"
@@ -95,7 +88,7 @@ export function WebPushSettingRow() {
                 : "mt-3 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-background disabled:opacity-50"
             }
           >
-            {busy ? "Aguarde..." : state === "active" ? "Desativar" : "Ativar avisos"}
+            {busy ? t("push.waiting") : state === "active" ? t("push.disable") : t("push.enableAlerts")}
           </button>
         </>
       )}

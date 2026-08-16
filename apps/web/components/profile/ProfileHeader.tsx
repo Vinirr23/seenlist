@@ -62,7 +62,7 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
             {profile?.username && <ShareProfileButton username={profile.username} iconOnly />}
             <Link
               href="/profile/settings"
-              aria-label="Configurações"
+              aria-label={t("settings.title")}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-transform active:scale-90"
             >
               <Settings className="h-4 w-4" strokeWidth={2} />
@@ -98,7 +98,7 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
           {profile?.username && <ShareProfileButton username={profile.username} iconOnly />}
           <Link
             href="/profile/settings"
-            aria-label="Configurações"
+            aria-label={t("settings.title")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-muted transition-colors hover:text-text"
           >
             <Settings className="h-4 w-4" strokeWidth={2} />

@@ -116,7 +116,7 @@ export function EditProfileView() {
       <div className="mb-6 flex items-center gap-2 px-4 pt-4">
         <Link
           href="/profile"
-          aria-label="Voltar"
+          aria-label={t("common.back")}
           className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface hover:text-text"
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />

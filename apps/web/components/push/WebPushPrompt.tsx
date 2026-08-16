@@ -8,6 +8,7 @@ import {
   hasActiveSubscription,
   subscribeToWebPush,
 } from "@/lib/push/webPush";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * A PEDIDO — convite pra ativar aviso de episódio novo no navegador.
@@ -31,6 +32,7 @@ const DISMISS_KEY = "seenlist:web-push-dismissed-until";
 const DISMISS_DAYS = 7;
 
 export function WebPushPrompt() {
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +79,7 @@ export function WebPushPrompt() {
       setVisible(false);
       return;
     }
-    setError("Não foi possível ativar agora. Tente de novo mais tarde.");
+    setError(t("push.enableError"));
   }
 
   if (!visible) return null;
@@ -87,10 +89,8 @@ export function WebPushPrompt() {
       <div className="flex items-start gap-3">
         <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-text">Quer saber quando sair episódio novo?</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted">
-            A gente te avisa aqui no navegador assim que sair episódio das séries que você acompanha.
-          </p>
+          <p className="text-sm font-bold text-text">{t("push.webPromptTitle")}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted">{t("push.webPromptDescription")}</p>
 
           {error && <p className="mt-2 text-xs text-danger">{error}</p>}
 
@@ -101,19 +101,19 @@ export function WebPushPrompt() {
               disabled={busy}
               className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-background disabled:opacity-50"
             >
-              {busy ? "Ativando..." : "Ativar avisos"}
+              {busy ? t("push.enabling") : t("push.enableAlerts")}
             </button>
             <button
               type="button"
               onClick={handleDismiss}
               className="rounded-lg px-3 py-2 text-xs font-semibold text-muted"
             >
-              Agora não
+              {t("social.notNow")}
             </button>
           </div>
         </div>
 
-        <button type="button" onClick={handleDismiss} aria-label="Fechar" className="shrink-0 text-muted">
+        <button type="button" onClick={handleDismiss} aria-label={t("social.close")} className="shrink-0 text-muted">
           <X className="h-4 w-4" strokeWidth={2} />
         </button>
       </div>

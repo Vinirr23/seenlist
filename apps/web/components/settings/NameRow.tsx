@@ -26,7 +26,7 @@ export function NameRow({ currentName }: { currentName: string }) {
       return;
     }
     queryClient.invalidateQueries({ queryKey: ["current-user"] });
-    toast.success("Perfil atualizado");
+    toast.success(t("settings.profileUpdated"));
     setOpen(false);
   }
 

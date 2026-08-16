@@ -1,4 +1,7 @@
+"use client";
+
 import type { CurrentUser } from "@/lib/queries/current-user";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -11,11 +14,12 @@ function Row({ label, value }: { label: string; value: string }) {
 
 /** Item 4: Nome, Email, UID — UID só em desenvolvimento (item explícito: "opcional, apenas para debug"). */
 export function AccountSection({ user }: { user: CurrentUser }) {
+  const { t } = useTranslation();
   return (
     <section className="mb-6">
-      <h2 className="mb-2 px-1 text-sm font-semibold text-text">Conta</h2>
+      <h2 className="mb-2 px-1 text-sm font-semibold text-text">{t("settings.section.account")}</h2>
       <div className="rounded-lg border border-border bg-surface">
-        <Row label="Nome" value={user.name} />
+        <Row label={t("settings.name")} value={user.name} />
         <Row label="Email" value={user.email} />
         {process.env.NODE_ENV === "development" && <Row label="UID" value={user.id} />}
       </div>

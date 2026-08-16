@@ -28,7 +28,7 @@ export function ProfileView() {
 
   if (isLoading) {
     return (
-      <div className="space-y-3" aria-busy="true" aria-label="Carregando perfil">
+      <div className="space-y-3" aria-busy="true" aria-label={t("profile.loadingProfile")}>
         <div className="h-16 animate-pulse rounded-full bg-surface" />
         <div className="h-24 animate-pulse rounded-lg bg-surface" />
       </div>

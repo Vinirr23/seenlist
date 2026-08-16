@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { type LucideIcon } from "lucide-react";
 import { cn } from "@seenlist/utils";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface BottomNavigationItemProps {
   href: string;
@@ -18,6 +19,7 @@ export function BottomNavigationItem({
   active = false,
   badge = false,
 }: BottomNavigationItemProps) {
+  const { t } = useTranslation();
   return (
     <Link
       href={href}
@@ -41,7 +43,7 @@ export function BottomNavigationItem({
         />
         {badge && (
           <span
-            aria-label="Notificações não lidas"
+            aria-label={t("nav.unreadNotifications")}
             className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-surface"
           />
         )}
