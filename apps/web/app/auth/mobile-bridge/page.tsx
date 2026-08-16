@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-079 — último passo da ponte de login do Google dentro do app
@@ -17,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 function MobileBridgeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useTranslation();
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ function MobileBridgeContent() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background px-4 text-center">
-      <p className="text-sm text-muted">{error ? "Não foi possível entrar agora. Tenta de novo." : "Entrando..."}</p>
+      <p className="text-sm text-muted">{error ? t("auth.googleSignInError") : t("auth.signingIn")}</p>
     </div>
   );
 }
