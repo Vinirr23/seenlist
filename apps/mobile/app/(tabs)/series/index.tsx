@@ -8,6 +8,7 @@ import { useViewModePreference } from "@/lib/useViewModePreference";
 import { recalculateUpToDateSeriesCategoriesThrottled, prefetchSeriesDetails } from "@/lib/seriesDetails";
 import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { mark } from "@/lib/perfMarks";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingListRow";
@@ -54,10 +55,16 @@ const STALE_AFTER_DAYS = 14;
  * série (também já construída depois).
  */
 export default function SeriesHomeScreen() {
+  mark("series_home_render"); // TEMPORÁRIO — ver lib/perfMarks.ts
   const router = useRouter();
   const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
   const { items, isLoading, isError, refreshing, refetch, refetchSilently } = useLibraryItems();
+
+  // TEMPORÁRIO — ver lib/perfMarks.ts
+  useEffect(() => {
+    if (!isLoading) mark("series_home_data_loaded");
+  }, [isLoading]);
   const upcoming = useUpcomingEpisodes();
   const { viewMode, setViewMode } = useViewModePreference("series-library");
   const { t, locale } = useTranslation();

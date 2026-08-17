@@ -11,8 +11,7 @@ import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { colors } from "@/lib/theme";
-
-const SPLASH_DURATION_MS = 3000;
+import { mark } from "@/lib/perfMarks";
 
 /**
  * TASK-165 (splash, retomada) — sem isso, a splash NATIVA (a que o
@@ -21,13 +20,22 @@ const SPLASH_DURATION_MS = 3000;
  * rápidos isso pode ser rápido demais pra dar tempo de ver, do jeito
  * que o usuário percebeu. `preventAutoHideAsync()` (chamado aqui, no
  * escopo do módulo — precisa rodar antes de qualquer render) avisa o
- * sistema pra NÃO esconder a splash sozinho; a gente esconde na mão
- * com `hideAsync()` depois de 3 segundos garantidos, não importa
- * quão rápido o JS tenha carregado. Esse timer é independente do
- * `loading` do `useAuth()` em `app/index.tsx` — mesmo que a sessão
- * resolva em 100ms, a splash nativa continua cobrindo a tela até
- * completar os 3s (a tela de destino já pode ter navegado por baixo
- * nesse meio tempo, só não fica visível até a splash sumir).
+ * sistema pra NÃO esconder a splash sozinho.
+ *
+ * CORREÇÃO TEMPORÁRIA (a pedido — medição real de cold start em
+ * andamento) — antes, escondia com um tempo FIXO de 3s, sempre,
+ * mesmo que o app estivesse pronto bem antes. Isso distorce qualquer
+ * medição de "tempo até tela útil": por fora (cronômetro, métrica do
+ * próprio Android), NUNCA apareceria menos que ~3s, escondendo
+ * qualquer ganho real de otimização por trás do piso artificial.
+ *
+ * Trocado pra esconder assim que a sessão resolver de verdade (mesmo
+ * momento do `mark("session_resolved")` em AuthProvider.tsx) — sem
+ * piso mínimo. Isso volta a expor o problema original (em aparelho
+ * rápido, pode sumir rápido demais e parecer "piscar") — mas é
+ * intencional PRA ESTA FASE: primeiro descobre a velocidade real,
+ * depois decide se ainda faz sentido um piso mínimo (e de quanto —
+ * 3s pode ter sido generoso demais mesmo no cenário original).
  */
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Ignora — só pode falhar se chamado depois do auto-hide já ter
@@ -68,15 +76,6 @@ function useNotificationDeepLinks() {
   }, [router]);
 }
 
-function useHideSplashAfterDelay() {
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      SplashScreen.hideAsync().catch(() => {});
-    }, SPLASH_DURATION_MS);
-    return () => clearTimeout(timer);
-  }, []);
-}
-
 /**
  * TASK-096 (detalhes de série) — trocado de `<Slot />` pra `<Stack />`.
  * Até aqui, a raiz só tinha duas telas mutuamente exclusivas
@@ -91,7 +90,7 @@ function useHideSplashAfterDelay() {
  */
 export default function RootLayout() {
   useNotificationDeepLinks();
-  useHideSplashAfterDelay();
+  mark("root_layout_render"); // TEMPORÁRIO — ver lib/perfMarks.ts
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
