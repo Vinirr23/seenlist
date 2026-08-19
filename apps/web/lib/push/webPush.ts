@@ -96,6 +96,34 @@ export async function subscribeToWebPush(): Promise<
     } = await supabase.auth.getUser();
     if (!user) return { ok: false, reason: "error", detail: "Sessão não encontrada." };
 
+    /*
+     * CORREÇÃO (push duplicado no Safari/iPhone) — causa real: o
+     * Safari do iOS apaga o registro do service worker de um PWA que
+     * fica ~7 dias sem ser aberto. Quando a pessoa volta a abrir, o
+     * `getSubscription()` acima não acha nada local, então o
+     * navegador GERA UMA INSCRIÇÃO NOVA (endpoint novo) — mas a
+     * antiga não é removida sozinha, e pode continuar válida no
+     * servidor de push da Apple por um tempo mesmo sem service worker
+     * local pra recebê-la. Como o upsert abaixo casa só por
+     * `endpoint`, a antiga virava uma linha órfã em vez de ser
+     * substituída — e as duas recebiam a mesma notificação, cada uma
+     * na sua vez.
+     *
+     * Corrigido apagando qualquer inscrição antiga do MESMO aparelho
+     * (mesmo user_id + user_agent, endpoint diferente) antes de
+     * salvar a nova. Limitação aceita conscientemente: se a mesma
+     * pessoa tiver dois aparelhos com versão de iOS/Safari IDÊNTICA
+     * (user_agent igual), a inscrição de um pode apagar a do outro —
+     * caso raro, e não há outro identificador estável de aparelho
+     * disponível no navegador pra evitar isso.
+     */
+    await supabase
+      .from("web_push_subscriptions")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("user_agent", navigator.userAgent)
+      .neq("endpoint", json.endpoint);
+
     // `onConflict: endpoint` — o endpoint é o identificador real da
     // inscrição (a mesma pessoa pode ter uma por navegador).
     const { error } = await supabase.from("web_push_subscriptions").upsert(
