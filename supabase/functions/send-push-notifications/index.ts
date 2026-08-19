@@ -142,40 +142,51 @@ function commentDeepLink(
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const { data: pending, error } = await supabase
-    .from("notifications")
-    .select("*")
-    .is("pushed_at", null)
-    .order("created_at", { ascending: true })
-    .limit(500);
+  /*
+   * CORREÇÃO (bug real, reportado com print — mesmo episódio
+   * chegando ~30 vezes, depois 7 vezes num caso novo) — antes,
+   * `pushed_at` só era marcado no FIM da função, depois de todo o
+   * trabalho de montar mensagem, buscar token e ENVIAR de verdade
+   * (Expo + Web Push, com criptografia por pessoa — trabalho real,
+   * não instantâneo). Com muita gente seguindo a mesma série, isso
+   * passa fácil dos 2 minutos entre uma execução do cron e a
+   * próxima — a rodada seguinte fazia a MESMA busca (`pushed_at is
+   * null`), encontrava as MESMAS linhas ainda sem marca, e reenviava
+   * tudo de novo.
+   *
+   * Primeira correção (histórica): "reservar" as linhas ANTES de
+   * gastar tempo com elas — só que isso foi feito em DOIS passos
+   * (`SELECT` pendentes, depois `UPDATE pushed_at`). Resolve
+   * execuções em SEQUÊNCIA (um ciclo de cron atrás do outro) pegarem
+   * a mesma notificação de novo — mas NÃO resolve execuções
+   * SOBREPOSTAS (rodando ao mesmo tempo de verdade). `net.http_post`
+   * (como o cron chama esta function, ver README-cron.md) não espera
+   * a chamada anterior terminar antes de disparar a próxima a cada 2
+   * minutos — se uma execução demorar mais que isso (lentidão pro
+   * Expo/navegador, pico de pendentes), várias rodam ao mesmo tempo.
+   * Entre o `SELECT` de uma e o `UPDATE` de outra, as duas podiam
+   * enxergar a MESMA notificação como "ainda não enviada" — e cada
+   * execução só sabe da PRÓPRIA tentativa, então o `push_result`
+   * gravado no fim mostrava só 1 envio, mesmo com várias tendo saído
+   * de verdade (a última execução a gravar sobrescrevia o resultado
+   * das anteriores).
+   *
+   * Corrigido de vez com `claim_pending_notifications` (ver migration
+   * `20260902000000`) — um ÚNICO comando atômico (`UPDATE ... FOR
+   * UPDATE SKIP LOCKED ... RETURNING`), que garante que cada linha só
+   * pode ser reivindicada por UMA execução, mesmo com várias rodando
+   * ao mesmo tempo de verdade.
+   */
+  const { data: pending, error } = await supabase.rpc("claim_pending_notifications", { p_limit: 500 });
 
   if (error) {
-    console.error("[send-push-notifications] Falha ao buscar pendentes", error);
+    console.error("[send-push-notifications] Falha ao reivindicar pendentes", error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
   if (!pending || pending.length === 0) {
     return new Response(JSON.stringify({ sent: 0 }), { headers: { "Content-Type": "application/json" } });
   }
 
-  /*
-   * CORREÇÃO (bug real, reportado com print — mesmo episódio
-   * chegando ~30 vezes) — antes, `pushed_at` só era marcado no FIM
-   * da função, depois de todo o trabalho de montar mensagem, buscar
-   * token e ENVIAR de verdade (Expo + Web Push, com criptografia por
-   * pessoa — trabalho real, não instantâneo). Com muita gente
-   * seguindo a mesma série, isso passa fácil dos 2 minutos entre uma
-   * execução do cron e a próxima — a rodada seguinte fazia a MESMA
-   * busca (`pushed_at is null`), encontrava as MESMAS linhas ainda
-   * sem marca, e reenviava tudo de novo. Quanto mais gente seguindo,
-   * pior o efeito bola de neve.
-   *
-   * Corrigido "reservando" as linhas ANTES de gastar tempo com elas
-   * — marca `pushed_at` aqui, logo depois de buscar, não no fim. Se
-   * o envio falhar de verdade pra alguém depois disso, essa pessoa
-   * específica não recebe (pior que reenviar 30x é reenviar 30x) —
-   * troca deliberada, "no máximo uma vez" é melhor que "trinta vezes
-   * sem querer" pra notificação que o usuário vê na tela de bloqueio.
-   */
   /*
    * A PEDIDO — depois de uma investigação longa (tokens, logs,
    * cruzar tabela) pra descobrir que uma notificação específica não
@@ -201,8 +212,10 @@ Deno.serve(async () => {
     return result;
   }
 
-  const pendingIds = pending.map((n) => n.id);
-  await supabase.from("notifications").update({ pushed_at: new Date().toISOString() }).in("id", pendingIds);
+  // `claim_pending_notifications` (chamado lá em cima) já reivindicou
+  // e marcou `pushed_at` destas linhas de forma atômica — não precisa
+  // de um `UPDATE` separado aqui (era exatamente esse segundo passo,
+  // feito fora de qualquer atomicidade, que causava a duplicata).
 
   // Actor names (só pro que precisa: comment_reply/comment_like/review_like)
   const actorIds = [...new Set(pending.map((n) => n.actor_id).filter((id): id is string => !!id))];
