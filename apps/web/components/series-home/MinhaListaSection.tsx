@@ -110,10 +110,23 @@ export function MinhaListaSection() {
    * + rebuscar todo o histórico de episódios assistidos) rodava do
    * zero toda vez que essa tela montava — bastava sair da aba Séries
    * e voltar.
+   *
+   * CORREÇÃO (achado real de performance — auditoria de instrumentação
+   * do TMDB): o `refetch()` disparava incondicionalmente, mesmo quando
+   * `...Throttled()` pulava a recalculação (o caso comum — só roda de
+   * verdade 1x/dia). Cada `refetch()` rebusca a Biblioteca INTEIRA,
+   * TMDB incluído — um teste real de celular mostrou mais de 40
+   * chamadas à rota de resumos do TMDB em ~5 segundos, só de trocar de
+   * aba repetidamente. `...Throttled()` agora devolve `true` quando
+   * realmente recalculou (categorias podem ter mudado, faz sentido
+   * atualizar a lista) e `false` quando só pulou — só chama `refetch()`
+   * no primeiro caso.
    */
   useEffect(() => {
     recalculateUpToDateSeriesCategoriesThrottled()
-      .then(() => refetch())
+      .then((didRecalculate) => {
+        if (didRecalculate) refetch();
+      })
       .catch((err) => console.error("[MinhaListaSection] Falha ao recalcular categorias 'Em dia'", err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

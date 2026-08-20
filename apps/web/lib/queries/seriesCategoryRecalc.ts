@@ -107,17 +107,31 @@ const RECALC_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1x por dia — combinado 
  * Só grava o carimbo em caso de SUCESSO — se a checagem falhar
  * (rede, TMDB fora do ar), tenta de novo na próxima visita em vez de
  * esperar 24h por causa de uma falha passageira.
+ *
+ * CORREÇÃO (achado real de performance — auditoria de instrumentação
+ * do TMDB, ver `library-state.ts`/`api/tmdb/library-summaries`): o
+ * retorno era `void`, então quem chama (`MinhaListaSection.tsx`) não
+ * tinha como saber se a recalculação REALMENTE rodou (1x/dia) ou foi
+ * pulada pelo throttle — e chamava `refetch()` da Biblioteca inteira
+ * de qualquer jeito, TODA VEZ que a tela montava. Um teste real de
+ * celular mostrou mais de 40 chamadas à rota de resumos do TMDB em
+ * ~5 segundos, só de trocar de aba repetidamente — o cache novo já
+ * deixou cada uma rápida, mas a rebusca em si continuava
+ * desnecessária quase sempre (o throttle só permite 1 recalculação
+ * de verdade por dia). Agora devolve `true`/`false` — quem chama
+ * decide se vale a pena atualizar a lista.
  */
-export async function recalculateUpToDateSeriesCategoriesThrottled(): Promise<void> {
-  if (typeof window === "undefined") return;
+export async function recalculateUpToDateSeriesCategoriesThrottled(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
 
   const lastRun = window.localStorage.getItem(RECALC_STORAGE_KEY);
   if (lastRun && Date.now() - Number(lastRun) < RECALC_MIN_INTERVAL_MS) {
-    return;
+    return false;
   }
 
   await recalculateUpToDateSeriesCategories();
   window.localStorage.setItem(RECALC_STORAGE_KEY, String(Date.now()));
+  return true;
 }
 
 export async function recalculateUpToDateSeriesCategories(): Promise<void> {
