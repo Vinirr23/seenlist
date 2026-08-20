@@ -28,7 +28,7 @@ import { createClient } from "@/lib/supabase/client";
  * consulta via SQL depois. `console.log` continua também, útil pra
  * quem tiver como conectar o DevTools remoto.
  */
-function record(metric: string, value: number, rating?: string) {
+function record(metric: string, value: number, rating?: string, pageOverride?: string) {
   if (typeof window === "undefined") return;
   try {
     const supabase = createClient();
@@ -38,7 +38,7 @@ function record(metric: string, value: number, rating?: string) {
         metric,
         value,
         rating: rating ?? null,
-        page: window.location.pathname,
+        page: pageOverride ?? window.location.pathname,
         user_agent: navigator.userAgent,
       })
       .then(({ error }) => {
@@ -57,9 +57,25 @@ export function mark(label: string) {
   record(label, elapsed);
 }
 
-/** Usado por `WebVitalsReporter.tsx` — mesma tabela, métricas do navegador em vez de marca customizada. */
-export function recordWebVital(name: string, value: number, rating: string) {
+/**
+ * Usado por `WebVitalsReporter.tsx` — mesma tabela, métricas do
+ * navegador em vez de marca customizada.
+ *
+ * CORREÇÃO (bug real, achado com dado de teste real em celular) —
+ * LCP/FCP/TTFB são ligados ao carregamento REAL do navegador, que só
+ * acontece UMA VEZ por sessão (o App Router troca de rota sem recarga
+ * de verdade). Sem o parâmetro `page` explícito, `record()` capturava
+ * `window.location.pathname` no momento em que a métrica era
+ * REPORTADA de novo (a cada navegação por dentro do app) — não em
+ * que ela foi MEDIDA. Resultado: o mesmo número de LCP da primeira
+ * carga aparecia gravado sob várias páginas diferentes, parecendo
+ * (errado) que cada rota tinha sua própria medição. `WebVitalsReporter`
+ * agora captura a página UMA VEZ (na primeira carga real) e manda
+ * fixa aqui — LCP/FCP/TTFB desse jeito refletem sempre "primeira
+ * carga da sessão", nunca uma rota específica visitada depois.
+ */
+export function recordWebVital(name: string, value: number, rating: string, page: string) {
   // eslint-disable-next-line no-console
-  console.log(`[PERF] ${name}: ${Math.round(value)} (${rating})`);
-  record(name, Math.round(value), rating);
+  console.log(`[PERF] ${name}: ${Math.round(value)} (${rating}) — primeira carga: ${page}`);
+  record(name, Math.round(value), rating, page);
 }

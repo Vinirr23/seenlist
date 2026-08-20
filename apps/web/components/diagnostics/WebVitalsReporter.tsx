@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useReportWebVitals } from "next/web-vitals";
 import { recordWebVital } from "@/lib/perfMarks";
 
@@ -31,10 +32,21 @@ import { recordWebVital } from "@/lib/perfMarks";
  * `recordWebVital` (ver `lib/perfMarks.ts`) faz o console.log E grava
  * em `perf_measurements` — necessário pra medir em celular de
  * verdade, onde não tem DevTools fácil pra ver o console.
+ *
+ * `initialPage` capturado UMA VEZ (primeira renderização no
+ * navegador) — ver o comentário grande em `recordWebVital` pro porquê:
+ * sem isso, cada navegação por dentro do app (App Router, sem recarga
+ * real) reatribuía o mesmo LCP/FCP/TTFB da primeira carga pra
+ * qualquer página onde a pessoa estivesse no momento.
  */
 export function WebVitalsReporter() {
+  const initialPage = useRef<string | null>(null);
+  if (typeof window !== "undefined" && initialPage.current === null) {
+    initialPage.current = window.location.pathname;
+  }
+
   useReportWebVitals((metric) => {
-    recordWebVital(metric.name, metric.value, metric.rating);
+    recordWebVital(metric.name, metric.value, metric.rating, initialPage.current ?? "desconhecida");
   });
   return null;
 }
