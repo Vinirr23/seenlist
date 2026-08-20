@@ -113,17 +113,44 @@ function chunkIds(ids: number[], size: number): number[][] {
 async function fetchOneLibrarySummariesPage(
   movieIds: number[],
   seriesIds: number[],
-  language: string
+  language: string,
+  pageIndex: number,
+  batchStart: number
 ): Promise<LibrarySummariesResponse> {
   if (movieIds.length === 0 && seriesIds.length === 0) {
     return { movies: [], series: [] };
   }
   try {
+    // TEMPORÁRIO (aprofundando a investigação do ~1-2s residual "quente")
+    // — confirmado que o tempo DENTRO da rota (`tmdb_route_total_ms`) é
+    // rápido (30-200ms) e o cache está 100% quente, mas o tempo total de
+    // `series_home_data_loaded` continua em ~1,7-2,4s numa biblioteca com
+    // várias páginas (400-800 itens = ~4-8 páginas de 100 ids, todas
+    // disparadas juntas via `Promise.all` em `fetchDisplaySummaries`).
+    // Duas explicações possíveis, ambas indistinguíveis olhando só pro
+    // `tmdb_route_total_ms` de cada uma: (a) são todas concorrentes de
+    // verdade e o gargalo é só latência de rede celular por requisição
+    // (cada uma paga seu próprio round-trip), ou (b) o navegador está
+    // ENFILEIRANDO as requisições (limite de conexões simultâneas por
+    // host, comum em Safari mobile) e o que parece "paralelo" no código
+    // na verdade roda em série na rede.
+    //
+    // `reqStart - batchStart` mede quanto tempo esta página específica
+    // esperou pra sequer COMEÇAR a sair (depois que `Promise.all` foi
+    // disparado) — se for (a), esse valor fica perto de 0 pra todas; se
+    // for (b), cresce com o índice da página (a 5ª/6ª/7ª/8ª só começam
+    // depois que conexões anteriores liberam). `reqEnd - reqStart` mede
+    // o round-trip puro dessa página do ponto de vista do celular
+    // (inclui rede + processamento do servidor).
+    const reqStart = typeof performance !== "undefined" ? performance.now() : 0;
     const response = await fetch("/api/tmdb/library-summaries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ movieIds, seriesIds, language }),
     });
+    const reqEnd = typeof performance !== "undefined" ? performance.now() : 0;
+    recordValue(`tmdb_page${pageIndex}_start_offset_ms`, Math.round(reqStart - batchStart));
+    recordValue(`tmdb_page${pageIndex}_roundtrip_ms`, Math.round(reqEnd - reqStart));
     if (!response.ok) {
       console.warn(
         `[library] /api/tmdb/library-summaries respondeu ${response.status} numa página — exibindo os itens desta página sem poster/título.`
@@ -213,11 +240,23 @@ export async function fetchDisplaySummaries(
   const seriesChunks = chunkIds(seriesIds, LIBRARY_SUMMARIES_PAGE_SIZE);
   const pageCount = Math.max(movieChunks.length, seriesChunks.length, 1);
 
+  // TEMPORÁRIO (mesma investigação do residual "quente" — ver comentário
+  // grande em `fetchOneLibrarySummariesPage`) — `batchStart` é o
+  // instante em que ESTE `Promise.all` foi disparado, ponto de
+  // referência pra medir se cada página começa "junto" (paralela de
+  // verdade) ou com atraso crescente (enfileirada pelo navegador).
+  // `tmdb_pages_wall_ms` é quanto tempo o conjunto INTEIRO de páginas
+  // levou — comparar contra a SOMA dos `roundtrip_ms` individuais:
+  // se `wall_ms` ≈ soma, era serial; se `wall_ms` ≈ maior round-trip
+  // individual, era paralelo de verdade.
+  const batchStart = typeof performance !== "undefined" ? performance.now() : 0;
+  recordValue("tmdb_pages_count", pageCount);
   const pages = await Promise.all(
     Array.from({ length: pageCount }, (_, index) =>
-      fetchOneLibrarySummariesPage(movieChunks[index] ?? [], seriesChunks[index] ?? [], language)
+      fetchOneLibrarySummariesPage(movieChunks[index] ?? [], seriesChunks[index] ?? [], language, index, batchStart)
     )
   );
+  markElapsed("tmdb_pages_wall_ms", batchStart);
 
   const movies: MediaSummary[] = [];
   const series: MediaSummary[] = [];
