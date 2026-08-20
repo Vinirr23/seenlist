@@ -1,6 +1,7 @@
 "use client";
 
 import { useReportWebVitals } from "next/web-vitals";
+import { recordWebVital } from "@/lib/perfMarks";
 
 /**
  * TEMPORÁRIO — ver `lib/perfMarks.ts` pro contexto completo da
@@ -26,11 +27,14 @@ import { useReportWebVitals } from "next/web-vitals";
  *
  * Montado uma vez em `app/providers.tsx`, então cobre o site inteiro,
  * não só a Biblioteca.
+ *
+ * `recordWebVital` (ver `lib/perfMarks.ts`) faz o console.log E grava
+ * em `perf_measurements` — necessário pra medir em celular de
+ * verdade, onde não tem DevTools fácil pra ver o console.
  */
 export function WebVitalsReporter() {
   useReportWebVitals((metric) => {
-    // eslint-disable-next-line no-console
-    console.log(`[PERF] ${metric.name}: ${Math.round(metric.value)} (${metric.rating})`, metric);
+    recordWebVital(metric.name, metric.value, metric.rating);
   });
   return null;
 }
