@@ -9,19 +9,21 @@ interface RequestBody {
 
 /**
  * CORREÇÃO (investigação do residual "quente" de ~1-2s numa biblioteca
- * grande, ~1000 itens — confirmado com dado real de celular que as
- * ~10 requisições concorrentes que a paginação de 100-em-100 gerava
- * eram de fato paralelas, não uma fila escondida — o gargalo era só a
- * disputa de banda do celular entre elas) — esse limite de 100 vinha
- * de QUANDO esta rota buscava direto no TMDB (TASK-038), pra não
- * estourar o rate limit deles com lotes grandes. Agora que a leitura
- * primária é no NOSSO cache (`media_summaries_cache`, uma query só de
- * Postgres), não existe mais essa razão pra limitar tão baixo — então
- * `library-state.ts` parou de paginar e manda todos os ids de uma vez
- * só, eliminando a concorrência entre várias chamadas de rede pelo
- * celular. Esse número aqui virou só um teto de segurança (corpo de
- * requisição/tamanho de query absurdos), bem acima de qualquer
- * biblioteca real — não é mais o "tamanho de página" de ninguém.
+ * grande, ~1000 itens) — esse limite de 100 (original, TASK-038) vinha
+ * de QUANDO esta rota buscava direto no TMDB, pra não estourar o rate
+ * limit deles com lotes grandes. Com a leitura primária no NOSSO cache
+ * (`media_summaries_cache`, uma query só de Postgres), essa razão não
+ * existe mais — mas dado real (10ª rodada) mostrou que mandar TUDO
+ * numa chamada só também não é o ideal: uma query/payload únicos
+ * muito grandes saem mais lentos que várias chamadas paralelas
+ * menores (ver comentário grande em `fetchOneLibrarySummariesPage`,
+ * `library-state.ts`). `library-state.ts` pagina em lotes de 200
+ * (`LIBRARY_SUMMARIES_PAGE_SIZE`) — esse número aqui NÃO precisa mais
+ * bater exatamente com o tamanho de página do cliente (diferente do
+ * acoplamento rígido do TASK-038 original): como o cliente nunca manda
+ * mais que 200 ids por chamada, e este teto está bem acima disso, é
+ * só uma proteção de segurança contra corpo de requisição/tamanho de
+ * query absurdos — não o "tamanho de página" de ninguém.
  */
 const MAX_IDS_PER_REQUEST = 5000;
 

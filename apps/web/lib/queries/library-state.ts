@@ -93,47 +93,72 @@ function toLibraryStatus(movieStatus: MovieStatusRow["status"]): LibraryStatus {
 }
 
 /**
- * CORREÇÃO (investigação do residual "quente" de ~1-2s numa biblioteca
- * grande — 7ª/8ª rodadas de teste real em celular) — antes, esta
- * função quebrava a biblioteca em páginas de até 100 ids e disparava
- * uma chamada por página via `Promise.all`. Provado com instrumentação
- * por página (`tmdb_page{N}_start_offset_ms`/`roundtrip_ms`, agora
- * removida) que essas chamadas eram de fato paralelas (não havia fila
- * escondida no navegador) — o gargalo era só ~10 conexões concorrentes
- * disputando a banda limitada da rede celular ao mesmo tempo, cada uma
- * pagando seu próprio round-trip.
+ * CORREÇÃO (10ª rodada — dado real de celular) — chegou a mandar tudo
+ * numa chamada só por um tempo (achado da 8ª/9ª rodadas: as ~10
+ * chamadas paralelas eram concorrência genuína, sem fila escondida no
+ * navegador). Mas medido com dado real, a chamada única saiu MAIS
+ * LENTA, não mais rápida: `tmdb_route_cache_read_ms` subiu de
+ * 30-200ms por página pequena pra 331-519ms numa query grande só
+ * (mais linhas pra ler e serializar de uma vez), e o payload de
+ * resposta inteiro (biblioteca toda) ficou grande demais pra uma
+ * única conexão do celular — perdeu o benefício de "~10 coisas
+ * acontecendo ao mesmo tempo, limitado pela mais lenta" que a
+ * paginação paralela tinha. `tmdb_summaries_roundtrip_ms` chegou a
+ * 2229-2377ms numa biblioteca grande, contra 899-1138ms de
+ * `tmdb_pages_wall_ms` na mesma biblioteca, paginada, na 9ª rodada.
  *
- * O limite de 100 vinha de QUANDO esta rota buscava direto no TMDB
- * (TASK-038), pra não estourar o rate limit deles. Agora que a leitura
- * primária é no nosso cache (`media_summaries_cache`, uma query só de
- * Postgres — ver `readCache` na rota), essa razão não existe mais.
- * Então: **uma chamada só**, com todos os ids — elimina de vez a
- * disputa de banda entre múltiplas conexões simultâneas do celular.
- * Continua com o mesmo teto de segurança que a rota aplica
- * (`MAX_IDS_PER_REQUEST`), agora bem mais alto e só como proteção
- * contra corpo de requisição absurdo, não como "tamanho de página".
+ * Voltou a paginar — mas com lotes de 200 (não mais os 100 originais):
+ * meio-termo entre "muitas conexões pequenas disputando banda" (100,
+ * ~10 páginas pra uma biblioteca de ~1000 itens) e "uma conexão
+ * grande sobrecarregada" (tudo de uma vez, 1 página). Menos páginas
+ * concorrentes (~5 pra a mesma biblioteca), sem voltar a ter a
+ * disputa de banda excessiva medida antes.
+ *
+ * IMPORTANTE — isso só afeta quando os pôsteres terminam de preencher
+ * por trás, não mais quando a lista aparece na tela: a renderização
+ * progressiva (`onStatusRowsReady`, ver `fetchLibraryItems` abaixo)
+ * já pinta a lista com os dados rápidos de status, sem esperar
+ * nenhuma dessas páginas.
  */
-async function fetchLibrarySummaries(
+const LIBRARY_SUMMARIES_PAGE_SIZE = 200;
+
+function chunkIds(ids: number[], size: number): number[][] {
+  const chunks: number[][] = [];
+  for (let start = 0; start < ids.length; start += size) {
+    chunks.push(ids.slice(start, start + size));
+  }
+  return chunks;
+}
+
+async function fetchOneLibrarySummariesPage(
   movieIds: number[],
   seriesIds: number[],
-  language: string
+  language: string,
+  pageIndex: number,
+  batchStart: number
 ): Promise<LibrarySummariesResponse> {
   if (movieIds.length === 0 && seriesIds.length === 0) {
     return { movies: [], series: [] };
   }
   try {
-    // TEMPORÁRIO (mesma investigação) — round-trip único do ponto de
-    // vista do celular (rede + processamento do servidor inteiro).
+    // TEMPORÁRIO (mesma investigação) — `reqStart - batchStart` mede
+    // se esta página começou "junto" com as outras (paralela de
+    // verdade, valor perto de 0) ou com atraso (navegador enfileirando)
+    // — já confirmado na 9ª rodada que é sempre perto de 0, mas mantido
+    // pra continuar confirmando com o novo tamanho de página (200).
+    // `reqEnd - reqStart` é o round-trip puro desta página.
     const reqStart = typeof performance !== "undefined" ? performance.now() : 0;
     const response = await fetch("/api/tmdb/library-summaries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ movieIds, seriesIds, language }),
     });
-    recordValue("tmdb_summaries_roundtrip_ms", Math.round((typeof performance !== "undefined" ? performance.now() : 0) - reqStart));
+    const reqEnd = typeof performance !== "undefined" ? performance.now() : 0;
+    recordValue(`tmdb_page${pageIndex}_start_offset_ms`, Math.round(reqStart - batchStart));
+    recordValue(`tmdb_page${pageIndex}_roundtrip_ms`, Math.round(reqEnd - reqStart));
     if (!response.ok) {
       console.warn(
-        `[library] /api/tmdb/library-summaries respondeu ${response.status} — exibindo os itens sem poster/título.`
+        `[library] /api/tmdb/library-summaries respondeu ${response.status} numa página — exibindo os itens desta página sem poster/título.`
       );
       return { movies: [], series: [] };
     }
@@ -166,7 +191,7 @@ async function fetchLibrarySummaries(
 
     return result;
   } catch (error) {
-    console.warn("[library] Falha ao buscar resumos do TMDB — exibindo os itens sem poster/título.", error);
+    console.warn("[library] Falha ao buscar uma página de resumos do TMDB — exibindo os itens desta página sem poster/título.", error);
     return { movies: [], series: [] };
   }
 }
@@ -193,15 +218,12 @@ function warnIfAnyIdMissing(label: string, requestedIds: number[], received: Med
  * diagnóstico: antes, esta função mandava TODOS os ids numa chamada
  * só, e a rota cortava silenciosamente pros primeiros 100
  * (MAX_IDS_PER_REQUEST de então). `warnIfAnyIdMissing` abaixo segue
- * garantindo que isso nunca mais aconteça sem aviso.
+ * garantindo que isso nunca mais aconteça sem aviso, seja qual for o
+ * tamanho de página em uso.
  *
- * CORREÇÃO (8ª rodada, investigação do residual "quente") — chegou a
- * paginar (quebrar em grupos de até 100, uma chamada por grupo, em
- * paralelo) por um tempo, mas voltou a mandar tudo numa chamada só:
- * provado com instrumentação por página que as chamadas paralelas
- * eram genuínas (sem fila escondida no navegador), e o gargalo real
- * era a disputa de banda do celular entre várias conexões
- * concorrentes. Ver comentário grande em `fetchLibrarySummaries`.
+ * CORREÇÃO (10ª rodada) — voltou a paginar (ver comentário grande em
+ * `fetchOneLibrarySummariesPage`), agora em lotes de
+ * `LIBRARY_SUMMARIES_PAGE_SIZE`, uma chamada por lote, em paralelo.
  */
 /**
  * A PEDIDO — título/gênero/pôster desses resumos sempre vinham em
@@ -219,14 +241,32 @@ export async function fetchDisplaySummaries(
     return { movies: {}, series: {} };
   }
 
-  const result = await fetchLibrarySummaries(movieIds, seriesIds, language);
+  const movieChunks = chunkIds(movieIds, LIBRARY_SUMMARIES_PAGE_SIZE);
+  const seriesChunks = chunkIds(seriesIds, LIBRARY_SUMMARIES_PAGE_SIZE);
+  const pageCount = Math.max(movieChunks.length, seriesChunks.length, 1);
 
-  warnIfAnyIdMissing("filmes", movieIds, result.movies);
-  warnIfAnyIdMissing("séries", seriesIds, result.series);
+  const batchStart = typeof performance !== "undefined" ? performance.now() : 0;
+  recordValue("tmdb_pages_count", pageCount);
+  const pages = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) =>
+      fetchOneLibrarySummariesPage(movieChunks[index] ?? [], seriesChunks[index] ?? [], language, index, batchStart)
+    )
+  );
+  markElapsed("tmdb_pages_wall_ms", batchStart);
+
+  const movies: MediaSummary[] = [];
+  const series: MediaSummary[] = [];
+  for (const page of pages) {
+    movies.push(...page.movies);
+    series.push(...page.series);
+  }
+
+  warnIfAnyIdMissing("filmes", movieIds, movies);
+  warnIfAnyIdMissing("séries", seriesIds, series);
 
   return {
-    movies: Object.fromEntries(result.movies.map((item) => [item.id, item])),
-    series: Object.fromEntries(result.series.map((item) => [item.id, item])),
+    movies: Object.fromEntries(movies.map((item) => [item.id, item])),
+    series: Object.fromEntries(series.map((item) => [item.id, item])),
   };
 }
 
