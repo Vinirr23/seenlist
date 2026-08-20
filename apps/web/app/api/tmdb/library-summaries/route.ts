@@ -17,13 +17,16 @@ interface RequestBody {
  * numa chamada só também não é o ideal: uma query/payload únicos
  * muito grandes saem mais lentos que várias chamadas paralelas
  * menores (ver comentário grande em `fetchOneLibrarySummariesPage`,
- * `library-state.ts`). `library-state.ts` pagina em lotes de 200
- * (`LIBRARY_SUMMARIES_PAGE_SIZE`) — esse número aqui NÃO precisa mais
- * bater exatamente com o tamanho de página do cliente (diferente do
- * acoplamento rígido do TASK-038 original): como o cliente nunca manda
- * mais que 200 ids por chamada, e este teto está bem acima disso, é
- * só uma proteção de segurança contra corpo de requisição/tamanho de
- * query absurdos — não o "tamanho de página" de ninguém.
+ * `library-state.ts`). `library-state.ts` pagina em lotes de 100
+ * (`LIBRARY_SUMMARIES_PAGE_SIZE` — testado também com 200 nas
+ * rodadas 10-12, mas revertido: dado real de duas rodadas, uma delas
+ * com controle limpo, mostrou 200 mais lento que 100). Esse número
+ * aqui NÃO precisa bater exatamente com o tamanho de página do
+ * cliente (diferente do acoplamento rígido do TASK-038 original):
+ * como o cliente nunca manda mais que 100 ids por chamada, e este
+ * teto está bem acima disso, é só uma proteção de segurança contra
+ * corpo de requisição/tamanho de query absurdos — não o "tamanho de
+ * página" de ninguém.
  */
 const MAX_IDS_PER_REQUEST = 5000;
 

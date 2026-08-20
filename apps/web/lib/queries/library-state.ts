@@ -107,12 +107,26 @@ function toLibraryStatus(movieStatus: MovieStatusRow["status"]): LibraryStatus {
  * 2229-2377ms numa biblioteca grande, contra 899-1138ms de
  * `tmdb_pages_wall_ms` na mesma biblioteca, paginada, na 9ª rodada.
  *
- * Voltou a paginar — mas com lotes de 200 (não mais os 100 originais):
- * meio-termo entre "muitas conexões pequenas disputando banda" (100,
- * ~10 páginas pra uma biblioteca de ~1000 itens) e "uma conexão
- * grande sobrecarregada" (tudo de uma vez, 1 página). Menos páginas
- * concorrentes (~5 pra a mesma biblioteca), sem voltar a ter a
- * disputa de banda excessiva medida antes.
+ * Voltou a paginar — e por um tempo (10ª rodada) foi pra lotes de 200
+ * (não mais os 100 originais), como meio-termo hipotético entre
+ * "muitas conexões pequenas disputando banda" (100) e "uma conexão
+ * grande sobrecarregada" (1 página). Essa hipótese parecia lógica mas
+ * NÃO se confirmou com dado real:
+ *
+ * - 11ª rodada: com lotes de 200, `tmdb_pages_wall_ms` = 1391-1779ms
+ *   (pior que os 899-1138ms da 9ª rodada com 100) — mas essa rodada
+ *   tinha ruído de rede/infra genuíno (`tmdb_route_cache_read_ms`
+ *   chegou a 2070ms/831ms em `/profile`, valores nunca vistos antes
+ *   que um tamanho de página não explica), então não foi conclusiva
+ *   sozinha.
+ * - 12ª rodada: repetida com controle mais limpo — o carregamento de
+ *   `/movies` nessa rodada teve `tmdb_route_cache_read_ms` consistente
+ *   (148-153ms nas 5 páginas), sem o ruído da rodada anterior. Mesmo
+ *   assim, `tmdb_pages_wall_ms` = 1391ms e overhead de rede por página
+ *   de ~835-1133ms — na MESMA direção pior que 100 (~550-800ms de
+ *   overhead na 9ª rodada). Duas rodadas, uma delas com controle
+ *   limpo, confirmando a mesma direção: 200 é pior que 100 pra este
+ *   app/rede, não melhor. Revertido pra 100.
  *
  * IMPORTANTE — isso só afeta quando os pôsteres terminam de preencher
  * por trás, não mais quando a lista aparece na tela: a renderização
@@ -120,7 +134,7 @@ function toLibraryStatus(movieStatus: MovieStatusRow["status"]): LibraryStatus {
  * já pinta a lista com os dados rápidos de status, sem esperar
  * nenhuma dessas páginas.
  */
-const LIBRARY_SUMMARIES_PAGE_SIZE = 200;
+const LIBRARY_SUMMARIES_PAGE_SIZE = 100;
 
 function chunkIds(ids: number[], size: number): number[][] {
   const chunks: number[][] = [];
@@ -144,8 +158,8 @@ async function fetchOneLibrarySummariesPage(
     // TEMPORÁRIO (mesma investigação) — `reqStart - batchStart` mede
     // se esta página começou "junto" com as outras (paralela de
     // verdade, valor perto de 0) ou com atraso (navegador enfileirando)
-    // — já confirmado na 9ª rodada que é sempre perto de 0, mas mantido
-    // pra continuar confirmando com o novo tamanho de página (200).
+    // — já confirmado na 9ª rodada (lotes de 100) que é sempre perto de
+    // 0, mantido como conferência contínua.
     // `reqEnd - reqStart` é o round-trip puro desta página.
     const reqStart = typeof performance !== "undefined" ? performance.now() : 0;
     const response = await fetch("/api/tmdb/library-summaries", {
