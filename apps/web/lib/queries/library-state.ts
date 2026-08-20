@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import type { MediaSummary } from "@/lib/tmdb/client";
@@ -93,67 +93,47 @@ function toLibraryStatus(movieStatus: MovieStatusRow["status"]): LibraryStatus {
 }
 
 /**
- * TASK-038 — mesmo valor de MAX_IDS_PER_REQUEST em
- * api/tmdb/library-summaries/route.ts. Não é o mesmo número por
- * coincidência — os dois PRECISAM bater, porque é esse limite que
- * está sendo paginado aqui, não removido. Se um dia um dos dois
- * mudar sem o outro, a paginação para de bater exatamente na borda
- * do lote e pode voltar a cortar silenciosamente.
+ * CORREÇÃO (investigação do residual "quente" de ~1-2s numa biblioteca
+ * grande — 7ª/8ª rodadas de teste real em celular) — antes, esta
+ * função quebrava a biblioteca em páginas de até 100 ids e disparava
+ * uma chamada por página via `Promise.all`. Provado com instrumentação
+ * por página (`tmdb_page{N}_start_offset_ms`/`roundtrip_ms`, agora
+ * removida) que essas chamadas eram de fato paralelas (não havia fila
+ * escondida no navegador) — o gargalo era só ~10 conexões concorrentes
+ * disputando a banda limitada da rede celular ao mesmo tempo, cada uma
+ * pagando seu próprio round-trip.
+ *
+ * O limite de 100 vinha de QUANDO esta rota buscava direto no TMDB
+ * (TASK-038), pra não estourar o rate limit deles. Agora que a leitura
+ * primária é no nosso cache (`media_summaries_cache`, uma query só de
+ * Postgres — ver `readCache` na rota), essa razão não existe mais.
+ * Então: **uma chamada só**, com todos os ids — elimina de vez a
+ * disputa de banda entre múltiplas conexões simultâneas do celular.
+ * Continua com o mesmo teto de segurança que a rota aplica
+ * (`MAX_IDS_PER_REQUEST`), agora bem mais alto e só como proteção
+ * contra corpo de requisição absurdo, não como "tamanho de página".
  */
-const LIBRARY_SUMMARIES_PAGE_SIZE = 100;
-
-function chunkIds(ids: number[], size: number): number[][] {
-  const chunks: number[][] = [];
-  for (let start = 0; start < ids.length; start += size) {
-    chunks.push(ids.slice(start, start + size));
-  }
-  return chunks;
-}
-
-async function fetchOneLibrarySummariesPage(
+async function fetchLibrarySummaries(
   movieIds: number[],
   seriesIds: number[],
-  language: string,
-  pageIndex: number,
-  batchStart: number
+  language: string
 ): Promise<LibrarySummariesResponse> {
   if (movieIds.length === 0 && seriesIds.length === 0) {
     return { movies: [], series: [] };
   }
   try {
-    // TEMPORÁRIO (aprofundando a investigação do ~1-2s residual "quente")
-    // — confirmado que o tempo DENTRO da rota (`tmdb_route_total_ms`) é
-    // rápido (30-200ms) e o cache está 100% quente, mas o tempo total de
-    // `series_home_data_loaded` continua em ~1,7-2,4s numa biblioteca com
-    // várias páginas (400-800 itens = ~4-8 páginas de 100 ids, todas
-    // disparadas juntas via `Promise.all` em `fetchDisplaySummaries`).
-    // Duas explicações possíveis, ambas indistinguíveis olhando só pro
-    // `tmdb_route_total_ms` de cada uma: (a) são todas concorrentes de
-    // verdade e o gargalo é só latência de rede celular por requisição
-    // (cada uma paga seu próprio round-trip), ou (b) o navegador está
-    // ENFILEIRANDO as requisições (limite de conexões simultâneas por
-    // host, comum em Safari mobile) e o que parece "paralelo" no código
-    // na verdade roda em série na rede.
-    //
-    // `reqStart - batchStart` mede quanto tempo esta página específica
-    // esperou pra sequer COMEÇAR a sair (depois que `Promise.all` foi
-    // disparado) — se for (a), esse valor fica perto de 0 pra todas; se
-    // for (b), cresce com o índice da página (a 5ª/6ª/7ª/8ª só começam
-    // depois que conexões anteriores liberam). `reqEnd - reqStart` mede
-    // o round-trip puro dessa página do ponto de vista do celular
-    // (inclui rede + processamento do servidor).
+    // TEMPORÁRIO (mesma investigação) — round-trip único do ponto de
+    // vista do celular (rede + processamento do servidor inteiro).
     const reqStart = typeof performance !== "undefined" ? performance.now() : 0;
     const response = await fetch("/api/tmdb/library-summaries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ movieIds, seriesIds, language }),
     });
-    const reqEnd = typeof performance !== "undefined" ? performance.now() : 0;
-    recordValue(`tmdb_page${pageIndex}_start_offset_ms`, Math.round(reqStart - batchStart));
-    recordValue(`tmdb_page${pageIndex}_roundtrip_ms`, Math.round(reqEnd - reqStart));
+    recordValue("tmdb_summaries_roundtrip_ms", Math.round((typeof performance !== "undefined" ? performance.now() : 0) - reqStart));
     if (!response.ok) {
       console.warn(
-        `[library] /api/tmdb/library-summaries respondeu ${response.status} numa página — exibindo os itens desta página sem poster/título.`
+        `[library] /api/tmdb/library-summaries respondeu ${response.status} — exibindo os itens sem poster/título.`
       );
       return { movies: [], series: [] };
     }
@@ -186,7 +166,7 @@ async function fetchOneLibrarySummariesPage(
 
     return result;
   } catch (error) {
-    console.warn("[library] Falha ao buscar uma página de resumos do TMDB — exibindo os itens desta página sem poster/título.", error);
+    console.warn("[library] Falha ao buscar resumos do TMDB — exibindo os itens sem poster/título.", error);
     return { movies: [], series: [] };
   }
 }
@@ -209,16 +189,19 @@ function warnIfAnyIdMissing(label: string, requestedIds: number[], received: Med
 }
 
 /**
- * TASK-038 — correção da causa raiz comprovada pelo diagnóstico:
- * antes, esta função mandava TODOS os ids numa chamada só, e a rota
- * cortava silenciosamente pros primeiros 100 (MAX_IDS_PER_REQUEST).
- * Agora ela mesma pagina — quebra em grupos de até 100, chama a
- * rota uma vez por grupo (em paralelo — as 100 requisições
- * individuais dentro de cada página já tinham 100% de sucesso no
- * diagnóstico, nada indica que rodar várias páginas ao mesmo tempo
- * cause problema), e junta tudo antes de devolver. A Biblioteca
- * continua chamando isto uma vez só — a paginação é só daqui pra
- * dentro, nada muda pra quem chama.
+ * TASK-038 — correção da causa raiz original comprovada pelo
+ * diagnóstico: antes, esta função mandava TODOS os ids numa chamada
+ * só, e a rota cortava silenciosamente pros primeiros 100
+ * (MAX_IDS_PER_REQUEST de então). `warnIfAnyIdMissing` abaixo segue
+ * garantindo que isso nunca mais aconteça sem aviso.
+ *
+ * CORREÇÃO (8ª rodada, investigação do residual "quente") — chegou a
+ * paginar (quebrar em grupos de até 100, uma chamada por grupo, em
+ * paralelo) por um tempo, mas voltou a mandar tudo numa chamada só:
+ * provado com instrumentação por página que as chamadas paralelas
+ * eram genuínas (sem fila escondida no navegador), e o gargalo real
+ * era a disputa de banda do celular entre várias conexões
+ * concorrentes. Ver comentário grande em `fetchLibrarySummaries`.
  */
 /**
  * A PEDIDO — título/gênero/pôster desses resumos sempre vinham em
@@ -236,41 +219,14 @@ export async function fetchDisplaySummaries(
     return { movies: {}, series: {} };
   }
 
-  const movieChunks = chunkIds(movieIds, LIBRARY_SUMMARIES_PAGE_SIZE);
-  const seriesChunks = chunkIds(seriesIds, LIBRARY_SUMMARIES_PAGE_SIZE);
-  const pageCount = Math.max(movieChunks.length, seriesChunks.length, 1);
+  const result = await fetchLibrarySummaries(movieIds, seriesIds, language);
 
-  // TEMPORÁRIO (mesma investigação do residual "quente" — ver comentário
-  // grande em `fetchOneLibrarySummariesPage`) — `batchStart` é o
-  // instante em que ESTE `Promise.all` foi disparado, ponto de
-  // referência pra medir se cada página começa "junto" (paralela de
-  // verdade) ou com atraso crescente (enfileirada pelo navegador).
-  // `tmdb_pages_wall_ms` é quanto tempo o conjunto INTEIRO de páginas
-  // levou — comparar contra a SOMA dos `roundtrip_ms` individuais:
-  // se `wall_ms` ≈ soma, era serial; se `wall_ms` ≈ maior round-trip
-  // individual, era paralelo de verdade.
-  const batchStart = typeof performance !== "undefined" ? performance.now() : 0;
-  recordValue("tmdb_pages_count", pageCount);
-  const pages = await Promise.all(
-    Array.from({ length: pageCount }, (_, index) =>
-      fetchOneLibrarySummariesPage(movieChunks[index] ?? [], seriesChunks[index] ?? [], language, index, batchStart)
-    )
-  );
-  markElapsed("tmdb_pages_wall_ms", batchStart);
-
-  const movies: MediaSummary[] = [];
-  const series: MediaSummary[] = [];
-  for (const page of pages) {
-    movies.push(...page.movies);
-    series.push(...page.series);
-  }
-
-  warnIfAnyIdMissing("filmes", movieIds, movies);
-  warnIfAnyIdMissing("séries", seriesIds, series);
+  warnIfAnyIdMissing("filmes", movieIds, result.movies);
+  warnIfAnyIdMissing("séries", seriesIds, result.series);
 
   return {
-    movies: Object.fromEntries(movies.map((item) => [item.id, item])),
-    series: Object.fromEntries(series.map((item) => [item.id, item])),
+    movies: Object.fromEntries(result.movies.map((item) => [item.id, item])),
+    series: Object.fromEntries(result.series.map((item) => [item.id, item])),
   };
 }
 
@@ -391,7 +347,23 @@ export function buildLibraryItemsFromRows(
 }
 
 /** Exportado (só visibilidade, TASK-034) pra ferramentas de comparação chamarem exatamente esta função — não uma reimplementação — garantindo fidelidade 100% com o que a tela real usa. */
-export async function fetchLibraryItems(language = "pt-BR"): Promise<LibraryItem[]> {
+/**
+ * CORREÇÃO (pedido — "abrir instantâneo mesmo com biblioteca grande")
+ * — `onStatusRowsReady`, opcional, é chamado assim que as linhas de
+ * status (rápidas, ~900ms-1,3s) terminam, ANTES de esperar os resumos
+ * do TMDB (a parte lenta numa biblioteca grande). Quem chama recebe
+ * uma prévia (`LibraryItem[]` já no formato final, só que com
+ * título/pôster placeholder — `buildLibraryItemsFromRows` já sabe
+ * gerar isso quando não tem resumo pra um id, ver `summary?.title ??
+ * "Filme #..."` mais acima). `useLibraryItems()` usa isso pra pintar a
+ * lista na tela quase na hora, sem duplicar NENHUMA leitura do
+ * Supabase — a prévia é montada com os MESMOS dados que essa função já
+ * buscou, só que exposta mais cedo, antes de seguir pro TMDB.
+ */
+export async function fetchLibraryItems(
+  language = "pt-BR",
+  onStatusRowsReady?: (preview: LibraryItem[]) => void
+): Promise<LibraryItem[]> {
   // TEMPORÁRIO (auditoria de performance — investigando LCP "poor" de
   // ~9-11s em /series, achado real com dado de teste em celular) —
   // marcas de checkpoint aqui dentro, não só na tela: `markElapsed`
@@ -486,6 +458,17 @@ export async function fetchLibraryItems(language = "pt-BR"): Promise<LibraryItem
     if (row.status === "removed") validSeriesIds.delete(row.series_id);
   }
 
+  // CORREÇÃO (pedido — "abrir instantâneo mesmo com biblioteca
+  // grande") — antes de ir pro TMDB (a parte lenta), monta e expõe uma
+  // prévia com o que já se sabe com certeza (status, progresso, ordem
+  // — nada disso depende de título/pôster). `{ movies: {}, series: {}
+  // }` faz `buildLibraryItemsFromRows` cair nos placeholders que ela
+  // já sabe gerar sozinha (`Filme #123`/`Série #123`, sem pôster).
+  if (onStatusRowsReady) {
+    onStatusRowsReady(buildLibraryItemsFromRows(movieRows, seriesRows, episodeStats, { movies: {}, series: {} }));
+    markElapsed("lib_status_preview_ready", fetchStart);
+  }
+
   const summaries = await fetchDisplaySummaries(
     movieRows.map((row) => row.movie_id),
     [...validSeriesIds],
@@ -501,11 +484,40 @@ export async function fetchLibraryItems(language = "pt-BR"): Promise<LibraryItem
 }
 
 /** A PEDIDO — pôster/título/gênero da Biblioteca sempre vinham em português. `locale` na `queryKey` garante rebusca ao trocar de idioma. */
+/**
+ * CORREÇÃO (pedido — "abrir instantâneo mesmo com biblioteca grande")
+ * — sem trocar a `queryKey` nem a forma do dado (continua um
+ * `LibraryItem[]` único, no MESMO lugar de sempre — as mutações
+ * otimistas, `useMoveLibraryItem`/`useRemoveLibraryItem`, dependem
+ * exatamente disso pra continuar funcionando sem mudança nenhuma
+ * nelas): `onStatusRowsReady` grava a prévia direto no cache deste
+ * MESMO query key via `setQueryData`, antes do `queryFn` sequer
+ * terminar. O React Query já trata isso como "cheguei em success" —
+ * `isLoading` vira `false` assim que a prévia entra, mesmo com o TMDB
+ * ainda em andamento por trás. Quando o `queryFn` termina de verdade
+ * (com pôster/título reais), o resultado final sobrescreve a prévia
+ * automaticamente — comportamento padrão do React Query, nada especial
+ * precisa ser feito aqui pra isso acontecer.
+ *
+ * Guarda (`getQueryData(...) === undefined`) — sem isso, numa
+ * REBUSCA em segundo plano (ex.: `useLibraryRealtimeSync` invalidando
+ * depois de uma mudança em outro aparelho), a prévia entraria por
+ * cima de um dado bom que já estava na tela, fazendo pôsteres
+ * piscarem de volta pro placeholder à toa. Só deixa a prévia valer
+ * quando NÃO existe nenhum dado ainda (primeira carga de verdade).
+ */
 export function useLibraryItems() {
   const { locale } = useTranslation();
+  const queryClient = useQueryClient();
+  const queryKey = [...LIBRARY_QUERY_KEY, locale] as const;
   return useQuery({
-    queryKey: [...LIBRARY_QUERY_KEY, locale],
-    queryFn: () => fetchLibraryItems(locale),
+    queryKey,
+    queryFn: () =>
+      fetchLibraryItems(locale, (preview) => {
+        if (queryClient.getQueryData(queryKey) === undefined) {
+          queryClient.setQueryData(queryKey, preview);
+        }
+      }),
     staleTime: STALE_TIME_LIBRARY,
   });
 }

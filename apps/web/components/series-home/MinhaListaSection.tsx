@@ -61,11 +61,22 @@ export function MinhaListaSection() {
   /**
    * TEMPORÁRIO (auditoria de performance) — equivalente exato do
    * `series_home_data_loaded` do mobile: dispara quando `isLoading`
-   * (de `useLibraryItems()`, linha acima) vira `false`, ou seja,
-   * quando os dados da lista realmente chegaram. Antes isso estava
-   * (por engano) em `LibraryView.tsx`, rota `/library`, que não é mais
-   * visitada por ninguém — essa aqui, `MinhaListaSection`, é quem de
-   * fato carrega os dados na Home real (`/series`).
+   * (de `useLibraryItems()`, linha acima) vira `false`. Antes isso
+   * estava (por engano) em `LibraryView.tsx`, rota `/library`, que não
+   * é mais visitada por ninguém — essa aqui, `MinhaListaSection`, é
+   * quem de fato carrega os dados na Home real (`/series`).
+   *
+   * MUDANÇA DE SIGNIFICADO (pedido — "abrir instantâneo mesmo com
+   * biblioteca grande") — `useLibraryItems()` agora pinta uma PRÉVIA
+   * (status/ordem certos, título/pôster placeholder) assim que as
+   * linhas de status chegam, sem esperar o TMDB (ver `onStatusRowsReady`
+   * em `library-state.ts`). `isLoading` vira `false` já nesse momento
+   * — então esta marca passou a medir "quanto tempo até a lista
+   * aparecer na tela" (o que importa pra sensação de instantâneo), não
+   * mais "quanto tempo até pôster/título reais chegarem". Essa segunda
+   * medida continua existindo, só que em outro lugar: `lib_tmdb_summaries_done`
+   * (dentro de `fetchLibraryItems`) mede o fetch completo, com pôster
+   * incluso, do início ao fim.
    *
    * CORREÇÃO (bug real, achado com dado de teste real em celular) —
    * `MinhaListaSection` remonta com bem mais frequência que a tela

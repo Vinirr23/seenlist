@@ -7,7 +7,23 @@ interface RequestBody {
   seriesIds: number[];
 }
 
-const MAX_IDS_PER_REQUEST = 100;
+/**
+ * CORREÇÃO (investigação do residual "quente" de ~1-2s numa biblioteca
+ * grande, ~1000 itens — confirmado com dado real de celular que as
+ * ~10 requisições concorrentes que a paginação de 100-em-100 gerava
+ * eram de fato paralelas, não uma fila escondida — o gargalo era só a
+ * disputa de banda do celular entre elas) — esse limite de 100 vinha
+ * de QUANDO esta rota buscava direto no TMDB (TASK-038), pra não
+ * estourar o rate limit deles com lotes grandes. Agora que a leitura
+ * primária é no NOSSO cache (`media_summaries_cache`, uma query só de
+ * Postgres), não existe mais essa razão pra limitar tão baixo — então
+ * `library-state.ts` parou de paginar e manda todos os ids de uma vez
+ * só, eliminando a concorrência entre várias chamadas de rede pelo
+ * celular. Esse número aqui virou só um teto de segurança (corpo de
+ * requisição/tamanho de query absurdos), bem acima de qualquer
+ * biblioteca real — não é mais o "tamanho de página" de ninguém.
+ */
+const MAX_IDS_PER_REQUEST = 5000;
 
 /**
  * ACHADO DE PERFORMANCE (LCP "poor" de 9-11s em /series, confirmado
@@ -37,10 +53,24 @@ const MAX_IDS_PER_REQUEST = 100;
  */
 const CACHE_TTL_HOURS = 24;
 
-/** Só números inteiros positivos passam — filtra qualquer coisa que não seja um id de verdade. */
-function sanitizeIds(value: unknown): number[] {
+/**
+ * Só números inteiros positivos passam — filtra qualquer coisa que não
+ * seja um id de verdade.
+ *
+ * TASK-038 — "nunca mais pode existir descarte silencioso": se algum
+ * dia uma biblioteca passar do teto de segurança (`MAX_IDS_PER_REQUEST`),
+ * os ids excedentes ainda seriam cortados aqui — mas agora com aviso
+ * explícito, em vez de sumir sem rastro como acontecia antes.
+ */
+function sanitizeIds(value: unknown, label: string): number[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((id): id is number => typeof id === "number" && Number.isInteger(id) && id > 0).slice(0, MAX_IDS_PER_REQUEST);
+  const valid = value.filter((id): id is number => typeof id === "number" && Number.isInteger(id) && id > 0);
+  if (valid.length > MAX_IDS_PER_REQUEST) {
+    console.error(
+      `[api/tmdb/library-summaries] ${valid.length} ids de ${label} recebidos, acima do teto de segurança (${MAX_IDS_PER_REQUEST}) — os ${valid.length - MAX_IDS_PER_REQUEST} excedentes foram descartados.`
+    );
+  }
+  return valid.slice(0, MAX_IDS_PER_REQUEST);
 }
 
 type MediaType = "movie" | "series";
@@ -210,8 +240,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Requisição inválida." }, { status: 400 });
   }
 
-  const movieIds = sanitizeIds(body.movieIds);
-  const seriesIds = sanitizeIds(body.seriesIds);
+  const movieIds = sanitizeIds(body.movieIds, "filmes");
+  const seriesIds = sanitizeIds(body.seriesIds, "séries");
   const language = body.language || "pt-BR";
 
   // TEMPORÁRIO (aprofundando a investigação — mesmo com cache
