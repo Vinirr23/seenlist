@@ -58,6 +58,39 @@ export function mark(label: string) {
 }
 
 /**
+ * CORREÇÃO (bug real, achado com dado de teste real em celular) — usada
+ * por telas que podem REMONTAR sem uma navegação real de página (ex.:
+ * `SeriesHome`/`MinhaListaSection`, que desmontam e remontam toda vez
+ * que a pessoa sai pra outra aba principal do app — Perfil, Explorar
+ * etc. — e volta pra Séries, mesmo sem recarregar o navegador).
+ *
+ * `mark()` usa `performance.now()` puro, relativo ao INÍCIO DA
+ * NAVEGAÇÃO da página (`performance.timeOrigin`) — correto pra medir
+ * "quanto tempo até a 1ª carga real aparecer" (comparável a
+ * LCP/FCP/TTFB), mas errado pra medir remontagens: numa revisita à
+ * tela depois de, digamos, 90s navegando por outras abas do app, o
+ * valor gravado seria ~90000ms, dando a entender (errado) que a tela
+ * "demorou 90 segundos pra carregar", quando na verdade só fazia 90s
+ * desde a carga original da página — a revisita em si pode ter sido
+ * instantânea.
+ *
+ * `markElapsed(label, sinceTimestamp)` mede a partir de UM PONTO NO
+ * TEMPO ESPECÍFICO (o momento em que ESSA montagem começou, capturado
+ * pelo próprio componente — ver `SeriesHome.tsx`/`MinhaListaSection.tsx`),
+ * não desde a navegação. Funciona igual bem pra 1ª carga real (onde o
+ * valor fica bem parecido com o de `mark()`) e pra remontagens
+ * subsequentes (onde reflete de verdade "quanto tempo essa visita
+ * específica levou").
+ */
+export function markElapsed(label: string, sinceTimestamp: number) {
+  if (typeof window === "undefined" || typeof performance === "undefined") return;
+  const elapsed = Math.round(performance.now() - sinceTimestamp);
+  // eslint-disable-next-line no-console
+  console.log(`[PERF] ${label}: ${elapsed}ms desde que esta tela montou`);
+  record(label, elapsed);
+}
+
+/**
  * Usado por `WebVitalsReporter.tsx` — mesma tabela, métricas do
  * navegador em vez de marca customizada.
  *

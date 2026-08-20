@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HomeTabs, type HomeTab } from "../media/HomeTabs";
 import { MinhaListaSection } from "./MinhaListaSection";
 import { EmBreveSection } from "./EmBreveSection";
 import { WebPushPrompt } from "../push/WebPushPrompt";
-import { mark } from "@/lib/perfMarks";
+import { markElapsed } from "@/lib/perfMarks";
 
 /**
  * TASK-019: a aba Séries virou a "central de acompanhamento" —
@@ -25,10 +25,33 @@ export function SeriesHome() {
    * (rota legada, sem uso — ver `LibraryView.tsx`). `useEffect` em vez
    * de marca direta no corpo do componente porque este é um componente
    * "use client": o corpo roda uma vez no servidor antes de hidratar,
-   * e `mark()` só faz sentido pro tempo do NAVEGADOR da pessoa.
+   * e `mark()`/`markElapsed()` só fazem sentido pro tempo do NAVEGADOR
+   * da pessoa.
+   *
+   * CORREÇÃO (bug real, achado com dado de teste real em celular) —
+   * `SeriesHome` desmonta e remonta de verdade toda vez que a pessoa
+   * sai pra outra aba principal do app (Perfil, Explorar etc.) e volta
+   * pra Séries — confirmado comparando com `providers_mounted` (que só
+   * dispara uma vez, porque mora na raiz do app e não remonta com
+   * navegação interna): numa rodada de teste real, `providers_mounted`
+   * apareceu 1x mas `series_home_render` apareceu 2x, ~93s de
+   * diferença. Usar `mark()` puro (relativo ao início da navegação)
+   * fazia a revisita parecer ter "demorado 93 segundos", quando na
+   * verdade só fazia 93s desde que a página tinha carregado
+   * originalmente — nada a ver com a velocidade real da revisita.
+   * `mountStartRef` grava o instante em que ESTA montagem específica
+   * começou, e `markElapsed()` mede a partir daí — funciona certo
+   * tanto na 1ª carga real quanto em qualquer remontagem depois.
    */
+  const mountStartRef = useRef<number | null>(null);
+  if (typeof window !== "undefined" && mountStartRef.current === null) {
+    mountStartRef.current = performance.now();
+  }
+
   useEffect(() => {
-    mark("series_home_render");
+    if (mountStartRef.current !== null) {
+      markElapsed("series_home_render", mountStartRef.current);
+    }
   }, []);
 
   return (

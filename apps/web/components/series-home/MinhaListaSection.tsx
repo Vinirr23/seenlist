@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { mark } from "@/lib/perfMarks";
+import { markElapsed } from "@/lib/perfMarks";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { ContinueWatchingCard } from "./ContinueWatchingCard";
 import { PosterGrid } from "../profile/PosterGrid";
@@ -61,14 +61,38 @@ export function MinhaListaSection() {
   /**
    * TEMPORÁRIO (auditoria de performance) — equivalente exato do
    * `series_home_data_loaded` do mobile: dispara quando `isLoading`
-   * (de `useLibraryItems()`, linha acima) vira `false` pela primeira
-   * vez, ou seja, quando os dados da lista realmente chegaram. Antes
-   * isso estava (por engano) em `LibraryView.tsx`, rota `/library`,
-   * que não é mais visitada por ninguém — essa aqui, `MinhaListaSection`,
-   * é quem de fato carrega os dados na Home real (`/series`).
+   * (de `useLibraryItems()`, linha acima) vira `false`, ou seja,
+   * quando os dados da lista realmente chegaram. Antes isso estava
+   * (por engano) em `LibraryView.tsx`, rota `/library`, que não é mais
+   * visitada por ninguém — essa aqui, `MinhaListaSection`, é quem de
+   * fato carrega os dados na Home real (`/series`).
+   *
+   * CORREÇÃO (bug real, achado com dado de teste real em celular) —
+   * `MinhaListaSection` remonta com bem mais frequência que a tela
+   * inteira: além de sair-e-voltar pra Séries (que já remonta
+   * `SeriesHome`), simplesmente trocar de "Em breve" de volta pra
+   * "Minha Lista" TAMBÉM remonta este componente (renderização
+   * condicional em `SeriesHome.tsx`), mesmo com `SeriesHome` continuando
+   * montado o tempo todo. `mark()` puro (relativo ao início da
+   * navegação) fazia cada uma dessas revisitas gravar um número cada
+   * vez maior e sem sentido (quanto mais tarde na sessão a pessoa
+   * voltasse pra "Minha Lista", maior o valor — sem relação nenhuma
+   * com a velocidade real do carregamento daquela vez). `mountStartRef`
+   * grava o instante em que ESTA montagem específica de
+   * `MinhaListaSection` começou — próprio, independente do de
+   * `SeriesHome` — e `markElapsed()` mede a partir daí, então o número
+   * sempre reflete "quanto tempo esta visita específica levou pra
+   * mostrar dado", seja a 1ª vez ou a enésima.
    */
+  const mountStartRef = useRef<number | null>(null);
+  if (typeof window !== "undefined" && mountStartRef.current === null) {
+    mountStartRef.current = performance.now();
+  }
+
   useEffect(() => {
-    if (!isLoading) mark("series_home_data_loaded");
+    if (!isLoading && mountStartRef.current !== null) {
+      markElapsed("series_home_data_loaded", mountStartRef.current);
+    }
   }, [isLoading]);
 
   /**
