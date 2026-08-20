@@ -5,6 +5,7 @@ import type { MediaSummary } from "@/lib/tmdb/client";
 import { useRealtimeInvalidate } from "@/lib/supabase/useRealtimeInvalidate";
 import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { markElapsed } from "@/lib/perfMarks";
 
 export const LIBRARY_QUERY_KEY = ["library"] as const;
 const LIBRARY_REALTIME_TABLES = ["movie_status", "series_status", "watched_episodes"] as const;
@@ -305,6 +306,14 @@ export function buildLibraryItemsFromRows(
 
 /** Exportado (só visibilidade, TASK-034) pra ferramentas de comparação chamarem exatamente esta função — não uma reimplementação — garantindo fidelidade 100% com o que a tela real usa. */
 export async function fetchLibraryItems(language = "pt-BR"): Promise<LibraryItem[]> {
+  // TEMPORÁRIO (auditoria de performance — investigando LCP "poor" de
+  // ~9-11s em /series, achado real com dado de teste em celular) —
+  // marcas de checkpoint aqui dentro, não só na tela: `markElapsed`
+  // é seguro de chamar de um arquivo que não é componente, contanto
+  // que só rode no navegador (é sempre o caso aqui — `fetchLibraryItems`
+  // só é chamado pelo `queryFn` do `useLibraryItems()`, client-side).
+  const fetchStart = typeof performance !== "undefined" ? performance.now() : 0;
+
   const supabase = createClient();
   const {
     data: { user },
@@ -328,29 +337,44 @@ export async function fetchLibraryItems(language = "pt-BR"): Promise<LibraryItem
    * biblioteca grande o bastante, então corrigido por precaução,
    * mesmo padrão de paginação (contagem primeiro, todas as páginas
    * em paralelo).
+   *
+   * CORREÇÃO (achado de performance nesta auditoria) — essa busca
+   * paginada de `series_status` (contagem + páginas) NÃO tem nenhuma
+   * dependência de dado com a busca de `movie_status`/estatísticas de
+   * episódio logo abaixo — são três fontes independentes. Antes, o
+   * código dava `await` nesta parte inteira ANTES de sequer começar a
+   * buscar `movie_status`/episódios, serializando três idas ao banco
+   * que podiam rodar juntas. Agora as três starts ao mesmo tempo
+   * (`Promise.all` embrulhando tudo), sem mudar nem o dado retornado
+   * nem o tratamento de erro — só a ordem em que as requisições saem.
    */
-  const { count: seriesStatusCount } = await supabase
-    .from("series_status")
-    .select("series_id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-  const SERIES_STATUS_PAGE_SIZE = 1000;
-  const seriesStatusPages = await Promise.all(
-    Array.from({ length: Math.ceil((seriesStatusCount ?? 0) / SERIES_STATUS_PAGE_SIZE) }, (_, i) =>
-      supabase
-        .from("series_status")
-        .select("series_id, status, created_at, updated_at, total_watch_events")
-        .eq("user_id", user.id)
-        .range(i * SERIES_STATUS_PAGE_SIZE, i * SERIES_STATUS_PAGE_SIZE + SERIES_STATUS_PAGE_SIZE - 1)
-    )
-  );
-  const seriesStatusError = seriesStatusPages.find((p) => p.error)?.error;
-  const seriesStatusData = seriesStatusPages.flatMap((p) => p.data ?? []);
+  const seriesStatusResultPromise = (async () => {
+    const { count: seriesStatusCount } = await supabase
+      .from("series_status")
+      .select("series_id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    const SERIES_STATUS_PAGE_SIZE = 1000;
+    const seriesStatusPages = await Promise.all(
+      Array.from({ length: Math.ceil((seriesStatusCount ?? 0) / SERIES_STATUS_PAGE_SIZE) }, (_, i) =>
+        supabase
+          .from("series_status")
+          .select("series_id, status, created_at, updated_at, total_watch_events")
+          .eq("user_id", user.id)
+          .range(i * SERIES_STATUS_PAGE_SIZE, i * SERIES_STATUS_PAGE_SIZE + SERIES_STATUS_PAGE_SIZE - 1)
+      )
+    );
+    return {
+      data: seriesStatusPages.flatMap((p) => p.data ?? []),
+      error: seriesStatusPages.find((p) => p.error)?.error,
+    };
+  })();
 
-  const [movieResult, episodeStats] = await Promise.all([
+  const [seriesResult, movieResult, episodeStats] = await Promise.all([
+    seriesStatusResultPromise,
     supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", user.id),
     fetchWatchedEpisodeStats(supabase, user.id),
   ]);
-  const seriesResult = { data: seriesStatusData, error: seriesStatusError };
+  markElapsed("lib_status_rows_done", fetchStart);
 
   if (movieResult.error) {
     console.error("[library] Falha ao buscar movie_status", movieResult.error);
@@ -381,6 +405,11 @@ export async function fetchLibraryItems(language = "pt-BR"): Promise<LibraryItem
     [...validSeriesIds],
     language
   );
+  // TEMPORÁRIO (auditoria de performance) — se o salto entre
+  // `lib_status_rows_done` e `lib_tmdb_summaries_done` for grande,
+  // confirma que o gargalo está na busca de resumos do TMDB
+  // (`/api/tmdb/library-summaries`), não nas consultas do Supabase.
+  markElapsed("lib_tmdb_summaries_done", fetchStart);
 
   return buildLibraryItemsFromRows(movieRows, seriesRows, episodeStats, summaries);
 }
