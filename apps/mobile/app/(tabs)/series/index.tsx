@@ -59,7 +59,20 @@ export default function SeriesHomeScreen() {
   const router = useRouter();
   const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
-  const { items, isLoading, isError, refreshing, refetch, refetchSilently } = useLibraryItems();
+  /**
+   * ACHADO DE PERFORMANCE (a pedido — "Séries busca a biblioteca 2x
+   * toda abertura", confirmado com `adb logcat` em aparelho real) —
+   * `skipInitialLoad`/`skipFocusRefetch` desligam a busca automática
+   * própria do hook: o `useFocusEffect` logo abaixo (que já existia,
+   * pra recalcular categorias ANTES de rebuscar) passa a ser o ÚNICO
+   * disparador de busca desta tela, em vez de competir com uma
+   * segunda busca automática do hook rodando por baixo. Ver comentário
+   * completo em `lib/useLibraryItems.ts`.
+   */
+  const { items, isLoading, isError, refreshing, refetch, refetchSilently } = useLibraryItems({
+    skipInitialLoad: true,
+    skipFocusRefetch: true,
+  });
 
   // TEMPORÁRIO — ver lib/perfMarks.ts
   useEffect(() => {
