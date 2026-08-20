@@ -5,6 +5,7 @@ import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { mark } from "@/lib/perfMarks";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { ContinueWatchingCard } from "./ContinueWatchingCard";
 import { PosterGrid } from "../profile/PosterGrid";
@@ -56,6 +57,19 @@ export function MinhaListaSection() {
       console.error("[MinhaListaSection] useLibraryItems() falhou", error);
     }
   }, [isError, error]);
+
+  /**
+   * TEMPORÁRIO (auditoria de performance) — equivalente exato do
+   * `series_home_data_loaded` do mobile: dispara quando `isLoading`
+   * (de `useLibraryItems()`, linha acima) vira `false` pela primeira
+   * vez, ou seja, quando os dados da lista realmente chegaram. Antes
+   * isso estava (por engano) em `LibraryView.tsx`, rota `/library`,
+   * que não é mais visitada por ninguém — essa aqui, `MinhaListaSection`,
+   * é quem de fato carrega os dados na Home real (`/series`).
+   */
+  useEffect(() => {
+    if (!isLoading) mark("series_home_data_loaded");
+  }, [isLoading]);
 
   /**
    * CORREÇÃO (bug real, reportado) — mesmo espírito do

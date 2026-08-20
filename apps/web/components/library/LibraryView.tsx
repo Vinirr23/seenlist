@@ -12,7 +12,6 @@ import { LoadingSkeleton } from "../search/LoadingSkeleton";
 import { EmptyState } from "../search/EmptyState";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
-import { mark } from "@/lib/perfMarks";
 
 export function LibraryView() {
   const [tab, setTab] = useState<LibraryStatus>("watching");
@@ -20,24 +19,8 @@ export function LibraryView() {
   const [sort, setSort] = useState<LibrarySort>("updated");
   const { t, locale } = useTranslation();
 
-  // TEMPORÁRIO — ver lib/perfMarks.ts. Equivalente web do
-  // `series_home_render` do mobile — não dá pra marcar direto no
-  // corpo do componente como lá, porque esta função TAMBÉM roda no
-  // servidor (SSR) antes de hidratar; `mark()` já se protege com o
-  // guard de `window`, mas o `useEffect` garante que isto só conta o
-  // primeiro paint de verdade no navegador da pessoa.
-  useEffect(() => {
-    mark("library_view_mounted");
-  }, []);
-
   useLibraryRealtimeSync();
   const { data: items, isLoading, isError } = useLibraryItems();
-
-  // TEMPORÁRIO — ver lib/perfMarks.ts. Equivalente web do
-  // `series_home_data_loaded` do mobile.
-  useEffect(() => {
-    if (!isLoading) mark("library_data_loaded");
-  }, [isLoading]);
 
   const visibleItems = useMemo(() => {
     const filtered = (items ?? [])
