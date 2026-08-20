@@ -82,6 +82,7 @@ type MediaType = "movie" | "series";
 
 interface CacheRow {
   tmdb_id: number;
+  media_type: MediaType;
   title: string;
   year: number | null;
   poster_path: string | null;
@@ -106,37 +107,84 @@ function rowToSummary(row: CacheRow): MediaSummary {
   };
 }
 
-async function readCache(
+/**
+ * CORREÇÃO (achado real, 14ª rodada — investigação do "abrir
+ * instantâneo", depois do revert pra lotes de 100) — antes, cada
+ * página (até 100 filmes + até 100 séries) disparava DUAS leituras
+ * de `media_summaries_cache` em paralelo (`readCache` de filme e de
+ * série, cada uma sua própria ida ao Postgres). Com até 10 páginas
+ * batendo ao mesmo tempo (paralelismo da Frente 1), isso virava até
+ * 20 conexões simultâneas contra o mesmo banco.
+ *
+ * Confirmado direto no painel do Supabase (Database → Connection
+ * pooling): plano Nano, pool de só 15 conexões. Nos logs do Postgres
+ * do horário exato de um teste real de celular apareceram erros
+ * "Warp server error: Thread killed by timeout manager" — sintoma de
+ * requisição esperando conexão que não sobrou no pool — e no mesmo
+ * teste, `tmdb_route_cache_read_ms` (medido inteiramente DENTRO do
+ * servidor, sem nenhuma influência de rede do celular) saiu elevado
+ * (742-960ms) em 6 das 8 páginas de `/series` capturadas, enquanto
+ * `/profile` (mesma rota, mas só 1 página, sem rajada concorrente) se
+ * manteve rápido (46-223ms) no MESMO teste. Confirma contenção de
+ * conexão, não física de rede — a causa raiz real desta vez.
+ *
+ * Correção: uma query só por página, combinando filme e série com
+ * `.or()` (`media_type.eq.movie AND tmdb_id IN (...)` OU o mesmo pra
+ * série) — corta pela METADE as conexões simultâneas por página, sem
+ * mudar tamanho de página nem UX nenhuma. `writeCache` continua
+ * separado por tipo (só roda em cache miss, `tmdb_route_cache_write_ms`
+ * sempre 0 em todos os testes reais até agora — não é o gargalo).
+ */
+async function readCacheCombined(
   admin: ReturnType<typeof createAdminClient>,
-  mediaType: MediaType,
-  ids: number[],
+  movieIds: number[],
+  seriesIds: number[],
   language: string
-): Promise<{ hits: Map<number, MediaSummary>; missingIds: number[] }> {
-  if (ids.length === 0) return { hits: new Map(), missingIds: [] };
+): Promise<{
+  movie: { hits: Map<number, MediaSummary>; missingIds: number[] };
+  series: { hits: Map<number, MediaSummary>; missingIds: number[] };
+}> {
+  const empty = { hits: new Map<number, MediaSummary>(), missingIds: [] as number[] };
+  if (movieIds.length === 0 && seriesIds.length === 0) {
+    return { movie: empty, series: { ...empty } };
+  }
 
   const cutoff = new Date(Date.now() - CACHE_TTL_HOURS * 60 * 60 * 1000).toISOString();
+
+  const orParts: string[] = [];
+  if (movieIds.length > 0) orParts.push(`and(media_type.eq.movie,tmdb_id.in.(${movieIds.join(",")}))`);
+  if (seriesIds.length > 0) orParts.push(`and(media_type.eq.series,tmdb_id.in.(${seriesIds.join(",")}))`);
+
   const { data, error } = await admin
     .from("media_summaries_cache")
-    .select("tmdb_id, title, year, poster_path, total_episodes, ended, runtime_minutes, release_date, genres")
-    .eq("media_type", mediaType)
+    .select("tmdb_id, media_type, title, year, poster_path, total_episodes, ended, runtime_minutes, release_date, genres")
     .eq("language", language)
-    .in("tmdb_id", ids)
-    .gte("fetched_at", cutoff);
+    .gte("fetched_at", cutoff)
+    .or(orParts.join(","));
 
-  const hits = new Map<number, MediaSummary>();
+  const movieHits = new Map<number, MediaSummary>();
+  const seriesHits = new Map<number, MediaSummary>();
+
   if (error) {
     // Cache é só uma otimização — se a leitura falhar, segue sem
     // cache (todo mundo vira "missing", busca no TMDB normalmente)
     // em vez de quebrar a resposta pro usuário.
-    console.warn(`[api/tmdb/library-summaries] Falha ao ler cache de ${mediaType} — seguindo sem cache.`, error.message);
-    return { hits, missingIds: ids };
+    console.warn(`[api/tmdb/library-summaries] Falha ao ler cache combinado — seguindo sem cache.`, error.message);
+    return {
+      movie: { hits: movieHits, missingIds: movieIds },
+      series: { hits: seriesHits, missingIds: seriesIds },
+    };
   }
 
   for (const row of (data ?? []) as CacheRow[]) {
-    hits.set(row.tmdb_id, rowToSummary(row));
+    if (row.media_type === "movie") movieHits.set(row.tmdb_id, rowToSummary(row));
+    else seriesHits.set(row.tmdb_id, rowToSummary(row));
   }
 
-  return { hits, missingIds: ids.filter((id) => !hits.has(id)) };
+  return {
+    movie: { hits: movieHits, missingIds: movieIds.filter((id) => !movieHits.has(id)) },
+    series: { hits: seriesHits, missingIds: seriesIds.filter((id) => !seriesHits.has(id)) },
+  };
 }
 
 async function writeCache(
@@ -261,10 +309,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
 
   const cacheReadStart = Date.now();
-  const [movieCache, seriesCache] = await Promise.all([
-    readCache(admin, "movie", movieIds, language),
-    readCache(admin, "series", seriesIds, language),
-  ]);
+  const { movie: movieCache, series: seriesCache } = await readCacheCombined(admin, movieIds, seriesIds, language);
   const cacheReadMs = Date.now() - cacheReadStart;
 
   const tmdbFetchStart = Date.now();
