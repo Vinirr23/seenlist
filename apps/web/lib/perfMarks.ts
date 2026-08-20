@@ -112,3 +112,19 @@ export function recordWebVital(name: string, value: number, rating: string, page
   console.log(`[PERF] ${name}: ${Math.round(value)} (${rating}) — primeira carga: ${page}`);
   record(name, Math.round(value), rating, page);
 }
+
+/**
+ * TEMPORÁRIO (aprofundando a investigação do TMDB "quente" ainda
+ * levar 1-2s — ver `api/tmdb/library-summaries/route.ts`) — grava um
+ * número que já veio PRONTO de outro lugar (ex.: tempo medido dentro
+ * de uma rota de servidor, mandado de volta na resposta), em vez de
+ * medir a partir de `performance.now()` como `mark()`/`markElapsed()`
+ * fazem. Só um alias de nome claro pra deixar essa intenção óbvia em
+ * quem chama — a gravação em si é idêntica.
+ */
+export function recordValue(metric: string, value: number) {
+  if (typeof window === "undefined") return;
+  // eslint-disable-next-line no-console
+  console.log(`[PERF] ${metric}: ${value} (valor vindo do servidor)`);
+  record(metric, value);
+}

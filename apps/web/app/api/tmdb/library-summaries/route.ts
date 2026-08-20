@@ -214,29 +214,67 @@ export async function POST(request: Request) {
   const seriesIds = sanitizeIds(body.seriesIds);
   const language = body.language || "pt-BR";
 
+  // TEMPORÁRIO (aprofundando a investigação — mesmo com cache
+  // "quente" a etapa continuava levando 1-2s no dado real de teste, a
+  // mais do que uma leitura de Postgres deveria custar) — timers por
+  // etapa DENTRO da rota, mandados de volta na resposta em `timing`
+  // pro cliente gravar via `recordValue` (ver `perfMarks.ts`).
+  // `Date.now()` aqui, não `performance.now()` — este código roda no
+  // servidor (função serverless da Vercel), onde não existe
+  // `performance.timeOrigin` de navegação de página fazendo sentido.
+  const routeStart = Date.now();
   const admin = createAdminClient();
 
+  const cacheReadStart = Date.now();
   const [movieCache, seriesCache] = await Promise.all([
     readCache(admin, "movie", movieIds, language),
     readCache(admin, "series", seriesIds, language),
   ]);
+  const cacheReadMs = Date.now() - cacheReadStart;
 
+  const tmdbFetchStart = Date.now();
   const [freshMovies, freshSeries] = await Promise.all([
     settleSummaries(movieCache.missingIds, (id) => getMovieSummary(id, language), "filme"),
     settleSummaries(seriesCache.missingIds, (id) => getSeriesSummary(id, language), "série"),
   ]);
+  const tmdbFetchMs = Date.now() - tmdbFetchStart;
 
   // Grava no cache ANTES de responder — assim a próxima pessoa (ou a
   // próxima carga desta mesma) já encontra pronto. Falha aqui não
   // derruba a resposta (ver `writeCache`).
+  const cacheWriteStart = Date.now();
   await Promise.all([
     writeCache(admin, "movie", language, freshMovies),
     writeCache(admin, "series", language, freshSeries),
   ]);
+  const cacheWriteMs = Date.now() - cacheWriteStart;
 
-  const response: { movies: MediaSummary[]; series: MediaSummary[] } = {
+  const response: {
+    movies: MediaSummary[];
+    series: MediaSummary[];
+    timing: {
+      cacheReadMs: number;
+      tmdbFetchMs: number;
+      cacheWriteMs: number;
+      totalMs: number;
+      movieCacheHits: number;
+      movieCacheMisses: number;
+      seriesCacheHits: number;
+      seriesCacheMisses: number;
+    };
+  } = {
     movies: [...movieCache.hits.values(), ...freshMovies],
     series: [...seriesCache.hits.values(), ...freshSeries],
+    timing: {
+      cacheReadMs,
+      tmdbFetchMs,
+      cacheWriteMs,
+      totalMs: Date.now() - routeStart,
+      movieCacheHits: movieCache.hits.size,
+      movieCacheMisses: movieCache.missingIds.length,
+      seriesCacheHits: seriesCache.hits.size,
+      seriesCacheMisses: seriesCache.missingIds.length,
+    },
   };
   return NextResponse.json(response);
 }

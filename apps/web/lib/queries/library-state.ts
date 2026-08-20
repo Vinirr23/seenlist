@@ -5,7 +5,7 @@ import type { MediaSummary } from "@/lib/tmdb/client";
 import { useRealtimeInvalidate } from "@/lib/supabase/useRealtimeInvalidate";
 import { STALE_TIME_LIBRARY } from "@/lib/queryStaleTimes";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { markElapsed } from "@/lib/perfMarks";
+import { markElapsed, recordValue } from "@/lib/perfMarks";
 
 export const LIBRARY_QUERY_KEY = ["library"] as const;
 const LIBRARY_REALTIME_TABLES = ["movie_status", "series_status", "watched_episodes"] as const;
@@ -32,9 +32,29 @@ export interface WatchedEpisodeStats {
   last_watched_at: string;
 }
 
+/**
+ * TEMPORÁRIO (aprofundando a investigação — o cache do TMDB já
+ * ajudou, mas mesmo "quente" a etapa continuava em 1-2s, mais do que
+ * uma leitura de Postgres deveria custar) — `timing` vem preenchido
+ * pela própria rota (`api/tmdb/library-summaries/route.ts`), medido
+ * DENTRO do servidor: quanto foi leitura do cache, quanto foi chamada
+ * nova ao TMDB (pros ids que não estavam em cache) e quanto foi
+ * escrever o resultado novo de volta no cache. Opcional (`?`) porque
+ * uma resposta de erro (`response.ok` false) não passa por aqui.
+ */
 interface LibrarySummariesResponse {
   movies: MediaSummary[];
   series: MediaSummary[];
+  timing?: {
+    cacheReadMs: number;
+    tmdbFetchMs: number;
+    cacheWriteMs: number;
+    totalMs: number;
+    movieCacheHits: number;
+    movieCacheMisses: number;
+    seriesCacheHits: number;
+    seriesCacheMisses: number;
+  };
 }
 
 /**
@@ -110,7 +130,34 @@ async function fetchOneLibrarySummariesPage(
       );
       return { movies: [], series: [] };
     }
-    return (await response.json()) as LibrarySummariesResponse;
+    const result = (await response.json()) as LibrarySummariesResponse;
+
+    // TEMPORÁRIO (aprofundando a investigação do TMDB "quente" ainda
+    // levar 1-2s) — grava o breakdown que a própria rota mediu no
+    // servidor. `recordValue` (não `mark`/`markElapsed`) porque estes
+    // já vêm prontos em milissegundos, não são medidos daqui.
+    if (result.timing) {
+      recordValue("tmdb_route_cache_read_ms", result.timing.cacheReadMs);
+      recordValue("tmdb_route_tmdb_fetch_ms", result.timing.tmdbFetchMs);
+      recordValue("tmdb_route_cache_write_ms", result.timing.cacheWriteMs);
+      recordValue("tmdb_route_total_ms", result.timing.totalMs);
+      recordValue(
+        "tmdb_route_cache_hit_rate_pct",
+        Math.round(
+          ((result.timing.movieCacheHits + result.timing.seriesCacheHits) /
+            Math.max(
+              1,
+              result.timing.movieCacheHits +
+                result.timing.movieCacheMisses +
+                result.timing.seriesCacheHits +
+                result.timing.seriesCacheMisses
+            )) *
+            100
+        )
+      );
+    }
+
+    return result;
   } catch (error) {
     console.warn("[library] Falha ao buscar uma página de resumos do TMDB — exibindo os itens desta página sem poster/título.", error);
     return { movies: [], series: [] };
