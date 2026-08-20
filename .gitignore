@@ -8,6 +8,10 @@ dist
 .env
 .env.local
 .env*.local
+# Token de build do Sentry (wizard tentou adicionar sozinho e falhou,
+# porque só existe .gitignore na raiz do monorepo, não em apps/web —
+# adicionado manualmente aqui).
+.env.sentry-build-plugin
 .DS_Store
 next-env.d.ts
 expo-env.d.ts

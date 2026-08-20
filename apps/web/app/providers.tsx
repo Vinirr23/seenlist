@@ -1,14 +1,23 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 import { ToastProvider } from "@/lib/toast/ToastProvider";
 import { BottomNavVisibilityProvider } from "@/lib/layout/bottomNavVisibility";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
+import { WebVitalsReporter } from "@/components/diagnostics/WebVitalsReporter";
+import { mark } from "@/lib/perfMarks";
 
 export function Providers({ children }: { children: ReactNode }) {
+  // TEMPORÁRIO — ver lib/perfMarks.ts. Primeiro ponto garantido de
+  // execução no NAVEGADOR (useEffect nunca roda no servidor) —
+  // equivalente web do `root_layout_render` do mobile.
+  useEffect(() => {
+    mark("providers_mounted");
+  }, []);
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -41,6 +50,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <LocaleProvider>
           <ToastProvider>
             <BottomNavVisibilityProvider>
+              <WebVitalsReporter />
               <OfflineBanner />
               {children}
             </BottomNavVisibilityProvider>

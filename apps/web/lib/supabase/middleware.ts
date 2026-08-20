@@ -66,7 +66,19 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/api/tmdb/") ||
     // TASK-094 (app nativo — Explorar) — mesma razão do /api/tmdb/*
     // acima: só repassa busca ao TMDB, nenhum dado de usuário.
-    pathname.startsWith("/api/search");
+    pathname.startsWith("/api/search") ||
+    /**
+     * Sentry — túnel de erro do navegador (`tunnelRoute: "/monitoring"`
+     * em next.config.mjs, criado pelo wizard oficial). O próprio
+     * wizard avisa: "check that this route will not match your
+     * middleware, otherwise reporting of client-side errors will
+     * fail" — e batia aqui: sem esta exceção, qualquer pessoa
+     * DESLOGADA (tela de login/cadastro, perfil público /u/...) teria
+     * o erro dela redirecionado pro /login em vez de chegar no
+     * Sentry, silenciosamente. Não expõe dado de usuário nenhum — só
+     * repassa o payload de telemetria já pronto do SDK.
+     */
+    pathname.startsWith("/monitoring");
 
   if (!user && !isPublicRoute) {
     // Rotas de API: quem chama é `fetch()` do client, não o navegador
