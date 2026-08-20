@@ -74,6 +74,11 @@ export function ShelfCard({ item, variant = "compact" }: ShelfCardProps) {
               className={cn("object-cover transition-opacity duration-300", imageLoaded ? "opacity-100" : "opacity-0")}
               onLoad={() => setImageLoaded(true)}
             />
+          ) : item.summaryPending ? (
+            /* ACHADO ("não tá suave", 16ª rodada) — resumo do TMDB
+             * ainda não chegou: pulso discreto em vez do ícone
+             * estático, mesma distinção usada nos outros cards. */
+            <div className="h-full w-full animate-pulse bg-surface" />
           ) : (
             <div className="flex h-full items-center justify-center bg-gradient-to-br from-surface to-background">
               <Clapperboard className="h-8 w-8 text-muted/40" strokeWidth={1.5} />
@@ -92,7 +97,11 @@ export function ShelfCard({ item, variant = "compact" }: ShelfCardProps) {
         </div>
 
         <div className="mt-2 space-y-0.5">
-          <p className="truncate text-sm font-semibold text-text">{item.title}</p>
+          {item.summaryPending ? (
+            <div className="h-4 w-3/4 animate-pulse rounded bg-surface" aria-hidden="true" />
+          ) : (
+            <p className="truncate text-sm font-semibold text-text">{item.title}</p>
+          )}
           {isContinue ? (
             <p className="text-xs text-muted">{t("seriesHome.episodeProgress", { watched, total })}</p>
           ) : (

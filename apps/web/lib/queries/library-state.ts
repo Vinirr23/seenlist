@@ -362,6 +362,7 @@ export function buildLibraryItemsFromRows(
       posterPath: summary?.posterPath ?? null,
       releaseDate: summary?.releaseDate ?? null,
       runtimeMinutes: summary?.runtimeMinutes,
+      summaryPending: !summary,
     };
   });
 
@@ -394,6 +395,7 @@ export function buildLibraryItemsFromRows(
         totalWatchEvents: entry.totalWatchEvents ?? undefined,
       },
       runtimeMinutes: summary?.runtimeMinutes,
+      summaryPending: !summary,
     };
   });
 

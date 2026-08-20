@@ -137,6 +137,11 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
       <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded bg-background">
         {posterUrl ? (
           <Image src={posterUrl} alt={item.title} fill sizes="64px" className="object-cover" />
+        ) : item.summaryPending ? (
+          /* ACHADO ("não tá suave", 16ª rodada) — enquanto o resumo do
+           * TMDB não chega, pulso discreto em vez do ícone estático:
+           * comunica "carregando", não "sem pôster". */
+          <div className="h-full w-full animate-pulse bg-surface" />
         ) : (
           <div className="flex h-full items-center justify-center">
             <Clapperboard className="h-5 w-5 text-muted/40" strokeWidth={1.5} />
@@ -145,10 +150,14 @@ export function ContinueWatchingCard({ item }: { item: LibraryItem }) {
       </div>
 
       <div className="min-w-0 flex-1 space-y-1">
-        <span className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-text">
-          {item.title}
-          <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
-        </span>
+        {item.summaryPending ? (
+          <div className="h-5 w-24 animate-pulse rounded-full bg-surface" aria-hidden="true" />
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-text">
+            {item.title}
+            <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
+          </span>
+        )}
         <p className="flex items-center gap-1.5 font-mono text-sm font-bold text-text">
           {episodeCode}
           {/* A PEDIDO (achado real — "falta o +N que o mobile tem") — quantos outros episódios além deste já estão liberados pra assistir. */}

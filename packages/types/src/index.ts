@@ -150,4 +150,16 @@ export interface LibraryItem {
   progress?: LibraryProgress;
   /** Filme: duração do filme. Série: duração média de um episódio. Minutos. */
   runtimeMinutes?: number;
+  /**
+   * ACHADO ("não tá suave" — placeholder cru "Série #123", 16ª rodada
+   * de perf_measurements) — true enquanto o resumo do TMDB (pôster/
+   * título/ano) ainda não voltou pra este item (renderização
+   * progressiva, `onStatusRowsReady` em `library-state.ts`). Os
+   * cards usam isso pra mostrar um skeleton/pulse discreto em vez do
+   * fallback cru `Filme #123`/`Série #123` — sem esconder o
+   * carregamento, só sem expor o ID interno. false/undefined quando
+   * o resumo já resolveu, tenha vindo com pôster de verdade ou não
+   * (aí sim é "sem pôster" de verdade, não mais "carregando").
+   */
+  summaryPending?: boolean;
 }

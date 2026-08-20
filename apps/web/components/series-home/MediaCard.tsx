@@ -38,6 +38,10 @@ export function MediaCard({ item, size = "default" }: MediaCardProps) {
             sizes="(min-width: 768px) 208px, 176px"
             className="object-cover"
           />
+        ) : item.summaryPending ? (
+          /* ACHADO ("não tá suave", 16ª rodada) — mesma distinção dos
+           * outros cards: pulso enquanto o resumo do TMDB não chegou. */
+          <div className="h-full w-full animate-pulse bg-surface" />
         ) : (
           <div className="flex h-full items-center justify-center bg-gradient-to-br from-surface to-background">
             <Clapperboard className="h-8 w-8 text-muted/40" strokeWidth={1.5} />
@@ -55,7 +59,11 @@ export function MediaCard({ item, size = "default" }: MediaCardProps) {
       </div>
 
       <div className="mt-2 space-y-0.5">
-        <p className="truncate text-base font-semibold text-text">{item.title}</p>
+        {item.summaryPending ? (
+          <div className="h-[18px] w-3/4 animate-pulse rounded bg-surface" aria-hidden="true" />
+        ) : (
+          <p className="truncate text-base font-semibold text-text">{item.title}</p>
+        )}
         <p className="text-xs text-muted">{item.year}</p>
       </div>
     </Link>

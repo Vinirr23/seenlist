@@ -11,9 +11,12 @@ import type { MediaSummary } from "@/lib/tmdb/client";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-const PAGE_SIZE = 20;
-/** Mesma janela do cache de resumo TMDB usado no resto do app (fetch do Next em library-state.ts). */
-const SUMMARY_STALE_TIME = 5 * 60 * 1000;
+/** Exportado — `ProfileSectionsList.tsx` usa o MESMO valor pra calcular a "página 0" de cada carrossel antes de combinar as 4 buscas numa só (ver `firstPagePending` abaixo). */
+export const PROFILE_CAROUSEL_PAGE_SIZE = 20;
+/** Mesma janela do cache de resumo TMDB usado no resto do app (fetch do Next em library-state.ts). Exportado pelo mesmo motivo acima. */
+export const PROFILE_CAROUSEL_SUMMARY_STALE_TIME = 5 * 60 * 1000;
+const PAGE_SIZE = PROFILE_CAROUSEL_PAGE_SIZE;
+const SUMMARY_STALE_TIME = PROFILE_CAROUSEL_SUMMARY_STALE_TIME;
 
 /**
  * TASK-177 — carrossel horizontal com prévia real dos pôsteres (em
@@ -30,6 +33,30 @@ const SUMMARY_STALE_TIME = 5 * 60 * 1000;
  * é uma consulta de verdade (`useQueries`, React Query) com chave
  * estável (`mediaType` + os ids exatos daquele lote) — voltar pro
  * Perfil pouco depois reaproveita o cache, sem round-trip novo.
+ *
+ * ACHADO DE PERFORMANCE ("Perfil mais lento", 16ª rodada de
+ * perf_measurements, 2026-08-20) — os 4 carrosséis desta tela
+ * (Séries, Séries favoritas, Filmes, Filmes favoritos) montam ao
+ * mesmo tempo e, cada um buscando sua 1ª página por conta própria
+ * (chave de cache diferente por carrossel — sem dedupe entre eles),
+ * disparavam até 4-5 chamadas simultâneas pra
+ * /api/tmdb/library-summaries. O servidor respondia rápido (58-246ms
+ * — o fix do pool de conexões da rodada anterior continua valendo),
+ * mas o roundtrip total ficava em 1.5-2.5s por disputa de banda no
+ * celular — mesmo padrão já visto em /series com 10 páginas
+ * simultâneas, só que nunca tinha sido investigado aqui.
+ *
+ * Correção: `ProfileSectionsList.tsx` agora busca a 1ª página dos 4
+ * carrosséis JUNTOS, numa única chamada combinada. Enquanto essa
+ * chamada não resolve, a busca própria da 1ª página de CADA
+ * carrossel fica desligada (`firstPagePending` abaixo) — assim que a
+ * combinada resolve, o resultado já é gravado na MESMA chave de
+ * cache que o `useQueries` daqui usa (`queryClient.setQueryData` em
+ * `ProfileSectionsList.tsx`), então quando a busca própria liga, ela
+ * já encontra o dado pronto e não faz um 2º round-trip. Páginas
+ * seguintes (rolar o carrossel) continuam cada uma buscando por si,
+ * como antes — só a 1ª página (a que dispara no load da tela) foi
+ * consolidada.
  */
 export function ProfileMediaCarousel({
   icon: Icon,
@@ -40,6 +67,7 @@ export function ProfileMediaCarousel({
   isLoadingIds,
   emptyLabel,
   emptyHref,
+  firstPagePending = false,
 }: {
   icon: LucideIcon;
   label: string;
@@ -49,6 +77,8 @@ export function ProfileMediaCarousel({
   isLoadingIds: boolean;
   emptyLabel?: string;
   emptyHref?: string;
+  /** true enquanto `ProfileSectionsList.tsx` ainda espera a busca combinada da 1ª página — mantém a busca própria da 1ª página deste carrossel desligada até lá (ver comentário acima). */
+  firstPagePending?: boolean;
 }) {
   const { locale } = useTranslation();
   const [visibleCount, setVisibleCount] = useState(() => Math.min(PAGE_SIZE, ids.length));
@@ -71,10 +101,13 @@ export function ProfileMediaCarousel({
   }, [ids, visibleCount]);
 
   const chunkResults = useQueries({
-    queries: chunks.map((chunkIds) => ({
+    queries: chunks.map((chunkIds, index) => ({
       queryKey: ["profile-media-summaries", mediaType, chunkIds.join(","), locale],
       queryFn: () => fetchDisplaySummaries(mediaType === "movie" ? chunkIds : [], mediaType === "series" ? chunkIds : [], locale),
       staleTime: SUMMARY_STALE_TIME,
+      // Só a 1ª página (index 0) espera a combinada do pai — páginas
+      // seguintes (rolagem) sempre buscam por conta própria.
+      enabled: index > 0 || !firstPagePending,
     })),
   });
 

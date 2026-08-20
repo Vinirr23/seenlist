@@ -97,6 +97,11 @@ function PosterGridItem({
             sizes="(min-width: 768px) 130px, 30vw"
             className="object-cover"
           />
+        ) : item.summaryPending ? (
+          /* ACHADO ("não tá suave", 16ª rodada) — mesma distinção dos
+           * outros cards: pulso enquanto o resumo do TMDB não chegou,
+           * ícone estático só quando já resolveu sem pôster de verdade. */
+          <div className="h-full w-full animate-pulse bg-surface" />
         ) : (
           <div className="flex h-full items-center justify-center bg-gradient-to-br from-surface to-background">
             <Clapperboard className="h-6 w-6 text-muted/40" strokeWidth={1.5} />
