@@ -1,5 +1,5 @@
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
-import { decideWatchingVsUpToDate } from "./airDateCategory";
+import { resolveSeriesCategory, shouldWriteSeriesCategory } from "./airDateCategory";
 import { fetchWatchedEpisodeStats } from "./library-state";
 
 const TMDB_EPISODES_CHUNK_SIZE = 20; // mesmo limite de /api/tmdb/series-episodes-at-export (MAX_IDS_PER_REQUEST)
@@ -30,6 +30,47 @@ async function fetchLiveEpisodesBySeriesId(
       series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] }[];
     };
     for (const s of data.series) result.set(s.id, s.episodes);
+  }
+  return result;
+}
+
+/**
+ * CORREÇÃO (bug real, reportado — "Corrigir status das séries" jogou
+ * várias séries terminadas/em dia de volta pra "Assistindo") — busca,
+ * pra cada série, o conjunto (temporada, episódio) que o usuário
+ * marcou como ESPECIAL (`is_special = true` — vem do TV Time Out,
+ * pode ser qualquer episódio dentro de uma temporada normal, não só
+ * temporada 0). Sem isso, `decideWatchingVsUpToDate` (via
+ * `specialEpisodeKeys`, que ficava sempre vazio) e o cálculo de
+ * "assistiu tudo?" comparavam a contagem de assistidos (que já exclui
+ * especiais) contra o total bruto do TMDB (que NÃO sabe quais
+ * episódios o usuário marcou como especiais) — episódio especial
+ * nunca "batia", série nunca conseguia ficar 100% em dia/completa. Ver
+ * comentário grande em `airDateCategory.ts`.
+ */
+async function fetchSpecialEpisodeKeysBySeriesId(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  seriesIds: number[]
+): Promise<Map<number, Set<string>>> {
+  const result = new Map<number, Set<string>>();
+  if (seriesIds.length === 0) return result;
+
+  const { data, error } = await supabase
+    .from("watched_episodes")
+    .select("series_id, season_number, episode_number")
+    .eq("user_id", userId)
+    .eq("is_special", true)
+    .in("series_id", seriesIds);
+  if (error) {
+    console.error("[fetchSpecialEpisodeKeysBySeriesId] Falha ao buscar episódios especiais.", error);
+    return result; // não bloqueia o recálculo por causa disso — na pior das hipóteses, volta ao comportamento antigo (sem excluir especiais) só pra este lote.
+  }
+
+  for (const row of (data ?? []) as { series_id: number; season_number: number; episode_number: number }[]) {
+    const set = result.get(row.series_id) ?? new Set<string>();
+    set.add(`${row.season_number}-${row.episode_number}`);
+    result.set(row.series_id, set);
   }
   return result;
 }
@@ -129,17 +170,59 @@ export async function recalculateUpToDateSeriesCategoriesThrottled(): Promise<bo
     return false;
   }
 
-  await recalculateUpToDateSeriesCategories();
-  window.localStorage.setItem(RECALC_STORAGE_KEY, String(Date.now()));
-  return true;
+  /*
+   * CORREÇÃO (bug real, reportado — "várias séries terminadas
+   * (Money Heist, Elite, Castlevania, etc.) presas em 'Em dia' em vez
+   * de 'Assistidas'") — causa raiz encontrada: enquanto
+   * `SUPABASE_SERVICE_ROLE_KEY` esteve ausente do `.env.local`
+   * (mesmo problema já identificado antes nesta sessão, que também
+   * quebrava os pôsteres do Perfil e "Para você" da Explorar), TODA
+   * chamada a `/api/tmdb/library-summaries` falhava — inclusive a
+   * usada aqui (`fetchEndedBySeriesId`) pra saber se cada série já
+   * TERMINOU no TMDB. `getAllEpisodesWithAirDates` (a OUTRA busca
+   * feita aqui, `/api/tmdb/series-episodes-at-export`) não depende
+   * dessa chave — não falhava. Resultado: a lista de episódios vinha
+   * certa (então a série era corretamente avaliada como "assistiu
+   * tudo que já saiu"), mas `endedBySeriesId` vinha VAZIO — o código
+   * assumia `ended = false` por padrão pra quem faltava no mapa (linha
+   * abaixo, "?? false"), então NENHUMA série era promovida pra
+   * "completed", mesmo já tendo terminado de verdade no TMDB.
+   *
+   * O agravante: esta função antes sempre devolvia sucesso (só
+   * lançava exceção em falha de REDE, não quando os dados vinham
+   * incompletos) — então o `Throttled` acima gravava o carimbo de "já
+   * rodei hoje" mesmo com o resultado errado, TRAVANDO esse erro por
+   * 24h a cada dia que a chave continuasse faltando. Agora
+   * `recalculateUpToDateSeriesCategories` devolve `false` (em vez de
+   * só logar e seguir) quando não conseguiu de verdade avaliar
+   * "terminou ou não" pra nenhuma série pendente — e SÓ NESSE CASO o
+   * carimbo de 24h não é gravado, então a próxima visita tenta nsão
+   * de novo, em vez de esperar o dia inteiro com o dado errado
+   * fixado.
+   */
+  const succeeded = await recalculateUpToDateSeriesCategories();
+  if (succeeded) {
+    window.localStorage.setItem(RECALC_STORAGE_KEY, String(Date.now()));
+  }
+  return succeeded;
 }
 
-export async function recalculateUpToDateSeriesCategories(): Promise<void> {
+/**
+ * Devolve `true` quando conseguiu avaliar os dados de verdade (mesmo
+ * que não tenha havido nenhuma mudança de categoria — "nada pra
+ * mudar" também é sucesso) e `false` quando teve que desistir por
+ * falta de dado confiável (rede, TMDB fora do ar, ou — o bug real já
+ * documentado acima — `SUPABASE_SERVICE_ROLE_KEY` ausente quebrando
+ * `/api/tmdb/library-summaries`). O valor de retorno é o que permite
+ * ao `Throttled` acima decidir se pode gravar o carimbo de "rodou
+ * hoje" com segurança.
+ */
+export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
   const supabase = createClient();
   const {
     data: { user },
   } = await getCurrentAuthUser(supabase);
-  if (!user) return;
+  if (!user) return false;
 
   /*
    * CORREÇÃO (bug real, reportado — Re:Zero, Tanya the Evil e Tomb
@@ -157,9 +240,17 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     .select("series_id, status")
     .eq("user_id", user.id)
     .in("status", ["up_to_date", "watching", "completed"]);
-  if (statusError || !statusRows || statusRows.length === 0) return;
+  if (statusError) return false; // falha real de rede/consulta — não confunde com "sucesso, nada pra fazer".
+  if (!statusRows || statusRows.length === 0) return true; // conta sem nenhuma série watching/up_to_date/completed — nada pra recalcular, mas não é falha.
 
-  const currentStatusBySeriesId = new Map(
+  // CORREÇÃO (typecheck real reportado pelo usuário — "Argument of
+  // type 'unknown' is not assignable to parameter of type 'string'"
+  // na chamada de `shouldWriteSeriesCategory` mais abaixo) — generics
+  // explícitos no `Map<K, V>` eliminam qualquer ambiguidade de
+  // inferência na fonte — `.get()` agora sempre devolve
+  // `"up_to_date" | "watching" | "completed" | undefined`, nunca
+  // `unknown`.
+  const currentStatusBySeriesId = new Map<number, "up_to_date" | "watching" | "completed">(
     statusRows.map((row) => [row.series_id as number, row.status as "up_to_date" | "watching" | "completed"])
   );
   const seriesIds = statusRows.map((row) => row.series_id as number);
@@ -167,24 +258,50 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   let watchedCountBySeriesId: Map<number, number>;
   let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>;
   let endedBySeriesId: Map<number, boolean>;
+  let specialKeysBySeriesId: Map<number, Set<string>>;
   try {
-    const [watchedStats, episodesMap, endedMap] = await Promise.all([
+    const [watchedStats, episodesMap, endedMap, specialKeysMap] = await Promise.all([
       fetchWatchedEpisodeStats(supabase, user.id),
       fetchLiveEpisodesBySeriesId(seriesIds),
       fetchEndedBySeriesId(seriesIds),
+      fetchSpecialEpisodeKeysBySeriesId(supabase, user.id, seriesIds),
     ]);
     watchedCountBySeriesId = new Map(watchedStats.map((stat) => [stat.series_id, stat.watched_count]));
     episodesBySeriesId = episodesMap;
     endedBySeriesId = endedMap;
+    specialKeysBySeriesId = specialKeysMap;
   } catch (error) {
     console.error(
       "[recalculateUpToDateSeriesCategories] Falha ao buscar dados em lote — categorias não recalculadas desta vez.",
       error
     );
-    return;
+    return false;
+  }
+
+  /*
+   * CORREÇÃO (o bug em si, causa raiz — "várias séries terminadas
+   * presas em 'Em dia'") — `fetchEndedBySeriesId` não lança exceção
+   * quando TODAS as chamadas a `/api/tmdb/library-summaries` falham
+   * (ex.: `SUPABASE_SERVICE_ROLE_KEY` ausente) — ela só ignora
+   * (`if (!response.ok) continue`) e devolve o mapa vazio como se
+   * fosse um resultado válido "nenhuma série terminou". Antes, isso
+   * seguia em frente e gravava `ended = false` pra TODAS as séries,
+   * travando errado por 24h (ver comentário grande acima, no
+   * `Throttled`). Agora: mapa vazio + havia série pra checar = trata
+   * como falha (mesmo não tendo lançado exceção), não como "nenhuma
+   * terminou".
+   */
+  if (endedBySeriesId.size === 0 && seriesIds.length > 0) {
+    console.error(
+      "[recalculateUpToDateSeriesCategories] '/api/tmdb/library-summaries' não devolveu dado de 'ended' pra nenhuma série — tratando como falha para não travar categoria errada por 24h."
+    );
+    return false;
   }
 
   const updates: { user_id: string; series_id: number; status: "watching" | "up_to_date" | "completed"; updated_at: string }[] = [];
+  // UNIFICAÇÃO (ver airDateCategory.ts) — `resolveSeriesCategory` é a
+  // ÚNICA função que decide "watching"/"up_to_date"/"completed" pra
+  // qualquer um dos 3 lugares que gravam series_status no web.
   const categoryBySeriesId = new Map<number, "watching" | "up_to_date" | "completed">();
   for (const seriesId of seriesIds) {
     const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
@@ -192,9 +309,9 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
 
     const watched = watchedCountBySeriesId.get(seriesId) ?? 0;
     const ended = endedBySeriesId.get(seriesId) ?? false;
-    const allEpisodesWatched = watched >= liveEpisodes.length;
-    const newCategory = ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes).category;
-    categoryBySeriesId.set(seriesId, newCategory);
+    const specialEpisodeKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
+    const { category } = resolveSeriesCategory({ watched, liveEpisodes, ended, specialEpisodeKeys });
+    categoryBySeriesId.set(seriesId, category);
   }
 
   /*
@@ -250,33 +367,37 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     const currentStatus = currentStatusBySeriesId.get(seriesId);
 
     /*
-     * CORREÇÃO (bug real, achado reanalisando "Tanya the Evil, Tomb
-     * Raider King sem aparecer em Continue assistindo" — mesmo bug do
-     * mobile, `apps/mobile/lib/seriesDetails.ts`) — "Continue
-     * assistindo" corta em `CONTINUE_ASSISTINDO_LIMIT` (8), ordenado
-     * por `updated_at` — campo que só era tocado quando a CATEGORIA
-     * mudava. Série já corretamente em "watching" (sem mudança de
-     * categoria) nunca tinha `updated_at` atualizado, mesmo ganhando
-     * episódio novo de verdade — podia afundar no ranking, perdida
-     * pra outra série "mexida" por qualquer motivo, e sair das 8
-     * vagas visíveis.
-     *
-     * Agora grava (bate `updated_at`) sempre que a categoria
-     * calculada é "watching" — existe episódio pendente de verdade —
-     * mesmo sem mudança de categoria. "up_to_date"/"completed" não
-     * têm nada pendente, não sobem no ranking à toa.
+     * UNIFICAÇÃO (ver airDateCategory.ts) — `shouldWriteSeriesCategory`
+     * é a ÚNICA função que decide se uma categoria recém-calculada
+     * deve ser gravada, pra qualquer um dos 3 lugares. Cobre as duas
+     * regras que antes viviam duplicadas: nunca deixa "paused" virar
+     * "watching" sozinho (não afeta esta função específica hoje, já
+     * que "paused" nem entra na busca acima — mas protege
+     * automaticamente se isso mudar no futuro), e sempre regrava
+     * "watching" mesmo sem mudança de categoria (achado real —
+     * "Tanya the Evil, Tomb Raider King sem aparecer em Continue
+     * assistindo": o corte de 8 em "Continue assistindo" ordena por
+     * `updated_at`, que só era tocado quando a categoria mudava —
+     * série já corretamente "watching" podia afundar no ranking e
+     * sair das vagas visíveis sem essa regra).
      */
-    if (newCategory !== currentStatus || newCategory === "watching") {
+    // Defesa extra no limite da função (belt-and-suspenders) — mesmo
+    // que a origem de `currentStatus` mude no futuro, `String(...)`
+    // garante um `string` de verdade, nunca `unknown`/`any` vazando
+    // pra dentro de `shouldWriteSeriesCategory`.
+    if (shouldWriteSeriesCategory(String(currentStatus ?? ""), newCategory)) {
       updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
     }
   }
 
-  if (updates.length === 0) return;
+  if (updates.length === 0) return true; // avaliou tudo certinho, só que nada mudou de categoria — sucesso.
 
   const { error: upsertError } = await supabase.from("series_status").upsert(updates, { onConflict: "user_id,series_id" });
   if (upsertError) {
     console.error("[recalculateUpToDateSeriesCategories] Falha ao gravar categorias recalculadas", upsertError);
+    return false; // os dados foram avaliados certo, mas não foi possível salvar — não grava o carimbo de "rodou hoje" com a gravação pendente.
   }
+  return true;
 }
 
 /**
@@ -383,12 +504,16 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     currentStatus === "completed";
   if (!eligibleForRecalc) return;
 
-  const { count: watchedCount } = await supabase
-    .from("watched_episodes")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("series_id", seriesId)
-    .eq("is_special", false);
+  const [{ count: watchedCount }, specialKeysBySeriesId] = await Promise.all([
+    supabase
+      .from("watched_episodes")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("series_id", seriesId)
+      .eq("is_special", false),
+    fetchSpecialEpisodeKeysBySeriesId(supabase, user.id, [seriesId]),
+  ]);
+  const specialKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
 
   let liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] = [];
   let ended = false;
@@ -426,21 +551,15 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   if (liveEpisodes.length === 0) return;
 
   const watched = watchedCount ?? 0;
-  const allEpisodesWatched = watched >= liveEpisodes.length;
-  const newCategory =
-    ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes).category;
-
-  /*
-   * CORREÇÃO (mesma auditoria — consistência com
-   * `recalculateUpToDateSeriesCategories`, logo acima) — antes,
-   * categoria sem mudança = SEM gravar nada, nem quando o usuário
-   * tinha acabado de marcar episódio (interação real, agora mesmo).
-   * "watching" sem mudança de categoria ainda assim atualiza
-   * `updated_at` — é o campo que decide a ordem de "Continue
-   * assistindo" (corte de 8), e essa série tem episódio pendente de
-   * verdade, merece refletir isso na ordenação.
-   */
-  if (newCategory === currentStatus && newCategory !== "watching") return;
+  // UNIFICAÇÃO (ver airDateCategory.ts) — mesma função usada pelo
+  // recálculo em lote logo acima e pela rota admin: decide a
+  // categoria (`resolveSeriesCategory`) e se ela deve ser gravada
+  // (`shouldWriteSeriesCategory`, que protege "paused" de virar
+  // "watching" sozinho e regrava "watching" mesmo sem mudança, pro
+  // ranking de "Continue assistindo") — nenhuma dessas regras é
+  // reimplementada aqui.
+  const { category: newCategory } = resolveSeriesCategory({ watched, liveEpisodes, ended, specialEpisodeKeys: specialKeys });
+  if (!shouldWriteSeriesCategory(currentStatus, newCategory)) return;
 
   /**
    * TASK-062 — `upsert` em vez de `update`: séries sem linha prévia

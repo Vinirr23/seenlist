@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { getAllEpisodesWithAirDates, getSeriesSummary } from "@/lib/tmdb/client";
-import { decideWatchingVsUpToDate } from "@/lib/queries/airDateCategory";
+import { resolveSeriesCategory, shouldWriteSeriesCategory } from "@/lib/queries/airDateCategory";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +100,35 @@ export async function POST(request: Request) {
   }
   const statusBySeriesId = new Map((statusRows ?? []).map((r) => [r.series_id as number, r.status as string]));
 
+  /*
+   * CORREÇÃO (bug real, reportado — "Corrigir status das séries"
+   * jogou várias séries terminadas/em dia de volta pra "Assistindo")
+   * — mesma causa raiz documentada em `airDateCategory.ts`: episódio
+   * marcado como especial pelo TV Time (`is_special = true`, pode
+   * estar DENTRO de uma temporada normal, não só temporada 0) é
+   * excluído da contagem de assistidos, mas continuava contando do
+   * lado do TMDB — série com qualquer especial nunca "batia" a conta,
+   * nunca virava completed/up_to_date. Busca em lote (mesmo padrão de
+   * `statusRows` acima) pra não fazer 1 consulta a mais por série
+   * dentro do loop de concorrência abaixo.
+   */
+  const { data: specialRows, error: specialError } = await admin
+    .from("watched_episodes")
+    .select("series_id, season_number, episode_number")
+    .eq("user_id", userId)
+    .eq("is_special", true)
+    .in("series_id", seriesIds.length > 0 ? seriesIds : [-1]);
+  if (specialError) {
+    console.error("[admin/repair-series-categories] Falha ao buscar episódios especiais", specialError);
+    return NextResponse.json({ error: "Falha ao buscar episódios especiais." }, { status: 500 });
+  }
+  const specialKeysBySeriesId = new Map<number, Set<string>>();
+  for (const row of (specialRows ?? []) as { series_id: number; season_number: number; episode_number: number }[]) {
+    const set = specialKeysBySeriesId.get(row.series_id) ?? new Set<string>();
+    set.add(`${row.season_number}-${row.episode_number}`);
+    specialKeysBySeriesId.set(row.series_id, set);
+  }
+
   let updated = 0;
   let skipped = 0;
   const errors: number[] = [];
@@ -108,11 +137,15 @@ export async function POST(request: Request) {
     const batch = seriesIds.slice(start, start + CONCURRENCY);
     await Promise.all(
       batch.map(async (seriesId) => {
-        // Mesma regra de sempre: "paused" é decisão explícita do
-        // usuário, nunca mexido aqui — só watching/up_to_date/
-        // want_to_watch/sem status (derivado) são elegíveis.
+        // "removed" continua de fora, sem exceção — série removida da
+        // biblioteca não deveria ganhar status nenhum de volta sozinha.
+        // "paused" agora entra no cálculo normalmente — a proteção
+        // (nunca deixar paused virar watching sozinho) mora em
+        // `shouldWriteSeriesCategory`, chamada mais abaixo, a MESMA
+        // função usada pelas outras 2 implementações (unificação, ver
+        // airDateCategory.ts).
         const currentStatus = statusBySeriesId.get(seriesId) ?? "watching";
-        if (currentStatus === "paused" || currentStatus === "removed") {
+        if (currentStatus === "removed") {
           skipped++;
           return;
         }
@@ -135,11 +168,29 @@ export async function POST(request: Request) {
           }
 
           const watched = watchedCount ?? 0;
-          const allEpisodesWatched = watched >= liveEpisodes.length;
-          const newCategory =
-            summary.ended && allEpisodesWatched ? "completed" : decideWatchingVsUpToDate(watched, liveEpisodes).category;
+          const specialEpisodeKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
+          // UNIFICAÇÃO (ver airDateCategory.ts) — mesmas duas funções
+          // usadas por `seriesCategoryRecalc.ts` (recálculo em lote e
+          // individual). Esta rota não reimplementa mais a decisão
+          // nem as regras de gravação por conta própria.
+          //
+          // CORREÇÃO (typecheck real reportado pelo usuário — "Type
+          // 'boolean | undefined' is not assignable to type
+          // 'boolean'") — `MediaSummary.ended` é opcional (o mesmo
+          // tipo cobre filme, que não tem esse conceito), mas
+          // `resolveSeriesCategory` exige `boolean`. Mesmo padrão já
+          // usado em todo o resto do código (`endedBySeriesId.get(...)
+          // ?? false` em seriesCategoryRecalc.ts e no mobile): série
+          // sem dado confiável de "terminou?" trata como "não
+          // terminou" — mais seguro do que assumir o contrário.
+          const { category: newCategory } = resolveSeriesCategory({
+            watched,
+            liveEpisodes,
+            ended: summary.ended ?? false,
+            specialEpisodeKeys,
+          });
 
-          if (newCategory === currentStatus) {
+          if (!shouldWriteSeriesCategory(currentStatus, newCategory)) {
             skipped++;
             return;
           }

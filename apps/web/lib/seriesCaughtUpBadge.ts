@@ -30,10 +30,21 @@ export type SeriesCaughtUpBadge = "ongoing" | "ended" | null;
  * saiu" se a MESMA temporada tiver pelo menos um outro episódio com
  * data confirmada e já passada. Temporada inteira sem nenhuma data
  * (especulação de futuro, ainda sem estreia) não conta.
+ *
+ * CORREÇÃO 3 (achado em auditoria — "verifique toda a lógica de
+ * status") — "não-especial" aqui só filtrava temporada 0. Episódio
+ * marcado ESPECIAL pelo TV Time (`is_special = true`) dentro de uma
+ * temporada normal (>= 1) nunca era excluído — mesma causa raiz já
+ * corrigida em `airDateCategory.ts`/`seriesCategoryRecalc.ts` pra
+ * decidir a categoria da série; aqui é o mesmo problema, só que pro
+ * selo/confete desta tela. `specialEpisodeKeys` (novo parâmetro,
+ * default vazio pra não quebrar quem ainda não passa) exclui esses
+ * episódios da lista do que "precisa estar assistido".
  */
 export function computeSeriesCaughtUpBadge(
   series: Pick<SeriesDetails, "seasons" | "status">,
-  watched: Set<WatchedEpisodeKey> | undefined
+  watched: Set<WatchedEpisodeKey> | undefined,
+  specialEpisodeKeys: Set<WatchedEpisodeKey> = new Set()
 ): SeriesCaughtUpBadge {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -45,7 +56,8 @@ export function computeSeriesCaughtUpBadge(
       return season.episodes.filter(
         (episode) => (episode.airDate !== null && episode.airDate <= today) || (episode.airDate === null && seasonHasConfirmedAiring)
       );
-    });
+    })
+    .filter((episode) => !specialEpisodeKeys.has(episodeKey(episode.seasonNumber, episode.episodeNumber)));
 
   if (airedNonSpecialEpisodes.length === 0) return null;
 

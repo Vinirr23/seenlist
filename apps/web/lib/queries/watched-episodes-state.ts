@@ -47,6 +47,45 @@ export function useWatchedEpisodes(seriesId: number) {
   });
 }
 
+/**
+ * CORREÇÃO (achado em auditoria — "verifique toda a lógica de
+ * status") — mesma causa raiz já corrigida em `seriesCategoryRecalc.ts`/
+ * `airDateCategory.ts`, só que aqui pro selo "em dia"/confete de
+ * `computeSeriesCaughtUpBadge` (`seriesCaughtUpBadge.ts`): episódio
+ * marcado ESPECIAL pelo TV Time (`is_special = true`, pode estar
+ * DENTRO de uma temporada normal) nunca era excluído da lista de
+ * "episódios que precisam estar assistidos" — se o usuário optou por
+ * NÃO marcar aquele especial como assistido na importação (uma opção
+ * explícita, ver `SpecialsConfirmationScreen`), o selo/confete nunca
+ * aparecia pra essa série, mesmo com tudo o que "conta" assistido.
+ */
+async function fetchSpecialEpisodeKeys(seriesId: number): Promise<Set<WatchedEpisodeKey>> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await getCurrentAuthUser(supabase);
+  if (!user) return new Set();
+
+  const { data, error } = await supabase
+    .from("watched_episodes")
+    .select("season_number, episode_number")
+    .eq("series_id", seriesId)
+    .eq("user_id", user.id)
+    .eq("is_special", true);
+
+  if (error) throw error;
+
+  return new Set(data.map((row) => episodeKey(row.season_number, row.episode_number)));
+}
+
+export function useSpecialEpisodeKeys(seriesId: number) {
+  return useQuery({
+    queryKey: ["watched-episodes", seriesId, "special-keys"],
+    queryFn: () => fetchSpecialEpisodeKeys(seriesId),
+    staleTime: STALE_TIME_LIBRARY,
+  });
+}
+
 export function isEpisodeWatched(
   watched: Set<WatchedEpisodeKey> | undefined,
   seasonNumber: number,
