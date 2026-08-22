@@ -30,14 +30,43 @@ export function DiscoverCarousel({
   const [statuses, setStatuses] = useState<Map<string, string>>(new Map());
   const [statusesLoaded, setStatusesLoaded] = useState(false);
 
+  /**
+   * CORREÇÃO (a pedido — "mostra tudo, inclusive o que já tá na
+   * Biblioteca, depois remonta certo") — desde que os itens passaram
+   * a chegar instantâneos (cache local, `useDiscoverList.ts`), essa
+   * busca de status (que sempre existiu, TASK-152) ficou "sobrando"
+   * visível: antes as duas buscas terminavam quase juntas e esse
+   * instante de itens não filtrados ficava escondido atrás do
+   * esqueleto de carregamento dos ITENS; agora que os itens não
+   * esperam mais nada, o flash apareceu.
+   *
+   * `statusesLoaded` agora volta pra `false` no INÍCIO de cada nova
+   * busca (não só na primeira vez) — a tela espera o status também
+   * estar pronto antes de trocar o esqueleto pelos itens de verdade,
+   * mesmo em atualizações silenciosas depois da primeira. Lista vazia
+   * conta como "carregado" na hora (nada pra esperar) — senão travaria
+   * no esqueleto pra sempre.
+   */
   useEffect(() => {
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      setStatusesLoaded(true);
+      return;
+    }
+    setStatusesLoaded(false);
+    let cancelled = false;
     fetchLibraryStatusesFor(items.map((item) => ({ mediaType: item.mediaType, id: item.id })))
       .then((result) => {
+        if (cancelled) return;
         setStatuses(result);
         setStatusesLoaded(true);
       })
-      .catch((error) => console.error("[DiscoverCarousel] Falha ao buscar status em lote", error));
+      .catch((error) => {
+        console.error("[DiscoverCarousel] Falha ao buscar status em lote", error);
+        if (!cancelled) setStatusesLoaded(true); // não trava no esqueleto pra sempre se der erro — cai pra lista sem filtrar
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.map((i) => `${i.mediaType}-${i.id}`).join(",")]);
 
@@ -49,6 +78,7 @@ export function DiscoverCarousel({
    * tenha status na Biblioteca some da lista de descoberta.
    */
   const visibleItems = statusesLoaded ? items.filter((item) => !statuses.has(`${item.mediaType}-${item.id}`)) : items;
+  const showSkeleton = isLoading || !statusesLoaded;
 
   return (
     <View style={styles.section}>
@@ -56,7 +86,7 @@ export function DiscoverCarousel({
         {title}
       </Text>
 
-      {isLoading ? (
+      {showSkeleton ? (
         <View style={styles.row}>
           {[0, 1, 2, 3].map((i) => (
             <View key={i} style={styles.skeletonCard} />

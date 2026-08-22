@@ -29,6 +29,14 @@ export async function pickImageFromLibrary(): Promise<{ uri: string; mimeType: s
   if (result.canceled || result.assets.length === 0) return null;
 
   const asset = result.assets[0];
+  // CORREÇÃO (erro do tsc — "noUncheckedIndexedAccess" no
+  // tsconfig.base.json do monorepo) — acesso por índice de array
+  // sempre volta `T | undefined` com essa opção ligada, mesmo já
+  // tendo checado `result.assets.length === 0` acima (o TS não liga
+  // uma checagem de `.length` ao tipo do acesso por índice logo
+  // depois). Sem mudança de comportamento — o `length === 0` já
+  // garantia isso em runtime.
+  if (!asset) return null;
   return { uri: asset.uri, mimeType: asset.mimeType ?? "image/jpeg" };
 }
 

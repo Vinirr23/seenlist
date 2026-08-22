@@ -5,7 +5,6 @@ import * as SplashScreen from "expo-splash-screen";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { registerForPushNotifications, removePushToken } from "@/lib/pushNotifications";
-import { mark } from "@/lib/perfMarks";
 
 export type AuthResult = { error: string | null; message?: string };
 
@@ -69,17 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data, error }) => {
-      mark("session_resolved"); // TEMPORÁRIO — ver lib/perfMarks.ts
+    supabase.auth.getSession().then(({ data }) => {
       // A splash nativa esconde exatamente aqui — assim que a sessão
       // (pronta ou não) resolve de verdade, não num tempo fixo. Ver
       // comentário grande em app/_layout.tsx pro raciocínio completo.
       SplashScreen.hideAsync().catch(() => {});
-      console.log("[Auth] Restaurando sessão ao abrir o app:", {
-        sessaoEncontrada: !!data.session,
-        provedor: data.session?.user.app_metadata?.provider ?? "nenhum",
-        erro: error?.message ?? null,
-      });
       setSession(data.session);
       setLoading(false);
     });
@@ -173,41 +166,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { accessToken, refreshToken, errorDescription } = extractTokensFromUrl(result.url);
         if (errorDescription) return { error: errorDescription };
         if (!accessToken || !refreshToken) {
-          console.warn("[Auth] Google: token ausente na URL de retorno", {
-            hasAccessToken: !!accessToken,
-            hasRefreshToken: !!refreshToken,
-          });
           return { error: "Não foi possível concluir o login com o Google." };
         }
 
-        /**
-         * TASK-130 (investigação — sessão do Google não persiste) —
-         * login por e-mail/senha continua logado ao reabrir o app;
-         * login pelo Google não. Como os dois usam o MESMO cliente
-         * Supabase (mesmo `persistSession`/AsyncStorage), a suspeita
-         * é que `setSession()` (só usado pelo fluxo do Google) não
-         * está terminando de gravar no armazenamento antes do app
-         * seguir em frente — ou o refresh_token que volta na URL do
-         * Google já vem inválido por algum motivo. Este log confirma
-         * de verdade se a sessão foi pro AsyncStorage (não só pra
-         * memória) — próxima vez que reproduzir o bug, manda o que
-         * aparecer aqui no console.
-         */
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        const { error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
         if (sessionError) {
-          console.warn("[Auth] Google: setSession falhou", sessionError.message);
           return { error: "Não foi possível concluir o login com o Google." };
         }
-
-        const readBack = await supabase.auth.getSession();
-        console.log("[Auth] Google: sessão salva?", {
-          setSessionRetornouUsuario: !!sessionData.session?.user,
-          getSessionConfirmaSessao: !!readBack.data.session,
-          refreshTokenPresente: !!readBack.data.session?.refresh_token,
-        });
 
         return { error: null };
       },

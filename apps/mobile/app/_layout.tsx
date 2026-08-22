@@ -11,7 +11,6 @@ import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { colors } from "@/lib/theme";
-import { mark } from "@/lib/perfMarks";
 
 /**
  * TASK-165 (splash, retomada) — sem isso, a splash NATIVA (a que o
@@ -90,7 +89,6 @@ function useNotificationDeepLinks() {
  */
 export default function RootLayout() {
   useNotificationDeepLinks();
-  mark("root_layout_render"); // TEMPORÁRIO — ver lib/perfMarks.ts
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
