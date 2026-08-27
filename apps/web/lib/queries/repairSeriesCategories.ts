@@ -35,6 +35,17 @@ export async function repairAllSeriesCategories(onProgress?: (done: number, tota
 
   const total = count ?? 0;
   const pageCount = Math.ceil(total / PAGE_SIZE);
+  // CORREÇÃO (2026-08-26, achado real — mesmo defeito raiz já
+  // corrigido em `seriesCategoryRecalc.ts`/`repair-series-categories/
+  // route.ts`/Edge Functions) — esta paginação buscava as páginas em
+  // PARALELO sem `.order()` explícito: sem isso, o Postgres não
+  // garante que a página 2 comece onde a página 1 parou, e séries
+  // inteiras podiam ser puladas silenciosamente aqui — exatamente
+  // este botão ("Corrigir status das séries") é quem decide quais
+  // séries recalcular, então uma série pulada aqui nunca tinha o
+  // status corrigido nessa passada, sem erro nenhum. Ordenado pelas
+  // mesmas colunas restantes da chave primária, igual aos outros
+  // pontos já corrigidos.
   const pages = await Promise.all(
     Array.from({ length: pageCount }, (_, index) => {
       const from = index * PAGE_SIZE;
@@ -43,6 +54,9 @@ export async function repairAllSeriesCategories(onProgress?: (done: number, tota
         .select("series_id")
         .eq("user_id", user.id)
         .eq("is_special", false)
+        .order("series_id", { ascending: true })
+        .order("season_number", { ascending: true })
+        .order("episode_number", { ascending: true })
         .range(from, from + PAGE_SIZE - 1);
     })
   );

@@ -96,9 +96,26 @@ export default function EpisodeDetailScreen() {
     let cancelled = false;
     setIsLoading(true);
     setIsError(false);
+    setWatchedLoading(true);
     fetchEpisodePage(seriesIdStr, seasonNumber, episodeNumber, locale)
       .then((result) => {
-        if (!cancelled) setData(result);
+        if (cancelled) return;
+        setData(result);
+        // CORREÇÃO (2026-08-26 — "motor resistente", ver seriesDetails.ts) — antes essa checagem
+        // rodava em PARALELO com a busca acima, sem o ID fixo da TMDB (`result.episode.id`) à mão
+        // ainda. Encadeado aqui pra poder passar o ID — checagem por ID vem primeiro dentro de
+        // `isEpisodeWatched`, sobrevive a uma reestruturação de temporadas pela TMDB.
+        isEpisodeWatched(seriesIdNum, seasonNumber, episodeNumber, result.episode.id)
+          .then((value) => {
+            if (!cancelled) {
+              setWatched(value);
+              setWatchedLoading(false);
+            }
+          })
+          .catch((error) => {
+            console.error("[EpisodeDetailScreen] Falha ao checar se episódio já foi assistido", error);
+            if (!cancelled) setWatchedLoading(false);
+          });
       })
       .catch((error) => {
         console.error("[EpisodeDetailScreen] Falha ao buscar episódio", error);
@@ -107,13 +124,6 @@ export default function EpisodeDetailScreen() {
       .finally(() => {
         if (!cancelled) setIsLoading(false);
       });
-
-    isEpisodeWatched(seriesIdNum, seasonNumber, episodeNumber).then((value) => {
-      if (!cancelled) {
-        setWatched(value);
-        setWatchedLoading(false);
-      }
-    });
 
     fetchMyReview(target).then((value) => {
       if (!cancelled) setMyReview(value);
@@ -193,7 +203,8 @@ export default function EpisodeDetailScreen() {
     const previousValue = watched;
     setWatched(!previousValue);
     try {
-      await toggleEpisodeWatched(seriesIdNum, seasonNumber, episodeNumber, previousValue);
+      // CORREÇÃO (2026-08-26 — "motor resistente", ver seriesDetails.ts) — `data.episode.id` é o ID fixo da TMDB pra este episódio específico.
+      await toggleEpisodeWatched(seriesIdNum, seasonNumber, episodeNumber, previousValue, data?.episode.id);
     } catch (error) {
       console.error("[EpisodeDetailScreen] Falha ao marcar/desmarcar", error);
       setWatched(previousValue);

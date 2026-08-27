@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { SeasonWithEpisodes } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { episodeKey, type WatchedEpisodeKey } from "@/lib/seriesDetails";
+import { isEpisodeWatchedSync, type WatchedEpisodeKey } from "@/lib/seriesDetails";
 import { hapticTick } from "@/lib/haptics";
 import { Text } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
@@ -28,6 +28,7 @@ export function SeasonAccordion({
   seriesId,
   season,
   watched,
+  watchedEpisodeIds,
   busy,
   onToggleEpisode,
   onMarkMany,
@@ -38,9 +39,12 @@ export function SeasonAccordion({
   seriesId: number;
   season: SeasonWithEpisodes;
   watched: Set<WatchedEpisodeKey>;
+  /** CORREÇÃO (2026-08-26 — "motor resistente") — opcional, ver `isEpisodeWatchedSync` (seriesDetails.ts). */
+  watchedEpisodeIds?: Set<number>;
   busy: boolean;
-  onToggleEpisode: (seasonNumber: number, episodeNumber: number) => void;
-  onMarkMany: (episodes: { seasonNumber: number; episodeNumber: number }[]) => void;
+  /** `episodeId` opcional (2026-08-26, "motor resistente" — ver seriesDetails.ts) — ID fixo da TMDB, gravado junto quando disponível. */
+  onToggleEpisode: (seasonNumber: number, episodeNumber: number, episodeId?: number) => void;
+  onMarkMany: (episodes: { seasonNumber: number; episodeNumber: number; episodeId?: number }[]) => void;
   onUnmarkSeason: (seasonNumber: number) => void;
   onRewatch: (seasonNumber: number, episodeNumber: number) => void;
   defaultOpen?: boolean;
@@ -50,7 +54,9 @@ export function SeasonAccordion({
   const [open, setOpen] = useState(defaultOpen);
   const [dialog, setDialog] = useState<Dialog>(null);
 
-  const watchedCount = season.episodes.filter((ep) => watched.has(episodeKey(ep.seasonNumber, ep.episodeNumber))).length;
+  const watchedCount = season.episodes.filter((ep) =>
+    isEpisodeWatchedSync(watched, ep.seasonNumber, ep.episodeNumber, ep.id, watchedEpisodeIds)
+  ).length;
   const allWatched = season.episodes.length > 0 && watchedCount === season.episodes.length;
 
   const sortedEpisodes = useMemo(() => [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber), [season.episodes]);
@@ -63,7 +69,9 @@ export function SeasonAccordion({
     }
 
     const hasUnwatchedBefore = sortedEpisodes.some(
-      (ep) => ep.episodeNumber < episodeNumber && !watched.has(episodeKey(season.seasonNumber, ep.episodeNumber))
+      (ep) =>
+        ep.episodeNumber < episodeNumber &&
+        !isEpisodeWatchedSync(watched, season.seasonNumber, ep.episodeNumber, ep.id, watchedEpisodeIds)
     );
     if (hasUnwatchedBefore) {
       hapticTick();
@@ -72,19 +80,24 @@ export function SeasonAccordion({
       // Sem haptic aqui de propósito — `onToggleEpisode` é o `toggle`
       // do hook `useWatchedEpisodes`, que já vibra sozinho. Vibrar
       // aqui também duplicaria o toque num único gesto.
-      onToggleEpisode(season.seasonNumber, episodeNumber);
+      // CORREÇÃO (2026-08-26 — "motor resistente") — ID fixo da TMDB, já disponível em `sortedEpisodes`.
+      const episodeId = sortedEpisodes.find((ep) => ep.episodeNumber === episodeNumber)?.id;
+      onToggleEpisode(season.seasonNumber, episodeNumber, episodeId);
     }
   }
 
   function markUpToEpisode(episodeNumber: number) {
     hapticTick();
-    const episodes = sortedEpisodes.filter((ep) => ep.episodeNumber <= episodeNumber).map((ep) => ({ seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber }));
+    const episodes = sortedEpisodes
+      .filter((ep) => ep.episodeNumber <= episodeNumber)
+      .map((ep) => ({ seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber, episodeId: ep.id }));
     onMarkMany(episodes);
     setDialog(null);
   }
 
   function markOnlyThisEpisode(episodeNumber: number) {
-    onToggleEpisode(season.seasonNumber, episodeNumber);
+    const episodeId = sortedEpisodes.find((ep) => ep.episodeNumber === episodeNumber)?.id;
+    onToggleEpisode(season.seasonNumber, episodeNumber, episodeId);
     setDialog(null);
   }
 
@@ -93,7 +106,7 @@ export function SeasonAccordion({
     if (allWatched) {
       onUnmarkSeason(season.seasonNumber);
     } else {
-      onMarkMany(season.episodes.map((ep) => ({ seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber })));
+      onMarkMany(season.episodes.map((ep) => ({ seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber, episodeId: ep.id })));
     }
     setDialog(null);
   }
@@ -146,7 +159,7 @@ export function SeasonAccordion({
       {open && (
         <View style={styles.episodeList}>
           {sortedEpisodes.map((episode) => {
-            const isWatched = watched.has(episodeKey(episode.seasonNumber, episode.episodeNumber));
+            const isWatched = isEpisodeWatchedSync(watched, episode.seasonNumber, episode.episodeNumber, episode.id, watchedEpisodeIds);
             const stillUrl = tmdbImageUrl(episode.stillPath, "w185");
             return (
               <View key={episode.id} style={styles.episodeRow}>

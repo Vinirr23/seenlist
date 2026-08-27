@@ -255,6 +255,27 @@ async function checkNewReleases(): Promise<void> {
     return;
   }
 
+  /*
+   * CORREÇÃO (bug real, achado em 2026-08-26 auditando o mesmo padrão
+   * que causou o bug de status/paginação do web — ver comentário
+   * grande em `apps/web/lib/queries/seriesCategoryRecalc.ts`) — esta
+   * paginação, e as outras duas mais abaixo nesta função, buscavam as
+   * páginas em PARALELO (`Promise.all`) sem nenhuma ordenação
+   * (`.order()`) explícita. Sem isso, o Postgres/PostgREST não
+   * garante que a página 2 comece exatamente onde a página 1 parou —
+   * com ~39 mil linhas em `series_status` (bem acima do teto de 1000
+   * por página), isso pode deixar séries de fora silenciosamente,
+   * fazendo esta função nunca checar se saiu episódio novo pra elas
+   * (nenhum erro, só a notificação nunca chega). Como esta função só
+   * LÊ dados pra decidir quem notificar (nunca grava em
+   * `series_status`/`watched_episodes`), o risco aqui é de
+   * notificação perdida, não de dado corrompido.
+   *
+   * Ordenar por `(user_id, series_id)` — a chave primária real da
+   * tabela (ver migration `20260707000001_series_status.sql`) — torna
+   * cada página determinística, sem depender da ordem "por acaso" que
+   * o Postgres escolher entre chamadas paralelas.
+   */
   const statusPageCount = Math.ceil((statusCount ?? 0) / PAGE_SIZE);
   const statusPages = await Promise.all(
     Array.from({ length: statusPageCount }, async (_, i) => {
@@ -263,6 +284,8 @@ async function checkNewReleases(): Promise<void> {
         .from("series_status")
         .select("series_id")
         .in("status", ACTIVE_STATUSES)
+        .order("user_id", { ascending: true })
+        .order("series_id", { ascending: true })
         .range(from, from + PAGE_SIZE - 1);
       if (error) {
         console.error(`[check-new-releases] Falha ao paginar series_status (linhas ${from}+)`, error);
@@ -380,6 +403,10 @@ async function checkNewReleases(): Promise<void> {
       .eq("series_id", seriesId)
       .in("status", ACTIVE_STATUSES);
 
+    // CORREÇÃO (mesmo achado documentado acima, na primeira paginação
+    // desta função) — `series_id` já é fixo pelo filtro acima, então
+    // `user_id` (a outra metade da chave primária) já é suficiente
+    // pra tornar a paginação determinística.
     const followerPageCount = Math.ceil((followerCount ?? 0) / PAGE_SIZE);
     const followerPages = await Promise.all(
       Array.from({ length: followerPageCount }, async (_, i) => {
@@ -389,6 +416,7 @@ async function checkNewReleases(): Promise<void> {
           .select("user_id")
           .eq("series_id", seriesId)
           .in("status", ACTIVE_STATUSES)
+          .order("user_id", { ascending: true })
           .range(from, from + PAGE_SIZE - 1);
         if (error) {
           console.error(`[check-new-releases] Falha ao paginar seguidores da série ${seriesId} (linhas ${from}+)`, error);
@@ -413,6 +441,10 @@ async function checkNewReleases(): Promise<void> {
       .from("profiles")
       .select("user_id", { count: "exact", head: true })
       .in("user_id", followerIds);
+    // CORREÇÃO (mesmo achado documentado acima) — `user_id` já é a
+    // própria chave primária de `profiles` (ver migration
+    // `20260720000000_social_profile.sql`), então basta ordenar por
+    // ela pra tornar a paginação determinística.
     const profilePageCount = Math.ceil((profileCount ?? 0) / PAGE_SIZE);
     const profilePages = await Promise.all(
       Array.from({ length: profilePageCount }, async (_, i) => {
@@ -421,6 +453,7 @@ async function checkNewReleases(): Promise<void> {
           .from("profiles")
           .select("user_id, country")
           .in("user_id", followerIds)
+          .order("user_id", { ascending: true })
           .range(from, from + PAGE_SIZE - 1);
         if (error) {
           console.error(`[check-new-releases] Falha ao paginar países dos seguidores da série ${seriesId} (linhas ${from}+)`, error);

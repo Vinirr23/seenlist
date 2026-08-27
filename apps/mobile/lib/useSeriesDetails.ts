@@ -6,6 +6,7 @@ import {
   fetchSeriesDetails,
   fetchSeriesStatus,
   fetchWatchedEpisodes,
+  fetchWatchedEpisodeIds,
   incrementEpisodeRewatch,
   markEpisodesWatched,
   removeSeriesFromLibrary,
@@ -54,11 +55,26 @@ export function useSeriesDetails(seriesId: string) {
 
 export function useWatchedEpisodes(seriesId: number) {
   const [watched, setWatched] = useState<Set<WatchedEpisodeKey>>(new Set());
+  /**
+   * CORREÇÃO (2026-08-26 — "motor resistente a fusão de temporadas
+   * pela TMDB") — companheiro de `watched`, EM SEPARADO de propósito,
+   * mesmo raciocínio do web (`watched-episodes-state.ts`): `watched`
+   * participa de atualização otimista logo abaixo (`toggle`/
+   * `markMany`/`unmarkSeason` mexem nele direto, antes do servidor
+   * responder) — misturar o Set de IDs nessa mesma estrutura
+   * arriscaria essa lógica otimista já calibrada. Este Set é
+   * recarregado (sem otimismo) depois que cada mutation confirma no
+   * servidor — fica no máximo um instante desatualizado, e mesmo
+   * nesse instante `isEpisodeWatchedSync` cai pro Set de chaves
+   * (`watched`), que já está certo por causa do otimismo.
+   */
+  const [watchedEpisodeIds, setWatchedEpisodeIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(() => {
     fetchWatchedEpisodes(seriesId).then((data) => setWatched(data));
+    fetchWatchedEpisodeIds(seriesId).then((data) => setWatchedEpisodeIds(data));
   }, [seriesId]);
 
   useEffect(() => {
@@ -69,13 +85,17 @@ export function useWatchedEpisodes(seriesId: number) {
         setIsLoading(false);
       }
     });
+    fetchWatchedEpisodeIds(seriesId).then((data) => {
+      if (!cancelled) setWatchedEpisodeIds(data);
+    });
     return () => {
       cancelled = true;
     };
   }, [seriesId]);
 
   const toggle = useCallback(
-    async (seasonNumber: number, episodeNumber: number) => {
+    // CORREÇÃO (2026-08-26 — "motor resistente", ver seriesDetails.ts) — episodeId opcional, repassado direto pra gravação.
+    async (seasonNumber: number, episodeNumber: number, episodeId?: number) => {
       hapticTick();
       const key = episodeKey(seasonNumber, episodeNumber);
       const wasWatched = watched.has(key);
@@ -89,7 +109,9 @@ export function useWatchedEpisodes(seriesId: number) {
       });
 
       try {
-        await toggleEpisodeWatched(seriesId, seasonNumber, episodeNumber, wasWatched);
+        await toggleEpisodeWatched(seriesId, seasonNumber, episodeNumber, wasWatched, episodeId);
+        // CORREÇÃO (2026-08-26 — "motor resistente") — recarrega o Set de IDs já confirmado no servidor (sem otimismo aqui, ver comentário grande acima).
+        fetchWatchedEpisodeIds(seriesId).then((data) => setWatchedEpisodeIds(data));
       } catch (error) {
         console.error("[useWatchedEpisodes] Falha ao marcar/desmarcar episódio", error);
         setWatched((current) => {
@@ -105,7 +127,7 @@ export function useWatchedEpisodes(seriesId: number) {
 
   /** TASK-113 — "marcar episódios anteriores?" e "marcar temporada inteira" usam a mesma função, só muda a lista de episódios passada. */
   const markMany = useCallback(
-    async (episodes: { seasonNumber: number; episodeNumber: number }[]) => {
+    async (episodes: { seasonNumber: number; episodeNumber: number; episodeId?: number }[]) => {
       setBusy(true);
       setWatched((current) => {
         const next = new Set(current);
@@ -114,6 +136,8 @@ export function useWatchedEpisodes(seriesId: number) {
       });
       try {
         await markEpisodesWatched(seriesId, episodes);
+        // CORREÇÃO (2026-08-26 — "motor resistente") — ver comentário grande acima.
+        fetchWatchedEpisodeIds(seriesId).then((data) => setWatchedEpisodeIds(data));
       } catch (error) {
         console.error("[useWatchedEpisodes] Falha ao marcar vários episódios", error);
         reload(); // desfazer otimista de vários itens de uma vez é mais simples recarregando do que revertendo item a item
@@ -131,6 +155,8 @@ export function useWatchedEpisodes(seriesId: number) {
       setWatched((current) => new Set([...current].filter((key) => !key.startsWith(prefix))) as Set<WatchedEpisodeKey>);
       try {
         await unmarkSeasonWatched(seriesId, seasonNumber);
+        // CORREÇÃO (2026-08-26 — "motor resistente") — ver comentário grande acima.
+        fetchWatchedEpisodeIds(seriesId).then((data) => setWatchedEpisodeIds(data));
       } catch (error) {
         console.error("[useWatchedEpisodes] Falha ao desmarcar temporada", error);
         reload();
@@ -152,7 +178,7 @@ export function useWatchedEpisodes(seriesId: number) {
     [seriesId]
   );
 
-  return { watched, isLoading, busy, toggle, markMany, unmarkSeason, rewatch };
+  return { watched, watchedEpisodeIds, isLoading, busy, toggle, markMany, unmarkSeason, rewatch };
 }
 
 export function useSeriesStatus(seriesId: number) {

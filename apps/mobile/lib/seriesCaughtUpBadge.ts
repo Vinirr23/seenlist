@@ -1,5 +1,5 @@
 import type { SeriesDetails } from "@seenlist/types";
-import { episodeKey, type WatchedEpisodeKey } from "./seriesDetails";
+import { isEpisodeWatchedSync, type WatchedEpisodeKey } from "./seriesDetails";
 import { todayLocalKey } from "./localDate";
 
 export type SeriesCaughtUpBadge = "ongoing" | "ended" | null;
@@ -23,10 +23,18 @@ export type SeriesCaughtUpBadge = "ongoing" | "ended" | null;
  * data confirmada e já passada (sinal de que a temporada já começou
  * a ir ao ar de verdade). Temporada inteira sem nenhuma data
  * (especulação de futuro, ainda sem estreia) não conta.
+ *
+ * CORREÇÃO (2026-08-26 — "motor resistente a fusão de temporadas pela
+ * TMDB") — mesma causa raiz de `seriesDetails.ts`, aplicada aqui:
+ * `watchedEpisodeIds` (novo, opcional, default vazio — quem ainda não
+ * passa não quebra) reaproveita `isEpisodeWatchedSync` pra bater por
+ * ID FIXO da TMDB primeiro, só caindo pra (temporada, episódio) se o
+ * episódio não tiver ID conhecido ainda (dado antigo, sem backfill).
  */
 export function computeSeriesCaughtUpBadge(
-  series: Pick<SeriesDetails, "seasons" | "status">,
-  watched: Set<WatchedEpisodeKey> | undefined
+  series: Pick<SeriesDetails, "seasons" | "status" | "inProduction">,
+  watched: Set<WatchedEpisodeKey> | undefined,
+  watchedEpisodeIds: Set<number> = new Set()
 ): SeriesCaughtUpBadge {
   const today = todayLocalKey();
 
@@ -41,12 +49,15 @@ export function computeSeriesCaughtUpBadge(
 
   if (airedNonSpecialEpisodes.length === 0) return null;
 
-  const watchedSet = watched ?? new Set<WatchedEpisodeKey>();
   const allAiredWatched = airedNonSpecialEpisodes.every((episode) =>
-    watchedSet.has(episodeKey(episode.seasonNumber, episode.episodeNumber))
+    isEpisodeWatchedSync(watched, episode.seasonNumber, episode.episodeNumber, episode.id, watchedEpisodeIds)
   );
   if (!allAiredWatched) return null;
 
-  const seriesEnded = series.status === "Ended" || series.status === "Canceled";
+  // CORREÇÃO (2026-08-26) — `status` sozinho não basta (ver
+  // `SeriesDetails.inProduction`, packages/types/src/index.ts): só
+  // considera realmente encerrada se a TMDB TAMBÉM não marcar produção
+  // em andamento.
+  const seriesEnded = (series.status === "Ended" || series.status === "Canceled") && !series.inProduction;
   return seriesEnded ? "ended" : "ongoing";
 }

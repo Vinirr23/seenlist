@@ -43,17 +43,23 @@ export async function POST(request: Request) {
 
   const series: {
     id: number;
-    episodes: { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[];
+    episodes: { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[];
   }[] = [];
   settled.forEach((outcome, index) => {
     if (outcome.status === "fulfilled") {
       series.push({
         id: outcome.value.id,
+        // CORREÇÃO (2026-08-26 — "motor resistente a fusão de temporadas
+        // pela TMDB") — `episodeId` (ID fixo da TMDB, `e.id`) antes era
+        // descartado aqui; `getAllEpisodesWithAirDates` já trazia esse
+        // dado, só não repassávamos. Usado por quem chama (mobile,
+        // "Continue assistindo") pra gravar junto do episódio assistido.
         episodes: outcome.value.episodes.map((e) => ({
           seasonNumber: e.seasonNumber,
           episodeNumber: e.episodeNumber,
           name: e.name,
           airDate: e.airDate,
+          episodeId: e.id,
         })),
       });
     } else {

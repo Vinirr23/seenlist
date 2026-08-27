@@ -257,6 +257,23 @@ Deno.serve(async () => {
    */
   const PAGE_SIZE = 1000;
 
+  /*
+   * CORREÇÃO (bug real, achado em 2026-08-26 auditando o mesmo padrão
+   * que causou o bug de status/paginação do web — ver comentário
+   * grande em `apps/web/lib/queries/seriesCategoryRecalc.ts` e em
+   * `check-new-releases/index.ts`) — as duas paginações desta função
+   * buscavam as páginas em PARALELO sem nenhuma ordenação (`.order()`)
+   * explícita. Sem isso, o Postgres/PostgREST não garante que a
+   * página 2 comece exatamente onde a página 1 parou — com até 500
+   * notificações pendentes por rodada (cada usuário podendo ter
+   * múltiplos tokens/inscrições), essas buscas podem passar de 1000
+   * linhas, e um usuário podia silenciosamente ficar de fora de uma
+   * página, nunca recebendo o push daquela rodada (sem erro nenhum).
+   *
+   * Ordenar por `(user_id, id)` — `id` é a coluna que a própria
+   * migration de deduplicação (`20260831000000_push_tokens_dedup.sql`)
+   * já usa como desempate — torna cada página determinística.
+   */
   const { count: tokenCount } = await supabase.from("push_tokens").select("id", { count: "exact", head: true }).in("user_id", userIds);
   const tokenPages = await Promise.all(
     Array.from({ length: Math.ceil((tokenCount ?? 0) / PAGE_SIZE) }, (_, i) =>
@@ -264,6 +281,8 @@ Deno.serve(async () => {
         .from("push_tokens")
         .select("id, user_id, token")
         .in("user_id", userIds)
+        .order("user_id", { ascending: true })
+        .order("id", { ascending: true })
         .range(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE - 1)
         .then(({ data }) => data ?? [])
     )
@@ -282,12 +301,18 @@ Deno.serve(async () => {
       .from("web_push_subscriptions")
       .select("id", { count: "exact", head: true })
       .in("user_id", userIds);
+    // CORREÇÃO (mesmo achado documentado acima, na paginação de
+    // `push_tokens`) — `id` aqui é a própria chave primária de
+    // `web_push_subscriptions` (ver migration
+    // `20260828000000_web_push_subscriptions.sql`).
     const pages = await Promise.all(
       Array.from({ length: Math.ceil((webSubCount ?? 0) / PAGE_SIZE) }, (_, i) =>
         supabase
           .from("web_push_subscriptions")
           .select("id, user_id, endpoint, p256dh, auth")
           .in("user_id", userIds)
+          .order("user_id", { ascending: true })
+          .order("id", { ascending: true })
           .range(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE - 1)
           .then(({ data }) => data ?? [])
       )

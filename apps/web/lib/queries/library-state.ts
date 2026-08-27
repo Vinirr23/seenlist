@@ -474,6 +474,13 @@ export async function fetchLibraryItems(
           .from("series_status")
           .select("series_id, status, created_at, updated_at, total_watch_events")
           .eq("user_id", user.id)
+          // CORREÇÃO (paginação sem .order() — mesma causa raiz já
+          // corrigida em seriesCategoryRecalc.ts/repair-series-categories/
+          // route.ts/seriesDetails.ts): sem ordem explícita, o Postgres
+          // não garante o mesmo recorte de página entre chamadas
+          // paralelas. Ordena pela chave que sobra do PK (user_id,
+          // series_id) depois do filtro por user_id.
+          .order("series_id", { ascending: true })
           .range(i * SERIES_STATUS_PAGE_SIZE, i * SERIES_STATUS_PAGE_SIZE + SERIES_STATUS_PAGE_SIZE - 1)
       )
     );

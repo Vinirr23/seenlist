@@ -67,7 +67,7 @@ describe("fetchDisplaySummaries — paginação (TASK-038)", () => {
       expect(Object.keys(result.series)).toHaveLength(size);
       for (const id of seriesIds) {
         expect(result.series[id]).toBeDefined();
-        expect(result.series[id].id).toBe(id);
+        expect(result.series[id]!.id).toBe(id);
       }
     });
   }

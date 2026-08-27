@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSeriesDetails, useWatchedEpisodes, useSeriesStatus, useIsFavorite, removeSeries } from "@/lib/useSeriesDetails";
 import { dismissRecommendation } from "@/lib/recommendations";
 import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
-import { episodeKey } from "@/lib/seriesDetails";
+import { episodeKey, isEpisodeWatchedSync } from "@/lib/seriesDetails";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
@@ -49,7 +49,7 @@ export default function SeriesDetailScreen() {
   const [showRecommendationActions, setShowRecommendationActions] = useState(Boolean(recId));
 
   const { series, isLoading, isError, refetch } = useSeriesDetails(seriesId);
-  const { watched, busy: episodesBusy, toggle, markMany, unmarkSeason, rewatch } = useWatchedEpisodes(numericId);
+  const { watched, watchedEpisodeIds, busy: episodesBusy, toggle, markMany, unmarkSeason, rewatch } = useWatchedEpisodes(numericId);
   const { status, changeStatus } = useSeriesStatus(numericId);
   const { isFavorite, toggle: toggleFavorite } = useIsFavorite(numericId);
 
@@ -60,7 +60,7 @@ export default function SeriesDetailScreen() {
   // ver comentário lá (`SeriesDetailsView.tsx`) pro raciocínio
   // completo de por que não dá pra só comparar contra o valor do
   // primeiro render (que é sempre "carregando").
-  const caughtUpBadge = series ? computeSeriesCaughtUpBadge(series, watched) : null;
+  const caughtUpBadge = series ? computeSeriesCaughtUpBadge(series, watched, watchedEpisodeIds) : null;
   const [showConfetti, setShowConfetti] = useState(false);
   const badgeBaselineRef = useRef<{ established: boolean; value: SeriesCaughtUpBadge }>({
     established: false,
@@ -104,7 +104,10 @@ export default function SeriesDetailScreen() {
     const currentSeasonWatched = new Map<number, boolean>();
     for (const season of series.seasons) {
       if (season.seasonNumber === 0 || season.episodes.length === 0) continue; // temporada 0 (especiais) não conta pra esse gatilho
-      const allWatched = season.episodes.every((ep) => watched.has(episodeKey(ep.seasonNumber, ep.episodeNumber)));
+      // CORREÇÃO (2026-08-26 — "motor resistente") — ID FIXO da TMDB primeiro, ver isEpisodeWatchedSync (seriesDetails.ts).
+      const allWatched = season.episodes.every((ep) =>
+        isEpisodeWatchedSync(watched, ep.seasonNumber, ep.episodeNumber, ep.id, watchedEpisodeIds)
+      );
       currentSeasonWatched.set(season.seasonNumber, allWatched);
     }
 
@@ -122,7 +125,7 @@ export default function SeriesDetailScreen() {
     }
 
     seasonWatchedBaselineRef.current.value = currentSeasonWatched;
-  }, [series, watched]);
+  }, [series, watched, watchedEpisodeIds]);
 
   if (isLoading) {
     return (
@@ -244,7 +247,15 @@ export default function SeriesDetailScreen() {
             </View>
           ) : (
             <View style={styles.section}>
-              <EpisodeCarousel seriesId={numericId} category={status} seasons={series.seasons} watched={watched} onToggleEpisode={toggle} caughtUpBadge={caughtUpBadge} />
+              <EpisodeCarousel
+                seriesId={numericId}
+                category={status}
+                seasons={series.seasons}
+                watched={watched}
+                watchedEpisodeIds={watchedEpisodeIds}
+                onToggleEpisode={toggle}
+                caughtUpBadge={caughtUpBadge}
+              />
 
               {series.seasons.length === 0 ? (
                 <Text variant="muted">{t("media.noSeasonsFound")}</Text>
@@ -255,6 +266,7 @@ export default function SeriesDetailScreen() {
                     seriesId={numericId}
                     season={season}
                     watched={watched}
+                    watchedEpisodeIds={watchedEpisodeIds}
                     busy={episodesBusy}
                     onToggleEpisode={toggle}
                     onMarkMany={markMany}

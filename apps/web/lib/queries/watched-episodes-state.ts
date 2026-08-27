@@ -48,6 +48,58 @@ export function useWatchedEpisodes(seriesId: number) {
 }
 
 /**
+ * CORREÇÃO (2026-08-26 — "motor resistente a fusão de temporadas
+ * pela TMDB") — companheiro de `useWatchedEpisodes`, EM SEPARADO de
+ * propósito: o Set de chaves (temporada-episódio) acima participa de
+ * atualização otimista (mutations mexem nele direto, sem esperar o
+ * servidor, ver watched-episodes-mutations.ts) — mexer nessa mesma
+ * estrutura pra também carregar IDs arriscaria reescrever toda
+ * aquela lógica otimista já calibrada, por um ganho que não precisa
+ * disso. Este hook é só-leitura: um Set com o ID FIXO da TMDB de
+ * cada episódio (não-especial) já assistido, invalidado nos MESMOS
+ * pontos que `watchedEpisodesQueryKey` — fica no máximo um instante
+ * desatualizado logo após marcar/desmarcar, igual o Set de chaves já
+ * ficaria de qualquer forma até o servidor confirmar.
+ *
+ * Usado como identidade PREFERENCIAL de "assistido?" em
+ * `isEpisodeWatched` — sobrevive a uma futura reestruturação de
+ * temporadas pela TMDB, diferente da chave (temporada-episódio), que
+ * a TMDB pode mudar por baixo dos panos (já mudou, pra várias séries
+ * — ver migração 20260907000000_watched_episodes_tmdb_episode_id.sql).
+ */
+export function watchedEpisodeIdsQueryKey(seriesId: number) {
+  return ["watched-episodes", seriesId, "tmdb-ids"] as const;
+}
+
+async function fetchWatchedEpisodeIds(seriesId: number): Promise<Set<number>> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await getCurrentAuthUser(supabase);
+  if (!user) return new Set();
+
+  const { data, error } = await supabase
+    .from("watched_episodes")
+    .select("tmdb_episode_id")
+    .eq("series_id", seriesId)
+    .eq("user_id", user.id)
+    .eq("is_special", false)
+    .not("tmdb_episode_id", "is", null);
+
+  if (error) throw error;
+
+  return new Set((data ?? []).map((row) => row.tmdb_episode_id as number));
+}
+
+export function useWatchedEpisodeIds(seriesId: number) {
+  return useQuery({
+    queryKey: watchedEpisodeIdsQueryKey(seriesId),
+    queryFn: () => fetchWatchedEpisodeIds(seriesId),
+    staleTime: STALE_TIME_LIBRARY,
+  });
+}
+
+/**
  * CORREÇÃO (achado em auditoria — "verifique toda a lógica de
  * status") — mesma causa raiz já corrigida em `seriesCategoryRecalc.ts`/
  * `airDateCategory.ts`, só que aqui pro selo "em dia"/confete de
@@ -86,11 +138,24 @@ export function useSpecialEpisodeKeys(seriesId: number) {
   });
 }
 
+/**
+ * CORREÇÃO (2026-08-26 — "motor resistente") — `episodeId` e
+ * `watchedEpisodeIds` são opcionais e novos: quando quem chama já
+ * tem o ID fixo da TMDB do episódio (`episode.id`) E o Set de IDs
+ * assistidos (`useWatchedEpisodeIds`), a checagem por ID vem
+ * PRIMEIRO — sobrevive a uma reestruturação de temporadas pela TMDB.
+ * Sem esses dois argumentos (chamador antigo, ou dado ainda sem
+ * backfill), cai pro comportamento de sempre — nunca quebra quem
+ * ainda não foi atualizado.
+ */
 export function isEpisodeWatched(
   watched: Set<WatchedEpisodeKey> | undefined,
   seasonNumber: number,
-  episodeNumber: number
+  episodeNumber: number,
+  episodeId?: number,
+  watchedEpisodeIds?: Set<number>
 ): boolean {
+  if (episodeId !== undefined && watchedEpisodeIds?.has(episodeId)) return true;
   return watched?.has(episodeKey(seasonNumber, episodeNumber)) ?? false;
 }
 

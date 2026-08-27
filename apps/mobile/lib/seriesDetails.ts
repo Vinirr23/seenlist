@@ -116,6 +116,56 @@ export async function fetchWatchedEpisodes(seriesId: number): Promise<Set<Watche
 }
 
 /**
+ * CORREÇÃO (2026-08-26 — "motor resistente a fusão de temporadas pela
+ * TMDB") — companheiro de `fetchWatchedEpisodes`, mesmo raciocínio do
+ * web (`watched-episodes-state.ts`): Set com o ID FIXO da TMDB de
+ * cada episódio (não-especial) já assistido — sobrevive a uma futura
+ * reestruturação de temporadas pela própria TMDB, diferente da chave
+ * (temporada-episódio), que ela pode mudar por baixo dos panos (já
+ * mudou, pra várias séries — ver migração
+ * 20260907000000_watched_episodes_tmdb_episode_id.sql).
+ */
+export async function fetchWatchedEpisodeIds(seriesId: number): Promise<Set<number>> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return new Set();
+
+  const { data, error } = await supabase
+    .from("watched_episodes")
+    .select("tmdb_episode_id")
+    .eq("series_id", seriesId)
+    .eq("user_id", user.id)
+    .eq("is_special", false)
+    .not("tmdb_episode_id", "is", null);
+  if (error) throw error;
+
+  return new Set((data ?? []).map((row) => row.tmdb_episode_id as number));
+}
+
+/**
+ * CORREÇÃO (2026-08-26 — "motor resistente") — idêntico a
+ * `isEpisodeWatched` (watched-episodes-state.ts do web), com outro
+ * nome aqui porque este arquivo já exporta um `isEpisodeWatched`
+ * diferente (checagem ASSÍNCRONA direto no banco, um episódio só —
+ * mais abaixo). Este é síncrono, pra checar contra os Sets já
+ * carregados em memória (`watched`/`watchedEpisodeIds`, ambos vindos
+ * de `useWatchedEpisodes`). Bate por ID FIXO da TMDB primeiro; sem
+ * esses dois argumentos (chamador antigo, ou dado ainda sem
+ * backfill), cai pro comportamento de sempre.
+ */
+export function isEpisodeWatchedSync(
+  watched: Set<WatchedEpisodeKey> | undefined,
+  seasonNumber: number,
+  episodeNumber: number,
+  episodeId?: number,
+  watchedEpisodeIds?: Set<number>
+): boolean {
+  if (episodeId !== undefined && watchedEpisodeIds?.has(episodeId)) return true;
+  return watched?.has(episodeKey(seasonNumber, episodeNumber)) ?? false;
+}
+
+/**
  * TASK-096 (detalhes de série) — porta fiel de
  * `seriesCategoryRecalc.ts` do web. Chamado depois de marcar/
  * desmarcar um episódio: decide se a série deve ser promovida pra
@@ -157,12 +207,48 @@ export async function fetchWatchedEpisodes(seriesId: number): Promise<Set<Watche
 export interface AirDateDecision {
   category: LibraryStatus;
   nonSpecialEpisodeCount: number;
+  allNonSpecialEpisodesWatched: boolean;
+}
+
+/**
+ * CORREÇÃO (investigação do Bleach, 2026-08-25 — ver comentário
+ * grande em `airDateCategory.ts` do web, mesma causa raiz, agora
+ * corrigida também no mobile) — achado real: Bleach (366 episódios)
+ * tinha 769 linhas gravadas em `watched_episodes` por causa de uma
+ * importação bagunçada (numeração absoluta do anime inteiro
+ * despejada como se fosse "temporada 1", junto com uma importação
+ * separada, certa, cobrindo as temporadas reais do TMDB). Antes,
+ * este parâmetro era só `mainEpisodesWatched: number` — um TOTAL
+ * agregado, comparado contra `airedByNow.length`. Um total inflado
+ * "batia e sobrava" mesmo com episódios de verdade nunca marcados,
+ * porque a comparação nunca checava QUAIS episódios foram
+ * assistidos, só QUANTOS. Agora recebe o conjunto de chaves
+ * "temporada-episódio" de fato assistidas — cada episódio já no ar é
+ * conferido por IDENTIDADE contra esse Set, imune a duplicação/
+ * inflação do total.
+ */
+/**
+ * CORREÇÃO (2026-08-26 — "motor resistente") — mesmo raciocínio do
+ * web (`airDateCategory.ts`): um episódio conta como assistido se o
+ * ID FIXO da TMDB estiver entre os assistidos (`watchedEpisodeIds`)
+ * OU, quando esse ID ainda não foi gravado pra aquela linha (dado
+ * antigo, de antes desta correção, ainda sem backfill), pela chave
+ * (temporada-episódio) de sempre.
+ */
+function episodeIsWatched(
+  episode: { seasonNumber: number; episodeNumber: number; episodeId?: number },
+  watchedEpisodeKeys: Set<string>,
+  watchedEpisodeIds: Set<number>
+): boolean {
+  if (episode.episodeId !== undefined && watchedEpisodeIds.has(episode.episodeId)) return true;
+  return watchedEpisodeKeys.has(`${episode.seasonNumber}-${episode.episodeNumber}`);
 }
 
 function decideWatchingVsUpToDate(
-  mainEpisodesWatched: number,
-  liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[],
-  specialEpisodeKeys: Set<string> = new Set()
+  watchedEpisodeKeys: Set<string>,
+  liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId?: number }[],
+  specialEpisodeKeys: Set<string> = new Set(),
+  watchedEpisodeIds: Set<number> = new Set()
 ): AirDateDecision {
   const nonSpecialLiveEpisodes = liveEpisodes.filter(
     (e) => !specialEpisodeKeys.has(`${e.seasonNumber}-${e.episodeNumber}`)
@@ -205,9 +291,17 @@ function decideWatchingVsUpToDate(
   const airedByNow = nonSpecialLiveEpisodes.filter(
     (e) => (e.airDate !== null && e.airDate <= today) || (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber))
   );
+  // CORREÇÃO (Bleach, 2026-08-25) — por identidade, não por total: cada
+  // episódio já no ar precisa estar no Set de assistidos, um por um.
+  // CORREÇÃO (2026-08-26 — "motor resistente") — `episodeIsWatched` bate por ID FIXO da TMDB primeiro, ver comentário acima.
+  const hasUnwatchedAiredEpisode = airedByNow.some((e) => !episodeIsWatched(e, watchedEpisodeKeys, watchedEpisodeIds));
+  const allNonSpecialEpisodesWatched = nonSpecialLiveEpisodes.every((e) =>
+    episodeIsWatched(e, watchedEpisodeKeys, watchedEpisodeIds)
+  );
   return {
-    category: mainEpisodesWatched < airedByNow.length ? "watching" : "up_to_date",
+    category: hasUnwatchedAiredEpisode ? "watching" : "up_to_date",
     nonSpecialEpisodeCount: nonSpecialLiveEpisodes.length,
+    allNonSpecialEpisodesWatched,
   };
 }
 
@@ -227,13 +321,24 @@ function decideWatchingVsUpToDate(
  * própria.
  */
 function resolveSeriesCategory(input: {
-  watched: number;
-  liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[];
+  watchedEpisodeKeys: Set<string>;
+  liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId?: number }[];
   ended: boolean;
   specialEpisodeKeys?: Set<string>;
+  /** Ver comentário em `episodeIsWatched`/"motor resistente" (2026-08-26). */
+  watchedEpisodeIds?: Set<number>;
 }): { category: "watching" | "up_to_date" | "completed"; nonSpecialEpisodeCount: number } {
-  const decision = decideWatchingVsUpToDate(input.watched, input.liveEpisodes, input.specialEpisodeKeys ?? new Set());
-  const allEpisodesWatched = input.watched >= decision.nonSpecialEpisodeCount;
+  const decision = decideWatchingVsUpToDate(
+    input.watchedEpisodeKeys,
+    input.liveEpisodes,
+    input.specialEpisodeKeys ?? new Set(),
+    input.watchedEpisodeIds ?? new Set()
+  );
+  // CORREÇÃO (Bleach, 2026-08-25) — por identidade (mesmo Set já
+  // conferido episódio por episódio dentro de decideWatchingVsUpToDate),
+  // não mais por `input.watched >= decision.nonSpecialEpisodeCount`
+  // (total agregado, o mesmo defeito que causou o bug do Bleach).
+  const allEpisodesWatched = decision.allNonSpecialEpisodesWatched;
 
   if (input.ended && allEpisodesWatched) {
     return { category: "completed", nonSpecialEpisodeCount: decision.nonSpecialEpisodeCount };
@@ -245,14 +350,19 @@ function resolveSeriesCategory(input: {
 }
 
 /**
- * Mesmas duas regras do web (`shouldWriteSeriesCategory`,
+ * Mesmas regras do web (`shouldWriteSeriesCategory`,
  * `airDateCategory.ts`): nunca deixa "paused" virar "watching"
  * sozinho (retomar é decisão manual do usuário), e sempre regrava
  * "watching" mesmo sem mudança de categoria (atualiza `updated_at`,
  * usado pra ordenar "Continue assistindo").
+ *
+ * CORREÇÃO (2026-08-26, mesmo bug real corrigido no web — Primal
+ * marcado manualmente como "Assistir depois" voltando sozinho pra
+ * "Assistindo" quando saiu episódio novo) — "want_to_watch" agora
+ * recebe a MESMA proteção que "paused" já tinha.
  */
 function shouldWriteSeriesCategory(currentStatus: string, newCategory: "watching" | "up_to_date" | "completed"): boolean {
-  if (currentStatus === "paused" && newCategory === "watching") return false;
+  if ((currentStatus === "paused" || currentStatus === "want_to_watch") && newCategory === "watching") return false;
   return newCategory !== currentStatus || newCategory === "watching";
 }
 
@@ -304,8 +414,25 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  * "nunca comecei a assistir" e virando "Assistindo" à toa, mesmo
  * 100% em dia de verdade.
  */
-async function fetchWatchedEpisodeCountsBySeriesId(userId: string, seriesIds: number[]): Promise<Map<number, number>> {
-  const counts = new Map<number, number>();
+/**
+ * CORREÇÃO (Bleach, 2026-08-25 — ver comentário grande em
+ * `decideWatchingVsUpToDate` acima) — antes devolvia só um TOTAL
+ * (`Map<number, number>`) por série. Agora devolve o conjunto real de
+ * chaves "temporada-episódio" assistidas por série — decisão por
+ * identidade, não por total. Mesma paginação de sempre (Supabase
+ * limita a 1000 linhas por consulta por padrão).
+ */
+/** CORREÇÃO (2026-08-26 — "motor resistente") — ver `WatchedEpisodesLookup` em seriesCategoryRecalc.ts do web, mesmo formato. */
+interface WatchedEpisodesLookup {
+  keysBySeriesId: Map<number, Set<string>>;
+  idsBySeriesId: Map<number, Set<number>>;
+}
+
+async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: number[]): Promise<WatchedEpisodesLookup> {
+  const keysBySeriesId = new Map<number, Set<string>>();
+  const idsBySeriesId = new Map<number, Set<number>>();
+  const result: WatchedEpisodesLookup = { keysBySeriesId, idsBySeriesId };
+  if (seriesIds.length === 0) return result;
 
   const { count, error: countError } = await supabase
     .from("watched_episodes")
@@ -316,36 +443,68 @@ async function fetchWatchedEpisodeCountsBySeriesId(userId: string, seriesIds: nu
   if (countError) throw countError;
 
   const total = count ?? 0;
-  if (total === 0) return counts;
+  if (total === 0) return result;
 
+  /*
+   * CORREÇÃO (bug real, reportado no web — várias séries sem relação
+   * nenhuma entre si, incluindo terminadas, mudando de categoria ao
+   * mesmo tempo) — as páginas abaixo eram buscadas em PARALELO sem
+   * nenhuma ordenação (`.order()`) explícita. Sem isso, o
+   * Postgres/PostgREST não garante que a página 2 comece exatamente
+   * onde a página 1 parou — numa conta com muitas linhas (achado real
+   * no web: 16.020 no total, 17 páginas de uma vez), isso podia deixar
+   * buracos: linhas de uma série específica que não apareciam em
+   * NENHUMA página, gerando um Set incompleto pra ela. Mesma correção
+   * aplicada em `seriesCategoryRecalc.ts` do web (ver comentário
+   * grande lá, com a evidência real que confirmou a causa). Ordenar
+   * por `(series_id, season_number, episode_number)` — mesma ordem das
+   * colunas que sobram da chave primária depois de `user_id` (fixo
+   * pelo filtro) — torna a paginação determinística.
+   */
   const pageCount = Math.ceil(total / WATCHED_EPISODES_PAGE_SIZE);
   const pages = await Promise.all(
     Array.from({ length: pageCount }, (_, index) => {
       const from = index * WATCHED_EPISODES_PAGE_SIZE;
       return supabase
         .from("watched_episodes")
-        .select("series_id")
+        .select("series_id, season_number, episode_number, tmdb_episode_id")
         .eq("user_id", userId)
         .eq("is_special", false)
         .in("series_id", seriesIds)
+        .order("series_id", { ascending: true })
+        .order("season_number", { ascending: true })
+        .order("episode_number", { ascending: true })
         .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
     })
   );
 
   for (const page of pages) {
     if (page.error) throw page.error;
-    for (const row of page.data ?? []) {
-      counts.set(row.series_id, (counts.get(row.series_id) ?? 0) + 1);
+    for (const row of (page.data ?? []) as {
+      series_id: number;
+      season_number: number;
+      episode_number: number;
+      tmdb_episode_id: number | null;
+    }[]) {
+      const keySet = keysBySeriesId.get(row.series_id) ?? new Set<string>();
+      keySet.add(`${row.season_number}-${row.episode_number}`);
+      keysBySeriesId.set(row.series_id, keySet);
+
+      if (row.tmdb_episode_id !== null) {
+        const idSet = idsBySeriesId.get(row.series_id) ?? new Set<number>();
+        idSet.add(row.tmdb_episode_id);
+        idsBySeriesId.set(row.series_id, idSet);
+      }
     }
   }
-  return counts;
+  return result;
 }
 
 export async function fetchLiveEpisodesBySeriesId(
   seriesIds: number[],
   language = "pt-BR"
-): Promise<Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[]>> {
-  const result = new Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[]>();
+): Promise<Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[]>> {
+  const result = new Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[]>();
   const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
 
   const responses = await Promise.all(
@@ -360,8 +519,12 @@ export async function fetchLiveEpisodesBySeriesId(
 
   for (const response of responses) {
     if (!response.ok) continue;
+    // `episodeId` (2026-08-26, "motor resistente") — a rota já devolve, ver route.ts.
     const data = (await response.json()) as {
-      series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[] }[];
+      series: {
+        id: number;
+        episodes: { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[];
+      }[];
     };
     for (const s of data.series) result.set(s.id, s.episodes);
   }
@@ -491,17 +654,23 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     statusRows.map((row) => [row.series_id as number, row.status as LibraryStatus])
   );
 
-  let watchedCountBySeriesId: Map<number, number>;
-  let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>;
+  let watchedEpisodeKeysBySeriesId: Map<number, Set<string>>;
+  let watchedEpisodeIdsBySeriesId: Map<number, Set<number>>;
+  let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>;
   let endedBySeriesId: Map<number, boolean>;
   let specialKeysBySeriesId: Map<number, Set<string>>;
   try {
-    [watchedCountBySeriesId, episodesBySeriesId, endedBySeriesId, specialKeysBySeriesId] = await Promise.all([
-      fetchWatchedEpisodeCountsBySeriesId(user.id, seriesIds),
+    const [watchedLookup, episodesMap, endedMap, specialKeysMap] = await Promise.all([
+      fetchWatchedEpisodeKeysBySeriesId(user.id, seriesIds),
       fetchLiveEpisodesBySeriesId(seriesIds),
       fetchEndedBySeriesId(seriesIds),
       fetchSpecialEpisodeKeysBySeriesId(user.id, seriesIds),
     ]);
+    watchedEpisodeKeysBySeriesId = watchedLookup.keysBySeriesId;
+    watchedEpisodeIdsBySeriesId = watchedLookup.idsBySeriesId;
+    episodesBySeriesId = episodesMap;
+    endedBySeriesId = endedMap;
+    specialKeysBySeriesId = specialKeysMap;
   } catch (error) {
     console.error("[recalculateUpToDateSeriesCategories] Falha ao buscar dados em lote — categorias não recalculadas desta vez.", error);
     return;
@@ -513,10 +682,11 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
     if (liveEpisodes.length === 0) continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
 
-    const watched = watchedCountBySeriesId.get(seriesId) ?? 0;
+    const watchedEpisodeKeys = watchedEpisodeKeysBySeriesId.get(seriesId) ?? new Set<string>();
+    const watchedEpisodeIds = watchedEpisodeIdsBySeriesId.get(seriesId) ?? new Set<number>();
     const ended = endedBySeriesId.get(seriesId) ?? false;
     const specialEpisodeKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
-    const { category } = resolveSeriesCategory({ watched, liveEpisodes, ended, specialEpisodeKeys });
+    const { category } = resolveSeriesCategory({ watchedEpisodeKeys, liveEpisodes, ended, specialEpisodeKeys, watchedEpisodeIds });
     categoryBySeriesId.set(seriesId, category);
   }
 
@@ -628,21 +798,24 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
 
   if (!eligible) return;
 
-  const [{ count: watchedCount }, specialKeysBySeriesId] = await Promise.all([
-    supabase
-      .from("watched_episodes")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("series_id", seriesId)
-      .eq("is_special", false),
-    fetchSpecialEpisodeKeysBySeriesId(user.id, [seriesId]),
-  ]);
-  const specialKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
-
-  let liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] = [];
+  // CORREÇÃO (Bleach, 2026-08-25) — antes, a busca de episódios
+  // assistidos era só um `{ count }` (agregado) e vivia FORA do
+  // try/catch das chamadas ao TMDB logo abaixo — uma falha ali
+  // silenciosamente virava `watched = 0` em vez de abortar o
+  // recálculo. Agora busca a IDENTIDADE de fato assistida (mesma
+  // função paginada usada pelo recálculo em lote acima) e entra no
+  // MESMO Promise.all + try/catch das chamadas ao TMDB: qualquer
+  // falha (banco ou TMDB) aborta o recálculo inteiro, sem gravar nada
+  // com dado incompleto.
+  let watchedEpisodeKeys = new Set<string>();
+  let watchedEpisodeIds = new Set<number>();
+  let specialKeys = new Set<string>();
+  let liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[] = [];
   let ended = false;
   try {
-    const [episodesResponse, summaryResponse] = await Promise.all([
+    const [watchedLookup, specialKeysBySeriesId, episodesResponse, summaryResponse] = await Promise.all([
+      fetchWatchedEpisodeKeysBySeriesId(user.id, [seriesId]),
+      fetchSpecialEpisodeKeysBySeriesId(user.id, [seriesId]),
       fetch(`${SITE_URL}/api/tmdb/series-episodes-at-export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -654,9 +827,13 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
         body: JSON.stringify({ movieIds: [], seriesIds: [seriesId] }),
       }),
     ]);
+    watchedEpisodeKeys = watchedLookup.keysBySeriesId.get(seriesId) ?? new Set<string>();
+    watchedEpisodeIds = watchedLookup.idsBySeriesId.get(seriesId) ?? new Set<number>();
+    specialKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
     if (episodesResponse.ok) {
+      // `episodeId` (2026-08-26, "motor resistente") — a rota já devolve, ver route.ts.
       const data = (await episodesResponse.json()) as {
-        series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] }[];
+        series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[] }[];
       };
       liveEpisodes = data.series.find((s) => s.id === seriesId)?.episodes ?? [];
     }
@@ -665,7 +842,7 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
       ended = data.series.find((s) => s.id === seriesId)?.ended ?? false;
     }
   } catch (error) {
-    console.error("[series-category-recalc] Falha ao buscar dados do TMDB — categoria não recalculada desta vez.", error);
+    console.error("[series-category-recalc] Falha ao buscar dados — categoria não recalculada desta vez.", error);
     return;
   }
 
@@ -673,13 +850,18 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     return;
   }
 
-  const watched = watchedCount ?? 0;
   // UNIFICAÇÃO (ver `resolveSeriesCategory`/`shouldWriteSeriesCategory`
   // acima, mesmo padrão do web) — nenhuma regra é reimplementada
   // aqui: decisão de categoria e decisão de gravação vêm das mesmas
   // duas funções usadas por `recalculateUpToDateSeriesCategories`,
   // logo acima neste arquivo.
-  const { category: newCategory } = resolveSeriesCategory({ watched, liveEpisodes, ended, specialEpisodeKeys: specialKeys });
+  const { category: newCategory } = resolveSeriesCategory({
+    watchedEpisodeKeys,
+    liveEpisodes,
+    ended,
+    specialEpisodeKeys: specialKeys,
+    watchedEpisodeIds,
+  });
   if (!shouldWriteSeriesCategory(currentStatus, newCategory)) return;
 
   const { error: updateError } = await supabase
@@ -693,12 +875,25 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   }
 }
 
-/** Idêntico a useToggleEpisodeWatched do web, sem otimismo de cache (o hook em useWatchedEpisodes.ts cuida disso). */
+/**
+ * Idêntico a useToggleEpisodeWatched do web, sem otimismo de cache
+ * (o hook em useWatchedEpisodes.ts cuida disso).
+ *
+ * CORREÇÃO (2026-08-26 — "motor resistente a fusão de temporadas
+ * pela TMDB", ver migração 20260907000000_watched_episodes_tmdb_episode_id.sql
+ * e o comentário idêntico em watched-episodes-mutations.ts do web)
+ * — `episodeId` (opcional) é o ID PERMANENTE do episódio na TMDB.
+ * Quando quem chama já tem esse valor à mão, ele é gravado junto —
+ * usado depois pra bater "assistido?" por identidade estável, não só
+ * por (season_number, episode_number), que pode mudar se a TMDB
+ * reestruturar temporadas de novo no futuro.
+ */
 export async function toggleEpisodeWatched(
   seriesId: number,
   seasonNumber: number,
   episodeNumber: number,
-  currentlyWatched: boolean
+  currentlyWatched: boolean,
+  episodeId?: number
 ): Promise<void> {
   const {
     data: { user },
@@ -717,6 +912,7 @@ export async function toggleEpisodeWatched(
       series_id: seriesId,
       season_number: seasonNumber,
       episode_number: episodeNumber,
+      tmdb_episode_id: episodeId ?? null,
     });
     if (error) throw error;
   }
@@ -729,8 +925,13 @@ export async function toggleEpisodeWatched(
  * marca vários episódios de uma vez (um UPSERT só, não um insert por
  * episódio) — usado tanto por "marcar episódios anteriores?" quanto
  * por "marcar temporada inteira".
+ *
+ * `episodeId` por item — ver comentário em `toggleEpisodeWatched` acima.
  */
-export async function markEpisodesWatched(seriesId: number, episodes: { seasonNumber: number; episodeNumber: number }[]): Promise<void> {
+export async function markEpisodesWatched(
+  seriesId: number,
+  episodes: { seasonNumber: number; episodeNumber: number; episodeId?: number }[]
+): Promise<void> {
   if (episodes.length === 0) return;
   const {
     data: { user },
@@ -742,6 +943,7 @@ export async function markEpisodesWatched(seriesId: number, episodes: { seasonNu
     series_id: seriesId,
     season_number: e.seasonNumber,
     episode_number: e.episodeNumber,
+    tmdb_episode_id: e.episodeId ?? null,
   }));
 
   const { error } = await supabase
@@ -811,11 +1013,38 @@ export async function incrementEpisodeRewatch(seriesId: number, seasonNumber: nu
 }
 
 /** TASK-115 (episódio) — checagem leve, um episódio só (a tela de detalhes do episódio não precisa da lista inteira de watched_episodes da série). */
-export async function isEpisodeWatched(seriesId: number, seasonNumber: number, episodeNumber: number): Promise<boolean> {
+/**
+ * CORREÇÃO (2026-08-26 — "motor resistente") — `episodeId` (opcional)
+ * é o ID FIXO da TMDB deste episódio, quando quem chama já tem esse
+ * valor à mão (a tela de Detalhe do Episódio busca antes via
+ * `fetchEpisodePage`). Checado PRIMEIRO — sobrevive a uma futura
+ * reestruturação de temporadas pela TMDB, diferente de
+ * (season_number, episode_number), que ela pode mudar sem aviso.
+ * Sem esse argumento (chamador antigo), cai pro comportamento de
+ * sempre.
+ */
+export async function isEpisodeWatched(
+  seriesId: number,
+  seasonNumber: number,
+  episodeNumber: number,
+  episodeId?: number
+): Promise<boolean> {
   const {
     data: { user },
   } = await getCurrentAuthUser();
   if (!user) return false;
+
+  if (episodeId !== undefined) {
+    const { data: byId, error: byIdError } = await supabase
+      .from("watched_episodes")
+      .select("series_id")
+      .eq("series_id", seriesId)
+      .eq("user_id", user.id)
+      .eq("tmdb_episode_id", episodeId)
+      .maybeSingle();
+    if (byIdError) throw byIdError;
+    if (byId) return true;
+  }
 
   const { data, error } = await supabase
     .from("watched_episodes")

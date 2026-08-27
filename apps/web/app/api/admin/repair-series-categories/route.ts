@@ -66,6 +66,23 @@ export async function POST(request: Request) {
 
   const total = episodeRowCount ?? 0;
   const pageCount = Math.ceil(total / PAGE_SIZE);
+  // CORREÇÃO (2026-08-26, achado real ao investigar "Corrigir status
+  // das séries desmarcou meus episódios") — esta consulta já tinha
+  // sido paginada (comentário acima, TASK-175), mas continuava SEM
+  // `.order()` antes do `.range()`, o mesmo defeito raiz já corrigido
+  // em `seriesCategoryRecalc.ts`/`check-new-releases`/
+  // `send-push-notifications`: sem ordenação explícita, o Postgres
+  // não garante que a página 2 comece exatamente onde a página 1
+  // parou — numa conta com muitas linhas (a paginação abaixo busca
+  // TODAS em paralelo), séries inteiras podiam ser puladas
+  // silenciosamente aqui, e como esta lista (`seriesIds`, logo
+  // abaixo) é a que decide QUAIS séries a ferramenta vai recalcular,
+  // uma série pulada aqui simplesmente nunca tinha o status
+  // recalculado nessa passada — sem erro nenhum. Ordenado pelas
+  // mesmas colunas da paginação irmã (`watchedPages`, mais abaixo:
+  // series_id, season_number, episode_number) mesmo sem elas estarem
+  // no `.select()` — o PostgREST aceita ordenar por coluna que existe
+  // na tabela mesmo sem estar selecionada.
   const episodePages = await Promise.all(
     Array.from({ length: pageCount }, (_, index) => {
       const from = index * PAGE_SIZE;
@@ -74,6 +91,9 @@ export async function POST(request: Request) {
         .select("series_id")
         .eq("user_id", userId)
         .eq("is_special", false)
+        .order("series_id", { ascending: true })
+        .order("season_number", { ascending: true })
+        .order("episode_number", { ascending: true })
         .range(from, from + PAGE_SIZE - 1);
     })
   );
@@ -129,6 +149,83 @@ export async function POST(request: Request) {
     specialKeysBySeriesId.set(row.series_id, set);
   }
 
+  /*
+   * CORREÇÃO (investigação do Bleach, 2026-08-25 — ver comentário
+   * grande em `airDateCategory.ts`) — antes, esta rota buscava só um
+   * TOTAL de episódios assistidos por série (`count`, um round-trip
+   * por série dentro do loop de concorrência abaixo) e comparava
+   * contra o total do TMDB. Uma importação bagunçada podia inflar
+   * esse total sem que os episódios certos estivessem, de fato,
+   * marcados (achado real: Bleach tinha 769 linhas de episódio
+   * assistido gravadas pra uma série de 366 episódios) — o total
+   * "batia e sobrava" mesmo com episódio pendente de verdade. Busca
+   * em lote, paginada (mesmo padrão de `episodeRows` acima), a lista
+   * real de (temporada, episódio) assistidos por série — decisão por
+   * IDENTIDADE, não por total. Também elimina 1 round-trip de banco
+   * por série dentro do loop de concorrência, já que agora vem tudo
+   * pré-buscado.
+   */
+  const watchedEpisodeKeysBySeriesId = new Map<number, Set<string>>();
+  {
+    const { count: watchedRowCount, error: watchedCountError } = await admin
+      .from("watched_episodes")
+      .select("series_id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("is_special", false)
+      .in("series_id", seriesIds.length > 0 ? seriesIds : [-1]);
+    if (watchedCountError) {
+      console.error("[admin/repair-series-categories] Falha ao contar episódios assistidos (identidade)", watchedCountError);
+      return NextResponse.json({ error: "Falha ao contar episódios assistidos." }, { status: 500 });
+    }
+
+    /*
+     * CORREÇÃO (bug real, reportado — várias séries sem relação
+     * nenhuma entre si mudando de categoria ao mesmo tempo, incluindo
+     * terminadas voltando pra "Assistindo"/"Em dia") — as páginas
+     * abaixo eram buscadas em PARALELO sem nenhuma ordenação
+     * (`.order()`) explícita. Sem isso, o Postgres/PostgREST não
+     * garante que a página 2 comece exatamente onde a página 1 parou —
+     * numa conta com muitas linhas (achado real: 16.020 no total, 17
+     * páginas de uma vez), isso podia deixar buracos: linhas de uma
+     * série específica que não apareciam em NENHUMA página, gerando um
+     * Set incompleto pra ela (episódio de verdade assistido, mas fora
+     * do Set) — decisão errada de "tem pendência". Mesma correção
+     * aplicada em `seriesCategoryRecalc.ts` (ver comentário grande lá,
+     * com a evidência real que confirmou a causa). Ordenar por
+     * `(series_id, season_number, episode_number)` — mesma ordem das
+     * colunas que sobram da chave primária depois de `user_id` (fixo
+     * pelo filtro) — torna a paginação determinística.
+     */
+    const watchedTotal = watchedRowCount ?? 0;
+    const watchedPageCount = Math.ceil(watchedTotal / PAGE_SIZE);
+    const watchedPages = await Promise.all(
+      Array.from({ length: watchedPageCount }, (_, index) => {
+        const from = index * PAGE_SIZE;
+        return admin
+          .from("watched_episodes")
+          .select("series_id, season_number, episode_number")
+          .eq("user_id", userId)
+          .eq("is_special", false)
+          .in("series_id", seriesIds.length > 0 ? seriesIds : [-1])
+          .order("series_id", { ascending: true })
+          .order("season_number", { ascending: true })
+          .order("episode_number", { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+      })
+    );
+    for (const page of watchedPages) {
+      if (page.error) {
+        console.error("[admin/repair-series-categories] Falha ao buscar página de episódios assistidos", page.error);
+        return NextResponse.json({ error: "Falha ao buscar episódios assistidos." }, { status: 500 });
+      }
+      for (const row of (page.data ?? []) as { series_id: number; season_number: number; episode_number: number }[]) {
+        const set = watchedEpisodeKeysBySeriesId.get(row.series_id) ?? new Set<string>();
+        set.add(`${row.season_number}-${row.episode_number}`);
+        watchedEpisodeKeysBySeriesId.set(row.series_id, set);
+      }
+    }
+  }
+
   let updated = 0;
   let skipped = 0;
   const errors: number[] = [];
@@ -151,15 +248,9 @@ export async function POST(request: Request) {
         }
 
         try {
-          const [liveEpisodes, summary, { count: watchedCount }] = await Promise.all([
+          const [liveEpisodes, summary] = await Promise.all([
             getAllEpisodesWithAirDates(String(seriesId)),
             getSeriesSummary(seriesId),
-            admin
-              .from("watched_episodes")
-              .select("*", { count: "exact", head: true })
-              .eq("user_id", userId)
-              .eq("series_id", seriesId)
-              .eq("is_special", false),
           ]);
 
           if (liveEpisodes.length === 0) {
@@ -167,7 +258,7 @@ export async function POST(request: Request) {
             return;
           }
 
-          const watched = watchedCount ?? 0;
+          const watchedEpisodeKeys = watchedEpisodeKeysBySeriesId.get(seriesId) ?? new Set<string>();
           const specialEpisodeKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
           // UNIFICAÇÃO (ver airDateCategory.ts) — mesmas duas funções
           // usadas por `seriesCategoryRecalc.ts` (recálculo em lote e
@@ -184,7 +275,7 @@ export async function POST(request: Request) {
           // sem dado confiável de "terminou?" trata como "não
           // terminou" — mais seguro do que assumir o contrário.
           const { category: newCategory } = resolveSeriesCategory({
-            watched,
+            watchedEpisodeKeys,
             liveEpisodes,
             ended: summary.ended ?? false,
             specialEpisodeKeys,
@@ -195,12 +286,20 @@ export async function POST(request: Request) {
             return;
           }
 
-          const { error: upsertError } = await admin
-            .from("series_status")
-            .upsert(
-              { user_id: userId, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() },
-              { onConflict: "user_id,series_id" }
-            );
+          // CORREÇÃO (2026-08-26 — "rede de segurança de 3 partes",
+          // parte B) — trocado o `.upsert()` direto pela RPC
+          // `set_series_status_with_history` (migration
+          // `20260908000000_series_status_safety_net.sql`): grava o
+          // status E uma linha em `series_status_history` na MESMA
+          // transação, já com `source = 'admin_repair'` — distingue
+          // esta ferramenta administrativa de um recálculo automático
+          // ou do job diário, pra qualquer investigação futura.
+          const { error: upsertError } = await admin.rpc("set_series_status_with_history", {
+            p_user_id: userId,
+            p_series_id: seriesId,
+            p_status: newCategory,
+            p_source: "admin_repair",
+          });
           if (upsertError) throw upsertError;
           updated++;
         } catch (error) {

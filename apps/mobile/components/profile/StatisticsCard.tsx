@@ -1,4 +1,4 @@
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, ScrollView, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -12,9 +12,9 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
  * TASK-116 (correção — Perfil) — porta de `StatisticsCard.tsx`.
- * Card único, clicável, com 4 números de prévia — diferente do
- * carrossel de 7 (`StatsCarousel`, usado só no perfil PÚBLICO de
- * outra pessoa). Leva pra `/profile/stats`, a tela completa com
+ * Card com 4 números de prévia — diferente do carrossel de 7
+ * (`StatsCarousel`, usado só no perfil PÚBLICO de outra pessoa).
+ * "Ver detalhes" leva pra `/profile/stats`, a tela completa com
  * abas Séries/Filmes.
  *
  * Redesign (a pedido, mesmo visual do web) — degradê de verdade via
@@ -23,6 +23,13 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  * vez de só a seta. Carregando/erro usam fundo sólido (`cardStatic`)
  * — não faz sentido animar/degradê num estado que nem tem dado pra
  * mostrar ainda.
+ *
+ * Carrossel (a pedido — "quero essas estatísticas apareçam como
+ * carrossel") — as mesmas 4 estatísticas, agora em scroll horizontal
+ * em vez de grade 2×2. O toque pra abrir `/profile/stats` ficou só
+ * na pílula "Ver detalhes" do cabeçalho (não no card inteiro como
+ * antes) — um `Pressable` cobrindo o carrossel inteiro brigaria com
+ * o gesto de arrastar da `ScrollView` por baixo.
  */
 export function StatisticsCard() {
   const router = useRouter();
@@ -36,9 +43,9 @@ export function StatisticsCard() {
         <View style={styles.header}>
           <Skeleton width={120} height={16} />
         </View>
-        <View style={styles.grid}>
+        <View style={styles.carousel}>
           {[0, 1, 2, 3].map((index) => (
-            <View key={index} style={styles.gridItem}>
+            <View key={index} style={styles.carouselItem}>
               <Skeleton width={50} height={fontSize.lg} />
               <Skeleton width={90} height={11} style={styles.skeletonLabel} />
             </View>
@@ -66,40 +73,38 @@ export function StatisticsCard() {
   ];
 
   return (
-    <Pressable onPress={() => router.push("/profile/stats")}>
-      <LinearGradient
-        colors={["rgba(232,163,61,0.16)", "rgba(19,24,38,1)", "rgba(79,209,197,0.10)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.card}
+    <LinearGradient
+      colors={["rgba(232,163,61,0.16)", "rgba(19,24,38,1)", "rgba(79,209,197,0.10)"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.card}
+    >
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Feather name="bar-chart-2" size={16} color={colors.primary} />
+          <Text variant="label">{t("profile.statistics")}</Text>
+        </View>
+        <Pressable style={styles.pillButton} onPress={() => router.push("/profile/stats")}>
+          <Text style={styles.pillButtonText}>{t("profile.viewDetails")}</Text>
+          <Feather name="chevron-right" size={12} color={colors.background} />
+        </Pressable>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.carousel}
       >
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Feather name="bar-chart-2" size={16} color={colors.primary} />
-            <Text variant="label">{t("profile.statistics")}</Text>
+        {preview.map((item) => (
+          <View key={item.label} style={styles.carouselItem}>
+            <Feather name={item.icon} size={16} color={colors.secondary} />
+            <Text style={styles.value}>{item.value}</Text>
+            <Text variant="muted" style={styles.label}>
+              {item.label}
+            </Text>
           </View>
-          <View style={styles.pillButton}>
-            <Text style={styles.pillButtonText}>{t("profile.viewDetails")}</Text>
-            <Feather name="chevron-right" size={12} color={colors.background} />
-          </View>
-        </View>
-        <View style={styles.grid}>
-          {preview.map((item) => (
-            <View key={item.label} style={styles.gridItem}>
-              <View style={styles.gridItemRow}>
-                <Feather name={item.icon} size={14} color={colors.secondary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.value}>{item.value}</Text>
-                  <Text variant="muted" style={styles.label}>
-                    {item.label}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          ))}
-        </View>
-      </LinearGradient>
-    </Pressable>
+        ))}
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
@@ -141,21 +146,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.background,
   },
-  grid: {
+  carousel: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    gap: spacing.sm,
   },
-  gridItem: {
-    width: "50%",
-    marginBottom: spacing.sm,
-    paddingRight: spacing.sm,
-  },
-  gridItemRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
+  carouselItem: {
+    width: 108,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: "rgba(19,24,38,0.4)",
+    padding: spacing.sm,
+    gap: 2,
   },
   value: {
+    marginTop: 2,
     fontSize: fontSize.lg,
     fontWeight: "700",
     color: colors.text,

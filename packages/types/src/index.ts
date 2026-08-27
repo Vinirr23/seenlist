@@ -87,6 +87,21 @@ export interface SeriesDetails {
   posterPath: string | null;
   firstAirDate: string | null;
   status: string;
+  /**
+   * CORREÇÃO (2026-08-26, bug real — Solo Leveling marcado como
+   * "Concluída" mesmo com Temporada 3 já anunciada) — o campo `status`
+   * da TMDB ("Ended"/"Canceled"/"Returning Series"...) é mantido por
+   * pessoas e costuma ficar "atrasado": vira "Ended" assim que uma
+   * temporada termina de exibir, mesmo depois de uma renovação já
+   * anunciada — comum em anime. `inProduction` é um segundo sinal que
+   * a própria TMDB já devolve de graça na mesma consulta (`/tv/{id}`),
+   * mais confiável pra saber se ainda existe produção em andamento.
+   * Usado junto com `status` (nunca sozinho) em qualquer lugar que
+   * decide "a série encerrou de vez" — ver `getSeriesSummary`/
+   * `getSeriesSeasonSummary` (lib/tmdb/client.ts) e
+   * `computeSeriesCaughtUpBadge` (seriesCaughtUpBadge.ts, web e mobile).
+   */
+  inProduction: boolean;
   numberOfSeasons: number;
   numberOfEpisodes: number;
   genres: string[];
@@ -99,6 +114,8 @@ export interface SeriesDetails {
   /** Até 8 imagens de cena (backdrops) — pra seção "Galeria". */
   gallery: string[];
   cast: CastMember[];
+  /** A PEDIDO (2026-08-25) — "onde assistir" também pra série, não só filme/episódio. Reaproveita `getSeriesWatchProviders` (lib/tmdb/client.ts), que já existia (usado pela tela de Episódio) mas nunca tinha sido ligado à tela da série em si. */
+  watchProviders: WatchProvider[];
   similar: MediaSearchResult[];
   seasons: SeasonWithEpisodes[];
 }

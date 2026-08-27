@@ -33,7 +33,7 @@ describe("parseSpecialStatus", () => {
   it("reconhece o status for_later", () => {
     const rows = parseSpecialStatus(read("user_show_special_status.csv"));
     expect(rows).toHaveLength(1);
-    expect(isForLaterStatus(rows[0].status)).toBe(true);
+    expect(isForLaterStatus(rows[0]!.status)).toBe(true);
   });
 
   it("não reconhece um status diferente como for_later", () => {

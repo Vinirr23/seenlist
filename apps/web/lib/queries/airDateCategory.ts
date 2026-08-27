@@ -2,6 +2,36 @@ export interface LiveEpisodeAirDate {
   seasonNumber: number;
   episodeNumber: number;
   airDate: string | null;
+  /**
+   * CORREÇÃO (2026-08-26 — "motor resistente a fusão de temporadas
+   * pela TMDB", investigação Solo Leveling/Rent-a-Girlfriend/Dan Da
+   * Dan/Kaiju No. 8) — ID PERMANENTE do episódio na TMDB. Opcional
+   * só por compatibilidade com chamadores antigos; quando presente,
+   * é a identidade preferencial pra decidir "assistido?" — sobrevive
+   * a uma futura reestruturação de temporadas pela própria TMDB,
+   * diferente de (seasonNumber, episodeNumber), que a TMDB pode
+   * mudar (já mudou, para essas séries) sem aviso.
+   */
+  episodeId?: number;
+}
+
+/**
+ * CORREÇÃO (2026-08-26 — "motor resistente") — um episódio conta
+ * como assistido se o ID FIXO da TMDB estiver entre os assistidos
+ * (`watchedEpisodeIds`) OU, quando esse ID ainda não foi gravado pra
+ * aquela linha (dado antigo, de antes desta correção, ainda sem
+ * backfill), pela chave (temporada-episódio) de sempre. Checar o ID
+ * primeiro é o que resolve o bug: se a TMDB reagrupar temporadas de
+ * novo no futuro, (seasonNumber, episodeNumber) do episódio muda,
+ * mas o ID não — o episódio continua batendo como assistido.
+ */
+function episodeIsWatched(
+  episode: { seasonNumber: number; episodeNumber: number; episodeId?: number },
+  watchedEpisodeKeys: Set<string>,
+  watchedEpisodeIds: Set<number>
+): boolean {
+  if (episode.episodeId !== undefined && watchedEpisodeIds.has(episode.episodeId)) return true;
+  return watchedEpisodeKeys.has(`${episode.seasonNumber}-${episode.episodeNumber}`);
 }
 
 export interface AirDateDecision {
@@ -42,6 +72,36 @@ export interface AirDateDecision {
    * mesma contagem, já sem os especiais — fonte única da verdade.
    */
   nonSpecialEpisodeCount: number;
+  /**
+   * CORREÇÃO (bug real, investigado a fundo — Bleach, Re:Zero, Black
+   * Clover e outras 2 séries presas em "Em dia" mesmo com episódio
+   * pendente de verdade) — causa raiz bem mais profunda que qualquer
+   * correção anterior desta função: `decideWatchingVsUpToDate` SEMPRE
+   * comparou só TOTAIS (quantos assistidos no total vs. quantos já
+   * saíram no total) — nunca conferiu se os episódios específicos
+   * batem entre si. Uma importação bagunçada (TV Time, numeração
+   * ABSOLUTA do anime inteiro despejada como se fosse uma única
+   * "temporada 1", junto de uma reimportação posterior já separada
+   * por temporada de verdade) deixou contagens de "assistido"
+   * MULTIPLICADAS (Bleach: 769 linhas de episódio assistido gravadas
+   * pra uma série que só tem 366 episódios reais) — o total sempre
+   * "batia e sobrava" contra o total do TMDB, então a série ficava
+   * "em dia" pra sempre, mesmo com um episódio específico (ex.: T02
+   * E22) nunca de fato marcado.
+   *
+   * Corrigido comparando por IDENTIDADE (chave `temporada-episódio`,
+   * mesmo formato já usado por `specialEpisodeKeys` e por
+   * `findPendingEpisodes`/`isEpisodeWatched`, em
+   * `ContinueWatchingCard.tsx`) em vez de contagem agregada — a
+   * mesma lógica que o card de "Continue assistindo" já usava pra
+   * decidir o que mostrar, agora também decide o STATUS gravado no
+   * banco. Isso não depende de os dados estarem "limpos" — mesmo com
+   * linhas duplicadas/malformadas de uma importação antiga, cada
+   * episódio real do TMDB só conta como assistido se a chave exata
+   * dele estiver entre os assistidos, nunca por coincidência de
+   * total.
+   */
+  allNonSpecialEpisodesWatched: boolean;
 }
 
 /**
@@ -58,9 +118,10 @@ export interface AirDateDecision {
  * "paused" continua de fora, por ser decisão explícita do usuário.
  */
 export function decideWatchingVsUpToDate(
-  mainEpisodesWatched: number,
+  watchedEpisodeKeys: Set<string>,
   liveEpisodes: LiveEpisodeAirDate[],
-  specialEpisodeKeys: Set<string> = new Set()
+  specialEpisodeKeys: Set<string> = new Set(),
+  watchedEpisodeIds: Set<number> = new Set()
 ): AirDateDecision {
   const nonSpecialLiveEpisodes = liveEpisodes.filter(
     (e) => !specialEpisodeKeys.has(`${e.seasonNumber}-${e.episodeNumber}`)
@@ -107,19 +168,31 @@ export function decideWatchingVsUpToDate(
   const airedByNow = nonSpecialLiveEpisodes.filter(
     (e) => (e.airDate !== null && e.airDate <= today) || (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber))
   );
-  const hasUnwatchedAiredEpisode = mainEpisodesWatched < airedByNow.length;
+
+  // CORREÇÃO (ver comentário grande em `AirDateDecision.allNonSpecialEpisodesWatched`
+  // acima — investigação do Bleach) — comparação por IDENTIDADE
+  // (season-episode), não mais por total agregado. Um episódio só
+  // conta como "assistido" se a chave exata dele estiver no Set —
+  // imune a contagens infladas por importação duplicada/malformada.
+  const unwatchedAired = airedByNow.filter((e) => !episodeIsWatched(e, watchedEpisodeKeys, watchedEpisodeIds));
+  const hasUnwatchedAiredEpisode = unwatchedAired.length > 0;
+  const allNonSpecialEpisodesWatched = nonSpecialLiveEpisodes.every((e) =>
+    episodeIsWatched(e, watchedEpisodeKeys, watchedEpisodeIds)
+  );
 
   if (hasUnwatchedAiredEpisode) {
     return {
       category: "watching",
-      reason: `${airedByNow.length - mainEpisodesWatched} episódio(s) já lançado(s) (air_date <= ${today}) ainda não assistido(s).`,
+      reason: `${unwatchedAired.length} episódio(s) já lançado(s) (air_date <= ${today}) ainda não assistido(s) — conferido episódio por episódio, não só por total.`,
       nonSpecialEpisodeCount: nonSpecialLiveEpisodes.length,
+      allNonSpecialEpisodesWatched,
     };
   }
   return {
     category: "up_to_date",
-    reason: `Todos os ${airedByNow.length} episódios já lançados até ${today} foram assistidos.`,
+    reason: `Todos os ${airedByNow.length} episódios já lançados até ${today} foram assistidos — conferido episódio por episódio, não só por total.`,
     nonSpecialEpisodeCount: nonSpecialLiveEpisodes.length,
+    allNonSpecialEpisodesWatched,
   };
 }
 
@@ -146,10 +219,19 @@ export function decideWatchingVsUpToDate(
  * nunca foi a fonte do bug de duplicação.
  */
 export interface SeriesStatusInputs {
-  watched: number;
+  /**
+   * CORREÇÃO (ver comentário grande em `AirDateDecision`, investigação
+   * do Bleach) — antes era `watched: number` (um total agregado).
+   * Agora é o conjunto de chaves `temporada-episódio` de fato
+   * assistidas (mesmo formato de `specialEpisodeKeys`) — decisão de
+   * status por identidade, não por contagem.
+   */
+  watchedEpisodeKeys: Set<string>;
   liveEpisodes: LiveEpisodeAirDate[];
   ended: boolean;
   specialEpisodeKeys?: Set<string>;
+  /** Ver comentário em `episodeIsWatched`/`LiveEpisodeAirDate.episodeId` — "motor resistente" (2026-08-26). */
+  watchedEpisodeIds?: Set<number>;
 }
 
 export type SeriesCategory = "watching" | "up_to_date" | "completed";
@@ -160,13 +242,17 @@ export interface SeriesCategoryResolution {
 }
 
 export function resolveSeriesCategory(input: SeriesStatusInputs): SeriesCategoryResolution {
-  const decision = decideWatchingVsUpToDate(input.watched, input.liveEpisodes, input.specialEpisodeKeys ?? new Set());
-  const allEpisodesWatched = input.watched >= decision.nonSpecialEpisodeCount;
+  const decision = decideWatchingVsUpToDate(
+    input.watchedEpisodeKeys,
+    input.liveEpisodes,
+    input.specialEpisodeKeys ?? new Set(),
+    input.watchedEpisodeIds ?? new Set()
+  );
 
-  if (input.ended && allEpisodesWatched) {
+  if (input.ended && decision.allNonSpecialEpisodesWatched) {
     return {
       category: "completed",
-      reason: `Série encerrada oficialmente e todos os ${decision.nonSpecialEpisodeCount} episódios principais (excluindo especiais) assistidos.`,
+      reason: `Série encerrada oficialmente e todos os ${decision.nonSpecialEpisodeCount} episódios principais (excluindo especiais) assistidos — conferido episódio por episódio.`,
     };
   }
   return { category: decision.category, reason: decision.reason };
@@ -174,18 +260,25 @@ export function resolveSeriesCategory(input: SeriesStatusInputs): SeriesCategory
 
 /**
  * Decide se uma categoria recém-calculada deve ser GRAVADA, dado o
- * status ATUAL da série — único lugar que sabe as duas regras que
+ * status ATUAL da série — único lugar que sabe as regras que
  * protegem decisão manual do usuário, pra qualquer um dos 3 lugares
  * que gravam `series_status`:
  *
  * 1. "paused" nunca vira "watching" sozinho (bug real corrigido nesta
  *    auditoria — retomar uma série pausada é decisão manual).
- * 2. Categoria sem mudança só é regravada quando o resultado é
+ * 2. CORREÇÃO (2026-08-26, bug real reportado com prova — usuário
+ *    marcou o Primal manualmente como "Assistir depois" depois de ver
+ *    as temporadas antigas, rodou "Corrigir status das séries", e a
+ *    série voltou pra "Assistindo" sozinha assim que saiu a Temporada
+ *    3) — "want_to_watch" agora recebe a MESMA proteção que "paused"
+ *    já tinha: sair de "Assistir depois" também é decisão manual do
+ *    usuário, nunca automática só porque saiu episódio novo.
+ * 3. Categoria sem mudança só é regravada quando o resultado é
  *    "watching" (serve só pra atualizar `updated_at`, usado pra
  *    ordenar "Continue assistindo" — "up_to_date"/"completed" não
  *    têm nada pendente, não precisam subir no ranking à toa).
  */
 export function shouldWriteSeriesCategory(currentStatus: string, newCategory: SeriesCategory): boolean {
-  if (currentStatus === "paused" && newCategory === "watching") return false;
+  if ((currentStatus === "paused" || currentStatus === "want_to_watch") && newCategory === "watching") return false;
   return newCategory !== currentStatus || newCategory === "watching";
 }

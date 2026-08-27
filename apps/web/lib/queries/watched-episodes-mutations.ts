@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useOptimisticMutation } from "@seenlist/hooks";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
-import { episodeKey, watchedEpisodesQueryKey, type WatchedEpisodeKey } from "./watched-episodes-state";
+import { episodeKey, watchedEpisodesQueryKey, watchedEpisodeIdsQueryKey, type WatchedEpisodeKey } from "./watched-episodes-state";
 import { LIBRARY_QUERY_KEY } from "./library-state";
 import { recalculateSeriesCategoryAfterEpisodeChange } from "./seriesCategoryRecalc";
 
@@ -9,6 +9,18 @@ interface ToggleVariables {
   seasonNumber: number;
   episodeNumber: number;
   watched: boolean;
+  /**
+   * CORREÇÃO (2026-08-26 — "motor resistente a fusão de temporadas
+   * pela TMDB", ver comentário grande na migração
+   * 20260907000000_watched_episodes_tmdb_episode_id.sql) — ID
+   * permanente do episódio na TMDB, opcional (nem toda tela que
+   * marca um episódio tem esse valor à mão hoje). Quando presente,
+   * grava junto do episódio assistido — usado depois pra bater
+   * "assistido?" por identidade estável, não só por
+   * (season_number, episode_number), que pode mudar se a TMDB
+   * reestruturar temporadas de novo no futuro.
+   */
+  episodeId?: number;
 }
 
 /**
@@ -26,7 +38,7 @@ export function useToggleEpisodeWatched(seriesId: number) {
   const queryClient = useQueryClient();
   const mutation = useOptimisticMutation<ToggleVariables, Set<WatchedEpisodeKey>>({
     queryKey: watchedEpisodesQueryKey(seriesId),
-    mutationFn: async ({ seasonNumber, episodeNumber, watched }) => {
+    mutationFn: async ({ seasonNumber, episodeNumber, watched, episodeId }) => {
       const supabase = createClient();
       const {
         data: { user },
@@ -45,6 +57,7 @@ export function useToggleEpisodeWatched(seriesId: number) {
           series_id: seriesId,
           season_number: seasonNumber,
           episode_number: episodeNumber,
+          tmdb_episode_id: episodeId ?? null,
         });
         if (error) throw error;
       }
@@ -69,6 +82,8 @@ export function useToggleEpisodeWatched(seriesId: number) {
         onSettled: (...args) => {
           void recalculateSeriesCategoryAfterEpisodeChange(seriesId).finally(() => {
             queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEY });
+            // CORREÇÃO (2026-08-26 — "motor resistente") — mesmo ponto de invalidação do Set de chaves, agora também pro Set de IDs (watched-episodes-state.ts).
+            queryClient.invalidateQueries({ queryKey: watchedEpisodeIdsQueryKey(seriesId) });
           });
           options?.onSettled?.(...args);
         },
@@ -80,6 +95,8 @@ export function useToggleEpisodeWatched(seriesId: number) {
 interface EpisodeRef {
   seasonNumber: number;
   episodeNumber: number;
+  /** Ver comentário em `ToggleVariables.episodeId` — mesmo motivo. */
+  episodeId?: number;
 }
 
 /**
@@ -112,6 +129,7 @@ export function useMarkEpisodesWatched(seriesId: number) {
         series_id: seriesId,
         season_number: e.seasonNumber,
         episode_number: e.episodeNumber,
+        tmdb_episode_id: e.episodeId ?? null,
       }));
 
       // ignoreDuplicates: alguns dos episódios do intervalo já podem
@@ -136,6 +154,8 @@ export function useMarkEpisodesWatched(seriesId: number) {
       void recalculateSeriesCategoryAfterEpisodeChange(seriesId).finally(() => {
         queryClient.invalidateQueries({ queryKey });
         queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEY });
+        // CORREÇÃO (2026-08-26 — "motor resistente") — mesmo ponto de invalidação do Set de chaves, agora também pro Set de IDs (watched-episodes-state.ts).
+        queryClient.invalidateQueries({ queryKey: watchedEpisodeIdsQueryKey(seriesId) });
       });
     },
   });
@@ -236,6 +256,8 @@ export function useUnmarkSeasonWatched(seriesId: number) {
       void recalculateSeriesCategoryAfterEpisodeChange(seriesId).finally(() => {
         queryClient.invalidateQueries({ queryKey });
         queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEY });
+        // CORREÇÃO (2026-08-26 — "motor resistente") — mesmo ponto de invalidação do Set de chaves, agora também pro Set de IDs (watched-episodes-state.ts).
+        queryClient.invalidateQueries({ queryKey: watchedEpisodeIdsQueryKey(seriesId) });
       });
     },
   });

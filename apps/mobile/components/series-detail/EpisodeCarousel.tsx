@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryStatus, SeriesDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { episodeKey, resolveCarouselEpisodes, type EpisodeRef, type WatchedEpisodeKey } from "@/lib/seriesDetails";
+import { isEpisodeWatchedSync, resolveCarouselEpisodes, type EpisodeRef, type WatchedEpisodeKey } from "@/lib/seriesDetails";
 import type { SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { Text } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
@@ -21,6 +21,7 @@ export function EpisodeCarousel({
   category,
   seasons,
   watched,
+  watchedEpisodeIds,
   onToggleEpisode,
   caughtUpBadge,
 }: {
@@ -28,7 +29,10 @@ export function EpisodeCarousel({
   category: LibraryStatus | null | undefined;
   seasons: SeriesDetails["seasons"];
   watched: Set<WatchedEpisodeKey>;
-  onToggleEpisode: (seasonNumber: number, episodeNumber: number) => void;
+  /** CORREÇÃO (2026-08-26 — "motor resistente") — opcional, ver `isEpisodeWatchedSync` (seriesDetails.ts). */
+  watchedEpisodeIds?: Set<number>;
+  /** `episodeId` opcional (2026-08-26, "motor resistente" — ver seriesDetails.ts). */
+  onToggleEpisode: (seasonNumber: number, episodeNumber: number, episodeId?: number) => void;
   /** TASK-170 (ajuste — a pedido) — o card "mais episódios a caminho"/"série encerrada" mora aqui, não depois das temporadas (diferente do web, decisão explícita pro mobile). */
   caughtUpBadge?: SeriesCaughtUpBadge;
 }) {
@@ -74,7 +78,9 @@ export function EpisodeCarousel({
    */
   function attemptScroll() {
     if (episodeItems.length === 0) return;
-    const firstUnwatchedIndex = episodeItems.findIndex(({ seasonNumber, episode }) => !watched.has(episodeKey(seasonNumber, episode.episodeNumber)));
+    const firstUnwatchedIndex = episodeItems.findIndex(
+      ({ seasonNumber, episode }) => !isEpisodeWatchedSync(watched, seasonNumber, episode.episodeNumber, episode.id, watchedEpisodeIds)
+    );
 
     // TASK-173 (achado real, a pedido — "a rolagem recua" ao marcar o
     // último episódio) — quando não sobra episódio não assistido, a
@@ -104,7 +110,7 @@ export function EpisodeCarousel({
   useEffect(() => {
     attemptScroll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seriesId, watched]);
+  }, [seriesId, watched, watchedEpisodeIds]);
 
   if (data.length === 0) return null;
 
@@ -148,8 +154,8 @@ export function EpisodeCarousel({
               seriesId={seriesId}
               seasonNumber={item.seasonNumber}
               episode={item.episode}
-              isWatched={watched.has(episodeKey(item.seasonNumber, item.episode.episodeNumber))}
-              onToggle={() => onToggleEpisode(item.seasonNumber, item.episode.episodeNumber)}
+              isWatched={isEpisodeWatchedSync(watched, item.seasonNumber, item.episode.episodeNumber, item.episode.id, watchedEpisodeIds)}
+              onToggle={() => onToggleEpisode(item.seasonNumber, item.episode.episodeNumber, item.episode.id)}
             />
           ) : (
             <CaughtUpMiniCard badge={item.badge} />

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMovieSummary, getSeriesSummary, type MediaSummary } from "@/lib/tmdb/client";
+import { getMovieSummary, getSeriesSummary, translateTvGenreName, type MediaSummary } from "@/lib/tmdb/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 interface RequestBody {
@@ -93,7 +93,19 @@ interface CacheRow {
   genres: string[] | null;
 }
 
-function rowToSummary(row: CacheRow): MediaSummary {
+/**
+ * CORREÇÃO (a pedido, investigado até a causa raiz — chips de gênero
+ * de SÉRIE em inglês, 2026-08-22) — ver `translateTvGenreName` em
+ * `lib/tmdb/client.ts` pro histórico completo: o TMDB nunca traduziu 8
+ * gêneros de série pro português, então linhas já gravadas em
+ * `media_summaries_cache` ANTES desta correção guardam esses nomes em
+ * inglês. `getSeriesSummary` (ver `client.ts`) já corrige toda busca
+ * NOVA — mas sem reaplicar a tradução aqui também, quem já tem uma
+ * linha em cache (válida por até 24h) continuaria vendo inglês até o
+ * cache expirar sozinho. Aplicar de novo aqui, na LEITURA, corrige na
+ * hora, sem esperar.
+ */
+function rowToSummary(row: CacheRow, language: string): MediaSummary {
   return {
     id: row.tmdb_id,
     title: row.title,
@@ -103,7 +115,7 @@ function rowToSummary(row: CacheRow): MediaSummary {
     ended: row.ended ?? undefined,
     runtimeMinutes: row.runtime_minutes ?? undefined,
     releaseDate: row.release_date,
-    genres: row.genres ?? undefined,
+    genres: row.media_type === "series" ? row.genres?.map((name) => translateTvGenreName(name, language)) : row.genres ?? undefined,
   };
 }
 
@@ -177,8 +189,8 @@ async function readCacheCombined(
   }
 
   for (const row of (data ?? []) as CacheRow[]) {
-    if (row.media_type === "movie") movieHits.set(row.tmdb_id, rowToSummary(row));
-    else seriesHits.set(row.tmdb_id, rowToSummary(row));
+    if (row.media_type === "movie") movieHits.set(row.tmdb_id, rowToSummary(row, language));
+    else seriesHits.set(row.tmdb_id, rowToSummary(row, language));
   }
 
   return {

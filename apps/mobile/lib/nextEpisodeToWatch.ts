@@ -13,12 +13,28 @@ export interface NextEpisodeToWatch {
   /** Quantos episódios A MAIS (além deste) já foram ao ar e também estão pendentes — o "+N" do card. */
   additionalPendingCount: number;
   badge: UpcomingBadge;
+  /**
+   * CORREÇÃO (2026-08-26 — "motor resistente a fusão de temporadas
+   * pela TMDB") — ID fixo do episódio na TMDB, gravado junto quando o
+   * usuário marca este episódio como assistido direto pelo card
+   * "Continue assistindo". Opcional só porque a rota de origem pode,
+   * em teoria, não trazer o dado — na prática sempre traz.
+   */
+  episodeId?: number;
+}
+
+interface WatchedEpisodesLookup {
+  keysBySeriesId: Map<number, Set<string>>;
+  /** CORREÇÃO (2026-08-26 — "motor resistente") — ver `episodeIsWatched`/comentário grande em `lib/seriesDetails.ts`. */
+  idsBySeriesId: Map<number, Set<number>>;
 }
 
 /** Mesma paginação já usada em fetchLibraryItems/recalculateUpToDateSeriesCategories — evita o limite padrão de 1000 linhas cortar o resultado. */
 /** Mesma paginação paralela já usada em fetchLibraryItems/recalculateUpToDateSeriesCategories (TASK-149 — busca a contagem primeiro, depois todas as páginas ao mesmo tempo, em vez de uma de cada vez). */
-async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: number[]): Promise<Map<number, Set<string>>> {
-  const bySeriesId = new Map<number, Set<string>>();
+async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: number[]): Promise<WatchedEpisodesLookup> {
+  const keysBySeriesId = new Map<number, Set<string>>();
+  const idsBySeriesId = new Map<number, Set<number>>();
+  const result: WatchedEpisodesLookup = { keysBySeriesId, idsBySeriesId };
 
   const { count, error: countError } = await supabase
     .from("watched_episodes")
@@ -29,7 +45,7 @@ async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: numb
   if (countError) throw countError;
 
   const total = count ?? 0;
-  if (total === 0) return bySeriesId;
+  if (total === 0) return result;
 
   const pageCount = Math.ceil(total / WATCHED_KEYS_PAGE_SIZE);
   const pages = await Promise.all(
@@ -37,24 +53,45 @@ async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: numb
       const from = index * WATCHED_KEYS_PAGE_SIZE;
       return supabase
         .from("watched_episodes")
-        .select("series_id, season_number, episode_number")
+        .select("series_id, season_number, episode_number, tmdb_episode_id")
         .eq("user_id", userId)
         .eq("is_special", false)
         .in("series_id", seriesIds)
+        // CORREÇÃO (paginação sem .order() — mesma causa raiz já
+        // corrigida em seriesCategoryRecalc.ts/repair-series-categories/
+        // route.ts/library-state.ts/seriesDetails.ts): sem ordem
+        // explícita, o Postgres não garante o mesmo recorte de página
+        // entre chamadas paralelas. Ordena pela chave que sobra do PK
+        // (user_id, series_id, season_number, episode_number) depois
+        // do filtro por user_id.
+        .order("series_id", { ascending: true })
+        .order("season_number", { ascending: true })
+        .order("episode_number", { ascending: true })
         .range(from, from + WATCHED_KEYS_PAGE_SIZE - 1);
     })
   );
 
   for (const page of pages) {
     if (page.error) throw page.error;
-    for (const row of page.data ?? []) {
+    for (const row of (page.data ?? []) as {
+      series_id: number;
+      season_number: number;
+      episode_number: number;
+      tmdb_episode_id: number | null;
+    }[]) {
       const key = `${row.season_number}-${row.episode_number}`;
-      const set = bySeriesId.get(row.series_id);
-      if (set) set.add(key);
-      else bySeriesId.set(row.series_id, new Set([key]));
+      const keySet = keysBySeriesId.get(row.series_id);
+      if (keySet) keySet.add(key);
+      else keysBySeriesId.set(row.series_id, new Set([key]));
+
+      if (row.tmdb_episode_id !== null) {
+        const idSet = idsBySeriesId.get(row.series_id);
+        if (idSet) idSet.add(row.tmdb_episode_id);
+        else idsBySeriesId.set(row.series_id, new Set([row.tmdb_episode_id]));
+      }
     }
   }
-  return bySeriesId;
+  return result;
 }
 
 /**
@@ -80,17 +117,24 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[], language = "
   } = await getCurrentAuthUser();
   if (!user) return result;
 
-  const [liveEpisodesBySeriesId, watchedKeysBySeriesId] = await Promise.all([
+  const [liveEpisodesBySeriesId, watchedLookup] = await Promise.all([
     fetchLiveEpisodesBySeriesId(seriesIds, language),
     fetchWatchedEpisodeKeysBySeriesId(user.id, seriesIds),
   ]);
+  const watchedKeysBySeriesId = watchedLookup.keysBySeriesId;
+  const watchedIdsBySeriesId = watchedLookup.idsBySeriesId;
 
   const today = todayLocalKey();
-  const pendingBySeriesId = new Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null }[]>();
+  const pendingBySeriesId = new Map<
+    number,
+    { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[]
+  >();
 
   for (const seriesId of seriesIds) {
     const liveEpisodes = liveEpisodesBySeriesId.get(seriesId) ?? [];
     const watchedKeys = watchedKeysBySeriesId.get(seriesId) ?? new Set<string>();
+    // CORREÇÃO (2026-08-26 — "motor resistente") — ver episodeIsWatched/comentário grande em seriesDetails.ts.
+    const watchedIds = watchedIdsBySeriesId.get(seriesId) ?? new Set<number>();
 
     /**
      * CORREÇÃO (bug real, reportado — Tanya the Evil e Daemons do
@@ -121,9 +165,10 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[], language = "
     );
     const pending = liveEpisodes
       .filter((e) => (e.airDate !== null && e.airDate <= today) || (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber)))
-      .filter((e) => !watchedKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
+      // CORREÇÃO (2026-08-26 — "motor resistente") — ID FIXO da TMDB primeiro, cai pra chave (temporada-episódio) sem ele.
+      .filter((e) => !(e.episodeId !== undefined && watchedIds.has(e.episodeId)) && !watchedKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
       .sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)
-      .map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, name: e.name, airDate: e.airDate }));
+      .map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, name: e.name, airDate: e.airDate, episodeId: e.episodeId }));
 
     if (pending.length > 0) pendingBySeriesId.set(seriesId, pending);
   }
@@ -139,6 +184,7 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[], language = "
       seasonNumber: next.seasonNumber,
       episodeNumber: next.episodeNumber,
       name: next.name,
+      episodeId: next.episodeId,
       additionalPendingCount: pending.length - 1,
       // Sem data conhecida = sem selo (NOVO/MAIS RECENTE/PREMIERE
       // dependem de saber quando saiu) — mesmo padrão do web.

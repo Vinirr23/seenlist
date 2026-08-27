@@ -1,8 +1,8 @@
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { resolveSeriesCategory, shouldWriteSeriesCategory } from "./airDateCategory";
-import { fetchWatchedEpisodeStats } from "./library-state";
 
 const TMDB_EPISODES_CHUNK_SIZE = 20; // mesmo limite de /api/tmdb/series-episodes-at-export (MAX_IDS_PER_REQUEST)
+const WATCHED_EPISODES_PAGE_SIZE = 1000; // limite padrão de linhas por consulta do Supabase/PostgREST — ver `fetchWatchedEpisodeKeysBySeriesId` abaixo.
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -12,8 +12,8 @@ function chunkArray<T>(items: T[], size: number): T[][] {
 
 async function fetchLiveEpisodesBySeriesId(
   seriesIds: number[]
-): Promise<Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>> {
-  const result = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>();
+): Promise<Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>> {
+  const result = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>();
   const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
   const responses = await Promise.all(
     chunks.map((idsChunk) =>
@@ -26,8 +26,12 @@ async function fetchLiveEpisodesBySeriesId(
   );
   for (const response of responses) {
     if (!response.ok) continue;
+    // `episodeId` (2026-08-26, "motor resistente") — a rota já devolve, ver route.ts.
     const data = (await response.json()) as {
-      series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] }[];
+      series: {
+        id: number;
+        episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[];
+      }[];
     };
     for (const s of data.series) result.set(s.id, s.episodes);
   }
@@ -71,6 +75,116 @@ async function fetchSpecialEpisodeKeysBySeriesId(
     const set = result.get(row.series_id) ?? new Set<string>();
     set.add(`${row.season_number}-${row.episode_number}`);
     result.set(row.series_id, set);
+  }
+  return result;
+}
+
+/**
+ * CORREÇÃO (investigação do Bleach, 2026-08-25 — ver comentário
+ * grande em `airDateCategory.ts`) — antes, os dois lugares que gravam
+ * `series_status` neste arquivo buscavam só um TOTAL de episódios
+ * assistidos (`count: "exact", head: true`) e comparavam contra o
+ * total de episódios do TMDB. Uma importação bagunçada podia inflar
+ * esse total (linhas duplicadas/malformadas de uma reimportação) sem
+ * que a série tivesse, de fato, os episódios certos marcados — o
+ * total "batia e sobrava" mesmo com um episódio específico pendente
+ * de verdade (achado real: Bleach tinha 769 linhas de episódio
+ * assistido gravadas pra uma série de 366 episódios).
+ *
+ * Busca a lista real de (temporada, episódio) assistidos — não só a
+ * contagem — pra decidir por IDENTIDADE, igual a
+ * `fetchSpecialEpisodeKeysBySeriesId` logo abaixo. Paginada de 1000
+ * em 1000 (mesmo padrão já usado em
+ * `app/api/admin/repair-series-categories/route.ts` — achado real
+ * documentado lá: sem paginação, contas com muito histórico perdiam
+ * linhas silenciosamente acima do teto padrão do Supabase).
+ */
+interface WatchedEpisodesLookup {
+  keysBySeriesId: Map<number, Set<string>>;
+  /** CORREÇÃO (2026-08-26 — "motor resistente") — ver `episodeIsWatched` em airDateCategory.ts. */
+  idsBySeriesId: Map<number, Set<number>>;
+}
+
+async function fetchWatchedEpisodeKeysBySeriesId(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  seriesIds: number[]
+): Promise<WatchedEpisodesLookup> {
+  const keysBySeriesId = new Map<number, Set<string>>();
+  const idsBySeriesId = new Map<number, Set<number>>();
+  const result: WatchedEpisodesLookup = { keysBySeriesId, idsBySeriesId };
+  if (seriesIds.length === 0) return result;
+
+  const { count, error: countError } = await supabase
+    .from("watched_episodes")
+    .select("series_id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_special", false)
+    .in("series_id", seriesIds);
+  if (countError) throw countError;
+
+  const total = count ?? 0;
+  if (total === 0) return result;
+
+  /*
+   * CORREÇÃO (bug real, reportado — várias séries sem relação nenhuma
+   * entre si, incluindo terminadas, voltando pra "Assistindo"/"Em dia"
+   * ao mesmo tempo) — as páginas acima eram buscadas em PARALELO
+   * (`Promise.all`) sem nenhuma ordenação (`.order()`) explícita. Sem
+   * isso, o Postgres/PostgREST não garante que a página 2 comece
+   * exatamente onde a página 1 parou — pra uma conta com muitas linhas
+   * (aqui, 16.020 no total, 17 páginas de uma vez só), isso podia
+   * deixar buracos: linhas de uma série específica que não apareciam
+   * em NENHUMA página, fazendo esta função devolver um Set incompleto
+   * pra ela — episódio de verdade assistido, mas fora do Set, então
+   * `decideWatchingVsUpToDate` concluía (errado) que tinha episódio
+   * pendente. Confirmado com dado real: Reacher e Bleach, duas séries
+   * sem nada em comum, mudaram de categoria no MESMO milissegundo (o
+   * mesmo lote de recálculo) — sinal de um problema na busca em lote,
+   * não em cada série isoladamente.
+   *
+   * Ordenar por `(series_id, season_number, episode_number)` — mesma
+   * ordem das colunas que sobram da chave primária da tabela depois de
+   * `user_id` (fixo pelo filtro acima) — torna a paginação
+   * determinística: cada página sempre devolve o mesmo pedaço,
+   * consistente entre chamadas paralelas, sem depender da ordem física
+   * "por acaso" que o Postgres escolher.
+   */
+  const pageCount = Math.ceil(total / WATCHED_EPISODES_PAGE_SIZE);
+  const pages = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) => {
+      const from = index * WATCHED_EPISODES_PAGE_SIZE;
+      return supabase
+        .from("watched_episodes")
+        .select("series_id, season_number, episode_number, tmdb_episode_id")
+        .eq("user_id", userId)
+        .eq("is_special", false)
+        .in("series_id", seriesIds)
+        .order("series_id", { ascending: true })
+        .order("season_number", { ascending: true })
+        .order("episode_number", { ascending: true })
+        .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
+    })
+  );
+
+  for (const page of pages) {
+    if (page.error) throw page.error;
+    for (const row of (page.data ?? []) as {
+      series_id: number;
+      season_number: number;
+      episode_number: number;
+      tmdb_episode_id: number | null;
+    }[]) {
+      const keySet = keysBySeriesId.get(row.series_id) ?? new Set<string>();
+      keySet.add(`${row.season_number}-${row.episode_number}`);
+      keysBySeriesId.set(row.series_id, keySet);
+
+      if (row.tmdb_episode_id !== null) {
+        const idSet = idsBySeriesId.get(row.series_id) ?? new Set<number>();
+        idSet.add(row.tmdb_episode_id);
+        idsBySeriesId.set(row.series_id, idSet);
+      }
+    }
   }
   return result;
 }
@@ -255,18 +369,20 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
   );
   const seriesIds = statusRows.map((row) => row.series_id as number);
 
-  let watchedCountBySeriesId: Map<number, number>;
-  let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null }[]>;
+  let watchedEpisodeKeysBySeriesId: Map<number, Set<string>>;
+  let watchedEpisodeIdsBySeriesId: Map<number, Set<number>>;
+  let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>;
   let endedBySeriesId: Map<number, boolean>;
   let specialKeysBySeriesId: Map<number, Set<string>>;
   try {
-    const [watchedStats, episodesMap, endedMap, specialKeysMap] = await Promise.all([
-      fetchWatchedEpisodeStats(supabase, user.id),
+    const [watchedLookup, episodesMap, endedMap, specialKeysMap] = await Promise.all([
+      fetchWatchedEpisodeKeysBySeriesId(supabase, user.id, seriesIds),
       fetchLiveEpisodesBySeriesId(seriesIds),
       fetchEndedBySeriesId(seriesIds),
       fetchSpecialEpisodeKeysBySeriesId(supabase, user.id, seriesIds),
     ]);
-    watchedCountBySeriesId = new Map(watchedStats.map((stat) => [stat.series_id, stat.watched_count]));
+    watchedEpisodeKeysBySeriesId = watchedLookup.keysBySeriesId;
+    watchedEpisodeIdsBySeriesId = watchedLookup.idsBySeriesId;
     episodesBySeriesId = episodesMap;
     endedBySeriesId = endedMap;
     specialKeysBySeriesId = specialKeysMap;
@@ -307,10 +423,11 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
     const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
     if (liveEpisodes.length === 0) continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
 
-    const watched = watchedCountBySeriesId.get(seriesId) ?? 0;
+    const watchedEpisodeKeys = watchedEpisodeKeysBySeriesId.get(seriesId) ?? new Set<string>();
+    const watchedEpisodeIds = watchedEpisodeIdsBySeriesId.get(seriesId) ?? new Set<number>();
     const ended = endedBySeriesId.get(seriesId) ?? false;
     const specialEpisodeKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
-    const { category } = resolveSeriesCategory({ watched, liveEpisodes, ended, specialEpisodeKeys });
+    const { category } = resolveSeriesCategory({ watchedEpisodeKeys, liveEpisodes, ended, specialEpisodeKeys, watchedEpisodeIds });
     categoryBySeriesId.set(seriesId, category);
   }
 
@@ -392,6 +509,18 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
 
   if (updates.length === 0) return true; // avaliou tudo certinho, só que nada mudou de categoria — sucesso.
 
+  // NOTA (2026-08-26 — "rede de segurança de 3 partes", parte B) —
+  // este `.upsert()` em LOTE continua direto, sem passar pela RPC
+  // `set_series_status_with_history` (ver correção equivalente logo
+  // abaixo, em `recalculateSeriesCategoryAfterEpisodeChange`): a RPC
+  // grava uma linha por vez, e trocar por N chamadas sequenciais aqui
+  // arriscaria deixar a Central de Séries mais lenta pra abrir numa
+  // conta com muitas séries. O gatilho em `series_status`
+  // (`trg_log_series_status_change`) continua capturando toda mudança
+  // gravada aqui — só sem um rótulo preciso de origem (`source =
+  // 'unknown'` em vez de `'auto_recalc'`). Nenhuma mudança de status
+  // fica sem registro; só nesta rajada específica o registro não sabe
+  // dizer QUAL rotina fez.
   const { error: upsertError } = await supabase.from("series_status").upsert(updates, { onConflict: "user_id,series_id" });
   if (upsertError) {
     console.error("[recalculateUpToDateSeriesCategories] Falha ao gravar categorias recalculadas", upsertError);
@@ -504,21 +633,19 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     currentStatus === "completed";
   if (!eligibleForRecalc) return;
 
-  const [{ count: watchedCount }, specialKeysBySeriesId] = await Promise.all([
-    supabase
-      .from("watched_episodes")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("series_id", seriesId)
-      .eq("is_special", false),
-    fetchSpecialEpisodeKeysBySeriesId(supabase, user.id, [seriesId]),
-  ]);
-  const specialKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
-
-  let liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] = [];
+  let liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[] = [];
   let ended = false;
+  let watchedEpisodeKeys: Set<string> = new Set();
+  let watchedEpisodeIds: Set<number> = new Set();
+  let specialKeys: Set<string> = new Set();
   try {
-    const [episodesResponse, summaryResponse] = await Promise.all([
+    const [watchedLookup, specialKeysBySeriesId, episodesResponse, summaryResponse] = await Promise.all([
+      // CORREÇÃO (investigação do Bleach — ver comentário grande em
+      // `fetchWatchedEpisodeKeysBySeriesId`, acima) — antes buscava só
+      // um TOTAL (`count: "exact", head: true`); agora busca a
+      // identidade real dos episódios assistidos, pro mesmo motivo.
+      fetchWatchedEpisodeKeysBySeriesId(supabase, user.id, [seriesId]),
+      fetchSpecialEpisodeKeysBySeriesId(supabase, user.id, [seriesId]),
       fetch("/api/tmdb/series-episodes-at-export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -530,9 +657,12 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
         body: JSON.stringify({ movieIds: [], seriesIds: [seriesId] }),
       }),
     ]);
+    watchedEpisodeKeys = watchedLookup.keysBySeriesId.get(seriesId) ?? new Set<string>();
+    watchedEpisodeIds = watchedLookup.idsBySeriesId.get(seriesId) ?? new Set<number>();
+    specialKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
     if (episodesResponse.ok) {
       const data = (await episodesResponse.json()) as {
-        series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null }[] }[];
+        series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[] }[];
       };
       liveEpisodes = data.series.find((s) => s.id === seriesId)?.episodes ?? [];
     }
@@ -542,7 +672,7 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     }
   } catch (error) {
     console.error(
-      "[series-category-recalc] Falha ao buscar dados do TMDB — categoria não recalculada desta vez.",
+      "[series-category-recalc] Falha ao buscar dados — categoria não recalculada desta vez.",
       error
     );
     return;
@@ -550,7 +680,6 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
 
   if (liveEpisodes.length === 0) return;
 
-  const watched = watchedCount ?? 0;
   // UNIFICAÇÃO (ver airDateCategory.ts) — mesma função usada pelo
   // recálculo em lote logo acima e pela rota admin: decide a
   // categoria (`resolveSeriesCategory`) e se ela deve ser gravada
@@ -558,7 +687,13 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   // "watching" sozinho e regrava "watching" mesmo sem mudança, pro
   // ranking de "Continue assistindo") — nenhuma dessas regras é
   // reimplementada aqui.
-  const { category: newCategory } = resolveSeriesCategory({ watched, liveEpisodes, ended, specialEpisodeKeys: specialKeys });
+  const { category: newCategory } = resolveSeriesCategory({
+    watchedEpisodeKeys,
+    liveEpisodes,
+    ended,
+    specialEpisodeKeys: specialKeys,
+    watchedEpisodeIds,
+  });
   if (!shouldWriteSeriesCategory(currentStatus, newCategory)) return;
 
   /**
@@ -568,13 +703,23 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
    * não faz nada quando a linha não existe (0 rows affected, sem
    * erro nenhum), o que reproduziria o mesmo bug de um jeito
    * diferente (a função "decide" a categoria certa mas nunca grava).
+   *
+   * CORREÇÃO (2026-08-26 — "rede de segurança de 3 partes", parte B)
+   * — trocado o `.upsert()` direto pela RPC
+   * `set_series_status_with_history` (migration
+   * `20260908000000_series_status_safety_net.sql`): grava o status E
+   * uma linha em `series_status_history` na MESMA transação, já com
+   * `source = 'auto_recalc'` — qualquer investigação futura (mesmo
+   * padrão da que achou as 13 linhas fantasma do Solo Leveling)
+   * consegue distinguir "o recálculo automático corrigiu isso" de
+   * outras origens, sem precisar adivinhar pelo timestamp.
    */
-  const { error: updateError } = await supabase
-    .from("series_status")
-    .upsert(
-      { user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() },
-      { onConflict: "user_id,series_id" }
-    );
+  const { error: updateError } = await supabase.rpc("set_series_status_with_history", {
+    p_user_id: user.id,
+    p_series_id: seriesId,
+    p_status: newCategory,
+    p_source: "auto_recalc",
+  });
   if (updateError) {
     console.error("[series-category-recalc] Falha ao atualizar categoria depois de marcar episódio.", updateError);
   }

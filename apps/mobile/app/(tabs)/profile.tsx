@@ -1,9 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { ScrollView, View, Pressable, Share, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { useCurrentUser, useSocialCounts } from "@/lib/useCurrentUser";
 import { useFollowCounts } from "@/lib/usePublicProfile";
 import { fetchEditableProfile } from "@/lib/editProfile";
@@ -29,6 +31,18 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+const EDITABLE_PROFILE_CACHE_VERSION = 1;
+
+function editableProfileCacheKeyFor(userId: string): string {
+  return `seenlist:profile:editable-fields:v${EDITABLE_PROFILE_CACHE_VERSION}:${userId}`;
+}
+
+interface CachedEditableFields {
+  bannerUrl: string | null;
+  bio: string | null;
+  username: string | null;
+}
+
 /**
  * TASK-116 (correção — Perfil) — reescrito do zero seguindo
  * `ProfileView.tsx` + `ProfileHeader.tsx` do web de verdade (a
@@ -45,6 +59,39 @@ export default function ProfileScreen() {
   const [bio, setBio] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const tabBarClearance = useTabBarClearance();
+
+  /**
+   * CACHE LOCAL (a pedido — "Perfil abrir instantâneo") — banner/bio/
+   * username também pipocavam vazios por um instante até
+   * `fetchEditableProfile()` (abaixo) terminar, mesmo já tendo
+   * aparecido antes. `session.user.id` (não `user?.id` de
+   * `useCurrentUser`, que pode ainda não ter resolvido) já está
+   * disponível desde o primeiro render — mesmo raciocínio do cache em
+   * `useCurrentUser.ts`. Só LÊ o cache aqui; quem ESCREVE é o
+   * `useFocusEffect` logo abaixo, depois de cada busca fresca — mesmo
+   * padrão "stale-while-revalidate" dos outros caches.
+   */
+  const { session } = useAuth();
+  const cacheUserId = session?.user?.id;
+
+  useEffect(() => {
+    if (!cacheUserId) return;
+    let cancelled = false;
+    AsyncStorage.getItem(editableProfileCacheKeyFor(cacheUserId))
+      .then((raw) => {
+        if (cancelled || !raw) return;
+        const cached = JSON.parse(raw) as CachedEditableFields;
+        setBannerUrl(cached.bannerUrl);
+        setBio(cached.bio);
+        setUsername(cached.username);
+      })
+      .catch((error) => {
+        console.warn("[ProfileScreen] Cache local de perfil corrompido — ignorando", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheUserId]);
 
   /**
    * Redesign (porta do web, TASK-177/178) — "Séries"/"Filmes"/
@@ -71,11 +118,23 @@ export default function ProfileScreen() {
     useCallback(() => {
       fetchEditableProfile().then((profile) => {
         if (!profile) return;
-        setBannerUrl(profile.bannerUrl);
-        setBio(profile.bio || null);
-        setUsername(profile.username || null);
+        const nextBannerUrl = profile.bannerUrl;
+        const nextBio = profile.bio || null;
+        const nextUsername = profile.username || null;
+        setBannerUrl(nextBannerUrl);
+        setBio(nextBio);
+        setUsername(nextUsername);
+        if (cacheUserId) {
+          AsyncStorage.setItem(
+            editableProfileCacheKeyFor(cacheUserId),
+            JSON.stringify({ bannerUrl: nextBannerUrl, bio: nextBio, username: nextUsername } satisfies CachedEditableFields)
+          ).catch((error) => {
+            console.warn("[ProfileScreen] Falha ao salvar cache local de perfil", error);
+          });
+        }
       });
-    }, [])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cacheUserId])
   );
 
   async function handleShare() {

@@ -54,7 +54,8 @@ export function ContinueWatchingListRow({
     hapticTick();
     setMarking(true);
     try {
-      await toggleEpisodeWatched(nextEpisode.seriesId, nextEpisode.seasonNumber, nextEpisode.episodeNumber, false);
+      // CORREÇÃO (2026-08-26 — "motor resistente", ver seriesDetails.ts).
+      await toggleEpisodeWatched(nextEpisode.seriesId, nextEpisode.seasonNumber, nextEpisode.episodeNumber, false, nextEpisode.episodeId);
       onMarkedWatched();
     } catch (error) {
       console.error("[ContinueWatchingListRow] Falha ao marcar episódio assistido", error);

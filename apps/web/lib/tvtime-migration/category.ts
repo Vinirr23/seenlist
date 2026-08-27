@@ -21,10 +21,22 @@ const CSV_TO_CATEGORY: Record<string, SeenListCategory> = {
  * dita agora mora em decideWatchingVsUpToDate (compartilhada com a
  * recalculação ao vivo, TASK-043) — esta função só cuida do
  * mapeamento direto do arquivo e da promoção pra "completed".
+ *
+ * CORREÇÃO (investigação do Bleach, 2026-08-25 — ver comentário
+ * grande em `airDateCategory.ts`) — antes, este parâmetro era só
+ * `mainEpisodesWatched: number` (um total), comparado por AGREGADO
+ * contra `mainEpisodesTotal`/`nonSpecialLiveEpisodes.length` — o
+ * mesmo defeito estrutural do bug real do Bleach (um total pode
+ * "bater" mesmo com o episódio errado assistido, ou nenhum dado real
+ * por trás dele). Agora recebe a lista de episódios principais
+ * (temporada, episódio) de fato assistidos, reconstruída direto do
+ * CSV por `reconstructEpisodes` — decisão por IDENTIDADE, não por
+ * total, tanto aqui (promoção a "completed") quanto dentro de
+ * `decideWatchingVsUpToDate`.
  */
 export function resolveCategory(
   csvStatus: string,
-  mainEpisodesWatched: number,
+  mainWatchedEpisodes: { seasonNumber: number; episodeNumber: number }[],
   mainEpisodesTotal: number,
   seriesEnded: boolean,
   liveEpisodes: LiveEpisodeAirDate[] | null = null,
@@ -39,12 +51,20 @@ export function resolveCategory(
     };
   }
 
+  const watchedEpisodeKeys = new Set(mainWatchedEpisodes.map((e) => `${e.seasonNumber}-${e.episodeNumber}`));
+
   const nonSpecialLiveEpisodes = liveEpisodes
     ? liveEpisodes.filter((e) => !specialEpisodeKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
     : null;
 
   const totalKnown = nonSpecialLiveEpisodes ? nonSpecialLiveEpisodes.length : mainEpisodesTotal;
-  const allEpisodesWatchedOverall = totalKnown > 0 && mainEpisodesWatched >= totalKnown;
+  // Com a lista de episódios do TMDB disponível, checa por identidade
+  // (cada episódio de fato lançado precisa estar no Set) — só cai de
+  // volta pra comparação por total quando não há `liveEpisodes` pra
+  // conferir identidade contra (sem TMDB, não tem contra o que bater).
+  const allEpisodesWatchedOverall = nonSpecialLiveEpisodes
+    ? nonSpecialLiveEpisodes.every((e) => watchedEpisodeKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
+    : totalKnown > 0 && mainWatchedEpisodes.length >= totalKnown;
 
   if (seriesEnded && allEpisodesWatchedOverall) {
     return {
@@ -54,7 +74,7 @@ export function resolveCategory(
   }
 
   if ((base === "watching" || base === "up_to_date") && liveEpisodes) {
-    const decision = decideWatchingVsUpToDate(mainEpisodesWatched, liveEpisodes, specialEpisodeKeys);
+    const decision = decideWatchingVsUpToDate(watchedEpisodeKeys, liveEpisodes, specialEpisodeKeys);
     return decision;
   }
 

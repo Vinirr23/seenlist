@@ -121,7 +121,7 @@ export async function runMigration(
     );
     const categoryResult = resolveCategory(
       row.status,
-      reconstructed.mainWatched.length,
+      reconstructed.mainWatched,
       reconstructed.mainTotalInFile,
       tmdbInfo?.ended ?? false,
       episodesById.get(tmdbId) ?? null,
