@@ -9,16 +9,7 @@ import { useSocialCounts } from "@/lib/queries/social-counts";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { ShareProfileButton } from "@/components/social/ShareProfileButton";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((word) => word.length > 1)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
-}
+import { Avatar } from "@/components/common/Avatar";
 
 /**
  * "Vidro iluminado" (mockup-perfil-atual-vidro, 2026-08-21) — em vez
@@ -130,14 +121,8 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
               }}
               aria-hidden="true"
             />
-            <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-surface">
-              {user.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
-                <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-lg font-semibold text-muted">{initials(user.name)}</span>
-              )}
-            </div>
+            {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
+            <Avatar src={user.avatarUrl} name={user.name} className="relative h-full w-full bg-surface" textClassName="text-lg" />
           </div>
         </div>
       )}
@@ -198,14 +183,8 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
                 }}
                 aria-hidden="true"
               />
-              <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-surface">
-                {user.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
-                  <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-lg font-semibold text-muted">{initials(user.name)}</span>
-                )}
-              </div>
+              {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
+              <Avatar src={user.avatarUrl} name={user.name} className="relative h-full w-full bg-surface" textClassName="text-lg" />
             </div>
 
             <div className="min-w-0">{nameBlockContent}</div>

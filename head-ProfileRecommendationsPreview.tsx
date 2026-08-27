@@ -1,19 +1,18 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import Image from "next/image";
 import { Send } from "lucide-react";
 import { useReceivedRecommendations } from "@/lib/queries/recommendations";
 import { tmdbImage } from "@/lib/tmdb/image";
-import { Avatar } from "@/components/common/Avatar";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
- * TASK-178 — "Recomendações" deixa de ser só "0 >" e ganha prévia de
+ * TASK-178 ÔÇö "Recomenda├º├Áes" deixa de ser s├│ "0 >" e ganha pr├®via de
  * verdade: avatares de quem recomendou (sobrepostos, mais recente
- * primeiro) + a recomendação mais recente em destaque (pôster +
- * "Fulano recomendou 'Título' pra você"). Mesmo dado que a tela
- * `/profile/recommendations` já usa (`useReceivedRecommendations`),
+ * primeiro) + a recomenda├º├úo mais recente em destaque (p├┤ster +
+ * "Fulano recomendou 'T├¡tulo' pra voc├¬"). Mesmo dado que a tela
+ * `/profile/recommendations` j├í usa (`useReceivedRecommendations`),
  * sem buscar nada novo.
  */
 export function ProfileRecommendationsPreview() {
@@ -30,11 +29,7 @@ export function ProfileRecommendationsPreview() {
     return (
       <Link
         href="/profile/recommendations"
-        className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3.5 backdrop-blur-[18px] backdrop-saturate-[180%] transition-colors hover:border-primary/40"
-        style={{
-          background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
-          boxShadow: "0 6px 18px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.15)",
-        }}
+        className="mb-2 flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3.5 transition-colors hover:border-primary/40"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/12">
           <Send className="h-4 w-4 text-primary" strokeWidth={2} />
@@ -54,43 +49,39 @@ export function ProfileRecommendationsPreview() {
   const senderName = latest.sender.displayName ?? latest.sender.username;
 
   return (
-    // A pedido: com recomendação não lida, o card ganha contorno/fundo
-    // de destaque (não só o selo nos avatares) pra chamar mais atenção
+    // A pedido: com recomenda├º├úo n├úo lida, o card ganha contorno/fundo
+    // de destaque (n├úo s├│ o selo nos avatares) pra chamar mais aten├º├úo
     // sem precisar entrar na tela pra notar.
     <Link
       href="/profile/recommendations"
-      className={`mb-2 flex items-center gap-3 rounded-2xl border px-4 py-3.5 backdrop-blur-[18px] backdrop-saturate-[180%] transition-colors ${
+      className={`mb-2 flex items-center gap-3 rounded-lg border px-4 py-3.5 transition-colors ${
         unreadCount > 0
           ? "border-primary/60 bg-primary/5 ring-1 ring-primary/20 hover:border-primary"
-          : "border-white/10 bg-white/10 hover:border-primary/40"
+          : "border-border bg-surface hover:border-primary/40"
       }`}
     >
       <div className="relative shrink-0">
         <div className="flex -space-x-3">
           {uniqueSenders.map((sender) => (
-            /*
-             * BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em
-             * `components/common/Avatar.tsx`) — foto quebrada agora cai
-             * pras iniciais. Reserva também padronizada pras MESMAS 2
-             * iniciais do resto do app (antes era só a 1ª letra, único
-             * lugar que fazia diferente).
-             */
-            <Avatar
-              key={sender.userId}
-              src={sender.avatarUrl}
-              name={sender.displayName ?? sender.username}
-              className="h-8 w-8 border-2 border-surface bg-background"
-              textClassName="text-[10px]"
-            />
+            <div key={sender.userId} className="h-8 w-8 overflow-hidden rounded-full border-2 border-surface bg-background">
+              {sender.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem dom├¡nio fixo pra configurar em next/image (mesmo padr├úo de ProfileHeader.tsx)
+                <img src={sender.avatarUrl} alt={sender.displayName ?? sender.username} className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-muted">
+                  {(sender.displayName ?? sender.username).slice(0, 1).toUpperCase()}
+                </span>
+              )}
+            </div>
           ))}
         </div>
         {/*
-         * Achado real (feedback de usuário): a frase de recomendação
+         * Achado real (feedback de usu├írio): a frase de recomenda├º├úo
          * truncava no meio ("e mais 1 pessoa te re...") e a linha "N
-         * não lida(s)" só piorava, roubando o espaço que faltava pro
-         * texto. Removida a linha de texto; o indicador de não-lida
-         * virou um selo numérico sobre os avatares (padrão comum de
-         * notificação), sem competir por espaço com a frase.
+         * n├úo lida(s)" s├│ piorava, roubando o espa├ºo que faltava pro
+         * texto. Removida a linha de texto; o indicador de n├úo-lida
+         * virou um selo num├®rico sobre os avatares (padr├úo comum de
+         * notifica├º├úo), sem competir por espa├ºo com a frase.
          */}
         {unreadCount > 0 && (
           <span
@@ -108,15 +99,15 @@ export function ProfileRecommendationsPreview() {
 
       <div className="min-w-0 flex-1">
         {/*
-         * TASK-178 (ajuste — a pedido, "como fica quando tem mais de
-         * uma?") — achado real: antes, o texto SEMPRE só mostrava a
-         * recomendação mais recente, mesmo com várias — escondia que
-         * tinha mais coisa ali. Agora diferencia 3 casos: só 1 no
-         * total (texto de sempre); várias da MESMA pessoa ("e mais N
-         * título(s)"); várias de pessoas DIFERENTES ("e mais N
-         * pessoa(s) te recomendaram títulos"). `line-clamp-2` (em vez
+         * TASK-178 (ajuste ÔÇö a pedido, "como fica quando tem mais de
+         * uma?") ÔÇö achado real: antes, o texto SEMPRE s├│ mostrava a
+         * recomenda├º├úo mais recente, mesmo com v├írias ÔÇö escondia que
+         * tinha mais coisa ali. Agora diferencia 3 casos: s├│ 1 no
+         * total (texto de sempre); v├írias da MESMA pessoa ("e mais N
+         * t├¡tulo(s)"); v├írias de pessoas DIFERENTES ("e mais N
+         * pessoa(s) te recomendaram t├¡tulos"). `line-clamp-2` (em vez
          * de `truncate`) pra frase completa sempre aparecer, quebrando
-         * em duas linhas quando não coube numa só.
+         * em duas linhas quando n├úo coube numa s├│.
          */}
         {extraCount === 0 ? (
           <p className="line-clamp-2 text-sm text-text">

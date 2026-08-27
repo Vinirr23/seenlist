@@ -19,6 +19,34 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
  */
 export const FLOATING_BUTTON_BOTTOM_OFFSET = "calc(6.5rem + env(safe-area-inset-bottom))";
 
+/**
+ * BUG REAL CORRIGIDO (2026-08-27, reportado — "o botão de comentários
+ * está em cima de informação do episódio, precisa de espaçamento") —
+ * causa raiz: `FLOATING_BUTTON_BOTTOM_OFFSET` (acima) é só a distância
+ * do FUNDO do botão flutuante até o fundo da tela — não a altura do
+ * próprio botão. Cada tela que usa um botão flutuante (`position:
+ * fixed`) por cima do conteúdo (`EpisodeDetailView.tsx` — pílula de
+ * comentários; `CreatePostButton.tsx` — "+" do Feed) reservava um
+ * `padding-bottom` PRÓPRIO, escolhido à mão (`pb-28`, `pb-6`), sem
+ * somar a altura de verdade do botão a esse deslocamento — então o
+ * fim do conteúdo real (ex.: o card "Sobre o episódio") podia acabar
+ * ATRÁS do botão flutuante, em vez de acima dele. Só ficava visível
+ * quando a tela tinha conteúdo suficiente pra rolar até o fim de
+ * verdade (por isso o problema só apareceu depois de marcar o
+ * episódio como assistido, quando várias seções novas alongam a
+ * página — antes disso a tela nem chegava a rolar até o ponto onde a
+ * sobreposição existia).
+ *
+ * Constante única (mesmo raciocínio do offset acima): folga de
+ * verdade — offset do botão + uma altura generosa (cobre tanto a
+ * pílula de ~48px de `EpisodeDetailView.tsx` quanto o "+" circular de
+ * 56px de `CreatePostButton.tsx`, com espaço de sobra) — em vez de
+ * cada tela adivinhar um número de padding diferente. Usado como
+ * `paddingBottom` (estilo em linha, não classe do Tailwind) porque
+ * envolve `calc()`/`env()`, que não dá pra expressar como classe fixa.
+ */
+export const FLOATING_BUTTON_CONTENT_CLEARANCE = `calc(${FLOATING_BUTTON_BOTTOM_OFFSET} + 5rem)`;
+
 interface BottomNavVisibilityContextValue {
   hidden: boolean;
   setHiddenBy: (id: string, hidden: boolean) => void;

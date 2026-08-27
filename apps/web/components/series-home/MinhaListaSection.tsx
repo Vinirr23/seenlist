@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
@@ -50,8 +50,28 @@ const STALE_AFTER_DAYS = 14;
 export function MinhaListaSection() {
   useLibraryRealtimeSync();
   const { data: items, isLoading, isError, error, refetch } = useLibraryItems();
-  const { viewMode, setViewMode } = useViewModePreference("series-library");
+  const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("series-library");
   const { t } = useTranslation();
+
+  /**
+   * BUG REAL CORRIGIDO (2026-08-27, reportado — "barra de rolagem
+   * duplicada em Home/Séries, preciso forçar várias vezes pra rolar"
+   * — ver comentário completo em `ContinueWatchingCard.tsx`, no tipo
+   * `ContinueWatchingCardProps`) — antes, cada `ContinueWatchingCard`
+   * mantinha o `layout` do `motion` sempre ligado sozinho, os 8 ao
+   * mesmo tempo, mesmo parado. Esse estado sobe pra cá: `layoutActive`
+   * só fica `true` enquanto pelo menos 1 card está de fato no meio da
+   * animação de marcar assistido — contador (não booleano simples)
+   * porque, em teoria, mais de um card pode estar animando ao mesmo
+   * tempo (nada impede tocar em dois cards diferentes em sequência
+   * rápida) — cada card avisa quando começa/termina via
+   * `onTransitionActiveChange`, incrementando/decrementando.
+   */
+  const [activeTransitionCount, setActiveTransitionCount] = useState(0);
+  const handleTransitionActiveChange = useCallback((active: boolean) => {
+    setActiveTransitionCount((count) => Math.max(0, count + (active ? 1 : -1)));
+  }, []);
+  const layoutActive = activeTransitionCount > 0;
 
   useEffect(() => {
     if (isError) {
@@ -238,8 +258,17 @@ export function MinhaListaSection() {
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
 
-      {isLoading ? (
-        <HomeSkeleton />
+      {!viewModeReady ? (
+        // CORREÇÃO (2026-08-27, "ainda mostra 2 esqueletons" — ver
+        // comentário de `useViewModePreference.ts`) — enquanto o modo
+        // grade/lista de verdade ainda não foi conferido no navegador
+        // (`viewModeReady` false: servidor + instante inicial antes do
+        // efeito rodar), não desenha NENHUM esqueleto — evita mostrar o
+        // formato "grid" assumido e trocar de formato na frente da
+        // pessoa assim que o valor real (ex.: "list") chegar.
+        null
+      ) : isLoading ? (
+        <HomeSkeleton variant={viewMode === "grid" ? "grid" : "list"} />
       ) : continueWatching.length === 0 ? (
         <EmptyShelf
           message={t("seriesHome.emptyLibrary")}
@@ -270,7 +299,13 @@ export function MinhaListaSection() {
              * Só aqui, nunca no `.map` de "Faz um tempo que você não
              * assiste" logo abaixo.
              */
-            <ContinueWatchingCard key={item.id} item={item} priorityIndex={index} />
+            <ContinueWatchingCard
+              key={item.id}
+              item={item}
+              priorityIndex={index}
+              layoutActive={layoutActive}
+              onTransitionActiveChange={handleTransitionActiveChange}
+            />
           ))}
         </div>
       )}
@@ -302,7 +337,12 @@ export function MinhaListaSection() {
                   * série não tem episódio pendente de verdade.
                   */}
                 {staleSeries.map((item) => (
-                  <ContinueWatchingCard key={item.id} item={item} />
+                  <ContinueWatchingCard
+                    key={item.id}
+                    item={item}
+                    layoutActive={layoutActive}
+                    onTransitionActiveChange={handleTransitionActiveChange}
+                  />
                 ))}
               </div>
             )}

@@ -21,16 +21,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { useNow } from "@/lib/useNow";
 import { formatRelativeTime } from "@/lib/relativeTime";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((w) => w.length > 1)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
+import { Avatar } from "@/components/common/Avatar";
 
 /**
  * TASK-059 (fase 4) — salvar e denunciar, reaproveitando as duas
@@ -181,14 +172,8 @@ export function PostCard({
           onClick={(e) => e.stopPropagation()}
           className="flex min-w-0 flex-1 items-center gap-2.5"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background">
-            {post.authorAvatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo
-              <img src={post.authorAvatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-xs font-semibold text-muted">{initials(post.authorName)}</span>
-            )}
-          </div>
+          {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
+          <Avatar src={post.authorAvatarUrl} name={post.authorName} className="h-9 w-9 bg-background" textClassName="text-xs" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-text">{post.authorName}</p>
             <p className="truncate text-xs text-muted">

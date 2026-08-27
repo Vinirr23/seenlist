@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ChevronRight, Clapperboard } from "lucide-react";
@@ -281,11 +282,43 @@ export interface ContinueWatchingCardProps {
    * do usuário.
    */
   priorityIndex?: number;
+  /**
+   * BUG REAL CORRIGIDO (2026-08-27, reportado — "barra de rolagem
+   * duplicada em Home/Séries, precisa forçar várias vezes pra rolar",
+   * confirmado por vídeo do usuário: duas barras nativas do navegador
+   * lado a lado) — causa raiz: o `motion.div` raiz de cada card (ver
+   * mais abaixo) usava `layout` do `motion` SEMPRE ligado, nos 8 cards
+   * ao mesmo tempo, mesmo parado (`phase === "idle"`) — isso mantém
+   * o framer-motion observando/recalculando a posição de todos os
+   * cards continuamente, o tempo todo, só pra estar pronto caso um
+   * deles precise deslizar (quando outro é marcado como assistido e
+   * sai da lista). Com 8 instâncias fazendo isso sem parar, disputa
+   * com a rolagem nativa da página — daí a barra "gaguejando"/
+   * duplicando e precisar forçar a rolagem. Confirmado que é isso e
+   * não outra coisa: a aba "Em breve" (mesma tela, mesmo visual
+   * "vidro", mesma quantidade de linhas) usa `MediaListRow.tsx`, que
+   * NUNCA usa `layout` nenhum — e nela a barra nunca duplica.
+   *
+   * Corrigido erguendo esse "modo de prontidão" (`layout`) pro
+   * componente-PAI (`MinhaListaSection.tsx`): só fica ligado nos 8
+   * cards enquanto ALGUM deles está de fato no meio da animação de
+   * marcar assistido (confirmando ou saindo), e desliga de novo assim
+   * que termina — a folga de `CONFIRM_HOLD_MS` (650ms) antes do card
+   * realmente começar a sair garante que o framer-motion já teve
+   * tempo de sobra pra registrar a posição "antes" de cada card
+   * quando a animação de saída de fato começa, então o deslizar suave
+   * dos cards de baixo continua idêntico a antes — só o "sempre
+   * ligado, mesmo parado" que sumiu.
+   */
+  layoutActive?: boolean;
+  /** Usado junto com `layoutActive` acima — avisa o componente-pai quando ESTE card entra/sai do meio da animação de marcar assistido, pra ele saber quando ligar/desligar `layoutActive` pros 8 cards. */
+  onTransitionActiveChange?: (active: boolean) => void;
 }
 
-export function ContinueWatchingCard({ item, priorityIndex }: ContinueWatchingCardProps) {
+export function ContinueWatchingCard({ item, priorityIndex, layoutActive = false, onTransitionActiveChange }: ContinueWatchingCardProps) {
   const accentOpacity = getPriorityAccentOpacity(priorityIndex);
   const { t } = useTranslation();
+  const router = useRouter();
   const { data: episodes } = useSeriesEpisodesLight(item.id);
   const { data: watched } = useWatchedEpisodes(item.id);
   // CORREÇÃO (2026-08-26 — "motor resistente") — ver isEpisodeWatched (watched-episodes-state.ts).
@@ -318,6 +351,8 @@ export function ContinueWatchingCard({ item, priorityIndex }: ContinueWatchingCa
   const [pulseKey, setPulseKey] = useState(0);
   const frozenRef = useRef<{ seasonNumber: number; episode: PendingEntry["episode"]; additionalPendingCount: number } | null>(null);
   const exitTimeoutRef = useRef<number | null>(null);
+  // Ver comentário de `onTransitionActiveChange` em `ContinueWatchingCardProps` — timeout separado só pra avisar o pai quando a animação de SAÍDA (colapso de altura) termina de verdade.
+  const deactivateTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (phase === "idle" && next && next.length > 0) {
@@ -332,6 +367,7 @@ export function ContinueWatchingCard({ item, priorityIndex }: ContinueWatchingCa
   useEffect(() => {
     return () => {
       if (exitTimeoutRef.current) window.clearTimeout(exitTimeoutRef.current);
+      if (deactivateTimeoutRef.current) window.clearTimeout(deactivateTimeoutRef.current);
     };
   }, []);
 
@@ -372,6 +408,8 @@ export function ContinueWatchingCard({ item, priorityIndex }: ContinueWatchingCa
     hapticTick();
     setPulseKey((k) => k + 1);
     setPhase("confirming");
+    // Ver comentário de `onTransitionActiveChange` em `ContinueWatchingCardProps` — avisa o pai assim que a animação começa, pra ele ligar `layoutActive` nos 8 cards.
+    onTransitionActiveChange?.(true);
     // CORREÇÃO (2026-08-26 — "motor resistente", ver watched-episodes-mutations.ts) — o campo certo é
     // `episodeId` (bug real achado agora: `live.episode.id` nunca existiu neste tipo — ver
     // seriesEpisodesLight.ts — então o ID nunca era gravado por este card antes desta correção).
@@ -382,7 +420,19 @@ export function ContinueWatchingCard({ item, priorityIndex }: ContinueWatchingCa
       episodeId: live.episode.episodeId,
     });
     exitTimeoutRef.current = window.setTimeout(() => {
-      setPhase(wasLastPending ? "exiting" : "idle");
+      if (wasLastPending) {
+        setPhase("exiting");
+        // Só avisa o pai que a animação acabou DEPOIS do colapso de
+        // altura (`EXIT_DURATION_S`) terminar de verdade — é esse
+        // colapso que faz os cards de baixo deslizarem, então
+        // `layoutActive` precisa continuar ligado até ele acabar.
+        deactivateTimeoutRef.current = window.setTimeout(() => {
+          onTransitionActiveChange?.(false);
+        }, EXIT_DURATION_S * 1000);
+      } else {
+        setPhase("idle");
+        onTransitionActiveChange?.(false);
+      }
     }, CONFIRM_HOLD_MS);
   }
 
@@ -405,8 +455,14 @@ export function ContinueWatchingCard({ item, priorityIndex }: ContinueWatchingCa
     // reposicionam sozinhos, suavemente, sem cálculo manual de posição.
     // `initial={false}` evita animar no carregamento normal da página —
     // só anima quando `phase` muda de verdade, por uma ação da pessoa.
+    //
+    // `layout={layoutActive}` (2026-08-27, era `layout` fixo/sempre
+    // ligado — ver comentário completo em `ContinueWatchingCardProps`,
+    // acima, bug real da barra de rolagem duplicada) — só fica ativo
+    // enquanto o componente-pai avisa que ALGUM card da lista está de
+    // fato animando; parado, nenhum dos 8 cards fica "de prontidão".
     <motion.div
-      layout
+      layout={layoutActive}
       initial={false}
       animate={
         phase === "exiting"
@@ -425,10 +481,28 @@ export function ContinueWatchingCard({ item, priorityIndex }: ContinueWatchingCa
       }}
       className="mb-3 overflow-hidden last:mb-0"
     >
-      {/* "Vidro" (mesmo padrão de ExploreActivityTab.tsx) — virou "glass-row" em vez de `border-border bg-surface` opaco. */}
+      {/*
+       * "Vidro" (mesmo padrão de ExploreActivityTab.tsx) — virou "glass-row" em vez de `border-border bg-surface` opaco.
+       *
+       * BUG REAL CORRIGIDO (2026-08-27, reportado — "a animação de
+       * anéis dourados ao segurar no botão de assistido não aparece",
+       * confirmado pelo usuário que era no modo LISTA) — causa raiz:
+       * este card tinha `overflow-hidden` aqui, e o anel/partículas do
+       * toque (mais abaixo, `RING_MAX_SCALE`/`PARTICLE_DISTANCE`)
+       * crescem PRA FORA do próprio botão, perto da borda direita do
+       * card — o `overflow-hidden` cortava esse crescimento antes dele
+       * ficar visível (ficava, na prática, invisível ou quase
+       * invisível). Não era preciso pra nada aqui: o pôster já tem seu
+       * próprio recorte independente (`overflow-hidden rounded` na div
+       * dele, algumas linhas abaixo) e as duas barrinhas de brilho da
+       * lateral esquerda (`rounded-l-2xl`, `inset-y-0 left-0`) já
+       * nascem EXATAMENTE do tamanho e posição do canto arredondado do
+       * card — não dependiam deste corte pra ficar com a forma certa.
+       * Removido; nada mais aqui precisava dele.
+       */}
       <Link
         href={`/series/${item.id}/season/${seasonNumber}/episode/${episode.episodeNumber}`}
-        className="relative flex items-stretch gap-3.5 overflow-hidden rounded-2xl border border-white/[0.08] px-3.5 py-2 backdrop-blur-[18px] backdrop-saturate-[180%] transition-transform active:scale-[0.98]"
+        className="relative flex items-stretch gap-3.5 rounded-2xl border border-white/[0.08] px-3.5 py-2 backdrop-blur-[18px] backdrop-saturate-[180%] transition-transform active:scale-[0.98]"
         style={{
           background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
         }}
@@ -484,10 +558,19 @@ export function ContinueWatchingCard({ item, priorityIndex }: ContinueWatchingCa
          * fundo INTEIRO do card enquanto `phase !== "idle"`, mesmo
          * verde do botão (`CONFIRM_TINT_RGB`). `z-0`, atrás de tudo —
          * pôster/texto (`z-10` abaixo) continuam por cima, legíveis.
+         *
+         * `rounded-2xl` adicionado aqui (2026-08-27, junto com a
+         * remoção do `overflow-hidden` do `<Link>` pai, acima) — antes,
+         * essa div preenchia o card inteiro (`inset-0`) sem cantos
+         * arredondados próprios, e dependia do corte do pai pra não
+         * mostrar cantos quadrados por cima do card arredondado. Sem
+         * esse corte, precisa da própria curvatura pra continuar
+         * encaixando perfeitamente — mesmo raio do card (`rounded-2xl`
+         * no `<Link>`).
          */}
         <motion.div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0"
+          className="pointer-events-none absolute inset-0 z-0 rounded-2xl"
           style={{ background: `rgba(${CONFIRM_TINT_RGB},0.1)` }}
           initial={false}
           animate={{ opacity: phase !== "idle" ? 1 : 0 }}
@@ -514,10 +597,33 @@ export function ContinueWatchingCard({ item, priorityIndex }: ContinueWatchingCa
           {item.summaryPending ? (
             <div className="h-5 w-24 animate-pulse rounded-full bg-surface" aria-hidden="true" />
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-text">
+            /*
+             * BUG REAL CORRIGIDO (2026-08-27, reportado — "o título da
+             * série no card deveria levar pra dentro da série, mas vai
+             * também pro episódio novo") — causa raiz: era um `<span>`
+             * comum, sem destino próprio nenhum; como o card inteiro já
+             * é um `<Link>` pro episódio (mais abaixo), tocar em
+             * QUALQUER parte dele — inclusive esta pílula com carinha de
+             * "toque aqui pra entrar" (`ChevronRight`) — sempre navegava
+             * pro episódio. Vira um `<button>` com destino PRÓPRIO
+             * (`/series/${item.id}`), mesmo padrão já usado no botão de
+             * assistido (`EpisodeWatchedButton.tsx`) pra funcionar dentro
+             * de um `<Link>` pai: `preventDefault`/`stopPropagation`
+             * primeiro, pra impedir a navegação do card por baixo, e só
+             * depois navega pro destino de verdade dela.
+             */
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                router.push(`/series/${item.id}`);
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-text"
+            >
               {item.title}
               <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
-            </span>
+            </button>
           )}
           <p className="flex items-center gap-1.5 font-mono text-base font-extrabold tracking-tight text-text">
             {episodeCode}

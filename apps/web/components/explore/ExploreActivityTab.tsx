@@ -7,16 +7,7 @@ import { tmdbImage } from "@/lib/tmdb/image";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { PageError } from "../media/PageError";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((w) => w.length > 1)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
+import { Avatar } from "../common/Avatar";
 
 export function ExploreActivityTab() {
   const { data, isLoading, isError, refetch } = useActivityFeed();
@@ -69,14 +60,8 @@ export function ExploreActivityTab() {
               background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
             }}
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface">
-              {item.userAvatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo
-                <img src={item.userAvatarUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-xs font-semibold text-muted">{initials(item.userName)}</span>
-              )}
-            </div>
+            {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
+            <Avatar src={item.userAvatarUrl} name={item.userName} className="h-9 w-9 bg-surface" textClassName="text-xs" />
             <div className="min-w-0 flex-1">
               <p className="text-sm text-text">
                 <span className="font-semibold">{item.userName}</span> {item.action}{" "}

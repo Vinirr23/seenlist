@@ -13,16 +13,7 @@ import { updateName } from "@/lib/actions/account";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { COUNTRIES } from "@/lib/countries";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((word) => word.length > 1)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
-}
+import { Avatar } from "@/components/common/Avatar";
 
 /**
  * TASK-026A + TASK-028, item 9: "centralizar todas as edições numa
@@ -143,14 +134,13 @@ export function EditProfileView() {
         </button>
         <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
 
-        <div className="absolute -bottom-10 left-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-background bg-surface">
-          {user.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
-            <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-xl font-semibold text-muted">{initials(user.name)}</span>
-          )}
-        </div>
+        {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
+        <Avatar
+          src={user.avatarUrl}
+          name={user.name}
+          className="absolute -bottom-10 left-4 h-20 w-20 border-4 border-background bg-surface"
+          textClassName="text-xl"
+        />
       </div>
 
       <div className="px-4">

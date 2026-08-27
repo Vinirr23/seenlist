@@ -33,6 +33,15 @@ import { INTL_LOCALES } from "@/lib/i18n/translations";
  * propósito — é a ação mais provável de precisar bem no momento em
  * que uma recomendação indesejada chega, não um ajuste que alguém
  * vai procurar deliberadamente no menu de Configurações.
+ *
+ * CORREÇÃO (2026-08-27, reportado — "quando entro em recomendações,
+ * a tela não está com o design novo") — cards/esqueleto ainda usavam
+ * o visual antigo (`bg-surface`/`border-border` chapados), de antes
+ * do redesign "vidro" (âmbar/vidro, 2026-08-26) já aplicado no resto
+ * do app social. Atualizado pra seguir a mesma linguagem visual —
+ * mesmo padrão de `ReviewCard.tsx`/`CommentItem.tsx` (card com borda
+ * clara + blur/saturação + gradiente radial translúcido em vez de
+ * fundo opaco).
  */
 export function RecommendationsPageView() {
   const { data: recommendations, isLoading } = useReceivedRecommendations();
@@ -71,9 +80,9 @@ export function RecommendationsPageView() {
       <SectionPageHeader title={t("profile.section.recommendations")} />
 
       {isLoading && (
-        <div className="space-y-3" aria-busy="true">
+        <div className="space-y-2.5" aria-busy="true">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-lg bg-surface" />
+            <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/5" />
           ))}
         </div>
       )}
@@ -85,11 +94,16 @@ export function RecommendationsPageView() {
       {!isLoading && recommendations && recommendations.length > 0 && (
         <div className="space-y-2.5">
           {recommendations.map((rec) => (
+            // "Vidro" (mesmo padrão de ReviewCard.tsx/CommentItem.tsx) — card com borda clara + blur/saturação, em vez do `bg-surface`/`border-border` chapados de antes. Não lida ganha um toque a mais de âmbar (mesmo raciocínio da borda `border-primary/40` de antes).
             <div
               key={rec.id}
-              className={`flex gap-3 rounded-lg border p-2.5 ${
-                rec.readAt ? "border-border bg-surface" : "border-primary/40 bg-primary/5"
-              }`}
+              className="flex gap-3 rounded-2xl border p-2.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+              style={{
+                borderColor: rec.readAt ? "rgba(255,255,255,0.10)" : "rgba(240,169,79,0.35)",
+                background: rec.readAt
+                  ? "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.07)"
+                  : "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.15), transparent 60%), rgba(240,169,79,0.08)",
+              }}
             >
               <Link
                 href={`/${rec.mediaType === "movie" ? "movies" : "series"}/${rec.mediaId}`}
@@ -151,9 +165,13 @@ export function RecommendationsPageView() {
           {showBlocked && (
             <div className="mt-2 space-y-1.5">
               {blockedUsers.map((user) => (
+                // "Vidro" (mesmo padrão dos cards acima) — em vez de `border-border bg-surface`.
                 <div
                   key={user.userId}
-                  className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2"
+                  className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-2 backdrop-blur-[14px] backdrop-saturate-[160%]"
+                  style={{
+                    background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.10), transparent 60%), rgba(255,255,255,0.06)",
+                  }}
                 >
                   <span className="text-sm text-text">{user.displayName ?? `@${user.username}`}</span>
                   <button

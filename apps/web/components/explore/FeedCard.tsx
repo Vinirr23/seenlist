@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { memo } from "react";
-import { Clapperboard } from "lucide-react";
+import { memo, useState } from "react";
+import { Clapperboard, User } from "lucide-react";
 import type { DiscoverItem } from "@/lib/tmdb/client";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { AddToLibraryButton } from "./AddToLibraryButton";
@@ -48,8 +48,7 @@ export const FeedCard = memo(function FeedCard({ item, genreMap, extraInfo }: Fe
         <div className="flex items-center gap-2 px-3 py-2.5">
           <div className="flex -space-x-2">
             {watchedBy.avatars.map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo
-              <img key={i} src={url} alt="" className="h-6 w-6 rounded-full border-2 border-surface object-cover" />
+              <WatchedByAvatar key={i} src={url} />
             ))}
           </div>
           <p className="text-xs text-muted">{numberFormatter.format(watchedBy.count)} pessoas assistiram</p>
@@ -58,3 +57,31 @@ export const FeedCard = memo(function FeedCard({ item, genreMap, extraInfo }: Fe
     </Link>
   );
 });
+
+/**
+ * BUG REAL CORRIGIDO (2026-08-27, achado durante a auditoria do bug
+ * "fotos de perfil quebradas" — mesma causa raiz, ver comentário
+ * completo em `components/common/Avatar.tsx`) — este é o único lugar
+ * do app que mostra avatar SEM nenhum nome disponível (`watchedBy`
+ * devolve só as URLs, ver `useWatchedByStats`), então não dá pra usar
+ * o `<Avatar>` compartilhado (que exige `name` pras iniciais de
+ * reserva). Fallback aqui é um ícone genérico de pessoa em vez de
+ * iniciais — mesmo princípio (nunca mostrar o ícone de "imagem
+ * quebrada" do navegador), adaptado à falta de nome.
+ */
+function WatchedByAvatar({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface">
+        <User className="h-3 w-3 text-muted" strokeWidth={2} />
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo
+    <img src={src} alt="" className="h-6 w-6 rounded-full border-2 border-surface object-cover" onError={() => setFailed(true)} />
+  );
+}

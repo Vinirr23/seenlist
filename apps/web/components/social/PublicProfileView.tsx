@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { usePublicProfile, useFollowCounts } from "@/lib/queries/public-profile";
 import { usePublicStats } from "@/lib/queries/public-stats";
@@ -12,16 +13,7 @@ import { StatsCarousel } from "@/components/profile/StatsCarousel";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { PageError } from "@/components/media/PageError";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((word) => word.length > 1)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
-}
+import { Avatar } from "@/components/common/Avatar";
 
 /**
  * TASK-028 — página pública em `/u/[username]`. Item 11: só o
@@ -86,7 +78,33 @@ function initials(name: string): string {
  * linha, ao lado do avatar, texto pequeno e apagado) — não virou uma
  * linha solta separada como estava antes.
  */
+/**
+ * BUG REAL CORRIGIDO (2026-08-27, reportado — "quando entro no perfil
+ * de alguém que eu sigo, não tem uma seta pra voltar") — causa raiz:
+ * esta tela nunca teve NENHUM mecanismo de voltar (nem `Link` fixo,
+ * nem `router.back()`), desde que foi criada — não é regressão desta
+ * sessão. Confirmado comparando com toda tela parecida do app (`grep`
+ * por `ArrowLeft`/`router.back` em todos os componentes): telas com UM
+ * destino fixo de origem (ex.: "Minha Lista") usam `SectionPageHeader`
+ * (`Link` fixo pra `/profile`); telas de detalhe alcançáveis de VÁRIOS
+ * lugares diferentes (Filme, Série — `MovieHeader.tsx`/
+ * `SeriesHeader.tsx`) usam `router.back()` — a categoria certa aqui,
+ * já que o perfil público é aberto de vários lugares (avaliação,
+ * comentário, lista de seguidores/seguindo, busca, explorar). Um
+ * `Link` fixo (ex.: sempre `/profile`) levaria pro perfil ERRADO
+ * (o do próprio usuário, não de quem ele estava vendo) quando aberto
+ * de qualquer lugar que não seja a aba Perfil. Botão replicado com o
+ * mesmo desenho de vidro de `MovieHeader.tsx`/`SeriesHeader.tsx`
+ * (círculo flutuante sobre a capa/topo da tela, sem depender de
+ * nenhum wrapper de página — por isso plugado direto no `<div
+ * className="relative w-full px-4 ...">` mais externo: como esse `div`
+ * já é quem aplica o `px-4` da tela toda, um filho `absolute` conta a
+ * padding-box dele como referência, e por isso `left-3`/`top-3`
+ * encostam na borda de verdade da tela — nenhuma sangria extra
+ * (`-mx-4`) é necessária aqui, diferente do resto do cabeçalho).
+ */
 export function PublicProfileView({ username }: { username: string }) {
+  const router = useRouter();
   const { data: profile, isLoading, isError, refetch } = usePublicProfile(username);
   const { data: currentUser } = useCurrentUser();
   const { data: counts } = useFollowCounts(profile?.userId ?? null);
@@ -94,9 +112,24 @@ export function PublicProfileView({ username }: { username: string }) {
   const { t, locale } = useTranslation();
   const joinDateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { month: "long", year: "numeric" });
 
+  const backButton = (
+    <button
+      type="button"
+      onClick={() => router.back()}
+      aria-label={t("common.back")}
+      className="absolute left-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-90"
+      style={{
+        background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+      }}
+    >
+      <ArrowLeft className="h-4 w-4" strokeWidth={2.25} />
+    </button>
+  );
+
   if (isLoading) {
     return (
-      <div className="w-full px-4 pb-24 pt-4 md:mx-auto md:max-w-[430px]">
+      <div className="relative w-full px-4 pb-24 pt-4 md:mx-auto md:max-w-[430px]">
+        {backButton}
         <div className="h-28 animate-pulse rounded-lg bg-surface" />
         <div className="mt-4 h-6 w-40 animate-pulse rounded bg-surface" />
       </div>
@@ -104,7 +137,12 @@ export function PublicProfileView({ username }: { username: string }) {
   }
 
   if (isError) {
-    return <PageError message={t("social.errorLoadProfile")} onRetry={() => refetch()} />;
+    return (
+      <div className="relative w-full md:mx-auto md:max-w-[430px]">
+        {backButton}
+        <PageError message={t("social.errorLoadProfile")} onRetry={() => refetch()} />
+      </div>
+    );
   }
 
   // `null` cobre tanto "não existe" quanto "existe mas é privado" de
@@ -139,6 +177,7 @@ export function PublicProfileView({ username }: { username: string }) {
 
   return (
     <div className="relative w-full px-4 pb-24 md:mx-auto md:max-w-[430px]">
+      {backButton}
       {/*
        * "Vidro" (redesign âmbar/vidro, perfil público, 2026-08-26) —
        * mesmo campo de manchas azuis desfocadas do Perfil próprio
@@ -218,14 +257,8 @@ export function PublicProfileView({ username }: { username: string }) {
                   }}
                   aria-hidden="true"
                 />
-                <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-surface">
-                  {avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
-                    <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-lg font-semibold text-muted">{initials(displayName)}</span>
-                  )}
-                </div>
+                {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
+                <Avatar src={avatarUrl} name={displayName} className="relative h-full w-full bg-surface" textClassName="text-lg" />
               </>
             );
 

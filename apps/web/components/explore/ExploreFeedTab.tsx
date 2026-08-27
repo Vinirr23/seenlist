@@ -9,6 +9,7 @@ import { useLikeInfoBatch } from "@/lib/queries/social/likes";
 import { useCommentCountsBatch } from "@/lib/queries/post-comments";
 import { useRealtimePublicInvalidate } from "@/lib/supabase/useRealtimePublicInvalidate";
 import { useNewPostsBanner } from "@/lib/queries/social/useNewPostsBanner";
+import { FLOATING_BUTTON_CONTENT_CLEARANCE } from "@/lib/layout/bottomNavVisibility";
 
 /**
  * TASK-063 — removida a seção "Descobrir" (cards de séries/filmes em
@@ -65,7 +66,15 @@ export function ExploreFeedTab() {
 
   return (
     <>
-      <div className="space-y-4 px-4 pt-4 pb-6">
+      {/*
+       * CORREÇÃO (2026-08-27, mesmo problema já corrigido em
+       * `EpisodeDetailView.tsx` — "botão flutuante em cima de conteúdo",
+       * ver `FLOATING_BUTTON_CONTENT_CLEARANCE`) — `pb-6` (24px) não
+       * reservava espaço nenhum pro "+" flutuante (`CreatePostButton`,
+       * 56px de altura + offset próprio) por cima do último post da
+       * lista.
+       */}
+      <div className="space-y-4 px-4 pt-4" style={{ paddingBottom: FLOATING_BUTTON_CONTENT_CLEARANCE }}>
         {newPostsCount > 0 && (
           <button
             type="button"

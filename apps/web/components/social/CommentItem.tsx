@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
 import type { Comment } from "@/lib/queries/social/comments";
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { Avatar } from "@/components/common/Avatar";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "./LikeButton";
 import { CommentComposer } from "./CommentComposer";
@@ -105,10 +107,25 @@ export function CommentItem({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-xs text-muted">
+          {/*
+           * BUG REAL CORRIGIDO (2026-08-27, reportado nas avaliações,
+           * mesmo padrão reaproveitado aqui) — nome do autor era só
+           * texto puro, sem `Link` nem avatar, desde sempre (não é
+           * regressão desta sessão). Corrigido replicando o mesmo
+           * padrão de `UserListRow.tsx`: avatar (ou iniciais) + nome
+           * dentro de um `Link` pra `/u/[username]`.
+           */}
+          <Link href={`/u/${comment.author.username}`} className="flex items-center gap-1.5 text-xs text-muted">
+            {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
+            <Avatar
+              src={comment.author.avatarUrl}
+              name={comment.author.displayName ?? comment.author.username}
+              className="h-5 w-5 bg-surface"
+              textClassName="text-[8px]"
+            />
             <span className="font-medium text-text">{comment.author.displayName ?? comment.author.username}</span>
             <span>{dateFormatter.format(new Date(comment.createdAt))}</span>
-          </div>
+          </Link>
           <div className="mt-1">
             <SpoilerGate hidden={comment.containsSpoiler}>
               <div className="space-y-2">

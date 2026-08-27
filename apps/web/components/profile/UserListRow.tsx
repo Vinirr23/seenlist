@@ -3,17 +3,8 @@
 import Link from "next/link";
 import type { FollowListUser } from "@/lib/queries/follow-list";
 import { FollowButton } from "@/components/social/FollowButton";
+import { Avatar } from "@/components/common/Avatar";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((word) => word.length > 1)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
-}
 
 export function UserListRow({ user, isFollowing }: { user: FollowListUser; isFollowing?: boolean }) {
   const displayName = user.displayName || user.username;
@@ -28,14 +19,8 @@ export function UserListRow({ user, isFollowing }: { user: FollowListUser; isFol
       }}
     >
       <Link href={`/u/${user.username}`} className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface">
-          {user.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
-            <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-sm font-semibold text-muted">{initials(displayName)}</span>
-          )}
-        </div>
+        {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — antes, foto quebrada (link existe mas falha ao carregar) ficava com o ícone padrão do navegador pra sempre; `Avatar` cai pras iniciais nesse caso. */}
+        <Avatar src={user.avatarUrl} name={displayName} className="h-11 w-11 bg-surface" textClassName="text-sm" />
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-text">{displayName}</p>
           <p className="truncate text-xs text-muted">@{user.username}</p>

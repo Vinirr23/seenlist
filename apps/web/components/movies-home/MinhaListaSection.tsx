@@ -37,7 +37,7 @@ import { todayLocalKey, isReleased } from "./release-date";
 export function MinhaListaSection() {
   useLibraryRealtimeSync();
   const { data: items, isLoading, isError, error, refetch } = useLibraryItems();
-  const { viewMode, setViewMode } = useViewModePreference("movies-library");
+  const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("movies-library");
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -54,19 +54,25 @@ export function MinhaListaSection() {
     [movies, todayKey]
   );
 
-  if (isLoading) return <HomeSkeleton />;
   if (isError) {
     return <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />;
   }
 
   return (
     <>
+      {/* CORREÇÃO (2026-08-27, ver comentário de `HomeSkeleton.tsx`) — cabeçalho sempre visível, mesmo raciocínio de `movies-home/EmBreveSection.tsx`. */}
       <div className="mb-2 flex items-center justify-between">
         <SectionTitle>{t("seriesHome.watchlist")}</SectionTitle>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
 
-      {wantToWatch.length === 0 ? (
+      {!viewModeReady ? (
+        // CORREÇÃO (2026-08-27, "ainda mostra 2 esqueletons" — ver
+        // comentário completo em `useViewModePreference.ts`).
+        null
+      ) : isLoading ? (
+        <HomeSkeleton variant={viewMode === "grid" ? "grid" : "list"} />
+      ) : wantToWatch.length === 0 ? (
         <EmptyShelf message={t("seriesHome.emptyWatchlist")} />
       ) : viewMode === "grid" ? (
         <PosterGrid items={wantToWatch} />

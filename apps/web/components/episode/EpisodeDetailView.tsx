@@ -29,7 +29,7 @@ import { PageError } from "../media/PageError";
 import { EpisodeWatchedButton } from "../series/EpisodeWatchedButton";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
-import { FLOATING_BUTTON_BOTTOM_OFFSET } from "@/lib/layout/bottomNavVisibility";
+import { FLOATING_BUTTON_BOTTOM_OFFSET, FLOATING_BUTTON_CONTENT_CLEARANCE } from "@/lib/layout/bottomNavVisibility";
 
 export interface EpisodeDetailViewProps {
   seriesId: string;
@@ -262,7 +262,13 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   const episodeCode = `T${String(season).padStart(2, "0")} | E${String(episode).padStart(2, "0")}`;
 
   return (
-    <div className="relative mx-auto max-w-[430px] pb-28">
+    // CORREÇÃO (2026-08-27, reportado — "o botão de comentários está em
+    // cima de informação do episódio, precisa de espaçamento"; ver
+    // comentário completo em `FLOATING_BUTTON_CONTENT_CLEARANCE`,
+    // `bottomNavVisibility.tsx`) — `pb-28` (só 112px, sem considerar a
+    // altura do próprio botão nem a área segura do aparelho) virou a
+    // folga certa, calculada a partir do mesmo offset que o botão usa.
+    <div className="relative mx-auto max-w-[430px]" style={{ paddingBottom: FLOATING_BUTTON_CONTENT_CLEARANCE }}>
       {/*
        * "Vidro" (mesmo padrão do Perfil/Explorar/Biblioteca/Série) — campo de
        * manchas desfocadas atrás do conteúdo. Começa só depois da imagem do

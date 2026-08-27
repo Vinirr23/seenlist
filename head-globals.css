@@ -1,0 +1,71 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Ajuste (Configura├º├Áes ÔÇö tema): valores reais das cores, em RGB
+ * (formato exigido pelo padr├úo `<alpha-value>` do Tailwind ÔÇö ver
+ * packages/config/src/tailwind-tokens.ts). Escuro ├® o padr├úo (´╝Üroot)
+ * e continua sendo exatamente a mesma paleta original do SeenList,
+ * pixel por pixel ÔÇö nada mudou visualmente pra quem n├úo trocar de
+ * tema. `.light` ├® a paleta clara nova; foi escolhida pra manter o
+ * mesmo ├ómbar de destaque e as mesmas cores sem├ónticas
+ * (sucesso/aviso/erro), mas ainda n├úo passou por revis├úo visual de
+ * design ÔÇö funciona, mas pode precisar de ajuste fino depois.
+ */
+:root,
+.dark {
+  --color-background: 11 14 20;
+  --color-surface: 19 24 38;
+  --color-primary: 232 163 61;
+  --color-secondary: 79 209 197;
+  --color-text: 244 241 232;
+  --color-muted: 140 147 168;
+  --color-border: 38 45 64;
+  --color-success: 52 199 123;
+  --color-warning: 240 180 41;
+  --color-danger: 232 87 74;
+}
+
+.light {
+  --color-background: 250 250 252;
+  --color-surface: 240 240 245;
+  --color-primary: 200 130 30;
+  --color-secondary: 20 130 122;
+  --color-text: 20 22 28;
+  --color-muted: 100 105 120;
+  --color-border: 220 222 230;
+  --color-success: 30 140 85;
+  --color-warning: 170 110 10;
+  --color-danger: 190 60 50;
+}
+
+html,
+body {
+  background-color: theme("colors.background");
+  color: theme("colors.text");
+}
+
+/*
+ * A PEDIDO ÔÇö "Feed mais vivo", item 4: quando um post entra na
+ * lista, desliza suavemente em vez de s├│ "estar l├í do nada". CSS
+ * puro, de prop├│sito ÔÇö o projeto n├úo tem nenhum plugin de anima├º├úo
+ * do Tailwind instalado (`tailwindcss-animate`/similar), ent├úo em
+ * vez de adicionar uma depend├¬ncia nova s├│ pra isso, a keyframe mora
+ * aqui, uma classe s├│ (`.feed-item-enter`), reaproveit├ível em
+ * qualquer lista que precise do mesmo efeito depois.
+ */
+@keyframes feed-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.feed-item-enter {
+  animation: feed-item-enter 300ms ease-out;
+}

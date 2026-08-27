@@ -9,12 +9,66 @@ import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { translateDayLabel } from "@/lib/i18n/dayLabels";
 import { EmptyShelf } from "../media/EmptyShelf";
-import { HomeSkeleton } from "../media/HomeSkeleton";
 
 /** TASK-054 — TMDB devolve literalmente "Episódio N"/"Episode N" quando ainda não existe título específico pro episódio — mostrar isso duplica o código T/E que já aparece acima, sem informação nova nenhuma. */
 function isGenericEpisodeName(name: string, episodeNumber: number): boolean {
   const normalized = name.trim().toLowerCase();
   return normalized === `episódio ${episodeNumber}` || normalized === `episode ${episodeNumber}`;
+}
+
+/**
+ * BUG REAL CORRIGIDO (2026-08-27, reportado — "a tela 'em breve' de
+ * séries o esqueleto está errado (já de antes)") — causa raiz: esta
+ * tela usava o `HomeSkeleton` genérico (uma TIRA horizontal de
+ * pôsteres 2:3, pensada pra carrossel) enquanto o conteúdo real dela,
+ * desde o redesign da TASK-063, é uma LISTA VERTICAL de linhas
+ * horizontais (pôster 70×80 + texto) conectadas por uma trilha
+ * lateral (ponto + linha) e agrupadas sob um selo de data (HOJE/
+ * AMANHÃ/DEPOIS) — dois formatos completamente diferentes. O
+ * esqueleto nunca foi atualizado pra acompanhar aquele redesign.
+ * Esqueleto dedicado aqui, replicando a MESMA estrutura real (selo de
+ * grupo + trilha + linha pôster/texto) em vez do genérico — mesmo
+ * princípio de `HomeSkeleton.tsx` (variant "list"), só que com a
+ * trilha lateral que só esta tela tem.
+ */
+function EmBreveSkeleton() {
+  return (
+    <div className="animate-pulse space-y-6" aria-busy="true">
+      {Array.from({ length: 2 }).map((_, groupIndex) => (
+        <section key={groupIndex}>
+          <div className="mb-3 flex justify-center">
+            <div className="h-6 w-24 rounded-full bg-border" />
+          </div>
+          <div className="flex flex-col">
+            {Array.from({ length: groupIndex === 0 ? 2 : 1 }).map((_, index, arr) => (
+              <div key={index} className="flex gap-3">
+                <div className="flex w-3 shrink-0 flex-col items-center" aria-hidden="true">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-white/[0.22]" />
+                  {index < arr.length - 1 && <span className="w-px flex-1 bg-white/[0.13]" />}
+                </div>
+                <div className="flex flex-1 flex-col">
+                  <div
+                    className="flex items-start gap-1.5 rounded-2xl border border-white/10 p-2.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+                    style={{
+                      background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.10), transparent 60%), rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div className="h-20 w-[70px] shrink-0 rounded bg-surface" />
+                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+                      <div className="h-3.5 w-3/4 rounded bg-border" />
+                      <div className="h-3 w-1/2 rounded bg-border" />
+                      <div className="h-2.5 w-1/3 rounded bg-border" />
+                    </div>
+                  </div>
+                  {index < arr.length - 1 && <div className="h-2.5" aria-hidden="true" />}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
 }
 
 const BADGE_LABEL_KEY: Record<Exclude<UpcomingBadge, null>, string> = {
@@ -49,7 +103,7 @@ export function EmBreveSection() {
   const { groups, isLoading, isError } = useUpcomingEpisodes();
   const { t } = useTranslation();
 
-  if (isLoading) return <HomeSkeleton />;
+  if (isLoading) return <EmBreveSkeleton />;
   if (isError) {
     return <EmptyShelf message={t("seriesHome.errorLoadUpcoming")} />;
   }

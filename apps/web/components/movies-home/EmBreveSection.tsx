@@ -23,7 +23,7 @@ import { todayLocalKey, isReleased, upcomingLabel } from "./release-date";
  */
 export function EmBreveSection() {
   const { data: items, isLoading, isError, refetch } = useLibraryItems();
-  const { viewMode, setViewMode } = useViewModePreference("movies-library");
+  const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("movies-library");
   const { t, locale } = useTranslation();
 
   const todayKey = useMemo(() => todayLocalKey(), []);
@@ -34,18 +34,36 @@ export function EmBreveSection() {
       .sort((a, b) => (a.releaseDate ?? "").localeCompare(b.releaseDate ?? ""));
   }, [items, todayKey]);
 
-  if (isLoading) return <HomeSkeleton />;
   if (isError) {
     return <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />;
   }
 
   return (
     <>
+      {/*
+       * CORREÇÃO (2026-08-27, ver comentário de `HomeSkeleton.tsx`) —
+       * antes, o carregamento inteiro (`if (isLoading) return
+       * <HomeSkeleton />`) substituía até este cabeçalho, então o
+       * alternador grade/lista "pulava" pra tela só depois de carregar,
+       * e o esqueleto usava sempre o mesmo formato de tira, errado nos
+       * dois modos. Agora o cabeçalho fica sempre visível (nada pula),
+       * e só o conteúdo de baixo alterna entre esqueleto (no formato
+       * certo pro modo ativo) e a lista/grade de verdade.
+       */}
       <div className="mb-2 flex items-center justify-end">
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
 
-      {upcoming.length === 0 ? (
+      {!viewModeReady ? (
+        // CORREÇÃO (2026-08-27, "ainda mostra 2 esqueletons" — ver
+        // comentário completo em `useViewModePreference.ts`) — nada é
+        // desenhado aqui embaixo até o modo grade/lista de verdade ser
+        // conferido no navegador, pra nunca mostrar um formato (nem
+        // esqueleto, nem grade/lista) que depois troca sozinho.
+        null
+      ) : isLoading ? (
+        <HomeSkeleton variant={viewMode === "grid" ? "grid" : "list"} />
+      ) : upcoming.length === 0 ? (
         <EmptyShelf message={t("moviesHome.emptyUpcoming")} />
       ) : viewMode === "grid" ? (
         <PosterGrid items={upcoming} />
