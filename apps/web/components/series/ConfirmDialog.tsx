@@ -49,11 +49,15 @@ export function ConfirmDialog({ title, message, actions, onDismiss }: ConfirmDia
         aria-hidden="true"
       />
 
+      {/* "Vidro" (mesmo padrão do dropdown de histórico do SearchBar.tsx) — fundo escuro translúcido + blur/saturação, em vez de `bg-surface` opaco. */}
       <div
         className={cn(
-          "relative w-full max-w-[380px] rounded-xl border border-border bg-surface p-5 transition-all duration-200 ease-out",
+          "relative w-full max-w-[380px] rounded-xl border border-white/10 p-5 shadow-lg backdrop-blur-[18px] backdrop-saturate-[180%] transition-all duration-200 ease-out",
           mounted ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-95 opacity-0"
         )}
+        style={{
+          background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(20,22,30,0.85)",
+        }}
       >
         <h2 className="text-base font-semibold text-text">{title}</h2>
         {message && <p className="mt-2 text-sm text-muted">{message}</p>}

@@ -43,7 +43,13 @@ export function MyCommentRow({ comment }: { comment: MyComment }) {
   }
 
   return (
-    <div className="relative border-b border-border px-4 py-3">
+    // "Vidro" (redesign âmbar/vidro, 2026-08-26) — virou "glass-row" (mesmo padrão de ExploreActivityTab.tsx/ProfileSectionRow.tsx), em vez de linha lisa com `border-b`.
+    <div
+      className="relative rounded-2xl border border-white/10 p-3 backdrop-blur-[18px] backdrop-saturate-[180%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+      }}
+    >
       <Link href={comment.targetUrl} className="flex gap-3">
         <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded bg-surface">
           {posterUrl && <Image src={posterUrl} alt="" fill sizes="44px" className="object-cover" />}
@@ -70,10 +76,16 @@ export function MyCommentRow({ comment }: { comment: MyComment }) {
       </button>
 
       {menuOpen && (
-        <div className="absolute right-3 top-9 z-10 min-w-[140px] rounded-lg border border-border bg-surface py-1 shadow-lg">
+        // "Vidro" (redesign âmbar/vidro, 2026-08-26) — mesmo painel escuro translúcido do dropdown de histórico do SearchBar.tsx/ConfirmDialog.tsx.
+        <div
+          className="absolute right-3 top-9 z-10 min-w-[140px] rounded-xl border border-white/10 py-1 shadow-lg backdrop-blur-[18px] backdrop-saturate-[180%]"
+          style={{
+            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(20,22,30,0.85)",
+          }}
+        >
           <Link
             href={comment.targetUrl}
-            className="block px-3 py-1.5 text-left text-xs text-text hover:bg-background"
+            className="block px-3 py-1.5 text-left text-xs text-text hover:bg-white/10"
             onClick={() => setMenuOpen(false)}
           >
             {t("common.edit")}
@@ -81,7 +93,7 @@ export function MyCommentRow({ comment }: { comment: MyComment }) {
           <button
             type="button"
             onClick={handleDelete}
-            className="block w-full px-3 py-1.5 text-left text-xs text-danger hover:bg-background"
+            className="block w-full px-3 py-1.5 text-left text-xs text-danger hover:bg-white/10"
           >
             {t("common.delete")}
           </button>

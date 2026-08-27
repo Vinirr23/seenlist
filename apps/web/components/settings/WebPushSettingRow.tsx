@@ -62,7 +62,13 @@ export function WebPushSettingRow() {
   if (state === "loading") return null;
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
+    // "Vidro" (mesmo padrão dos chips neutros do Explorar)
+    <div
+      className="rounded-lg border border-white/10 p-4 backdrop-blur-[10px] backdrop-saturate-[160%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+      }}
+    >
       <p className="text-sm font-semibold text-text">{t("push.settingsTitle")}</p>
 
       {state === "unsupported" && (
@@ -84,8 +90,15 @@ export function WebPushSettingRow() {
             disabled={busy}
             className={
               state === "active"
-                ? "mt-3 rounded-lg border border-border px-4 py-2 text-xs font-semibold text-muted disabled:opacity-50"
+                ? "mt-3 rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-muted backdrop-blur-[10px] backdrop-saturate-[160%] disabled:opacity-50"
                 : "mt-3 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-background disabled:opacity-50"
+            }
+            style={
+              state === "active"
+                ? {
+                    background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+                  }
+                : undefined
             }
           >
             {busy ? t("push.waiting") : state === "active" ? t("push.disable") : t("push.enableAlerts")}

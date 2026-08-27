@@ -8,6 +8,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { markElapsed } from "@/lib/perfMarks";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { ContinueWatchingCard } from "./ContinueWatchingCard";
+import { ContinueWatchingPosterGrid } from "./ContinueWatchingPosterGrid";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyShelf } from "../media/EmptyShelf";
@@ -178,14 +179,25 @@ export function MinhaListaSection() {
    * refaz esse recálculo toda vez que a aba ganha foco — decisão
    * documentada como só-nativo na época, não portada pro web).
    *
-   * Ampliado só pro modo LISTA: é o único lugar que mostra o selo
-   * NOVO (`ContinueWatchingCard`, que já sabe voltar `null` sozinho
-   * quando a série em dia não tem episódio pendente nenhum — nada
-   * aparece à toa). O modo GRADE (`PosterGrid`) não filtra nem mostra
-   * selo nenhum — incluir "Em dia" ali poluiria "Continue assistindo"
-   * com séries sem nada pendente, então esse continua só "watching".
+   * UNIFICAÇÃO (2026-08-25, bug real reportado — "Bleach aparece na
+   * lista e não na grade") — antes esse filtro (`watching` OU
+   * `up_to_date`) só valia pro modo LISTA; o modo GRADE usava um
+   * segundo cálculo à parte, só `watching`, porque `PosterGrid` não
+   * tinha como confirmar se uma série "em dia" tinha episódio
+   * pendente de verdade (só `ContinueWatchingCard`, no modo lista,
+   * sabia fazer essa checagem e se auto-esconder quando não tinha
+   * nada pendente). Isso fazia a MESMA série (com episódio pendente
+   * de verdade, mas status "em dia") aparecer só na lista, nunca na
+   * grade — confuso, já que os dois modos deveriam mostrar o mesmo
+   * conjunto de séries, só com apresentação diferente. Agora os dois
+   * modos usam esta MESMA lista de candidatos; quem resolve se uma
+   * série "em dia" tem episódio pendente de verdade é
+   * `ContinueWatchingCard` no modo lista (como já era) e
+   * `ContinueWatchingPosterGrid`/`UpToDateGate` no modo grade (novo,
+   * reaproveita a mesma checagem — `findPendingEpisodes` — sem
+   * duplicar a regra).
    */
-  const continueWatchingList = useMemo(
+  const continueWatching = useMemo(
     () =>
       recentSeries
         .filter((item) => item.status === "watching" || item.status === "up_to_date")
@@ -201,13 +213,11 @@ export function MinhaListaSection() {
          * disputando as mesmas vagas — uma série "up_to_date"
          * mexida recentemente conseguia empurrar pra fora do top-8
          * uma série "watching" de verdade, mesmo essa tendo algo
-         * pendente pra assistir agora (e cabendo tranquilamente no
-         * modo grade, que não tem esse concorrente extra). Ordenação
-         * em duas camadas: primeiro por status (watching sempre
-         * antes de up_to_date), dentro de cada grupo por
-         * `updatedAt`. Uma série com episódio pendente de verdade
-         * nunca perde vaga pra uma que talvez nem tenha nada pra
-         * mostrar.
+         * pendente pra assistir agora. Ordenação em duas camadas:
+         * primeiro por status (watching sempre antes de up_to_date),
+         * dentro de cada grupo por `updatedAt`. Uma série com
+         * episódio pendente de verdade nunca perde vaga pra uma que
+         * talvez nem tenha nada pra mostrar.
          */
         .sort((a, b) => {
           if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
@@ -216,17 +226,6 @@ export function MinhaListaSection() {
         .slice(0, CONTINUE_ASSISTINDO_LIMIT),
     [recentSeries]
   );
-
-  const continueWatchingGrid = useMemo(
-    () =>
-      recentSeries
-        .filter((item) => item.status === "watching")
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .slice(0, CONTINUE_ASSISTINDO_LIMIT),
-    [recentSeries]
-  );
-
-  const continueWatching = viewMode === "grid" ? continueWatchingGrid : continueWatchingList;
 
   if (isError) {
     return <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />;
@@ -248,11 +247,30 @@ export function MinhaListaSection() {
           actionHref="/explore"
         />
       ) : viewMode === "grid" ? (
-        <PosterGrid items={continueWatching} />
+        <ContinueWatchingPosterGrid items={continueWatching} />
       ) : (
-        <div className="space-y-3">
-          {continueWatching.map((item) => (
-            <ContinueWatchingCard key={item.id} item={item} />
+        /*
+         * CORREÇÃO (2026-08-25, "MARCAR EPISÓDIO: UMA EXPERIÊNCIA") —
+         * era `space-y-3` (gap fixo via CSS, `margin-top` entre
+         * irmãos). Trocado por um `<div>` simples porque agora quem
+         * controla o espaçamento é o PRÓPRIO card (`mb-3 last:mb-0` no
+         * `motion.div` raiz de `ContinueWatchingCard.tsx`) — precisa
+         * ser assim pra poder animar esse espaçamento a 0 quando o
+         * card sai (senão o `space-y-3` do pai brigaria com a
+         * animação do filho, e sobraria um buraco vazio na saída).
+         */
+        <div>
+          {continueWatching.map((item, index) => (
+            /*
+             * A PEDIDO (polimento visual, 2026-08-25 — ajustado depois
+             * de comparar com o print de referência do usuário) —
+             * barrinha de degradê na lateral esquerda, mais forte no
+             * topo e clareando nos de baixo (`priorityIndex`, ver
+             * `getPriorityAccentOpacity` em `ContinueWatchingCard.tsx`).
+             * Só aqui, nunca no `.map` de "Faz um tempo que você não
+             * assiste" logo abaixo.
+             */
+            <ContinueWatchingCard key={item.id} item={item} priorityIndex={index} />
           ))}
         </div>
       )}
@@ -271,7 +289,8 @@ export function MinhaListaSection() {
             {viewMode === "grid" ? (
               <PosterGrid items={staleSeries} />
             ) : (
-              <div className="space-y-3">
+              // Mesmo motivo do `.map` de "Continue assistindo" acima — sem `space-y-3`, o espaçamento agora é do próprio card (`mb-3 last:mb-0`).
+              <div>
                 {/*
                   * A PEDIDO — mesma correção já feita no mobile: usa
                   * o MESMO card completo do "Continue assistindo"

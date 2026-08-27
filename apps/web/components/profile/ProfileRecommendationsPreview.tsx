@@ -29,7 +29,11 @@ export function ProfileRecommendationsPreview() {
     return (
       <Link
         href="/profile/recommendations"
-        className="mb-2 flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3.5 transition-colors hover:border-primary/40"
+        className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3.5 backdrop-blur-[18px] backdrop-saturate-[180%] transition-colors hover:border-primary/40"
+        style={{
+          background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+          boxShadow: "0 6px 18px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.15)",
+        }}
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/12">
           <Send className="h-4 w-4 text-primary" strokeWidth={2} />
@@ -54,10 +58,10 @@ export function ProfileRecommendationsPreview() {
     // sem precisar entrar na tela pra notar.
     <Link
       href="/profile/recommendations"
-      className={`mb-2 flex items-center gap-3 rounded-lg border px-4 py-3.5 transition-colors ${
+      className={`mb-2 flex items-center gap-3 rounded-2xl border px-4 py-3.5 backdrop-blur-[18px] backdrop-saturate-[180%] transition-colors ${
         unreadCount > 0
           ? "border-primary/60 bg-primary/5 ring-1 ring-primary/20 hover:border-primary"
-          : "border-border bg-surface hover:border-primary/40"
+          : "border-white/10 bg-white/10 hover:border-primary/40"
       }`}
     >
       <div className="relative shrink-0">

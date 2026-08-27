@@ -88,7 +88,13 @@ function PosterGridItem({
       )}
       {...(onLongPress ? longPress : {})}
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-surface">
+      {/* "Vidro" (mesmo padrão de DiscoverCard.tsx) — borda clara + blur/saturação + gradiente radial translúcido, em vez de `bg-surface` opaco. */}
+      <div
+        className="relative aspect-[2/3] w-full overflow-hidden rounded-lg border border-white/10 backdrop-blur-[14px] backdrop-saturate-[180%]"
+        style={{
+          background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+        }}
+      >
         {posterUrl ? (
           <Image
             src={posterUrl}
@@ -103,7 +109,7 @@ function PosterGridItem({
            * ícone estático só quando já resolveu sem pôster de verdade. */
           <div className="h-full w-full animate-pulse bg-surface" />
         ) : (
-          <div className="flex h-full items-center justify-center bg-gradient-to-br from-surface to-background">
+          <div className="flex h-full items-center justify-center">
             <Clapperboard className="h-6 w-6 text-muted/40" strokeWidth={1.5} />
           </div>
         )}

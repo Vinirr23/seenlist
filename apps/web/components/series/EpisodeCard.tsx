@@ -29,9 +29,13 @@ export function EpisodeCard({ seriesId, episode, watched, onToggleWatched, pendi
   const { t } = useTranslation();
 
   return (
+    // "Vidro" (mesmo padrão de ExploreActivityTab.tsx) — "glass-row".
     <Link
       href={`/series/${seriesId}/season/${episode.seasonNumber}/episode/${episode.episodeNumber}`}
-      className="flex items-center gap-3 rounded-lg border border-border bg-surface p-2 transition-colors hover:border-primary/40"
+      className="flex items-center gap-3 rounded-2xl border border-white/10 p-2 backdrop-blur-[18px] backdrop-saturate-[180%] transition-colors hover:border-primary/40"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+      }}
     >
       <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-md bg-background">
         {stillUrl ? (

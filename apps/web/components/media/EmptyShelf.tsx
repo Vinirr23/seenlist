@@ -22,7 +22,13 @@ export interface EmptyShelfProps {
  */
 export function EmptyShelf({ message, actionLabel, actionHref }: EmptyShelfProps) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-surface/50 px-4 py-8 text-center">
+    // "Vidro" (toque leve — mantém a borda tracejada, ganha blur/gradiente translúcido em vez de `bg-surface/50` opaco).
+    <div
+      className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-white/15 px-4 py-8 text-center backdrop-blur-[10px] backdrop-saturate-[160%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.10), transparent 60%), rgba(255,255,255,0.04)",
+      }}
+    >
       <p className="text-sm text-muted">{message}</p>
       {actionLabel && actionHref && (
         <Link

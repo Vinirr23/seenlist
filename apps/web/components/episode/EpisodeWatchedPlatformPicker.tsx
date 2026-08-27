@@ -49,13 +49,17 @@ export function EpisodeWatchedPlatformPicker({
             }}
             className="w-16 shrink-0 text-center"
           >
+            {/* "Vidro" (mesmo padrão de DiscoverCard.tsx) — A PEDIDO, ícones um pouco maiores. */}
             <div
               className={cn(
-                "relative mx-auto h-12 w-12 overflow-hidden rounded-xl bg-surface ring-2 transition-colors",
+                "relative mx-auto h-14 w-14 overflow-hidden rounded-xl border border-white/10 ring-2 backdrop-blur-[14px] backdrop-saturate-[180%] transition-colors",
                 selected ? "ring-primary" : "ring-transparent"
               )}
+              style={{
+                background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+              }}
             >
-              {logoUrl && <Image src={logoUrl} alt={provider.name} fill sizes="48px" className="object-cover" />}
+              {logoUrl && <Image src={logoUrl} alt={provider.name} fill sizes="56px" className="object-cover" />}
             </div>
             <p className={cn("mt-1 truncate text-[10px]", selected ? "font-medium text-primary" : "text-muted")}>
               {provider.name}
@@ -77,13 +81,17 @@ export function EpisodeWatchedPlatformPicker({
             }}
             className="w-16 shrink-0 text-center"
           >
+            {/* "Vidro" (mesmo padrão de DiscoverCard.tsx) — A PEDIDO, ícones um pouco maiores. */}
             <div
               className={cn(
-                "mx-auto flex h-12 w-12 items-center justify-center rounded-xl border-2 bg-surface transition-colors",
-                selected ? "border-primary text-primary" : "border-border text-muted"
+                "mx-auto flex h-14 w-14 items-center justify-center rounded-xl border-2 backdrop-blur-[14px] backdrop-saturate-[180%] transition-colors",
+                selected ? "border-primary text-primary" : "border-white/10 text-muted"
               )}
+              style={{
+                background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+              }}
             >
-              <Icon className="h-5 w-5" strokeWidth={2} />
+              <Icon className="h-6 w-6" strokeWidth={2} />
             </div>
             <p className={cn("mt-1 truncate text-[10px]", selected ? "font-medium text-primary" : "text-muted")}>
               {fixedOptionLabels[key]}

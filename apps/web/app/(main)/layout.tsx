@@ -34,7 +34,16 @@ import { YearInReviewModal } from "@/components/profile/YearInReviewModal";
  */
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-background">
+    // `overflow-x-hidden` (a pedido — "limite estranho" no brilho azul
+    // do vidro do Perfil, ver ProfileView.tsx): trava de segurança
+    // contra rolagem horizontal, adicionada aqui pra permitir tirar o
+    // `overflow-hidden` LOCAL da camada de brilho, que era o que
+    // criava o corte reto na borda da coluna central em telas largas
+    // — sem essa trava aqui em cima, tirar o corte local arriscaria
+    // criar uma barra de rolagem horizontal de verdade no celular
+    // (onde a coluna já ocupa a tela toda e o brilho vaza um pouco
+    // pra fora dela).
+    <div className="min-h-dvh overflow-x-hidden bg-background">
       <AndroidAppPromoBanner />
       <YearInReviewModal />
       {children}

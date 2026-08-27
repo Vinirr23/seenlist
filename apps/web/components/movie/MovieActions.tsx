@@ -57,6 +57,7 @@ export function MovieActions({ movieId }: { movieId: number }) {
         {OPTIONS.map((option) => {
           const { status, labelKey, icon: Icon } = option;
           const active = currentStatus === status;
+          // "Vidro" (mesmo padrão dos chips neutros do Explorar — só no estado não selecionado)
           return (
             <button
               key={status}
@@ -65,11 +66,18 @@ export function MovieActions({ movieId }: { movieId: number }) {
               aria-pressed={active}
               onClick={() => handleClick(option)}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors active:scale-[0.96] disabled:opacity-50",
+                "flex flex-1 flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs font-medium backdrop-blur-[10px] backdrop-saturate-[160%] transition-colors active:scale-[0.96] disabled:opacity-50",
                 active
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted hover:border-primary/50 hover:text-text"
+                  : "border-white/10 text-muted hover:border-primary/50 hover:text-text"
               )}
+              style={
+                active
+                  ? undefined
+                  : {
+                      background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+                    }
+              }
             >
               <Icon className="h-4 w-4" strokeWidth={2.25} />
               {t(labelKey)}

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { SearchBar } from "@/components/search/SearchBar";
 import { SearchResults } from "@/components/search/SearchResults";
 import { ExploreTabs, type ExploreTab } from "./ExploreTabs";
-import { ExploreDiscoverTab } from "./ExploreDiscoverTab";
+import { ExploreMoviesTab } from "./ExploreMoviesTab";
+import { ExploreSeriesTab } from "./ExploreSeriesTab";
 import { ExploreActivityTab } from "./ExploreActivityTab";
 
 /**
@@ -15,31 +16,56 @@ import { ExploreActivityTab } from "./ExploreActivityTab";
  * branco.
  *
  * TASK-072 — "Feed" saiu daqui (virou aba própria na navegação
- * inferior, ver `components/feed/FeedView.tsx`) — Explorar agora só
- * tem Descobrir/Atividade.
+ * inferior, ver `components/feed/FeedView.tsx`).
+ *
+ * Reformulação da aba Explorar (2026-08-21, especificação completa
+ * salva em `SEENLIST-EXPLORAR-REFORMULACAO-2026-08-21.md` no
+ * projeto) — a antiga aba única "Descobrir" (misturava séries e
+ * filmes) virou 2 abas dedicadas: Filmes | Séries | Atividade
+ * (`ExploreDiscoverTab.tsx` não é mais usado por este arquivo — ver
+ * `ExploreMoviesTab.tsx`/`ExploreSeriesTab.tsx`).
  */
 export function ExploreView() {
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<ExploreTab>("discover");
+  const [tab, setTab] = useState<ExploreTab>("movies");
 
   return (
-    <div className="w-full pb-32 md:mx-auto md:max-w-[430px]">
-      <div className="px-4 pt-4">
+    <div className="relative w-full pb-32 md:mx-auto md:max-w-[430px]">
+      {/*
+       * "Vidro" (a pedido — "aplicar o mesmo efeito de vidro do
+       * Perfil") — mesmo campo de manchas azuis desfocadas atrás do
+       * conteúdo (ver ProfileView.tsx pra todo o histórico de causa
+       * raiz: sem z-index negativo nenhum, ordem de DOM só — pintado
+       * primeiro aqui, fica atrás dos irmãos seguintes). Ajustado
+       * (reformulação da Explorar) — cada aba agora tem só 3
+       * carrosséis (era 6 misturados antes), altura bem menor; ainda é
+       * um PRIMEIRO PALPITE, não tem medição ao vivo pra esta tela.
+       */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "40px", left: "-22%", background: "#1B4B7A" }} />
+        <div className="absolute h-60 w-60 rounded-full opacity-40 blur-[60px]" style={{ top: "280px", right: "-20%", background: "#2A7FB8" }} />
+        <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "520px", left: "-18%", background: "#0D3B5C" }} />
+        <div className="absolute h-56 w-56 rounded-full opacity-35 blur-[60px]" style={{ top: "740px", right: "-18%", background: "#2A7FB8" }} />
+        <div className="absolute h-48 w-48 rounded-full opacity-24 blur-[60px]" style={{ top: "950px", left: "-16%", background: "#0D3B5C" }} />
+      </div>
+
+      <div className="relative px-4 pt-4">
         <SearchBar onDebouncedChange={setQuery} />
       </div>
 
       {query ? (
-        <div className="px-4 pt-4">
+        <div className="relative px-4 pt-4">
           <SearchResults query={query} />
         </div>
       ) : (
-        <>
+        <div className="relative">
           <div className="px-4 pt-3">
             <ExploreTabs active={tab} onChange={setTab} />
           </div>
-          {tab === "discover" && <ExploreDiscoverTab />}
+          {tab === "movies" && <ExploreMoviesTab />}
+          {tab === "series" && <ExploreSeriesTab />}
           {tab === "activity" && <ExploreActivityTab />}
-        </>
+        </div>
       )}
     </div>
   );

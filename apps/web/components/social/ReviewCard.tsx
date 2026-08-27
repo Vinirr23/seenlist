@@ -10,7 +10,13 @@ export function ReviewCard({ review, likeInfo }: { review: Review; likeInfo?: { 
   const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-surface p-3 shadow-md shadow-black/20">
+    // "Vidro" (redesign âmbar/vidro, 2026-08-26 — Comentários/Avaliações) — mesma textura de card neutro do resto do app.
+    <div
+      className="space-y-2 rounded-2xl border border-white/10 p-3.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+      }}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-text">{review.author.displayName ?? review.author.username}</span>

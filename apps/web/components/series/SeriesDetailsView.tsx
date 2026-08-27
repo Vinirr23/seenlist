@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Star, ChevronRight, Tv, Calendar, Layers, Clapperboard } from "lucide-react";
 import { useSeriesDetails } from "@/lib/queries/series";
-import { useWatchedEpisodes } from "@/lib/queries/watched-episodes";
+import { useWatchedEpisodes, useWatchedEpisodeIds, useSpecialEpisodeKeys } from "@/lib/queries/watched-episodes";
 import { useSeriesStatus } from "@/lib/queries/series-status";
 import { getSeriesCategoryByStatus } from "@/lib/series-categories";
 import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
@@ -21,6 +21,7 @@ import { MetaRow } from "../media/MetaRow";
 import { BackdropGallery } from "../media/BackdropGallery";
 import { TrailerCard } from "../media/TrailerCard";
 import { SimilarSeriesCarousel } from "./SimilarSeriesCarousel";
+import { SeriesWatchProviders } from "./SeriesWatchProviders";
 import { ReviewsSection } from "../social/ReviewsSection";
 import { EmptyState } from "../search/EmptyState";
 import { PageError } from "../media/PageError";
@@ -58,6 +59,9 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
 
   const { data: series, isLoading, isError, refetch } = useSeriesDetails(seriesId);
   const { data: watchedEpisodes } = useWatchedEpisodes(numericId);
+  // CORREÇÃO (2026-08-26 — "motor resistente") — Set de IDs fixos da TMDB, mesmos pontos de invalidação do Set de chaves acima (ver watched-episodes-mutations.ts).
+  const { data: watchedEpisodeIds } = useWatchedEpisodeIds(numericId);
+  const { data: specialEpisodeKeys } = useSpecialEpisodeKeys(numericId);
   const { data: currentStatus } = useSeriesStatus(numericId);
   const categoryColorClass = currentStatus ? getSeriesCategoryByStatus(currentStatus)?.barColorClass : undefined;
 
@@ -67,7 +71,7 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
   // `series` entra opcional aqui (`series ?? null` dentro da função) —
   // nos primeiros renders (carregando/erro) o resultado é sempre
   // `null`.
-  const caughtUpBadge = series ? computeSeriesCaughtUpBadge(series, watchedEpisodes) : null;
+  const caughtUpBadge = series ? computeSeriesCaughtUpBadge(series, watchedEpisodes, specialEpisodeKeys, watchedEpisodeIds) : null;
   const [showConfetti, setShowConfetti] = useState(false);
   /**
    * Guarda o valor de referência pra comparar transição — começa
@@ -113,7 +117,21 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
   const watchedCount = watchedEpisodes?.size ?? 0;
 
   return (
-    <div className="w-full md:mx-auto md:max-w-[430px]">
+    <div className="relative w-full md:mx-auto md:max-w-[430px]">
+      {/*
+        * "Vidro" (mesmo padrão do Perfil/Explorar/Biblioteca) — campo de
+        * manchas desfocadas atrás do conteúdo. Ver ProfileView.tsx pro
+        * histórico completo de causa raiz.
+        */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "300px", left: "-22%", background: "#1B4B7A" }} />
+        <div className="absolute h-60 w-60 rounded-full opacity-40 blur-[60px]" style={{ top: "540px", right: "-20%", background: "#2A7FB8" }} />
+        <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "780px", left: "-18%", background: "#0D3B5C" }} />
+        <div className="absolute h-56 w-56 rounded-full opacity-35 blur-[60px]" style={{ top: "1000px", right: "-18%", background: "#2A7FB8" }} />
+        <div className="absolute h-48 w-48 rounded-full opacity-24 blur-[60px]" style={{ top: "1210px", left: "-16%", background: "#0D3B5C" }} />
+      </div>
+
+      <div className="relative">
       <SeriesHeader
         series={series}
         seriesId={numericId}
@@ -128,6 +146,9 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
       <PageContainer>
         {tab === "sobre" && (
           <div className="space-y-6">
+            {/* A PEDIDO (2026-08-25) — "onde assistir" antes da sinopse, mesma ordem pedida pro Filme. */}
+            <SeriesWatchProviders providers={series.watchProviders} />
+
             <section>
               <h2 className="mb-2 text-sm font-semibold text-text">{t("series.overviewTitle")}</h2>
               <SeriesOverview text={series.overview || t("series.noOverview")} />
@@ -135,8 +156,15 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
 
             {series.genres.length > 0 && (
               <div className="flex flex-wrap gap-2">
+                {/* "Vidro" (mesmo padrão dos chips neutros do Explorar) */}
                 {series.genres.map((genre) => (
-                  <span key={genre} className="rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-text">
+                  <span
+                    key={genre}
+                    className="rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-text backdrop-blur-[10px] backdrop-saturate-[160%]"
+                    style={{
+                      background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+                    }}
+                  >
                     {genre}
                   </span>
                 ))}
@@ -191,9 +219,13 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
               <ReviewsSection target={{ mediaType: "series", mediaId: numericId }} />
             </section>
 
+            {/* "Vidro" (mesmo padrão de ExploreActivityTab.tsx) — "glass-row". */}
             <Link
               href={`/series/${numericId}/comments`}
-              className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-sm font-medium text-text hover:border-primary/40"
+              className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium text-text backdrop-blur-[18px] backdrop-saturate-[180%] hover:border-primary/40"
+              style={{
+                background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+              }}
             >
               <span className="flex items-center gap-2">
                 <Star className="h-4 w-4 text-muted" strokeWidth={2} />
@@ -226,6 +258,7 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
                     seriesId={numericId}
                     season={season}
                     watchedEpisodes={watchedEpisodes}
+                    watchedEpisodeIds={watchedEpisodeIds}
                     defaultOpen={index === 0}
                     colorClass={categoryColorClass}
                   />
@@ -239,6 +272,7 @@ export function SeriesDetailsView({ seriesId }: { seriesId: string }) {
       </PageContainer>
 
       {showConfetti && <ConfettiBurst onDone={() => setShowConfetti(false)} />}
+      </div>
     </div>
   );
 }

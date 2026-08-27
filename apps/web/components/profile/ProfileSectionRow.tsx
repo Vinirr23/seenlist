@@ -18,9 +18,13 @@ export interface ProfileSectionRowProps {
  */
 export function ProfileSectionRow({ icon: Icon, label, count, href }: ProfileSectionRowProps) {
   return (
+    // "Vidro" (mesmo padrão de ExploreActivityTab.tsx) — "glass-row". Achado ao investigar Configurações (2026-08-25): esta linha ainda estava com fundo opaco antigo mesmo com o Perfil já "concluído" — corrigido a pedido.
     <Link
       href={href}
-      className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 transition-colors active:bg-background"
+      className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3 backdrop-blur-[18px] backdrop-saturate-[180%] transition-colors active:bg-background"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+      }}
     >
       <span className="flex items-center gap-3">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/12">

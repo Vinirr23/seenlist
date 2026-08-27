@@ -24,7 +24,16 @@ export function BottomNavigationItem({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className="relative z-10 flex flex-1 flex-col items-center justify-center gap-1 py-2.5"
+      // Compactação (2026-08-26, a pedido) — `gap-1` (4px) → `gap-[3px]`,
+      // uma redução leve no espaço vertical entre ícone e legenda; o
+      // ícone (`h-5 w-5`) e o texto (`text-[10px]`) continuam do
+      // mesmo tamanho, só o respiro entre os dois diminuiu um pouco.
+      //
+      // Compactação nº2 (2026-08-26, a pedido — "aproxime ligeiramente
+      // cada ícone da sua legenda") — `gap-[3px]` → `gap-[2px]`, mais um
+      // passo pequeno na mesma direção. Ícone e texto continuam do
+      // mesmo tamanho de sempre.
+      className="relative z-10 flex flex-1 flex-col items-center justify-center gap-[2px] py-2.5"
     >
       {/*
         * A PEDIDO — a cápsula que desliza (renderizada em
@@ -36,9 +45,34 @@ export function BottomNavigationItem({
         * fique por CIMA da cápsula (que não tem z-index próprio),
         * não escondido atrás dela.
         */}
-      <span className="relative flex h-9 w-9 items-center justify-center">
+      {/*
+        * "Floating Glass Dock" (2026-08-26, ajuste final — proposta
+        * trazida pelo usuário, originada de outra IA — "GPT") — a
+        * cápsula sólida por trás (BottomNavigation.tsx) virou um brilho
+        * âmbar suave + um traço fino embaixo, sem fundo sólido — por
+        * isso ícone/texto ativo voltam a ser `text-primary` (âmbar),
+        * já que não tem mais nenhum fundo âmbar chapado por baixo pra
+        * competir com a cor. Ícone inativo ganhou `/70` de opacidade
+        * (pedido explícito — "60–70% de opacidade" no estado inativo,
+        * pra reforçar o contraste com o ativo a 100%).
+        */}
+      {/*
+        * CAUSA RAIZ do "ícone e legenda longe um do outro" (2026-08-26,
+        * a pedido — "eu disse explicitamente pra deixar o ícone e a
+        * legenda juntos") — o `gap-[3px]` (acima) já estava certo, mas
+        * essa caixa em volta do ícone era `h-9 w-9` (36×36px) só pra
+        * dar espaço de toque e posicionar a bolinha de aviso no canto;
+        * o ÍCONE de verdade é `h-5 w-5` (20px), então sobravam 8px de
+        * espaço VAZIO e invisível embaixo do ícone antes mesmo do
+        * `gap-[3px]` entrar em ação — a legenda ficava ~11px do ícone
+        * na prática, não 3px. `h-9 w-9` → `h-6 w-6` (24px) fecha a
+        * maior parte desse vazio (sobra só 2px), deixando ícone e
+        * legenda visivelmente colados, com a bolinha de aviso ainda
+        * espiando no canto sem grudar no ícone.
+        */}
+      <span className="relative flex h-6 w-6 items-center justify-center">
         <Icon
-          className={cn("h-5 w-5 transition-colors", active ? "text-primary" : "text-muted")}
+          className={cn("h-5 w-5 transition-colors", active ? "text-primary" : "text-muted/70")}
           strokeWidth={active ? 2.4 : 2}
         />
         {badge && (

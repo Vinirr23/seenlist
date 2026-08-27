@@ -5,7 +5,7 @@
 /**
  * Ajuste (Configurações — tema): valores reais das cores, em RGB
  * (formato exigido pelo padrão `<alpha-value>` do Tailwind — ver
- * packages/config/src/tailwind-tokens.ts). Escuro é o padrão (：root)
+ * packages/config/src/tailwind-tokens.ts). Escuro é o padrão (:root)
  * e continua sendo exatamente a mesma paleta original do SeenList,
  * pixel por pixel — nada mudou visualmente pra quem não trocar de
  * tema. `.light` é a paleta clara nova; foi escolhida pra manter o

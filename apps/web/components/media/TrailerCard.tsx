@@ -35,10 +35,14 @@ export function TrailerCard({ videoKey }: { videoKey: string }) {
   }
 
   return (
+    // "Vidro" (mesmo padrão de DiscoverCard.tsx)
     <button
       type="button"
       onClick={() => setPlaying(true)}
-      className="relative block aspect-video w-full overflow-hidden rounded-xl bg-surface"
+      className="relative block aspect-video w-full overflow-hidden rounded-xl border border-white/10 backdrop-blur-[14px] backdrop-saturate-[180%]"
+      style={{
+        background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+      }}
       aria-label={t("series.playTrailer")}
     >
       <Image src={thumbnailUrl} alt="" fill sizes="400px" className="object-cover" unoptimized />

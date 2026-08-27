@@ -27,6 +27,8 @@ export interface SeasonAccordionProps {
   seriesId: number;
   season: SeasonWithEpisodes;
   watchedEpisodes: Set<WatchedEpisodeKey> | undefined;
+  /** CORREÇÃO (2026-08-26 — "motor resistente") — opcional, ver `isEpisodeWatched` (watched-episodes-state.ts). */
+  watchedEpisodeIds?: Set<number>;
   defaultOpen?: boolean;
   colorClass?: string;
 }
@@ -47,6 +49,7 @@ export function SeasonAccordion({
   seriesId,
   season,
   watchedEpisodes,
+  watchedEpisodeIds,
   defaultOpen = false,
   colorClass = "bg-primary",
 }: SeasonAccordionProps) {
@@ -62,7 +65,7 @@ export function SeasonAccordion({
   const incrementRewatch = useIncrementEpisodeRewatch(seriesId);
 
   const watchedCount = season.episodes.filter((episode) =>
-    isEpisodeWatched(watchedEpisodes, episode.seasonNumber, episode.episodeNumber)
+    isEpisodeWatched(watchedEpisodes, episode.seasonNumber, episode.episodeNumber, episode.id, watchedEpisodeIds)
   ).length;
   const allWatched = season.episodes.length > 0 && watchedCount === season.episodes.length;
   const isBusy = toggleWatched.isPending || markEpisodes.isPending || unmarkSeason.isPending;
@@ -79,14 +82,19 @@ export function SeasonAccordion({
     const hasUnwatchedBefore = season.episodes.some(
       (episode) =>
         episode.episodeNumber < episodeNumber &&
-        !isEpisodeWatched(watchedEpisodes, episode.seasonNumber, episode.episodeNumber)
+        !isEpisodeWatched(watchedEpisodes, episode.seasonNumber, episode.episodeNumber, episode.id, watchedEpisodeIds)
     );
 
     if (hasUnwatchedBefore) {
       setDialog({ type: "mark-previous", episodeNumber });
     } else {
+      // CORREÇÃO (2026-08-26 — "motor resistente", ver
+      // watched-episodes-mutations.ts) — passa o ID fixo da TMDB
+      // junto, já disponível aqui em `season.episodes` (mesmo dado
+      // usado pra renderizar a lista).
+      const episodeId = season.episodes.find((e) => e.episodeNumber === episodeNumber)?.id;
       toggleWatched.mutate(
-        { seasonNumber: season.seasonNumber, episodeNumber, watched: false },
+        { seasonNumber: season.seasonNumber, episodeNumber, watched: false, episodeId },
         {
           onSuccess: () => toast.success(t("series.episodeMarked")),
           onError: () => toast.error(t("series.connectionError")),
@@ -98,7 +106,7 @@ export function SeasonAccordion({
   function markUpToEpisode(episodeNumber: number) {
     const episodes = season.episodes
       .filter((episode) => episode.episodeNumber <= episodeNumber)
-      .map((episode) => ({ seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber }));
+      .map((episode) => ({ seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber, episodeId: episode.id }));
     markEpisodes.mutate(episodes, {
       onSuccess: () => toast.success(t("series.episodeMarked")),
       onError: () => toast.error(t("series.connectionError")),
@@ -107,8 +115,9 @@ export function SeasonAccordion({
   }
 
   function markOnlyThisEpisode(episodeNumber: number) {
+    const episodeId = season.episodes.find((e) => e.episodeNumber === episodeNumber)?.id;
     toggleWatched.mutate(
-      { seasonNumber: season.seasonNumber, episodeNumber, watched: false },
+      { seasonNumber: season.seasonNumber, episodeNumber, watched: false, episodeId },
       { onSuccess: () => toast.success(t("series.episodeMarked")), onError: () => toast.error(t("series.connectionError")) }
     );
     setDialog(null);
@@ -128,6 +137,7 @@ export function SeasonAccordion({
         season.episodes.map((episode) => ({
           seasonNumber: episode.seasonNumber,
           episodeNumber: episode.episodeNumber,
+          episodeId: episode.id,
         })),
         {
           onSuccess: () => toast.success(t("series.seasonCompleted")),
@@ -139,7 +149,13 @@ export function SeasonAccordion({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-surface">
+    // "Vidro" (mesmo padrão dos chips neutros do Explorar)
+    <div
+      className="rounded-lg border border-white/10 backdrop-blur-[10px] backdrop-saturate-[160%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+      }}
+    >
       <div className="flex w-full items-center gap-3 px-4 py-3 text-left">
         <button
           type="button"
@@ -181,7 +197,7 @@ export function SeasonAccordion({
             <EmptyState message={t("series.noEpisodesFound")} />
           ) : (
             season.episodes.map((episode) => {
-              const watched = isEpisodeWatched(watchedEpisodes, episode.seasonNumber, episode.episodeNumber);
+              const watched = isEpisodeWatched(watchedEpisodes, episode.seasonNumber, episode.episodeNumber, episode.id, watchedEpisodeIds);
               return (
                 <EpisodeCard
                   key={episode.id}

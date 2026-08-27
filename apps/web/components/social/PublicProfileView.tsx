@@ -7,8 +7,7 @@ import { usePublicProfile, useFollowCounts } from "@/lib/queries/public-profile"
 import { usePublicStats } from "@/lib/queries/public-stats";
 import { FollowButton } from "./FollowButton";
 import { ShareProfileButton } from "./ShareProfileButton";
-import { PublicLibrarySection } from "./PublicLibrarySection";
-import { PublicFavoritesSection } from "./PublicFavoritesSection";
+import { PublicMediaSectionsList } from "./PublicMediaSectionsList";
 import { StatsCarousel } from "@/components/profile/StatsCarousel";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
@@ -38,6 +37,54 @@ function initials(name: string): string {
  * Supabase). Por isso o cabeçalho usa o username como identificação
  * principal; nome/foto completos só aparecem quando é o PRÓPRIO
  * usuário vendo a própria página pública (via `useCurrentUser`).
+ *
+ * ENTREGA 5 (a pedido, 2026-08-26 — "foto de perfil, capa, nomes e
+ * etc... deixe igual no perfil do usuário") — até aqui, o
+ * cabeçalho (capa + avatar + nome) tinha sido escrito do zero, sem
+ * seguir a receita real de `ProfileHeader.tsx` (Perfil próprio):
+ * avatar SOBREPOSTO na borda de baixo da capa (estilo antigo,
+ * Instagram/Twitter) em vez de avatar ao LADO do nome; sem o anel de
+ * vidro (borda + reflexo + blur) no avatar; capa sem cantos
+ * arredondados embaixo, sem sombra, sem o degradê de leitura na
+ * borda inferior; sem o fundo âmbar sutil quando não tem capa. Tudo
+ * isso já tinha sido corrigido no Perfil próprio faz tempo (ver
+ * comentário de `ProfileHeader.tsx`, "nome/@/membro desde não estão
+ * ao lado da foto de perfil") — só nunca tinha sido replicado aqui.
+ *
+ * Reescrito o bloco de cabeçalho pra seguir a MESMA estrutura de
+ * `ProfileHeader.tsx`, quase cópia exata (avatar+nome lado a lado
+ * numa `flex` só, anel de vidro no avatar, capa com `rounded-b-lg` +
+ * sombra + degradê de leitura, fundo âmbar sutil com cantos
+ * arredondados quando não tem capa). Duas diferenças deliberadas,
+ * confirmadas lendo o código real antes de decidir (não adivinhadas):
+ *
+ * 1. O truque `-mx-4 -mt-4` do Perfil próprio (bleed pra fora do
+ *    padding da página) só funciona porque `/profile/page.tsx` já
+ *    envolve tudo num `<div className="px-4">` — aqui não existia
+ *    esse wrapper (o `/u/[username]/page.tsx` renderiza direto, sem
+ *    padding nenhum). Pra funcionar igual, o `px-4` que antes só
+ *    existia no meio do componente (depois da capa) subiu pro
+ *    container mais externo — agora a estrutura de camadas bate
+ *    exatamente com a real: página com `px-4` → `<div
+ *    className="relative">` sem padding → bloco do cabeçalho com
+ *    `-mx-4` pra sangrar de volta até a borda.
+ * 2. O `-mt-4` do Perfil próprio NÃO foi copiado aqui: conferido
+ *    `app/(main)/layout.tsx` e `app/(main)/profile/page.tsx` — nenhum
+ *    dos dois tem `pt-*`, ou seja, não existe nenhum espaço vertical
+ *    de verdade pra esse `-mt-4` estar cancelando ali (mistério que
+ *    fica registrado, não decifrado — não impede a réplica). Como
+ *    `/u/[username]/page.tsx` roda no layout raiz (`app/layout.tsx`,
+ *    sem `(main)`) e não tem NENHUM `pt-*` conhecido pra cancelar
+ *    também, copiar um `-mt-4` "porque sim" arriscava empurrar o
+ *    conteúdo pra cima demais sem necessidade — decisão: só copiar o
+ *    que tem justificativa confirmada (o `-mx-4`, que sangra a capa
+ *    até a borda da tela) e deixar de fora o que não tem (o `-mt-4`).
+ *
+ * A linha "país + ingressou em" (informação que só existe no perfil
+ * PÚBLICO — o Perfil próprio não mostra país nenhum) ocupa o mesmo
+ * lugar/estilo da linha "Membro desde" do Perfil próprio (terceira
+ * linha, ao lado do avatar, texto pequeno e apagado) — não virou uma
+ * linha solta separada como estava antes.
  */
 export function PublicProfileView({ username }: { username: string }) {
   const { data: profile, isLoading, isError, refetch } = usePublicProfile(username);
@@ -77,55 +124,217 @@ export function PublicProfileView({ username }: { username: string }) {
   const displayName = profile.displayName?.trim() || `@${profile.username}`;
   const avatarUrl = profile.avatarUrl;
 
+  const statPills = [
+    { value: counts?.following ?? 0, label: t("profile.following") },
+    { value: counts?.followers ?? 0, label: t("profile.followers") },
+    { value: 0, label: t("profile.comments") },
+  ];
+
+  const joinedLine = [
+    profile.country,
+    t("social.joinedOn", { date: joinDateFormatter.format(new Date(profile.createdAt)) }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
-      <div className="relative mb-14 h-28 w-full bg-surface">
-        {profile.bannerUrl && (
-          // eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image
-          <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
-        )}
-        <div className="absolute -bottom-10 left-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-background bg-surface">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
-            <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-xl font-semibold text-muted">{initials(displayName)}</span>
-          )}
-        </div>
+    <div className="relative w-full px-4 pb-24 md:mx-auto md:max-w-[430px]">
+      {/*
+       * "Vidro" (redesign âmbar/vidro, perfil público, 2026-08-26) —
+       * mesmo campo de manchas azuis desfocadas do Perfil próprio
+       * (ver ProfileView.tsx pro histórico completo das 3 causas-raiz
+       * já investigadas: posição em pixel fixo não porcentagem, sem
+       * z-index, sem overflow-hidden nesta camada). Concentradas na
+       * faixa onde agora existem cards de vidro de verdade
+       * (cabeçalho → pílulas de estatística → Estatísticas →
+       * Favoritas → Biblioteca) — sem se estender além do conteúdo
+       * real da tela pública, que é mais curta que o Perfil próprio.
+       *
+       * CAUSA RAIZ #4, DESTA TELA ESPECIFICAMENTE (achada a pedido do
+       * usuário, 2026-08-26, depois que a correção de `text-shadow`
+       * sozinha não resolveu "as manchas [continuam] cobrindo") — um
+       * elemento `position: absolute` (como esta camada de manchas)
+       * SEMPRE pinta por CIMA de qualquer irmão-depois-dele que não
+       * tenha nenhum `position` definido — mesmo estando ANTES no
+       * HTML — porque elemento posicionado sai do fluxo normal de
+       * pintura e só respeita a ordem do HTML quando comparado com
+       * OUTROS elementos também posicionados. Fix: o `<div
+       * className="relative">` logo abaixo (que envolve todo o resto
+       * do conteúdo) entra no mesmo grupo de "elementos posicionados"
+       * desta camada — e aí sim a ordem do HTML (ele vem depois)
+       * garante que pinte por cima.
+       */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div
+          className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]"
+          style={{ top: "120px", left: "-22%", background: "#1B4B7A" }}
+        />
+        <div
+          className="absolute h-60 w-60 rounded-full opacity-40 blur-[60px]"
+          style={{ top: "340px", right: "-20%", background: "#2A7FB8" }}
+        />
+        <div
+          className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]"
+          style={{ top: "560px", left: "-18%", background: "#0D3B5C" }}
+        />
+        <div
+          className="absolute h-56 w-56 rounded-full opacity-35 blur-[60px]"
+          style={{ top: "800px", right: "-18%", background: "#2A7FB8" }}
+        />
+        <div
+          className="absolute h-48 w-48 rounded-full opacity-28 blur-[60px]"
+          style={{ top: "1050px", left: "-16%", background: "#1B4B7A" }}
+        />
+        <div
+          className="absolute h-40 w-40 rounded-full opacity-18 blur-[60px]"
+          style={{ top: "1300px", right: "-14%", background: "#0D3B5C" }}
+        />
       </div>
 
-      <div className="px-4">
-        <p className="text-lg font-bold text-text">{displayName}</p>
-        <p className="text-sm text-primary">@{profile.username}</p>
-        {profile.bio && <p className="mt-2 text-sm text-text">{profile.bio}</p>}
-        <p className="mt-1 text-xs text-muted">
-          {[profile.country, t("social.joinedOn", { date: joinDateFormatter.format(new Date(profile.createdAt)) })]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
+      <div className="relative">
+        {/*
+         * Bloco capa+avatar+nome+bio — cópia quase exata de
+         * `ProfileHeader.tsx` (Perfil próprio), ver comentário
+         * "ENTREGA 5" no topo do arquivo pro porquê de cada diferença
+         * deliberada (`-mx-4` copiado, `-mt-4` não).
+         */}
+        <div
+          className={
+            profile.bannerUrl
+              ? "mb-6"
+              : "mb-6 -mx-4 px-4 pt-4 pb-2 bg-gradient-to-b from-primary/[0.09] via-transparent to-transparent sm:rounded-t-lg"
+          }
+        >
+          {(() => {
+            // Avatar (anel de vidro) extraído pra variável e reaproveitado
+            // nos dois ramos abaixo (com capa / sem capa) — mesmo desenho,
+            // só muda o container que o posiciona.
+            const avatarGlass = (
+              <>
+                <div
+                  className="absolute -inset-0.5 rounded-full border border-white/40 shadow-[0_4px_18px_rgba(0,0,0,0.35)] backdrop-blur-md backdrop-saturate-150"
+                  style={{
+                    background: "radial-gradient(65% 65% at 28% 22%, rgba(255,255,255,0.3), transparent 60%), rgba(255,255,255,0.10)",
+                  }}
+                  aria-hidden="true"
+                />
+                <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-surface">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo pra configurar em next/image
+                    <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-lg font-semibold text-muted">{initials(displayName)}</span>
+                  )}
+                </div>
+              </>
+            );
 
-        <div className="mt-4 flex gap-6">
-          <div>
-            <p className="text-sm font-bold text-text">{counts?.following ?? 0}</p>
-            <p className="text-xs text-muted">{t("profile.following")}</p>
-          </div>
-          <div>
-            <p className="text-sm font-bold text-text">{counts?.followers ?? 0}</p>
-            <p className="text-xs text-muted">{t("profile.followers")}</p>
-          </div>
-          <div>
-            <p className="text-sm font-bold text-text">0</p>
-            <p className="text-xs text-muted">{t("profile.comments")}</p>
-          </div>
+            const nameBlockContent = (
+              <>
+                <p className="truncate text-lg font-bold text-text">{displayName}</p>
+                <p className="truncate text-sm text-primary">@{profile.username}</p>
+                {joinedLine && <p className="truncate text-xs text-muted">{joinedLine}</p>}
+              </>
+            );
+
+            if (profile.bannerUrl) {
+              return (
+                <>
+                  {/*
+                   * ENTREGA 10 (a pedido, 2026-08-26 — depois de 2 rodadas
+                   * tentando alinhar avatar+nome LADO A LADO com a foto
+                   * sobreposta na capa (Entregas 8 e 9), o usuário mandou
+                   * um print de referência de um layout pronto (cards
+                   * "Roman Rouf Col." / "James Robertson") e pediu "copie
+                   * esse estilo": nome NUMA LINHA PRÓPRIA, ABAIXO do
+                   * avatar — não mais do lado. Essa mudança resolve os
+                   * dois problemas that vinham se arrastando ao mesmo
+                   * tempo, pela raiz, em vez de ficar ajustando margem:
+                   *
+                   * 1. Alinhamento: não existe mais NENHUMA tentativa de
+                   *    centralizar o texto contra o avatar (nem `flex
+                   *    items-center`, nem margem negativa calibrada à mão)
+                   *    — o texto só começa numa posição fixa, com respiro
+                   *    de sobra depois que o avatar termina. Não tem como
+                   *    desalinhar o que não está tentando se alinhar.
+                   * 2. Legibilidade em capas claras (pergunta feita pelo
+                   *    usuário) — o texto nunca mais chega perto da capa
+                   *    (fica bem abaixo dela, sempre em cima do fundo
+                   *    sólido do card), então nunca corre risco de ficar
+                   *    ilegível em cima de uma foto clara, não importa a
+                   *    cor da capa.
+                   *
+                   * Avatar continua IRMÃO da capa (não filho — ver Entrega
+                   * 8 pro motivo: filho seria cortado pelo `overflow-hidden`
+                   * dela), sobrepondo a borda de baixo com `-bottom-8`
+                   * (32px). O bloco de nome agora vem DEPOIS do wrapper
+                   * avatar+capa, em fluxo normal, com `pt-10` (40px) — testado
+                   * visualmente antes de aplicar (Playwright): dá um respiro
+                   * claro entre o avatar e o texto, igual à referência.
+                   */}
+                  <div className="relative mb-4">
+                    <div className="relative -mx-4 h-56 w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-surface shadow-lg shadow-black/30">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
+                      <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
+                      <div
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent"
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <div className="absolute -bottom-8 left-0 h-16 w-16">{avatarGlass}</div>
+                  </div>
+                  <div className="min-w-0 pt-10">{nameBlockContent}</div>
+                </>
+              );
+            }
+
+            return (
+              <div className="flex items-center gap-4">
+                <div className="relative h-16 w-16 shrink-0">{avatarGlass}</div>
+                <div className="min-w-0">{nameBlockContent}</div>
+              </div>
+            );
+          })()}
+
+          {profile.bio && <p className="mt-4 text-sm text-text">{profile.bio}</p>}
+        </div>
+
+        {/* "Vidro" (redesign âmbar/vidro, perfil público, 2026-08-26) — mesmas pílulas de vidro do cabeçalho do Perfil próprio (ProfileHeader.tsx), em vez de texto solto sem card nenhum por baixo. */}
+        <div className="flex gap-2.5">
+          {statPills.map((pill, index) => (
+            <div
+              key={pill.label}
+              className="flex-1 rounded-2xl border border-white/10 px-1.5 py-3 text-center backdrop-blur-md"
+              style={{
+                background:
+                  index === statPills.length - 1
+                    ? "radial-gradient(75% 90% at 22% 12%, rgba(255,255,255,0.18), transparent 60%), radial-gradient(70% 90% at 85% 100%, rgba(42,127,184,0.22), transparent 60%), rgba(255,255,255,0.10)"
+                    : "radial-gradient(75% 90% at 22% 12%, rgba(255,255,255,0.18), transparent 60%), rgba(255,255,255,0.10)",
+              }}
+            >
+              <p className="text-sm font-bold text-text">{pill.value}</p>
+              <p className="text-xs text-muted">{pill.label}</p>
+            </div>
+          ))}
         </div>
 
         <div className="mt-4 flex gap-2">
           {isOwnProfile ? (
+            // Botão "Editar" — trocado do contorno âmbar simples pela
+            // mesma pílula "gel" (borda clara + blur/saturação +
+            // gradiente âmbar) do botão "Editar" real de
+            // `ProfileHeader.tsx` (a pedido, "deixe igual ao perfil do
+            // usuário" — inclui os botões, não só foto/capa/nome).
             <Link
               href="/profile/edit"
-              className="inline-flex items-center justify-center rounded-lg border border-primary bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition-transform active:scale-[0.96]"
+              className="inline-flex items-center justify-center rounded-full border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-wide text-background backdrop-blur-[10px] backdrop-saturate-[160%] transition-transform active:scale-[0.96]"
+              style={{
+                background:
+                  "radial-gradient(130% 170% at 28% 18%, rgba(240,169,79,0.88) 0%, rgba(232,163,61,0.85) 42%, rgba(176,95,27,0.9) 100%)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -4px 7px rgba(120,66,10,0.4)",
+              }}
             >
-              {t("common.edit")}
+              {t("profile.edit")}
             </Link>
           ) : (
             <FollowButton targetUserId={profile.userId} />
@@ -142,12 +351,19 @@ export function PublicProfileView({ username }: { username: string }) {
           />
         </div>
 
+        {/*
+         * Ordem corrigida (a pedido, 2026-08-26 — "a sequencia de
+         * 'séries,séries favoritas,filmes,filmes favoritos' não está
+         * igual ao perfil usuário"): antes eram 2 componentes
+         * separados (Favoritos, depois Biblioteca), o que dava a
+         * ordem errada Séries favoritas → Filmes favoritos → Séries →
+         * Filmes. Agora é 1 componente só (`PublicMediaSectionsList`)
+         * que intercala os 4 carrosséis na ordem real do Perfil
+         * próprio: Séries → Séries favoritas → Filmes → Filmes
+         * favoritos (ver `ProfileSectionsList.tsx`).
+         */}
         <div className="mt-6">
-          <PublicFavoritesSection userId={profile.userId} />
-        </div>
-
-        <div className="mt-6">
-          <PublicLibrarySection userId={profile.userId} />
+          <PublicMediaSectionsList userId={profile.userId} username={profile.username} />
         </div>
       </div>
     </div>

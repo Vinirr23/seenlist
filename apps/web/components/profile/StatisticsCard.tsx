@@ -13,15 +13,12 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * só, clicável, prévia de 4 números — leva pra /profile/stats. Mesmo
  * hook de sempre (useProfileStats), nenhum cálculo novo.
  *
- * Redesign (a pedido) — degradê dourado→verde-água sutil (identidade
- * do app, não a paleta roxa da referência trazida), um ícone por
- * métrica, e "Ver detalhes" como pílula preenchida em vez de só a
- * seta — mais convite a clicar, sem virar botão de verdade dentro de
- * um Link (o card inteiro já é clicável).
- *
- * Tradução (4º lote) — inclui o formatador de número, que segue o
- * idioma escolhido (`INTL_LOCALES`, mesmo raciocínio de
- * ProfileHeader).
+ * "Vidro iluminado" (mockup-perfil-atual-vidro, 2026-08-21) — o card
+ * virou vidro de verdade: fundo translúcido + `backdrop-blur` (antes
+ * era um gradiente quase opaco, sem transparência real nenhuma).
+ * Ganhou a mancha de luz concentrada num canto (branca) + um reflexo
+ * azulado no canto oposto, e o "Ver detalhes" virou pílula "gel"
+ * translúcida em vez de pílula sólida.
  */
 export function StatisticsCard() {
   const { data: stats, isLoading, isError } = useProfileStats();
@@ -50,24 +47,52 @@ export function StatisticsCard() {
   ];
 
   return (
-    <Link
-      href="/profile/stats"
-      className="mb-6 block overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/[0.14] via-surface to-secondary/[0.08] p-4 transition-colors hover:border-primary/40"
+    <div
+      className="relative mb-6 overflow-hidden rounded-2xl border border-white/10 p-4 backdrop-blur-[22px] backdrop-saturate-[180%]"
+      style={{
+        background:
+          "radial-gradient(55% 65% at 14% 10%, rgba(255,255,255,0.17), transparent 55%), radial-gradient(50% 55% at 92% 100%, rgba(42,127,184,0.18), transparent 60%), rgba(255,255,255,0.09)",
+        boxShadow:
+          "0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.16), inset 0 -1px 0 rgba(0,0,0,0.15)",
+      }}
     >
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-primary" strokeWidth={2} />
           <h2 className="text-sm font-semibold text-text">{t("stats.title")}</h2>
         </div>
-        <span className="flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-background">
+        {/*
+         * Correção (a pedido — "deixe 'ver detalhes' preto e
+         * maiúsculo") — texto passou de `text-text` (creme) pra preto
+         * (`text-background`, o mesmo tom escuro usado em botões
+         * sólidos âmbar no resto do app — ex.: os pills de "Ver todas"
+         * de DiscoverCarousel.tsx — pra contraste ficar bom sobre o
+         * gradiente âmbar claro) + `uppercase font-bold` (era
+         * `font-normal`, minúsculo). Este botão virou o "padrão" pra
+         * todo botão do app — ver histórico no doc de sessão.
+         */}
+        <Link
+          href="/profile/stats"
+          className="flex items-center gap-1 rounded-full border border-white/15 px-3.5 py-2 text-[11px] font-bold uppercase tracking-wide text-background backdrop-blur-[10px] backdrop-saturate-[160%]"
+          style={{
+            background:
+              "radial-gradient(130% 170% at 28% 18%, rgba(240,169,79,0.88) 0%, rgba(232,163,61,0.85) 42%, rgba(176,95,27,0.9) 100%)",
+            // Correção (a pedido — "tira o brilho que tem por trás de
+            // todos eles, inclusive no 'ver detalhes'") — removido o
+            // halo âmbar (as duas sombras externas, coloridas e bem
+            // desfocadas, que vazavam por trás do botão). Mantidas só
+            // as sombras internas (o "gel"/relevo da própria pílula).
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -4px 7px rgba(120,66,10,0.4)",
+          }}
+        >
           {t("stats.seeDetails")}
           <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
-        </span>
+        </Link>
       </div>
       <div className="grid grid-cols-2 gap-4">
         {preview.map((item) => (
           <div key={item.label} className="flex items-center gap-2.5">
-            <item.icon className="h-4 w-4 shrink-0 text-secondary" strokeWidth={2} />
+            <item.icon className="h-4 w-4 shrink-0 text-primary" strokeWidth={2} />
             <div className="min-w-0">
               <p className="truncate text-lg font-bold text-text">{item.value}</p>
               <p className="truncate text-xs text-muted">{item.label}</p>
@@ -75,6 +100,6 @@ export function StatisticsCard() {
           </div>
         ))}
       </div>
-    </Link>
+    </div>
   );
 }

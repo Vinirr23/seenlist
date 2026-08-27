@@ -45,15 +45,28 @@ export function AddToLibraryButton({ mediaType, mediaId, className }: AddToLibra
   }
 
   return (
+    // Correção (a pedido — "continua como estava, só coloque um efeito
+    // de vidro, mas não é pra deixar ele âmbar") — revertido de volta
+    // pro formato/cor original (quadrado levemente arredondado,
+    // contorno e ícone âmbar — `border-primary text-primary`, não o
+    // "gel" preto do "Ver detalhes"). Só o FUNDO virou vidro de
+    // verdade: era `bg-background/80` (chapado, translúcido simples)
+    // + `backdrop-blur-sm` (blur fraco); agora tem blur/saturação mais
+    // fortes + um leve brilho branco no canto (mesmo princípio dos
+    // ícones de vidro sobre a capa em ProfileHeader.tsx), mas o fundo
+    // continua escuro/neutro — nada de âmbar aqui.
     <button
       type="button"
       onClick={handleClick}
       disabled={isPending}
       aria-label={isAdded ? t("explore.alreadyInLibrary") : t("explore.addToLibrary")}
       className={cn(
-        "flex h-7 w-7 items-center justify-center rounded border-2 border-primary bg-background/80 text-primary backdrop-blur-sm transition-transform active:scale-90 disabled:opacity-60",
+        "flex h-7 w-7 items-center justify-center rounded border-2 border-primary text-primary backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-90 disabled:opacity-60",
         className
       )}
+      style={{
+        background: "radial-gradient(65% 65% at 28% 22%, rgba(255,255,255,0.18), transparent 60%), rgba(11,14,20,0.55)",
+      }}
     >
       {isAdded ? <Check className="h-4 w-4" strokeWidth={2.5} /> : <Plus className="h-4 w-4" strokeWidth={2.5} />}
     </button>

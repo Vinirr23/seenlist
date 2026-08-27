@@ -131,6 +131,17 @@ export async function computeYearInReview(year: number): Promise<YearInReview> {
         .eq("is_special", false)
         .gte("watched_at", yearStart)
         .lt("watched_at", yearEnd)
+        // CORREÇÃO (paginação sem .order() — mesma causa raiz já
+        // corrigida em seriesCategoryRecalc.ts/repair-series-categories/
+        // route.ts/library-state.ts/seriesDetails.ts): sem ordem
+        // explícita, o Postgres não garante o mesmo recorte de página
+        // entre chamadas paralelas. Ordena pela chave que sobra do PK
+        // (user_id, series_id, season_number, episode_number) depois do
+        // filtro por user_id — PostgREST permite ordenar por coluna que
+        // não está no .select().
+        .order("series_id", { ascending: true })
+        .order("season_number", { ascending: true })
+        .order("episode_number", { ascending: true })
         .range(from, from + WATCHED_EPISODES_PAGE_SIZE - 1);
     })
   );

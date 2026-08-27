@@ -65,7 +65,13 @@ export function FeedbackView() {
       </div>
 
       {sent ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface px-4 py-10 text-center">
+        // "Vidro" (mesmo padrão dos chips neutros do Explorar)
+        <div
+          className="flex flex-col items-center gap-3 rounded-xl border border-white/10 px-4 py-10 text-center backdrop-blur-[10px] backdrop-saturate-[160%]"
+          style={{
+            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+          }}
+        >
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
             <Check className="h-6 w-6" strokeWidth={2.5} />
           </div>
@@ -86,15 +92,23 @@ export function FeedbackView() {
             <div className="flex flex-col gap-2">
               {TYPE_VALUES.map((option) => {
                 const selected = type === option.value;
+                // "Vidro" (mesmo padrão dos chips neutros do Explorar — só no estado não selecionado)
                 return (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => setType(option.value)}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
-                      selected ? "border-primary bg-primary/10 text-primary" : "border-border bg-surface text-text"
+                      "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm backdrop-blur-[10px] backdrop-saturate-[160%] transition-colors",
+                      selected ? "border-primary bg-primary/10 text-primary" : "border-white/10 text-text"
                     )}
+                    style={
+                      selected
+                        ? undefined
+                        : {
+                            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+                          }
+                    }
                   >
                     <option.icon className="h-4 w-4" strokeWidth={2} />
                     {t(TYPE_LABEL_KEYS[option.value])}

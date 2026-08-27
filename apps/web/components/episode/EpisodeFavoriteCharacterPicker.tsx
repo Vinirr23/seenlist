@@ -52,11 +52,15 @@ export function EpisodeFavoriteCharacterPicker({
             }}
             className="w-20 shrink-0 text-center"
           >
+            {/* "Vidro" (mesmo padrão de DiscoverCard.tsx) */}
             <div
               className={cn(
-                "relative mx-auto h-20 w-20 overflow-hidden rounded-full bg-surface ring-2 transition-colors",
+                "relative mx-auto h-20 w-20 overflow-hidden rounded-full border border-white/10 ring-2 backdrop-blur-[14px] backdrop-saturate-[180%] transition-colors",
                 selected ? "ring-primary" : "ring-transparent"
               )}
+              style={{
+                background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+              }}
             >
               {character.imageUrl ? (
                 <Image src={character.imageUrl} alt={character.name} fill sizes="80px" className="object-cover" />

@@ -9,7 +9,7 @@ import { useEpisodeSeriesContext, type EpisodeContextSeason } from "@/lib/querie
 import { useSeriesStatus } from "@/lib/queries/series-status-state";
 import { getSeriesCategoryByStatus } from "@/lib/series-categories";
 import { useEpisodeDetails } from "@/lib/queries/episode-details";
-import { useWatchedEpisodes, isEpisodeWatched } from "@/lib/queries/watched-episodes-state";
+import { useWatchedEpisodes, useWatchedEpisodeIds, isEpisodeWatched } from "@/lib/queries/watched-episodes-state";
 import { useToggleEpisodeWatched } from "@/lib/queries/watched-episodes-mutations";
 import { useCommentCount } from "@/lib/queries/social/comments";
 import { useMyReview, useUpsertReview, useReviewAggregate } from "@/lib/queries/social/reviews";
@@ -103,9 +103,11 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   const categoryColorClass = currentStatus ? getSeriesCategoryByStatus(currentStatus)?.barColorClass : undefined;
   const { data: episodePage, isLoading, isError, refetch } = useEpisodeDetails(seriesId, season, episode);
   const { data: watched } = useWatchedEpisodes(seriesIdNum);
+  // CORREÇÃO (2026-08-26 — "motor resistente") — ver isEpisodeWatched (watched-episodes-state.ts).
+  const { data: watchedEpisodeIds } = useWatchedEpisodeIds(seriesIdNum);
   const toggleWatched = useToggleEpisodeWatched(seriesIdNum);
   const [showUnwatchedCommentWarning, setShowUnwatchedCommentWarning] = useState(false);
-  const hasWatchedThisEpisode = isEpisodeWatched(watched, season, episode);
+  const hasWatchedThisEpisode = isEpisodeWatched(watched, season, episode, episodePage?.episode.id, watchedEpisodeIds);
   const commentsHref = `/series/${seriesIdNum}/season/${season}/episode/${episode}/comments`;
   const { data: commentCount = 0 } = useCommentCount({
     mediaType: "series",
@@ -168,13 +170,19 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
     return currentSeason ? [...currentSeason.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber) : [];
   }, [seriesContext?.seasons, season]);
 
-  const isWatched = isEpisodeWatched(watched, season, episode);
+  const isWatched = isEpisodeWatched(watched, season, episode, episodePage?.episode.id, watchedEpisodeIds);
 
   const touchStartX = useRef<number | null>(null);
 
   function handleToggleWatched() {
     hapticTick();
-    toggleWatched.mutate({ seasonNumber: season, episodeNumber: episode, watched: isWatched });
+    // CORREÇÃO (2026-08-26 — "motor resistente", ver watched-episodes-mutations.ts) — `episodePage.episode.id` é o ID fixo da TMDB pra este episódio específico, já buscado por `useEpisodeDetails` acima.
+    toggleWatched.mutate({
+      seasonNumber: season,
+      episodeNumber: episode,
+      watched: isWatched,
+      episodeId: episodePage?.episode.id,
+    });
   }
 
   async function handleShare() {
@@ -254,7 +262,19 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
   const episodeCode = `T${String(season).padStart(2, "0")} | E${String(episode).padStart(2, "0")}`;
 
   return (
-    <div className="mx-auto max-w-[430px] pb-28">
+    <div className="relative mx-auto max-w-[430px] pb-28">
+      {/*
+       * "Vidro" (mesmo padrão do Perfil/Explorar/Biblioteca/Série) — campo de
+       * manchas desfocadas atrás do conteúdo. Começa só depois da imagem do
+       * episódio (que já tem fundo opaco próprio), senão ficaria escondido.
+       */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "460px", left: "-22%", background: "#1B4B7A" }} />
+        <div className="absolute h-60 w-60 rounded-full opacity-40 blur-[60px]" style={{ top: "700px", right: "-20%", background: "#2A7FB8" }} />
+        <div className="absolute h-56 w-56 rounded-full opacity-35 blur-[60px]" style={{ top: "950px", left: "-18%", background: "#0D3B5C" }} />
+      </div>
+
+      <div className="relative">
       <div className="flex items-center gap-2 px-3 pb-2 pt-3">
         <button
           type="button"
@@ -300,11 +320,15 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
               <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
             </Link>
           )}
+          {/* "Vidro" (mesmo padrão dos ícones de editar/configurações do Perfil, ProfileHeader.tsx) */}
           <button
             type="button"
             onClick={handleShare}
             aria-label={t("episode.shareEpisode")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 text-white shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-90"
+            style={{
+              background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+            }}
           >
             <Share2 className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -359,7 +383,13 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
               />
             </section>
 
-            <section className="rounded-lg border border-border bg-surface p-3">
+            {/* "Vidro" (mesmo padrão dos chips neutros do Explorar) */}
+            <section
+              className="rounded-lg border border-white/10 p-3 backdrop-blur-[10px] backdrop-saturate-[160%]"
+              style={{
+                background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+              }}
+            >
               <h2 className="mb-1 text-center text-sm font-medium text-text">{t("episode.rateThisEpisode")}</h2>
               <EpisodeStarRatingRow
                 value={myRating?.rating ?? 0}
@@ -393,7 +423,13 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
           </>
         )}
 
-        <section className="rounded-lg border border-border bg-surface p-4">
+        {/* "Vidro" (mesmo padrão dos chips neutros do Explorar) */}
+        <section
+          className="rounded-lg border border-white/10 p-4 backdrop-blur-[10px] backdrop-saturate-[160%]"
+          style={{
+            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+          }}
+        >
           <h2 className="mb-3 text-sm font-semibold text-text">{t("episode.episodeInfo")}</h2>
           {ratingAggregate && ratingAggregate.count > 0 ? (
             <div className="mb-3">
@@ -425,11 +461,16 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
        * tudo normalmente (só o "contém spoiler" manual do autor
        * continua escondendo comentário individual, isso não mudou).
        */}
+      {/* "Vidro" (mesmo padrão da pílula "gel" âmbar — aba ativa/CTA primário de ExploreTabs.tsx/StatisticsCard.tsx) */}
       {hasWatchedThisEpisode ? (
         <Link
           href={commentsHref}
-          className="fixed left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-background shadow-lg"
-          style={{ bottom: FLOATING_BUTTON_BOTTOM_OFFSET }}
+          className="fixed left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full border border-white/15 py-3 text-sm font-bold text-background shadow-lg"
+          style={{
+            bottom: FLOATING_BUTTON_BOTTOM_OFFSET,
+            background: "radial-gradient(130% 170% at 28% 18%, rgba(240,169,79,0.88) 0%, rgba(232,163,61,0.85) 42%, rgba(176,95,27,0.9) 100%)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -4px 7px rgba(120,66,10,0.4)",
+          }}
         >
           <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
           {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}
@@ -439,8 +480,12 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
         <button
           type="button"
           onClick={() => setShowUnwatchedCommentWarning(true)}
-          className="fixed left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-background shadow-lg"
-          style={{ bottom: FLOATING_BUTTON_BOTTOM_OFFSET }}
+          className="fixed left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 items-center justify-center gap-2 rounded-full border border-white/15 py-3 text-sm font-bold text-background shadow-lg"
+          style={{
+            bottom: FLOATING_BUTTON_BOTTOM_OFFSET,
+            background: "radial-gradient(130% 170% at 28% 18%, rgba(240,169,79,0.88) 0%, rgba(232,163,61,0.85) 42%, rgba(176,95,27,0.9) 100%)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -4px 7px rgba(120,66,10,0.4)",
+          }}
         >
           <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
           {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}
@@ -459,6 +504,7 @@ export function EpisodeDetailView({ seriesId, season, episode }: EpisodeDetailVi
           ]}
         />
       )}
+      </div>
     </div>
   );
 }

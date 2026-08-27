@@ -54,7 +54,13 @@ export function ReviewFullComposer({
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+    // "Vidro" (redesign âmbar/vidro, 2026-08-26 — Comentários/Avaliações) — mesma textura de card neutro do resto do app; textarea/checkbox internos ficam como estão (campos de formulário não recebem vidro, mesmo critério já usado em toda a Série/Filme/Episódio/Configurações).
+    <div
+      className="space-y-3 rounded-2xl border border-white/10 p-3.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+      }}
+    >
       <StarRating value={rating} onChange={setRating} />
 
       <textarea

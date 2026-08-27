@@ -9,7 +9,13 @@
  */
 export function MetaRow({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-surface px-3 py-2.5">
+    // "Vidro" (mesmo padrão dos chips neutros do Explorar) — borda clara + blur/saturação em vez de `bg-surface` opaco.
+    <div
+      className="rounded-xl border border-white/10 px-3 py-2.5 backdrop-blur-[10px] backdrop-saturate-[160%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+      }}
+    >
       {icon}
       <p className="truncate text-sm font-semibold text-text">{value}</p>
       <p className="text-[11px] text-muted">{label}</p>

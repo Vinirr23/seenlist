@@ -12,6 +12,40 @@ import { env } from "@/lib/env";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 /**
+ * CORREÇÃO (bug real, investigado — Bleach preso em "Em dia" mesmo
+ * com episódio pendente de verdade) — causa raiz: `tmdbGet` nunca
+ * tentava de novo quando o TMDB respondia com erro passageiro (429 =
+ * excesso de pedidos simultâneos, ou 5xx = instabilidade momentânea
+ * do lado do TMDB). Isso não dava problema pra série comum (poucas
+ * chamadas), mas `getAllEpisodesWithAirDates` (abaixo) dispara UMA
+ * chamada por TEMPORADA — séries com catálogo muito grande (Bleach
+ * tem mais de 15 temporadas no TMDB, um anime longo dividido por
+ * arco de história) disparavam uma rajada grande o bastante pra
+ * esbarrar em limite de requisições simultâneas. Quando isso
+ * acontecia, a temporada que falhava era simplesmente descartada
+ * (ver `Promise.allSettled` logo abaixo) — silenciosamente, sem
+ * avisar ninguém — e se fosse justo a temporada com o episódio
+ * pendente, o app concluía errado que a série estava "em dia".
+ *
+ * Só tenta de novo pra erros que fazem sentido tentar de novo (429/5xx
+ * ou falha de rede) — erro "permanente" (404, por exemplo) continua
+ * falhando na hora, sem atraso à toa. Respeita o cabeçalho
+ * `Retry-After` do TMDB quando ele vem preenchido (é o próprio TMDB
+ * dizendo quanto tempo esperar); sem isso, espera crescente (300ms,
+ * depois 600ms) antes de desistir de vez.
+ */
+const TMDB_MAX_RETRIES = 2; // total de até 3 tentativas (1 original + 2 retentativas)
+const TMDB_RETRY_BASE_DELAY_MS = 300;
+
+function isRetryableTmdbStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
  * Único helper de baixo nível que efetivamente chama api.themoviedb.org.
  * Todas as funções deste arquivo passam por aqui — é o que dá pra
  * chamar de "client centralizado" e evita duplicar a lógica de
@@ -23,20 +57,40 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}, rev
   url.searchParams.set("language", "pt-BR");
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
-  const response = await fetch(url, {
-    // TMDB muda pouco de um minuto pro outro — 5 min de cache no
-    // fetch do Next complementa (não substitui) o cache de 5 min do
-    // React Query no client. Alguns dados (gênero, por exemplo) quase
-    // NUNCA mudam — essas chamadas passam um `revalidateSeconds` bem
-    // maior (ver `getGenreMap`), em vez de tratar tudo igual.
-    next: { revalidate: revalidateSeconds },
-  });
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= TMDB_MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, {
+        // TMDB muda pouco de um minuto pro outro — 5 min de cache no
+        // fetch do Next complementa (não substitui) o cache de 5 min do
+        // React Query no client. Alguns dados (gênero, por exemplo) quase
+        // NUNCA mudam — essas chamadas passam um `revalidateSeconds` bem
+        // maior (ver `getGenreMap`), em vez de tratar tudo igual.
+        next: { revalidate: revalidateSeconds },
+      });
 
-  if (!response.ok) {
-    throw new Error(`TMDB respondeu ${response.status} em ${path}`);
+      if (response.ok) {
+        return (await response.json()) as T;
+      }
+
+      if (!isRetryableTmdbStatus(response.status) || attempt === TMDB_MAX_RETRIES) {
+        throw new Error(`TMDB respondeu ${response.status} em ${path}`);
+      }
+
+      const retryAfterHeader = response.headers.get("Retry-After");
+      const retryAfterMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : NaN;
+      const delayMs = Number.isFinite(retryAfterMs) ? retryAfterMs : TMDB_RETRY_BASE_DELAY_MS * 2 ** attempt;
+      console.error(`[tmdb] Resposta ${response.status} em ${path} — tentando de novo em ${delayMs}ms (tentativa ${attempt + 1}/${TMDB_MAX_RETRIES}).`);
+      await sleep(delayMs);
+    } catch (error) {
+      lastError = error;
+      if (attempt === TMDB_MAX_RETRIES) throw error;
+      await sleep(TMDB_RETRY_BASE_DELAY_MS * 2 ** attempt);
+    }
   }
 
-  return response.json() as Promise<T>;
+  // Inatingível na prática (o loop sempre retorna ou lança antes) — só pra satisfazer o typecheck.
+  throw lastError instanceof Error ? lastError : new Error(`TMDB falhou em ${path}`);
 }
 
 /**
@@ -145,6 +199,8 @@ interface TmdbTvDetailsResponse {
   poster_path: string | null;
   first_air_date: string | null;
   status: string;
+  /** CORREÇÃO (2026-08-26) — ver `SeriesDetails.inProduction` em packages/types/src/index.ts pro porquê. */
+  in_production: boolean;
   number_of_seasons: number;
   number_of_episodes: number;
   genres: { id: number; name: string }[];
@@ -180,6 +236,11 @@ export interface SeriesSeasonSummary {
    * Usado pelo importador GDPR pra aplicar a mesma correção
    * watching→completed que a Biblioteca já faz (ver
    * `correctStatusWithLiveTmdb.ts`).
+   *
+   * CORREÇÃO (2026-08-26) — agora também exige `!in_production` (ver
+   * `SeriesDetails.inProduction`), mesma correção aplicada em
+   * `getSeriesSummary` — `status` sozinho pode ficar "Ended" mesmo com
+   * renovação já anunciada.
    */
   ended: boolean;
 }
@@ -197,7 +258,11 @@ export async function getSeriesSeasonSummary(seriesId: number): Promise<SeriesSe
     numberOfSeasons: data.number_of_seasons,
     seasons: data.seasons.map((season) => ({ seasonNumber: season.season_number, episodeCount: season.episode_count })),
     alternativeTitles: (data.alternative_titles?.results ?? []).map((entry) => entry.title),
-    ended: data.status === "Ended" || data.status === "Canceled",
+    // CORREÇÃO (2026-08-26) — `status` sozinho não basta (ver comentário
+    // grande em `SeriesDetails.inProduction`, packages/types/src/index.ts):
+    // só considera realmente encerrada se a TMDB TAMBÉM não marcar produção
+    // em andamento.
+    ended: (data.status === "Ended" || data.status === "Canceled") && !data.in_production,
   };
 }
 
@@ -252,7 +317,11 @@ export async function getSeriesDetails(
   seriesId: string,
   language = "pt-BR"
 ): Promise<Omit<SeriesDetails, "seasons">> {
-  const [data, englishData] = await Promise.all([
+  // A PEDIDO (2026-08-25) — "onde assistir" também pra série. Reaproveita
+  // `getSeriesWatchProviders`, que já existia (TASK-030, usada pela tela
+  // de Episódio) mas nunca tinha sido chamada aqui — busca em paralelo com
+  // o resto, mesmo padrão de `getMovieDetails`.
+  const [data, englishData, watchProviders] = await Promise.all([
     tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, {
       append_to_response: "credits,recommendations,similar,alternative_titles,videos,images",
       language,
@@ -272,6 +341,7 @@ export async function getSeriesDetails(
     // tela), não tem relação com o idioma que a pessoa está usando
     // no app. Não confundir com o `language` do parâmetro acima.
     tmdbGet<{ name: string }>(`/tv/${seriesId}`, { language: "en-US" }).catch(() => null),
+    getSeriesWatchProviders(seriesId),
   ]);
 
   const cast: CastMember[] = (data.credits?.cast ?? []).slice(0, 15).map((member) => ({
@@ -323,15 +393,21 @@ export async function getSeriesDetails(
     posterPath: data.poster_path,
     firstAirDate: data.first_air_date,
     status: data.status,
+    inProduction: data.in_production,
     numberOfSeasons: data.number_of_seasons,
     numberOfEpisodes: data.number_of_episodes,
-    genres: data.genres.map((genre) => genre.name),
+    // CORREÇÃO (ver `translateTvGenreName`, achado real investigando
+    // "chips de gênero de série em inglês", 2026-08-22) — mesmo gap do
+    // TMDB (8 gêneros de série nunca traduzidos pro português) também
+    // vazava aqui, na tela de detalhe da série.
+    genres: data.genres.map((genre) => translateTvGenreName(genre.name, language)),
     networks: data.networks.map((network) => network.name),
     voteAverage: data.vote_average,
     voteCount: data.vote_count,
     trailerKey: trailer?.key ?? null,
     gallery,
     cast,
+    watchProviders,
     similar,
   };
 }
@@ -376,22 +452,43 @@ interface TmdbSeriesSeasonsResponse {
  * outras. Ignora temporada 0 (especiais), mesma convenção do resto
  * do projeto.
  */
+/**
+ * CORREÇÃO (junto com o retry em `tmdbGet`, acima — mesmo bug do
+ * Bleach) — antes, esta função disparava UMA chamada por temporada,
+ * TODAS ao mesmo tempo (`Promise.allSettled` sem nenhum limite).
+ * Pra série com poucas temporadas isso nunca foi problema, mas pra
+ * catálogo grande (Bleach, 15+ temporadas) virava uma rajada de 15+
+ * chamadas simultâneas — exatamente o cenário mais propenso a
+ * esbarrar em limite de requisições do TMDB. Agora busca em levas
+ * menores (`SEASON_FETCH_BATCH_SIZE` temporadas por vez, uma leva
+ * depois da outra) — reduz o tamanho da rajada sem abrir mão do
+ * paralelismo dentro de cada leva. Combinado com o retry de
+ * `tmdbGet`, uma falha isolada de UMA temporada agora tem duas
+ * camadas de proteção: tenta de novo sozinha (retry) e, mesmo assim
+ * falhando, não competia com 14 outras chamadas ao mesmo tempo
+ * (leva menor).
+ */
+const SEASON_FETCH_BATCH_SIZE = 5;
+
 export async function getAllEpisodesWithAirDates(seriesId: string, language = "pt-BR"): Promise<Episode[]> {
   const seasonsData = await tmdbGet<TmdbSeriesSeasonsResponse>(`/tv/${seriesId}`);
   const seasonNumbers = seasonsData.seasons.filter((s) => s.season_number >= 1).map((s) => s.season_number);
 
-  const settled = await Promise.allSettled(seasonNumbers.map((n) => getSeasonEpisodes(seriesId, n, language)));
   const episodes: Episode[] = [];
-  settled.forEach((outcome, index) => {
-    if (outcome.status === "fulfilled") {
-      episodes.push(...outcome.value);
-    } else {
-      console.error(
-        `[tmdb] Falha ao buscar temporada ${seasonNumbers[index]} da série ${seriesId} — as demais temporadas não são afetadas.`,
-        outcome.reason
-      );
-    }
-  });
+  for (let i = 0; i < seasonNumbers.length; i += SEASON_FETCH_BATCH_SIZE) {
+    const batch = seasonNumbers.slice(i, i + SEASON_FETCH_BATCH_SIZE);
+    const settled = await Promise.allSettled(batch.map((n) => getSeasonEpisodes(seriesId, n, language)));
+    settled.forEach((outcome, index) => {
+      if (outcome.status === "fulfilled") {
+        episodes.push(...outcome.value);
+      } else {
+        console.error(
+          `[tmdb] Falha ao buscar temporada ${batch[index]} da série ${seriesId} — as demais temporadas não são afetadas.`,
+          outcome.reason
+        );
+      }
+    });
+  }
   return episodes;
 }
 
@@ -717,6 +814,8 @@ interface TmdbSeriesSummaryResponse {
   number_of_episodes: number;
   /** "Returning Series" | "Ended" | "Canceled" | "In Production" | "Planned" | "Pilot" */
   status: string;
+  /** CORREÇÃO (2026-08-26) — ver `SeriesDetails.inProduction` em packages/types/src/index.ts pro porquê. */
+  in_production: boolean;
   /** Nem toda série preenche isso no TMDB — por isso o fallback abaixo. */
   episode_run_time: number[];
   seasons: { season_number: number; episode_count: number }[];
@@ -750,9 +849,18 @@ export async function getSeriesSummary(seriesId: number, language = "pt-BR"): Pr
     year: data.first_air_date ? Number(data.first_air_date.slice(0, 4)) || null : null,
     posterPath: data.poster_path,
     totalEpisodes: totalEpisodesExcludingSpecials || data.number_of_episodes,
-    ended: data.status === "Ended" || data.status === "Canceled",
+    // CORREÇÃO (2026-08-26) — `status` sozinho não basta (ver comentário
+    // grande em `SeriesDetails.inProduction`, packages/types/src/index.ts):
+    // só considera realmente encerrada se a TMDB TAMBÉM não marcar produção
+    // em andamento.
+    ended: (data.status === "Ended" || data.status === "Canceled") && !data.in_production,
     runtimeMinutes: data.episode_run_time?.[0] || DEFAULT_EPISODE_RUNTIME_MINUTES,
-    genres: (data.genres ?? []).map((g) => g.name),
+    // CORREÇÃO (ver `translateTvGenreName` acima) — sem isso, séries
+    // com gêneros como "Action & Adventure"/"Sci-Fi & Fantasy" salvam
+    // esse nome em INGLÊS em `media_summaries_cache`, mesmo pedindo
+    // `language=pt-BR` — o TMDB nunca traduziu esses 8 gêneros de
+    // série pro português.
+    genres: (data.genres ?? []).map((g) => translateTvGenreName(g.name, language)),
   };
 }
 
@@ -824,7 +932,19 @@ export interface DiscoverItem {
   voteAverage: number;
 }
 
+/**
+ * A PEDIDO ("existe um limite de séries e filmes recomendados?" →
+ * "implemente isso", 2026-08-22) — até aqui, toda função desta seção
+ * só buscava a página 1 do TMDB (até 20 títulos) e parava por aí, sem
+ * jeito nenhum de pedir mais. `page`/`total_pages` já vinham em TODA
+ * resposta de listagem do TMDB, só ninguém capturava. Pergunta feita
+ * ao usuário (AskUserQuestion): paginação só nas telas "ver todos"
+ * (grade) — os carrosséis da tela principal continuam mostrando só a
+ * página 1 (~20 títulos), sem mudança nenhuma no comportamento deles.
+ */
 interface TmdbListResponse {
+  page: number;
+  total_pages: number;
   results: {
     id: number;
     title?: string;
@@ -836,6 +956,12 @@ interface TmdbListResponse {
     genre_ids: number[];
     vote_average: number;
   }[];
+}
+
+export interface DiscoverPage {
+  items: DiscoverItem[];
+  page: number;
+  totalPages: number;
 }
 
 function fromListRow(row: TmdbListResponse["results"][number], mediaType: "movie" | "series"): DiscoverItem {
@@ -852,6 +978,17 @@ function fromListRow(row: TmdbListResponse["results"][number], mediaType: "movie
   };
 }
 
+function toDiscoverPage(data: TmdbListResponse, mediaType: "movie" | "series"): DiscoverPage {
+  return {
+    items: data.results.map((r) => fromListRow(r, mediaType)),
+    page: data.page,
+    // TMDB nunca devolve `total_pages` maior que 500, mesmo quando o
+    // total de resultados sugeriria mais — limite do próprio TMDB,
+    // não nosso; repassado como veio, sem tentar "corrigir".
+    totalPages: data.total_pages,
+  };
+}
+
 /*
  * A PEDIDO — as capas do onboarding (mobile) sempre vinham com título
  * em português, mesmo com o app noutro idioma. Causa: `tmdbGet` já
@@ -860,50 +997,242 @@ function fromListRow(row: TmdbListResponse["results"][number], mediaType: "movie
  * aqui — o padrão pt-BR (linha ~23) sempre vencia. `language`
  * opcional, default `"pt-BR"` (preserva TODO comportamento já
  * existente em quem chama sem passar nada — só o onboarding passa o
- * idioma real do app agora).
+ * idioma real do app agora). `page` opcional, default `1` — mesmo
+ * motivo: preserva o comportamento de quem chama sem passar nada
+ * (os carrosséis da tela principal, que nunca pedem outra página).
  */
-export async function getTrendingSeries(language = "pt-BR"): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/trending/tv/week", { language });
-  return data.results.map((r) => fromListRow(r, "series"));
+export async function getTrendingSeries(page = 1, language = "pt-BR"): Promise<DiscoverPage> {
+  const data = await tmdbGet<TmdbListResponse>("/trending/tv/week", { language, page: String(page) });
+  return toDiscoverPage(data, "series");
 }
 
-export async function getTrendingMovies(language = "pt-BR"): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/trending/movie/week", { language });
-  return data.results.map((r) => fromListRow(r, "movie"));
+export async function getTrendingMovies(page = 1, language = "pt-BR"): Promise<DiscoverPage> {
+  const data = await tmdbGet<TmdbListResponse>("/trending/movie/week", { language, page: String(page) });
+  return toDiscoverPage(data, "movie");
 }
 
-export async function getPopularSeries(language = "pt-BR"): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/tv/popular", { language });
-  return data.results.map((r) => fromListRow(r, "series"));
+export async function getPopularSeries(page = 1, language = "pt-BR"): Promise<DiscoverPage> {
+  const data = await tmdbGet<TmdbListResponse>("/tv/popular", { language, page: String(page) });
+  return toDiscoverPage(data, "series");
 }
 
-export async function getPopularMovies(language = "pt-BR"): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/movie/popular", { language });
-  return data.results.map((r) => fromListRow(r, "movie"));
+export async function getPopularMovies(page = 1, language = "pt-BR"): Promise<DiscoverPage> {
+  const data = await tmdbGet<TmdbListResponse>("/movie/popular", { language, page: String(page) });
+  return toDiscoverPage(data, "movie");
 }
 
-export async function getUpcomingMovies(language = "pt-BR"): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/movie/upcoming", { language });
-  return data.results.map((r) => fromListRow(r, "movie"));
+export async function getUpcomingMovies(page = 1, language = "pt-BR"): Promise<DiscoverPage> {
+  const data = await tmdbGet<TmdbListResponse>("/movie/upcoming", { language, page: String(page) });
+  return toDiscoverPage(data, "movie");
 }
 
-export async function getOnTheAirSeries(language = "pt-BR"): Promise<DiscoverItem[]> {
-  const data = await tmdbGet<TmdbListResponse>("/tv/on_the_air", { language });
-  return data.results.map((r) => fromListRow(r, "series"));
+export async function getOnTheAirSeries(page = 1, language = "pt-BR"): Promise<DiscoverPage> {
+  const data = await tmdbGet<TmdbListResponse>("/tv/on_the_air", { language, page: String(page) });
+  return toDiscoverPage(data, "series");
+}
+
+/**
+ * Fase C da reformulação da Explorar (2026-08-21) — "Para você" e os
+ * chips de "Seus gêneros favoritos" precisam de uma lista de
+ * descoberta FILTRADA por gênero (endpoint `/discover/movie` e
+ * `/discover/tv` do TMDB, com `with_genres`), diferente das listas
+ * fixas (trending/popular/etc.) que já existiam. Reaproveita
+ * `TmdbListResponse`/`fromListRow` — mesmo formato de linha que
+ * `/movie/popular` etc. já usam.
+ */
+export async function getMoviesByGenre(genreId: number, page = 1, language = "pt-BR"): Promise<DiscoverPage> {
+  const data = await tmdbGet<TmdbListResponse>("/discover/movie", {
+    with_genres: String(genreId),
+    sort_by: "popularity.desc",
+    language,
+    page: String(page),
+  });
+  return toDiscoverPage(data, "movie");
+}
+
+export async function getSeriesByGenre(genreId: number, page = 1, language = "pt-BR"): Promise<DiscoverPage> {
+  const data = await tmdbGet<TmdbListResponse>("/discover/tv", {
+    with_genres: String(genreId),
+    sort_by: "popularity.desc",
+    language,
+    page: String(page),
+  });
+  return toDiscoverPage(data, "series");
+}
+
+export type SimilarSource = "recommendations" | "similar";
+
+export interface SimilarDiscoverPage extends DiscoverPage {
+  source: SimilarSource;
+}
+
+/**
+ * Fase D da reformulação da Explorar (2026-08-22) — "Porque você
+ * assistiu a [X]": versão leve de `getMovieDetails`/`getSeriesDetails`
+ * (só busca `recommendations`/`similar`, sem elenco/sinopse/vídeos,
+ * que o carrossel não usa). Devolve o mesmo formato de `getMoviesByGenre`
+ * (`DiscoverItem[]`, o que `DiscoverCarousel` já sabe renderizar sem
+ * mudança nenhuma), diferente de `MediaSearchResult[]` (formato usado
+ * só pela página de detalhe, `SimilarTitlesCarousel.tsx`). Mesma
+ * preferência recommendations > similar de sempre — ver o comentário
+ * longo em `getSeriesDetails` (linha ~284) pro histórico completo.
+ *
+ * IMPORTANTE — não reaproveita `data.recommendations`/`data.similar`
+ * de `getMovieDetails`/`getSeriesDetails` (tipados como
+ * `TmdbMultiSearchItem[]`, usado por `normalizeSearchItem`): aquele
+ * tipo não tem `genre_ids`, que `DiscoverItem`/`fromListRow` exigem.
+ *
+ * CORREÇÃO (a pedido — paginação nas telas "ver todos", 2026-08-22) —
+ * a PRIMEIRA versão desta função buscava `recommendations`/`similar`
+ * via `append_to_response` num `GET /movie/{id}` só — mais barato,
+ * MAS o TMDB não aceita `page` pra um recurso "anexado" dessa forma
+ * (só repassa `language` do request principal pra dentro dele) —
+ * ficaria preso pra sempre na página 1. Reescrito pra chamar os
+ * endpoints dedicados (`/movie/{id}/recommendations`,
+ * `/movie/{id}/similar`) direto, que aceitam `page` de verdade.
+ *
+ * `source` (opcional) — a ORIGEM (recommendations vs. similar) só é
+ * decidida na página 1 (recommendations vem vazio → troca pra
+ * similar PRA SEMPRE, não só naquela página). Da página 2 em diante,
+ * quem chama (o hook de paginação) precisa informar explicitamente
+ * qual das duas foi decidida na página 1 — sem isso, cada página
+ * corre o risco de escolher uma fonte diferente da anterior, e a
+ * lista pularia de assunto no meio da rolagem.
+ */
+export async function getSimilarMoviesForId(
+  movieId: number,
+  page = 1,
+  language = "pt-BR",
+  source?: SimilarSource
+): Promise<SimilarDiscoverPage> {
+  if (source === "similar") {
+    const data = await tmdbGet<TmdbListResponse>(`/movie/${movieId}/similar`, { page: String(page), language });
+    return { ...toDiscoverPage(data, "movie"), source: "similar" };
+  }
+  const recommended = await tmdbGet<TmdbListResponse>(`/movie/${movieId}/recommendations`, { page: String(page), language });
+  if (page === 1 && recommended.results.length === 0) {
+    const fallback = await tmdbGet<TmdbListResponse>(`/movie/${movieId}/similar`, { page: "1", language });
+    return { ...toDiscoverPage(fallback, "movie"), source: "similar" };
+  }
+  return { ...toDiscoverPage(recommended, "movie"), source: "recommendations" };
+}
+
+export async function getSimilarSeriesForId(
+  seriesId: number,
+  page = 1,
+  language = "pt-BR",
+  source?: SimilarSource
+): Promise<SimilarDiscoverPage> {
+  if (source === "similar") {
+    const data = await tmdbGet<TmdbListResponse>(`/tv/${seriesId}/similar`, { page: String(page), language });
+    return { ...toDiscoverPage(data, "series"), source: "similar" };
+  }
+  const recommended = await tmdbGet<TmdbListResponse>(`/tv/${seriesId}/recommendations`, { page: String(page), language });
+  if (page === 1 && recommended.results.length === 0) {
+    const fallback = await tmdbGet<TmdbListResponse>(`/tv/${seriesId}/similar`, { page: "1", language });
+    return { ...toDiscoverPage(fallback, "series"), source: "similar" };
+  }
+  return { ...toDiscoverPage(recommended, "series"), source: "recommendations" };
 }
 
 interface TmdbGenreListResponse {
   genres: { id: number; name: string }[];
 }
 
-/** Mapa id→nome de gênero, série + filme juntos (os ids não colidem entre os dois na prática do TMDB). Uma chamada só. Cache de 24h, bem maior que o padrão de 5min — lista de gêneros do TMDB praticamente nunca muda. */
-export async function getGenreMap(language = "pt-BR"): Promise<Record<number, string>> {
-  const ONE_DAY_SECONDS = 24 * 60 * 60;
-  const [movieGenres, tvGenres] = await Promise.all([
+const ONE_DAY_SECONDS = 24 * 60 * 60;
+
+/**
+ * CORREÇÃO (a pedido, investigado até a causa raiz — "por que os chips
+ * de gênero de SÉRIE aparecem em inglês, mas os de filme não?",
+ * 2026-08-22) — causa raiz CONFIRMADA batendo direto em
+ * `/api/tmdb/genres?language=pt-BR` (o usuário rodou e mandou o JSON
+ * de volta): o TMDB devolve `movieGenreMap` 100% traduzido pro
+ * português, mas 8 gêneros de SÉRIE especificamente vêm SEM tradução
+ * nenhuma pro português — o próprio TMDB nunca traduziu esses 8 (são
+ * todos os gêneros "compostos"/adicionados depois na taxonomia deles:
+ * Action & Adventure, Kids, News, Reality, Sci-Fi & Fantasy, Soap,
+ * Talk, War & Politics). NÃO é um bug do código do SeenList — filme e
+ * série usam exatamente o mesmo caminho de busca, o mesmo parâmetro de
+ * idioma; a falta de tradução é uma lacuna real do banco de dados do
+ * TMDB. Como não tem como "consertar" o TMDB, a correção é aplicar uma
+ * tradução própria só pra esses 8 ids específicos, no ponto mais baixo
+ * possível (aqui, antes de qualquer outro código usar o nome) — assim
+ * TODO mundo que consome gênero de série (chips, cartões de "ver
+ * todos", `useFavoriteGenres`) recebe o nome já certo, sem precisar de
+ * correção espalhada em cada tela.
+ *
+ * Guardado por NOME (não por id) — o nome em inglês é o identificador
+ * estável tanto na resposta fresca do TMDB (que tem id) quanto no dado
+ * já gravado em `media_summaries_cache` (que só guarda o nome, sem id
+ * — ver `translateTvGenreName` reaproveitado em
+ * `api/tmdb/library-summaries/route.ts` pra corrigir também linhas já
+ * em cache, sem precisar esperar as 24h de validade expirarem).
+ *
+ * Só `pt-BR` confirmado até aqui (o idioma que o usuário testou) — `es`
+ * pode ter a mesma lacuna ou não, ainda não verificado; sem tradução
+ * pra `es` aqui de propósito, pra não inventar um texto não conferido.
+ */
+const TV_GENRE_NAME_OVERRIDES_PT_BR: Record<string, string> = {
+  "Action & Adventure": "Ação e aventura",
+  Kids: "Infantil",
+  News: "Notícias",
+  Reality: "Reality show",
+  "Sci-Fi & Fantasy": "Ficção científica e fantasia",
+  Soap: "Novela",
+  Talk: "Talk show",
+  "War & Politics": "Guerra e política",
+};
+
+export function translateTvGenreName(name: string, language: string): string {
+  if (language !== "pt-BR") return name;
+  return TV_GENRE_NAME_OVERRIDES_PT_BR[name] ?? name;
+}
+
+async function fetchRawGenreLists(language: string): Promise<{ movie: TmdbGenreListResponse; tv: TmdbGenreListResponse }> {
+  const [movie, tv] = await Promise.all([
     tmdbGet<TmdbGenreListResponse>("/genre/movie/list", { language }, ONE_DAY_SECONDS),
     tmdbGet<TmdbGenreListResponse>("/genre/tv/list", { language }, ONE_DAY_SECONDS),
   ]);
+  return {
+    movie,
+    tv: { genres: tv.genres.map((g) => ({ ...g, name: translateTvGenreName(g.name, language) })) },
+  };
+}
+
+/** Mapa id→nome de gênero, série + filme juntos (os ids não colidem entre os dois na prática do TMDB). Uma chamada só. Cache de 24h, bem maior que o padrão de 5min — lista de gêneros do TMDB praticamente nunca muda. */
+export async function getGenreMap(language = "pt-BR"): Promise<Record<number, string>> {
+  const { movie, tv } = await fetchRawGenreLists(language);
   const map: Record<number, string> = {};
-  for (const g of [...movieGenres.genres, ...tvGenres.genres]) map[g.id] = g.name;
+  for (const g of [...movie.genres, ...tv.genres]) map[g.id] = g.name;
   return map;
+}
+
+/**
+ * Fase C da reformulação da Explorar (2026-08-21) — CORREÇÃO (achado
+ * real, "Principais séries para você" vindo sempre vazio) — o id de
+ * gênero do TMDB NÃO é o mesmo espaço pra filme e série: "Ação" (28)
+ * e "Aventura" (12), por exemplo, só existem no vocabulário de FILME —
+ * séries usam "Ação e Aventura" (10759) em vez disso. `getGenreMap`
+ * (acima) funde os dois mapas por id — ótimo pra "dado um id que eu
+ * JÁ SEI que é válido, qual o nome" (uso em `explore/route.ts`), mas
+ * ruim pra ir de NOME pra id quando o nome pode ser exclusivo de um
+ * dos dois lados: `useFavoriteGenres` calculava um único "gênero
+ * favorito" combinando filme+série e usava o id resultante pros dois
+ * `/discover` (filme E série) — se esse gênero vinha majoritariamente
+ * dos FILMES concluídos (ex.: "Ação", id 28), a chamada
+ * `/discover/tv?with_genres=28` não tinha erro nenhum, só nunca
+ * retornava nada (nenhuma série carrega o gênero 28) — carrossel
+ * "vazio" sem nenhum erro pra investigar.
+ *
+ * Esta função devolve os DOIS mapas separados — `useFavoriteGenres`
+ * agora calcula gênero favorito de filme e de série CADA UM com o seu
+ * próprio mapa, evitando cruzar os dois espaços de id.
+ */
+export async function getGenreMaps(language = "pt-BR"): Promise<{ movie: Record<number, string>; tv: Record<number, string> }> {
+  const { movie: movieGenres, tv: tvGenres } = await fetchRawGenreLists(language);
+  const movie: Record<number, string> = {};
+  for (const g of movieGenres.genres) movie[g.id] = g.name;
+  const tv: Record<number, string> = {};
+  for (const g of tvGenres.genres) tv[g.id] = g.name;
+  return { movie, tv };
 }

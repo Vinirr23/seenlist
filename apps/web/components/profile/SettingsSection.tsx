@@ -15,9 +15,13 @@ export function SettingsSection() {
 
   return (
     <section className="mb-6">
+      {/* "Vidro" (mesmo padrão de ExploreActivityTab.tsx) — "glass-row". Achado ao investigar Configurações (2026-08-25): esta linha, que leva pra lá, ainda estava com o fundo opaco antigo mesmo com o Perfil já "concluído" — corrigido junto. */}
       <Link
         href="/profile/settings"
-        className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3.5 text-sm font-medium text-text transition-colors hover:border-primary/50"
+        className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3.5 text-sm font-medium text-text backdrop-blur-[18px] backdrop-saturate-[180%] transition-colors hover:border-primary/40"
+        style={{
+          background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+        }}
       >
         <span className="flex items-center gap-2">
           <Settings className="h-4 w-4 text-muted" strokeWidth={2} />

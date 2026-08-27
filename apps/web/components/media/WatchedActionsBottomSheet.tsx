@@ -63,10 +63,14 @@ export function WatchedActionsBottomSheet({ target, onClose }: WatchedActionsBot
         aria-hidden="true"
       />
 
+      {/* "Vidro" (mesmo padrão do dropdown de histórico do SearchBar.tsx) */}
       <div
-        className={`relative w-full max-w-[430px] rounded-t-2xl border-t border-border bg-surface pb-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-200 ease-out ${
+        className={`relative w-full max-w-[430px] rounded-t-2xl border-t border-white/10 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lg backdrop-blur-[18px] backdrop-saturate-[180%] transition-transform duration-200 ease-out ${
           mounted ? "translate-y-0" : "translate-y-full"
         }`}
+        style={{
+          background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(20,22,30,0.85)",
+        }}
       >
         <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
 

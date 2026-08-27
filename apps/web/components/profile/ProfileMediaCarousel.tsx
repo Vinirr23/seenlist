@@ -68,6 +68,7 @@ export function ProfileMediaCarousel({
   emptyLabel,
   emptyHref,
   firstPagePending = false,
+  dimHeadingBg = false,
 }: {
   icon: LucideIcon;
   label: string;
@@ -79,6 +80,8 @@ export function ProfileMediaCarousel({
   emptyHref?: string;
   /** true enquanto `ProfileSectionsList.tsx` ainda espera a busca combinada da 1ª página — mantém a busca própria da 1ª página deste carrossel desligada até lá (ver comentário acima). */
   firstPagePending?: boolean;
+  /** Escurece o fundo bem atrás do título (ver comentário no cabeçalho, estado "carregando") — só o carrossel "Séries" (mais perto do topo) liga isso. */
+  dimHeadingBg?: boolean;
 }) {
   const { locale } = useTranslation();
   const [visibleCount, setVisibleCount] = useState(() => Math.min(PAGE_SIZE, ids.length));
@@ -134,14 +137,37 @@ export function ProfileMediaCarousel({
 
   if (isLoadingIds) {
     return (
-      <section className="mb-6">
-        <div className="mb-2 flex items-center gap-2 px-1">
-          <Icon className="h-4 w-4 text-primary" strokeWidth={2} />
-          <h2 className="text-base font-bold text-text">{label}</h2>
+      <section className="mb-8">
+        <div className="relative mb-3 flex items-center gap-2 px-1">
+          {/*
+           * Correção (achado real via console — getComputedStyle provou
+           * que cor/sombra do texto são IDÊNTICAS em todos os títulos da
+           * tela, "Séries" incluso; não era bug de CSS nenhum. O
+           * "azulado" que sobrava era o brilho de fundo mais concentrado
+           * perto do topo da página vazando por trás — resolvido
+           * escurecendo só o fundo aqui, não mexendo mais no texto.
+           * `dimHeadingBg` liga isso só neste carrossel (o "Séries" mais
+           * perto do topo) — os outros 3 (Séries favoritas/Filmes/Filmes
+           * favoritos) já liam certo, não recebem isso. Sem z-index (a
+           * mesma armadilha de pintura já resolvida antes nesta tela) —
+           * `relative` só pra entrar na mesma fase de pintura do ícone/
+           * título seguintes, que ficam por cima por ordem no DOM.
+           */}
+          {dimHeadingBg && (
+            <div
+              className="pointer-events-none absolute -inset-x-3 -inset-y-3 rounded-2xl blur-xl"
+              style={{ background: "radial-gradient(closest-side, rgba(5,7,12,0.55), transparent 75%)" }}
+              aria-hidden="true"
+            />
+          )}
+          <Icon className="relative h-4 w-4 text-primary" strokeWidth={2} />
+          {/* Sombra mais forte (mesmo motivo/ajuste de ProfileListsPreview.tsx) — título sentado direto sobre o brilho azul ambiente, sem card de vidro por baixo. */}
+          <h2 className="relative text-lg font-extrabold tracking-tight text-text [text-shadow:0_0_2px_rgba(0,0,0,0.9),0_0_5px_rgba(0,0,0,0.75),0_1px_6px_rgba(0,0,0,0.6)]">{label}</h2>
         </div>
+        {/* w-36 (aspect-[2/3]) + gap-2 — mesmo padrão de tamanho/espaçamento da Explorar (a pedido), ver `DiscoverCard.tsx`/`DiscoverCarousel.tsx`. */}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-36 w-24 shrink-0 animate-pulse rounded-lg bg-surface" />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="aspect-[2/3] w-36 shrink-0 animate-pulse rounded-2xl bg-surface" />
           ))}
         </div>
       </section>
@@ -154,14 +180,23 @@ export function ProfileMediaCarousel({
     // passam `emptyLabel`) mostram o card de convite.
     if (!emptyLabel) return null;
     return (
-      <section className="mb-6">
-        <div className="mb-2 flex items-center gap-2 px-1">
-          <Icon className="h-4 w-4 text-primary" strokeWidth={2} />
-          <h2 className="text-base font-bold text-text">{label}</h2>
+      <section className="mb-8">
+        <div className="relative mb-3 flex items-center gap-2 px-1">
+          {/* Mesmo ajuste do estado "carregando" acima — ver comentário lá (dimHeadingBg só liga aqui pro carrossel "Séries"). */}
+          {dimHeadingBg && (
+            <div
+              className="pointer-events-none absolute -inset-x-3 -inset-y-3 rounded-2xl blur-xl"
+              style={{ background: "radial-gradient(closest-side, rgba(5,7,12,0.55), transparent 75%)" }}
+              aria-hidden="true"
+            />
+          )}
+          <Icon className="relative h-4 w-4 text-primary" strokeWidth={2} />
+          {/* Sombra mais forte (mesmo motivo/ajuste de ProfileListsPreview.tsx) — título sentado direto sobre o brilho azul ambiente, sem card de vidro por baixo. */}
+          <h2 className="relative text-lg font-extrabold tracking-tight text-text [text-shadow:0_0_2px_rgba(0,0,0,0.9),0_0_5px_rgba(0,0,0,0.75),0_1px_6px_rgba(0,0,0,0.6)]">{label}</h2>
         </div>
         <Link
           href={emptyHref ?? href}
-          className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-surface/40 px-4 py-8 text-center transition-colors hover:border-primary/40"
+          className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-surface/40 px-4 py-8 text-center transition-colors hover:border-primary/40"
         >
           <Plus className="h-6 w-6 text-muted" strokeWidth={2} />
           <p className="text-sm font-semibold text-text">{emptyLabel}</p>
@@ -173,24 +208,64 @@ export function ProfileMediaCarousel({
   const visibleIds = ids.slice(0, visibleCount);
 
   return (
-    <section className="mb-6">
-      <Link href={href} className="mb-2 flex items-center justify-between px-1">
-        <span className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-primary" strokeWidth={2} />
-          <h2 className="text-base font-bold text-text">{label}</h2>
+    <section className="mb-8">
+      <Link href={href} className="mb-3 flex items-center justify-between px-1">
+        <span className="relative flex items-center gap-2">
+          {/* Mesmo ajuste dos estados "carregando"/"vazio" acima — ver comentário no primeiro (dimHeadingBg só liga aqui pro carrossel "Séries"). */}
+          {dimHeadingBg && (
+            <div
+              className="pointer-events-none absolute -inset-x-3 -inset-y-3 rounded-2xl blur-xl"
+              style={{ background: "radial-gradient(closest-side, rgba(5,7,12,0.55), transparent 75%)" }}
+              aria-hidden="true"
+            />
+          )}
+          <Icon className="relative h-4 w-4 text-primary" strokeWidth={2} />
+          {/* Sombra mais forte (mesmo motivo/ajuste de ProfileListsPreview.tsx) — título sentado direto sobre o brilho azul ambiente, sem card de vidro por baixo. */}
+          <h2 className="relative text-lg font-extrabold tracking-tight text-text [text-shadow:0_0_2px_rgba(0,0,0,0.9),0_0_5px_rgba(0,0,0,0.75),0_1px_6px_rgba(0,0,0,0.6)]">{label}</h2>
         </span>
-        <ChevronRight className="h-4 w-4 text-muted" strokeWidth={2} />
+        {/*
+         * CORREÇÃO (a pedido — "remove esse botão, de perfil e deixa só
+         * o > igual no explorar") — o botão circular âmbar (gel, mesmo
+         * design do "Ver detalhes") foi removido; volta a ser só o
+         * ChevronRight solto, agora `text-muted` pra bater exatamente
+         * com o cabeçalho dos carrosséis da Explorar
+         * (`DiscoverCarousel.tsx`) — mesmo tamanho/peso de traço.
+         * `span`, não outro `Link` (a linha inteira já é um Link — não
+         * dá pra aninhar <a> dentro de <a>).
+         */}
+        <span className="shrink-0 text-muted">
+          <ChevronRight className="h-4 w-4" strokeWidth={2} />
+        </span>
       </Link>
+      {/* w-36 (aspect-[2/3]) + gap-2 — mesmo padrão de tamanho/espaçamento da Explorar (a pedido — "deixa o tamanho dos cards do perfil, no mesmo padrão de explorar"), ver `DiscoverCard.tsx`/`DiscoverCarousel.tsx`. Era `h-48 w-32` (128x192px) fixo — trocado por `aspect-[2/3] w-36` (144px de largura, mesma proporção 2:3), igual à Explorar. */}
       <div ref={scrollRef} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {visibleIds.map((id) => {
           const summary = summaryMap[id];
           const posterUrl = tmdbImage(summary?.posterPath ?? null, "w185");
           const itemHref = mediaType === "movie" ? `/movies/${id}` : `/series/${id}`;
           return (
-            <Link key={id} href={itemHref} className="w-24 shrink-0">
-              <div className="relative h-36 w-24 overflow-hidden rounded-lg bg-surface">
+            <Link key={id} href={itemHref} className="w-36 shrink-0">
+              {/*
+               * Correção (a pedido — "apenas em minhas listas, os cards
+               * ficaram com efeito de vidro... quero que todas [Séries,
+               * Séries favoritas, Filmes, Filmes favoritos] tenham esse
+               * efeito") — mesmo vidro do mockup (`.deck`) e o mesmo já
+               * aplicado em ProfileListsPreview.tsx: borda clara +
+               * blur/saturação + fundo com gradiente radial translúcido,
+               * em vez de `border-primary/10 bg-surface` (opaco, sem
+               * vidro nenhum). O pôster (quando carrega) cobre a
+               * textura por cima; sem pôster, o vidro aparece por trás
+               * do ícone-placeholder.
+               */}
+              <div
+                className="relative aspect-[2/3] w-36 overflow-hidden rounded-2xl border border-white/10 shadow-lg shadow-black/40 backdrop-blur-[14px] backdrop-saturate-[180%]"
+                style={{
+                  background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+                }}
+              >
+                {/* Correção (a pedido — "tira os nomes de dentro dos cards") — removido o gradiente + título por cima do pôster, mesmo padrão da Explorar (`DiscoverCard.tsx`), que também não mostra nome nenhum. */}
                 {posterUrl ? (
-                  <Image src={posterUrl} alt={summary?.title ?? ""} fill sizes="96px" className="object-cover" />
+                  <Image src={posterUrl} alt={summary?.title ?? ""} fill sizes="144px" className="object-cover" />
                 ) : summary ? (
                   <div className="flex h-full items-center justify-center">
                     <Clapperboard className="h-5 w-5 text-muted/40" strokeWidth={1.5} />

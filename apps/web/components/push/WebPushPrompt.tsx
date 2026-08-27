@@ -85,7 +85,13 @@ export function WebPushPrompt() {
   if (!visible) return null;
 
   return (
-    <div className="mb-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
+    // "Vidro" (toque leve — mantém o tom âmbar do aviso, ganha blur/saturação em vez de `bg-primary/5` chapado).
+    <div
+      className="mb-4 rounded-xl border border-primary/25 p-4 backdrop-blur-[14px] backdrop-saturate-[160%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.10), transparent 60%), rgba(240,169,79,0.08)",
+      }}
+    >
       <div className="flex items-start gap-3">
         <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
         <div className="min-w-0 flex-1">

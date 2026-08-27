@@ -64,7 +64,13 @@ export function CommentItem({
 
   if (editing) {
     return (
-      <div className="rounded-lg border border-border bg-surface p-3 shadow-md shadow-black/20">
+      // "Vidro" (redesign âmbar/vidro, 2026-08-26) — mesma textura de card neutro do resto do app.
+      <div
+        className="rounded-2xl border border-white/10 p-3.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+        style={{
+          background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+        }}
+      >
         <CommentComposer
           initialBody={comment.body ?? ""}
           initialSpoiler={comment.containsSpoiler}
@@ -81,13 +87,21 @@ export function CommentItem({
     );
   }
 
+  // "Vidro" (redesign âmbar/vidro, 2026-08-26) — só o comentário-raiz (depth 0) vira card; respostas (depth > 0) continuam sem card próprio, só indentação (ver comentário mais abaixo).
+  const rootGlassStyle = depth === 0
+    ? { background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)" }
+    : undefined;
+
   return (
     <div
       ref={containerRef}
       className={cn(
-        depth === 0 ? "space-y-2 rounded-lg border border-border bg-surface p-3 shadow-md shadow-black/20" : "space-y-2",
+        depth === 0
+          ? "space-y-2 rounded-2xl border border-white/10 p-3.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+          : "space-y-2",
         isHighlighted && "ring-2 ring-primary"
       )}
+      style={rootGlassStyle}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -130,14 +144,20 @@ export function CommentItem({
               <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-6 z-10 min-w-[120px] rounded-lg border border-border bg-surface py-1 shadow-lg">
+              // "Vidro" (redesign âmbar/vidro, 2026-08-26) — mesmo painel escuro translúcido do dropdown de histórico do SearchBar.tsx/ConfirmDialog.tsx.
+              <div
+                className="absolute right-0 top-6 z-10 min-w-[120px] rounded-xl border border-white/10 py-1 shadow-lg backdrop-blur-[18px] backdrop-saturate-[180%]"
+                style={{
+                  background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(20,22,30,0.85)",
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => {
                     setEditing(true);
                     setMenuOpen(false);
                   }}
-                  className="block w-full px-3 py-1.5 text-left text-xs text-text hover:bg-background"
+                  className="block w-full px-3 py-1.5 text-left text-xs text-text hover:bg-white/10"
                 >
                   {t("common.edit")}
                 </button>
@@ -147,7 +167,7 @@ export function CommentItem({
                     onDelete(comment.id);
                     setMenuOpen(false);
                   }}
-                  className="block w-full px-3 py-1.5 text-left text-xs text-danger hover:bg-background"
+                  className="block w-full px-3 py-1.5 text-left text-xs text-danger hover:bg-white/10"
                 >
                   {t("common.delete")}
                 </button>
@@ -158,7 +178,13 @@ export function CommentItem({
       </div>
 
       {replying && (
-        <div className="ml-4 rounded-lg border border-border bg-background p-3">
+        // "Vidro" (redesign âmbar/vidro, 2026-08-26) — mesma textura de card neutro, mais compacta (nested dentro do comentário-pai, já vidro).
+        <div
+          className="ml-4 rounded-xl border border-white/10 p-3 backdrop-blur-[14px] backdrop-saturate-[160%]"
+          style={{
+            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.07)",
+          }}
+        >
           <CommentComposer
             placeholder={t("social.replyPlaceholder")}
             submitLabel={t("social.reply")}

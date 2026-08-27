@@ -15,7 +15,8 @@ export function SeriesCaughtUpCard({ badge }: { badge: Exclude<SeriesCaughtUpBad
 
   if (badge === "ongoing") {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3.5">
+      // "Vidro" (toque leve — mantém o tom azul do aviso, ganha blur/saturação)
+      <div className="flex items-center gap-3 rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3.5 backdrop-blur-[14px] backdrop-saturate-[160%]">
         <Sparkles className="h-5 w-5 shrink-0 text-blue-400" strokeWidth={2} />
         <div>
           <p className="text-sm font-semibold text-text">{t("series.youAreCaughtUp")}</p>
@@ -26,7 +27,8 @@ export function SeriesCaughtUpCard({ badge }: { badge: Exclude<SeriesCaughtUpBad
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3.5">
+    // "Vidro" (toque leve — mantém o tom verde do aviso, ganha blur/saturação)
+    <div className="flex items-center gap-3 rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3.5 backdrop-blur-[14px] backdrop-saturate-[160%]">
       <PartyPopper className="h-5 w-5 shrink-0 text-green-400" strokeWidth={2} />
       <div>
         <p className="text-sm font-semibold text-text">{t("series.seriesEnded")}</p>

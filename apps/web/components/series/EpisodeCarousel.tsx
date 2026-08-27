@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 import { Clapperboard } from "lucide-react";
 import type { SeasonWithEpisodes, Episode } from "@seenlist/types";
-import { useWatchedEpisodes, useToggleEpisodeWatched, isEpisodeWatched, type WatchedEpisodeKey } from "@/lib/queries/watched-episodes";
+import { useWatchedEpisodes, useWatchedEpisodeIds, useToggleEpisodeWatched, isEpisodeWatched, type WatchedEpisodeKey } from "@/lib/queries/watched-episodes";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -69,6 +69,8 @@ const ITEM_GAP = 12; // gap-3 (0.75rem)
 
 export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, colorClass }: EpisodeCarouselProps) {
   const { data: watched } = useWatchedEpisodes(seriesId);
+  // CORREÇÃO (2026-08-26 — "motor resistente") — ver isEpisodeWatched (watched-episodes-state.ts).
+  const { data: watchedEpisodeIds } = useWatchedEpisodeIds(seriesId);
   const toggleWatched = useToggleEpisodeWatched(seriesId);
   const containerRef = useRef<HTMLDivElement>(null);
   const hasUserScrolledRef = useRef(false);
@@ -90,7 +92,7 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
   useEffect(() => {
     if (!containerRef.current || items.length === 0) return;
     const firstUnwatchedIndex = items.findIndex(
-      ({ seasonNumber, episode }) => !isEpisodeWatched(watched, seasonNumber, episode.episodeNumber)
+      ({ seasonNumber, episode }) => !isEpisodeWatched(watched, seasonNumber, episode.episodeNumber, episode.id, watchedEpisodeIds)
     );
 
     // TASK-173 (achado real, a pedido — "a rolagem recua" ao marcar o
@@ -112,13 +114,14 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
     if (firstUnwatchedIndex > 0) {
       containerRef.current.scrollLeft = firstUnwatchedIndex * (ITEM_WIDTH + ITEM_GAP);
     }
-  }, [items, watched]);
+  }, [items, watched, watchedEpisodeIds]);
 
   if (items.length === 0) return null;
 
-  function handleToggle(seasonNumber: number, episodeNumber: number, currentlyWatched: boolean) {
+  function handleToggle(seasonNumber: number, episodeNumber: number, currentlyWatched: boolean, episodeId: number) {
     hapticTick();
-    toggleWatched.mutate({ seasonNumber, episodeNumber, watched: currentlyWatched });
+    // CORREÇÃO (2026-08-26 — "motor resistente", ver watched-episodes-mutations.ts).
+    toggleWatched.mutate({ seasonNumber, episodeNumber, watched: currentlyWatched, episodeId });
   }
 
   return (
@@ -133,7 +136,7 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
       >
         {items.map(({ seasonNumber, episode }) => {
           const stillUrl = tmdbImage(episode.stillPath, "w300");
-          const watchedNow = isEpisodeWatched(watched, seasonNumber, episode.episodeNumber);
+          const watchedNow = isEpisodeWatched(watched, seasonNumber, episode.episodeNumber, episode.id, watchedEpisodeIds);
           const code = `S${String(seasonNumber).padStart(2, "0")}E${String(episode.episodeNumber).padStart(2, "0")}`;
 
           return (
@@ -142,7 +145,13 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
                 href={`/series/${seriesSlug}/season/${seasonNumber}/episode/${episode.episodeNumber}`}
                 className="block"
               >
-                <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-surface">
+                {/* "Vidro" (mesmo padrão de DiscoverCard.tsx) */}
+                <div
+                  className="relative aspect-video w-full overflow-hidden rounded-lg border border-white/10 backdrop-blur-[14px] backdrop-saturate-[180%]"
+                  style={{
+                    background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+                  }}
+                >
                   {stillUrl ? (
                     <Image src={stillUrl} alt="" fill sizes="144px" className="object-cover" />
                   ) : (
@@ -157,7 +166,7 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
 
               <EpisodeWatchedButton
                 watched={watchedNow}
-                onClick={() => handleToggle(seasonNumber, episode.episodeNumber, watchedNow)}
+                onClick={() => handleToggle(seasonNumber, episode.episodeNumber, watchedNow, episode.id)}
                 disabled={toggleWatched.isPending}
                 size="sm"
                 className="mt-1.5"

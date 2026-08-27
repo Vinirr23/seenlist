@@ -16,7 +16,13 @@ export function ReviewSummary({ aggregate }: { aggregate: ReviewAggregate }) {
   const maxCount = Math.max(1, ...aggregate.distribution.map((d) => d.count));
 
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4">
+    // "Vidro" (redesign âmbar/vidro, 2026-08-26 — Comentários/Avaliações) — mesma textura de card neutro já usada em MetaRow.tsx.
+    <div
+      className="flex items-center gap-4 rounded-2xl border border-white/10 p-4 backdrop-blur-[18px] backdrop-saturate-[180%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+      }}
+    >
       <div className="shrink-0 text-center">
         <p className="text-3xl font-extrabold text-primary">{aggregate.average.toFixed(1)}</p>
         <p className="mt-0.5 text-[11px] text-muted">{t("reviews.ratingsCount", { count: aggregate.count })}</p>

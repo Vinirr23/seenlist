@@ -129,11 +129,15 @@ export function EditProfileView() {
           // eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image
           <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
         )}
+        {/* "Vidro" (mesmo padrão dos ícones de editar/configurações do Perfil, ProfileHeader.tsx — pílula flutuando sobre foto, em vez de círculo) */}
         <button
           type="button"
           onClick={() => bannerInputRef.current?.click()}
           disabled={uploadingBanner}
-          className="absolute right-3 top-3 rounded-lg border border-border bg-background/80 px-3 py-1.5 text-xs font-medium text-text backdrop-blur transition-transform active:scale-[0.96] disabled:opacity-50"
+          className="absolute right-3 top-3 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-[0.96] disabled:opacity-50"
+          style={{
+            background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+          }}
         >
           {uploadingBanner ? t("settings.uploading") : t("settings.changeBanner")}
         </button>
@@ -150,11 +154,15 @@ export function EditProfileView() {
       </div>
 
       <div className="px-4">
+        {/* "Vidro" (mesmo padrão dos chips neutros do Explorar) */}
         <button
           type="button"
           onClick={() => avatarInputRef.current?.click()}
           disabled={uploadingAvatar}
-          className="mb-6 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text transition-transform active:scale-[0.96] disabled:opacity-50"
+          className="mb-6 rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-text backdrop-blur-[10px] backdrop-saturate-[160%] transition-transform active:scale-[0.96] disabled:opacity-50"
+          style={{
+            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+          }}
         >
           {uploadingAvatar ? t("settings.uploading") : t("settings.changePhoto")}
         </button>

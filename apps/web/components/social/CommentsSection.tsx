@@ -133,7 +133,13 @@ export function CommentsSection({ target, highlightCommentId, media }: CommentsS
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-surface p-3">
+      {/* "Vidro" (redesign âmbar/vidro, 2026-08-26 — Comentários/Avaliações) — mesma textura de card neutro já usada em MetaRow.tsx/ReviewSummary.tsx, em vez de `bg-surface` opaco. */}
+      <div
+        className="rounded-2xl border border-white/10 p-3.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+        style={{
+          background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+        }}
+      >
         <CommentComposer
           onSubmit={(body, containsSpoiler, imageUrl) => postComment.mutate({ body, containsSpoiler, imageUrl })}
           isPending={postComment.isPending}

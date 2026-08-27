@@ -75,10 +75,16 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
         const isAnime = imageByCharacterName.size > 0;
         const photoUrl = isAnime ? characterImage : tmdbImage(member.profilePath, "w185");
         return (
-          <div key={member.id} className="w-24 shrink-0">
-            <div className="relative h-32 w-24 overflow-hidden rounded-xl bg-surface">
+          <div key={member.id} className="w-28 shrink-0">
+            {/* "Vidro" (mesmo padrão de DiscoverCard.tsx) — A PEDIDO, cards maiores (mesma técnica de `aspect-[2/3]` do Explorar, em vez de altura fixa). */}
+            <div
+              className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/10 backdrop-blur-[14px] backdrop-saturate-[180%]"
+              style={{
+                background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+              }}
+            >
               {photoUrl ? (
-                <Image src={photoUrl} alt={member.name} fill sizes="96px" className="object-cover" />
+                <Image src={photoUrl} alt={member.name} fill sizes="112px" className="object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-center text-[10px] text-muted">{t("episode.noPhoto")}</div>
               )}

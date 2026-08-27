@@ -28,11 +28,15 @@ export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: 
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/10" />
       </div>
 
+      {/* "Vidro" (mesmo padrão dos ícones de editar/configurações do Perfil, ProfileHeader.tsx — mesma troca já feita em SeriesHeader.tsx) */}
       <button
         type="button"
         onClick={() => router.back()}
         aria-label={t("common.back")}
-        className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
+        className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-90"
+        style={{
+          background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+        }}
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2.25} />
       </button>
@@ -45,13 +49,22 @@ export function MovieHeader({ movie, watched }: { movie: MovieDetails; watched: 
           setShowMoreOptions(true);
         }}
         aria-label={t("action.moreOptions")}
-        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
+        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-90"
+        style={{
+          background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+        }}
       >
         <MoreHorizontal className="h-4 w-4" strokeWidth={2.25} />
       </button>
 
       <div className="relative -mt-16 flex gap-4 px-4">
-        <div className="relative h-36 w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+        {/* "Vidro" (mesmo padrão de DiscoverCard.tsx) */}
+        <div
+          className="relative h-36 w-24 shrink-0 overflow-hidden rounded-lg border border-white/10 shadow-lg backdrop-blur-[14px] backdrop-saturate-[180%]"
+          style={{
+            background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+          }}
+        >
           {posterUrl && <Image src={posterUrl} alt={movie.title} fill sizes="96px" className="object-cover" />}
           {watched && (
             <div className="absolute right-1 top-1 flex items-center gap-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-background">

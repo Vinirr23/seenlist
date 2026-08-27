@@ -138,6 +138,11 @@ export function ProfileSectionsList() {
         ids={seriesIds.data ?? []}
         isLoadingIds={seriesIds.isLoading}
         firstPagePending={firstPagePending}
+        // Este é o carrossel mais perto do topo da página, onde o brilho
+        // azul de fundo é mais concentrado — ver comentário em
+        // ProfileMediaCarousel.tsx ("Correção... getComputedStyle
+        // provou..."). Os outros 3 abaixo não precisam disso.
+        dimHeadingBg
       />
 
       <ProfileMediaCarousel

@@ -90,7 +90,13 @@ export function SearchBar({ onDebouncedChange }: SearchBarProps) {
 
   return (
     <div className="relative">
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5">
+      {/* "Vidro" (mesmo padrão do Perfil) — antes era opaca (`border-border bg-surface`). */}
+      <div
+        className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+        style={{
+          background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+        }}
+      >
         <Search className="h-4 w-4 shrink-0 text-muted" strokeWidth={2} />
         <Input
           ref={inputRef}
@@ -111,7 +117,12 @@ export function SearchBar({ onDebouncedChange }: SearchBarProps) {
       </div>
 
       {showHistory && (
-        <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-10 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+        <div
+          className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-10 overflow-hidden rounded-lg border border-white/10 shadow-lg backdrop-blur-[18px] backdrop-saturate-[180%]"
+          style={{
+            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(20,22,30,0.85)",
+          }}
+        >
           <p className="px-3 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted">{t("search.recentSearches")}</p>
           {history.map((term) => (
             <div key={term} className="flex items-center gap-2 px-3 py-2 hover:bg-background">

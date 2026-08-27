@@ -25,8 +25,14 @@ export function WhereToWatchSection({ providers }: { providers: WatchProvider[] 
             const logoUrl = tmdbImage(provider.logoPath, "w185");
             return (
               <div key={provider.id} className="flex flex-col items-center gap-1">
-                <div className="relative h-12 w-12 overflow-hidden rounded-xl bg-surface">
-                  {logoUrl && <Image src={logoUrl} alt={provider.name} fill sizes="48px" className="object-cover" />}
+                {/* "Vidro" (mesmo padrão de DiscoverCard.tsx) — A PEDIDO, ícones um pouco maiores. */}
+                <div
+                  className="relative h-14 w-14 overflow-hidden rounded-xl border border-white/10 backdrop-blur-[14px] backdrop-saturate-[180%]"
+                  style={{
+                    background: "radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16), transparent 60%), rgba(255,255,255,0.09)",
+                  }}
+                >
+                  {logoUrl && <Image src={logoUrl} alt={provider.name} fill sizes="56px" className="object-cover" />}
                 </div>
                 <p className="max-w-[64px] truncate text-center text-[10px] text-muted">{provider.name}</p>
               </div>

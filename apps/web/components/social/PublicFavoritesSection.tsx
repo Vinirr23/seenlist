@@ -1,57 +1,59 @@
 "use client";
 
 import { useMemo } from "react";
+import { Star } from "lucide-react";
 import { usePublicFavorites } from "@/lib/queries/favorites";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { FavoriteCard } from "./FavoriteCard";
-import { SectionTitle } from "@/components/media/SectionTitle";
+import { PublicMediaCarousel } from "./PublicMediaCarousel";
 
-const SCROLL_ROW_CLASS =
-  "-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-
-/** Item 6 — "Séries favoritas" e "Filmes favoritos", cada um em carrossel horizontal, separado. */
-export function PublicFavoritesSection({ userId }: { userId: string }) {
+/**
+ * SEM USO a partir de 2026-08-26 (correção seguinte, mesmo dia): a
+ * ordem em que este componente era chamado ANTES de
+ * `PublicLibrarySection` em `PublicProfileView.tsx` dava a sequência
+ * errada Séries favoritas → Filmes favoritos → Séries → Filmes (o
+ * usuário reportou: "a sequencia ... não está igual ao perfil
+ * usuário"). `PublicProfileView.tsx` agora chama
+ * `PublicMediaSectionsList.tsx` (junta biblioteca + favoritos num
+ * componente só, na ordem certa: Séries → Séries favoritas → Filmes →
+ * Filmes favoritos). Este arquivo fica aqui sem uso, não apagado
+ * (mesmo padrão já usado com `FavoriteCard.tsx` na correção
+ * anterior) — dá pra apagar com segurança quando confirmado que nada
+ * mais importa dele.
+ *
+ * Comentário original (Reorganização, perfil público, a pedido,
+ * 2026-08-26 — correção do entendimento anterior: "é pra ter
+ * carrossel e ter sub páginas, igual ao perfil do usuário"). "Séries
+ * favoritas" e "Filmes favoritos" viram carrosséis horizontais (mesmo
+ * padrão de `ProfileMediaCarousel.tsx` no Perfil próprio, via
+ * `PublicMediaCarousel.tsx`), cada um com um link "ver mais" que leva
+ * pra uma sub-página com a lista completa (`/u/[username]/favorite-series`,
+ * `/u/[username]/favorite-movies`) — antes disto, era um card de
+ * vidro único mostrando tudo direto na própria página (correção de
+ * uma primeira tentativa que não bateu com o pedido real).
+ */
+export function PublicFavoritesSection({ userId, username }: { userId: string; username: string }) {
   const { data: items, isLoading } = usePublicFavorites(userId);
   const { t } = useTranslation();
 
   const favoriteSeries = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
   const favoriteMovies = useMemo(() => (items ?? []).filter((item) => item.mediaType === "movie"), [items]);
 
-  if (isLoading) {
-    return (
-      <div className="flex gap-3 overflow-hidden" aria-busy="true" aria-label={t("social.loadingFavorites")}>
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-52 w-36 shrink-0 animate-pulse rounded-lg bg-surface" />
-        ))}
-      </div>
-    );
-  }
-
-  if (favoriteSeries.length === 0 && favoriteMovies.length === 0) return null;
-
   return (
-    <div className="space-y-6">
-      {favoriteSeries.length > 0 && (
-        <section>
-          <SectionTitle>{t("profile.section.favoriteSeries")}</SectionTitle>
-          <div className={SCROLL_ROW_CLASS}>
-            {favoriteSeries.map((item) => (
-              <FavoriteCard key={item.id} item={item} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {favoriteMovies.length > 0 && (
-        <section>
-          <SectionTitle>{t("profile.section.favoriteMovies")}</SectionTitle>
-          <div className={SCROLL_ROW_CLASS}>
-            {favoriteMovies.map((item) => (
-              <FavoriteCard key={item.id} item={item} />
-            ))}
-          </div>
-        </section>
-      )}
+    <div>
+      <PublicMediaCarousel
+        icon={Star}
+        label={t("profile.section.favoriteSeries")}
+        href={`/u/${username}/favorite-series`}
+        items={favoriteSeries}
+        isLoading={isLoading}
+      />
+      <PublicMediaCarousel
+        icon={Star}
+        label={t("profile.section.favoriteMovies")}
+        href={`/u/${username}/favorite-movies`}
+        items={favoriteMovies}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

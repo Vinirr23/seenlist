@@ -19,7 +19,7 @@ function initials(name: string): string {
 }
 
 export function ExploreActivityTab() {
-  const { data: items, isLoading, isError, refetch } = useActivityFeed();
+  const { data, isLoading, isError, refetch } = useActivityFeed();
   const { t, locale } = useTranslation();
   const timeFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: "2-digit",
@@ -42,17 +42,33 @@ export function ExploreActivityTab() {
     return <PageError message={t("explore.errorLoadActivity")} onRetry={() => refetch()} />;
   }
 
-  if (!items || items.length === 0) {
-    return <p className="px-4 pt-6 text-center text-sm text-muted">{t("explore.emptyActivity")}</p>;
+  // CORREÇÃO (a pedido — Fase E, 2026-08-22) — o feed agora só mostra
+  // quem você segue (ver `activity-feed.ts`); `followingCount === 0`
+  // distingue "você ainda não segue ninguém" (mensagem própria, mais
+  // clara) de "quem você segue não teve atividade nos últimos 7 dias"
+  // (a mensagem genérica de sempre).
+  if (!data || data.items.length === 0) {
+    const message = !data || data.followingCount === 0 ? t("explore.emptyActivityNoFollows") : t("explore.emptyActivity");
+    return <p className="px-4 pt-6 text-center text-sm text-muted">{message}</p>;
   }
 
   return (
-    <div className="pt-2">
-      {items.map((item) => {
+    <div className="space-y-2 px-4 pt-2">
+      {data.items.map((item) => {
         const href = item.mediaType === "movie" ? `/movies/${item.mediaId}` : `/series/${item.mediaId}`;
         const posterUrl = tmdbImage(item.mediaPosterPath, "w185");
         return (
-          <Link key={item.id} href={href} className="flex items-center gap-3 border-b border-border px-4 py-3">
+          // "Vidro" (a pedido — mesmo padrão do Perfil) — antes era uma
+          // lista lisa (`border-b border-border`, sem card nenhum).
+          // Virou "glass-row" (mesmo estilo de ProfileRecommendationsPreview.tsx).
+          <Link
+            key={item.id}
+            href={href}
+            className="flex items-center gap-3 rounded-2xl border border-white/10 px-3.5 py-3 backdrop-blur-[18px] backdrop-saturate-[180%] transition-colors hover:border-primary/40"
+            style={{
+              background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+            }}
+          >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface">
               {item.userAvatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- avatar externo, sem domínio fixo

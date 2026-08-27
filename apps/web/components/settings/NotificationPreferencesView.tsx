@@ -60,7 +60,13 @@ export function NotificationPreferencesView() {
       {isLoading ? (
         <div className="h-64 animate-pulse rounded-lg bg-surface" />
       ) : (
-        <div className="rounded-lg border border-border bg-surface">
+        // "Vidro" (mesmo padrão dos chips neutros do Explorar)
+        <div
+          className="rounded-lg border border-white/10 backdrop-blur-[10px] backdrop-saturate-[160%]"
+          style={{
+            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+          }}
+        >
           {ITEM_FIELDS.map((field, index) => (
             <ToggleRow
               key={field}

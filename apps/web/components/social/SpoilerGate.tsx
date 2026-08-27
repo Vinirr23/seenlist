@@ -26,10 +26,12 @@ export function SpoilerGate({ hidden, children }: { hidden: boolean; children: R
   }
 
   return (
+    // "Vidro" (redesign âmbar/vidro, 2026-08-26) — "toque mais leve" (mesmo critério de EmptyShelf.tsx/ViewModeToggle.tsx): mantém a borda tracejada (função visual de "aviso"), só troca o fundo opaco por vidro.
     <button
       type="button"
       onClick={() => setRevealed(true)}
-      className="flex w-full items-center gap-2 rounded-md border border-dashed border-border bg-background px-3 py-2 text-left text-xs text-muted transition-colors hover:border-primary/50 hover:text-text"
+      className="flex w-full items-center gap-2 rounded-md border border-dashed border-white/15 px-3 py-2 text-left text-xs text-muted backdrop-blur-[10px] transition-colors hover:border-primary/50 hover:text-text"
+      style={{ background: "rgba(255,255,255,0.05)" }}
     >
       <EyeOff className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
       {t("social.spoilerGate")}

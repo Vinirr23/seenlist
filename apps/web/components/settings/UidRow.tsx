@@ -31,11 +31,15 @@ export function UidRow({ uid, last }: { uid: string; last?: boolean }) {
       <span className="text-text">UID</span>
       <span className="flex items-center gap-2">
         <span className="max-w-[120px] truncate text-xs text-muted">{uid}</span>
+        {/* "Vidro" (mesmo padrão dos chips neutros do Explorar) */}
         <button
           type="button"
           onClick={handleCopy}
           aria-label={t("settings.copyUid")}
-          className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted transition-colors hover:text-text"
+          className="flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-xs text-muted backdrop-blur-[10px] backdrop-saturate-[160%] transition-colors hover:text-text"
+          style={{
+            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+          }}
         >
           {copied ? (
             <>

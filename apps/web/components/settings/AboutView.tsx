@@ -56,10 +56,14 @@ export function AboutView() {
           <p className="mt-4 text-sm text-muted">{t("about.websiteUnavailable")}</p>
         )}
 
+        {/* "Vidro" (mesmo padrão dos chips neutros do Explorar) */}
         <button
           type="button"
           onClick={() => setShowChangelog(true)}
-          className="mt-6 rounded-lg border border-border px-4 py-2.5 text-sm text-text transition-colors hover:border-primary/50"
+          className="mt-6 rounded-lg border border-white/10 px-4 py-2.5 text-sm text-text backdrop-blur-[10px] backdrop-saturate-[160%] transition-colors hover:border-primary/50"
+          style={{
+            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+          }}
         >
           {t("about.whatsNew")}
         </button>

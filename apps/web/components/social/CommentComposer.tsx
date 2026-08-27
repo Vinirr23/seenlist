@@ -105,11 +105,15 @@ export function CommentComposer({
         <div className="relative inline-block">
           {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:) ou imagem já hospedada no Storage, sem domínio fixo */}
           <img src={imagePreviewUrl} alt="" className="max-h-40 rounded-lg border border-border object-cover" />
+          {/* "Vidro" (redesign âmbar/vidro, 2026-08-26) — mesmo padrão de botão-círculo flutuante sobre imagem do GLASS_ICON_BTN (ProfileHeader.tsx/SeriesHeader.tsx), versão mini. */}
           <button
             type="button"
             onClick={handleRemoveImage}
             aria-label={t("social.removeImage")}
-            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-text"
+            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/15 text-text shadow-md shadow-black/25 backdrop-blur-md backdrop-saturate-150"
+            style={{
+              background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+            }}
           >
             <X className="h-3.5 w-3.5" strokeWidth={2} />
           </button>

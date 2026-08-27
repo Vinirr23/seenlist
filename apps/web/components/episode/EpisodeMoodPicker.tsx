@@ -33,6 +33,7 @@ export function EpisodeMoodPicker({
     <div className="grid grid-cols-4 gap-2">
       {MOODS.map((mood) => {
         const selected = value.includes(mood.key);
+        // "Vidro" (mesmo padrão dos chips neutros do Explorar — só no estado não selecionado)
         return (
           <button
             key={mood.key}
@@ -42,9 +43,16 @@ export function EpisodeMoodPicker({
               onChange(selected ? value.filter((m) => m !== mood.key) : [...value, mood.key]);
             }}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition-colors",
-              selected ? "border-primary bg-primary/10" : "border-border bg-surface"
+              "flex flex-col items-center gap-1 rounded-xl border px-2 py-3 backdrop-blur-[10px] backdrop-saturate-[160%] transition-colors",
+              selected ? "border-primary bg-primary/10" : "border-white/10"
             )}
+            style={
+              selected
+                ? undefined
+                : {
+                    background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+                  }
+            }
           >
             <span className="text-2xl">{mood.emoji}</span>
             <span className={cn("text-center text-[10px] font-medium leading-tight", selected ? "text-primary" : "text-muted")}>

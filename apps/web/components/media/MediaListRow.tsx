@@ -20,7 +20,14 @@ export function MediaListRow({ item, secondaryText }: MediaListRowProps) {
   const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
 
   return (
-    <Link href={href} className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
+    // "Vidro" (mesmo padrão de ExploreActivityTab.tsx) — "glass-row".
+    <Link
+      href={href}
+      className="flex items-center gap-3 rounded-2xl border border-white/10 px-3 py-2.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+      style={{
+        background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
+      }}
+    >
       <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded bg-background">
         {posterUrl ? (
           <Image src={posterUrl} alt={item.title} fill sizes="56px" className="object-cover" />

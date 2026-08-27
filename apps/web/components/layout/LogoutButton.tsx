@@ -10,6 +10,7 @@ export interface LogoutButtonProps {
   className: string;
   children: React.ReactNode;
   "aria-label"?: string;
+  style?: React.CSSProperties;
 }
 
 /**

@@ -67,11 +67,15 @@ export function SeriesHeader({
       {backdropUrl && <Image src={backdropUrl} alt="" fill sizes="100vw" className="object-cover" priority />}
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-black/10" />
 
+      {/* "Vidro" (mesmo padrão dos ícones de editar/configurações do Perfil, ProfileHeader.tsx) — círculo com borda clara + blur/saturação + brilho num canto, em vez de `bg-background/70 backdrop-blur` chapado. */}
       <button
         type="button"
         onClick={() => router.back()}
         aria-label={t("common.back")}
-        className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
+        className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-90"
+        style={{
+          background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+        }}
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2.25} />
       </button>
@@ -83,7 +87,10 @@ export function SeriesHeader({
           setShowMoreOptions(true);
         }}
         aria-label={t("action.moreOptions")}
-        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-text backdrop-blur"
+        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-90"
+        style={{
+          background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+        }}
       >
         <MoreHorizontal className="h-4 w-4" strokeWidth={2.25} />
       </button>
