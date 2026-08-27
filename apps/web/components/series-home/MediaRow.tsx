@@ -18,7 +18,7 @@ export function MediaRow({ title, items, cardSize = "default", emptyState }: Med
       {items.length === 0 ? (
         emptyState
       ) : (
-        <div className="-mx-2 flex gap-1.5 overflow-x-auto px-2 pb-1">
+        <div className="-mx-2 flex gap-1.5 overflow-x-auto overflow-y-hidden px-2 pb-1">
           {items.map((item) => (
             <MediaCard key={item.id} item={item} size={cardSize} />
           ))}

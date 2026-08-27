@@ -508,7 +508,33 @@ export function ContinueWatchingCard({ item, priorityIndex, layoutActive = false
         }}
       >
         {accentOpacity > 0 && (
-          <>
+          /*
+           * BUG REAL CORRIGIDO (2026-08-27, reportado com print —
+           * "detalhe dourado do lado esquerdo com bug", a barrinha
+           * aparecendo como uma pílula flutuando pra fora do card) —
+           * causa raiz: a barrinha logo abaixo é bem fina (`w-1`, 4px)
+           * mas usa um raio de canto grande (`rounded-l-2xl`, 16px) —
+           * um raio maior que a METADE da própria largura do elemento
+           * vira, na prática, uma pílula/cápsula inteira (o navegador
+           * não deixa o raio passar de 50% da largura). Antes, o
+           * `overflow-hidden` do `<Link>` pai (removido antes, noutra
+           * correção, pra deixar o anel de "assistido" crescer pra
+           * fora do botão à direita) escondia esse excesso — a
+           * barrinha aparecia cortada bem rente ao canto real do card,
+           * escondendo a forma de pílula por trás do corte. Sem esse
+           * corte geral, ela ficou livre pra mostrar sua forma
+           * verdadeira (pílula), flutuando pra fora do canto.
+           *
+           * CORREÇÃO — em vez de devolver o corte pro `<Link>` inteiro
+           * (o que voltaria a cortar o anel à direita), estes dois
+           * elementos (só eles, não o card inteiro) ganham seu PRÓPRIO
+           * recorte, do tamanho exato do card (`inset-0`) e com o
+           * MESMO arredondamento dele (`rounded-2xl`) — a barrinha
+           * continua "pílula" por baixo do capô, só que agora só a
+           * fatia que cabe dentro do canto real do card fica visível,
+           * igual antes.
+           */
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-2xl">
             {/*
              * Brilho lateral (a pedido, 2026-08-25) — luz difusa vindo
              * da lateral esquerda pra DENTRO do card, separada da
@@ -521,8 +547,7 @@ export function ContinueWatchingCard({ item, priorityIndex, layoutActive = false
              * sempre caem juntos, na mesma proporção, por posição.
              */}
             <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 z-0 w-32 rounded-l-2xl"
+              className="absolute inset-y-0 left-0 w-32"
               style={{
                 background: `linear-gradient(to right, rgba(240,169,79,${accentOpacity * PRIORITY_GLOW_OPACITY_FACTOR}) 0%, transparent 60%)`,
               }}
@@ -543,13 +568,12 @@ export function ContinueWatchingCard({ item, priorityIndex, layoutActive = false
              * só numa técnica que realmente aparece numa barra fina.
              */}
             <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1 rounded-l-2xl"
+              className="absolute inset-y-0 left-0 w-1 rounded-l-2xl"
               style={{
                 background: `linear-gradient(to bottom, rgba(255,255,255,${accentOpacity * 0.55}) 0%, rgba(255,255,255,0) 20%), linear-gradient(to bottom, rgba(240,169,79,${accentOpacity * 0.75}) 0%, rgba(240,169,79,${accentOpacity}) 12%, rgba(240,169,79,${accentOpacity}) 88%, rgba(240,169,79,${accentOpacity * 0.75}) 100%)`,
               }}
             />
-          </>
+          </div>
         )}
 
         {/*
@@ -619,10 +643,28 @@ export function ContinueWatchingCard({ item, priorityIndex, layoutActive = false
                 event.stopPropagation();
                 router.push(`/series/${item.id}`);
               }}
-              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-text"
+              /*
+               * BUG REAL CORRIGIDO (2026-08-27, reportado — "títulos
+               * grandes ficaram desproporcional") — causa raiz: este
+               * botão nunca teve limite de largura nem corte de texto,
+               * porque antes era um `<span>` solto sem nenhum destaque
+               * próprio; virou pílula clicável (correção anterior,
+               * mesma sessão) mas ninguém tinha adicionado essa trava
+               * ainda. Um título comprido crescia livremente e podia
+               * quebrar linha DENTRO da pílula (sem `whitespace-nowrap`
+               * nem limite de largura), ficando alto/deformado.
+               * `max-w-full` trava a pílula no espaço que a coluna de
+               * texto já reserva (a mesma coluna tem `min-w-0` — ver
+               * acima —, exigido pra esse limite ter efeito de verdade
+               * em layout flex); o título vira `<span>` próprio com
+               * `min-w-0 truncate` (corta com "…" em vez de quebrar
+               * linha) e a seta ganha `shrink-0` pra nunca ser
+               * espremida quando o título ocupa todo o espaço.
+               */
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-text"
             >
-              {item.title}
-              <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
+              <span className="min-w-0 truncate">{item.title}</span>
+              <ChevronRight className="h-3 w-3 shrink-0" strokeWidth={2.5} />
             </button>
           )}
           <p className="flex items-center gap-1.5 font-mono text-base font-extrabold tracking-tight text-text">

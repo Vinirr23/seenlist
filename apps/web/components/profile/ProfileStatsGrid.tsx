@@ -49,7 +49,7 @@ export function ProfileStatsGrid() {
     <div className="mb-6">
       <div
         className={
-          "-mx-4 flex gap-3 overflow-x-auto scroll-smooth px-4 pb-1 snap-x snap-mandatory " +
+          "-mx-4 flex gap-3 overflow-x-auto overflow-y-hidden scroll-smooth px-4 pb-1 snap-x snap-mandatory " +
           "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         }
       >

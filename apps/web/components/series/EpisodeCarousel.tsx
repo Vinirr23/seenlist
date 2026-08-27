@@ -132,7 +132,7 @@ export function EpisodeCarousel({ seriesId, seriesSlug, category, seasons, color
         onScroll={() => {
           hasUserScrolledRef.current = true;
         }}
-        className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1"
+        className="-mx-4 flex gap-3 overflow-x-auto overflow-y-hidden px-4 pb-1"
       >
         {items.map(({ seasonNumber, episode }) => {
           const stillUrl = tmdbImage(episode.stillPath, "w300");

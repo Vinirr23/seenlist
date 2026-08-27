@@ -44,7 +44,7 @@ export function DiscoverCarousel({ title, items, isLoading, viewAllHref }: Disco
         </div>
       ) : (
         // gap-2 (era gap-3) — cards mais próximos, a pedido.
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="-mx-4 flex gap-2 overflow-x-auto overflow-y-hidden px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {items.map((item) => (
             <DiscoverCard key={`${item.mediaType}-${item.id}`} item={item} />
           ))}

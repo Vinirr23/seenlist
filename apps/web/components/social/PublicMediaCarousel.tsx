@@ -79,7 +79,7 @@ export function PublicMediaCarousel({
           <Icon className="relative h-4 w-4 text-primary" strokeWidth={2} />
           <h2 className={HEADING_TEXT_SHADOW_CLASS}>{label}</h2>
         </div>
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <div className="-mx-4 flex gap-2 overflow-x-auto overflow-y-hidden px-4 pb-1">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="aspect-[2/3] w-36 shrink-0 animate-pulse rounded-2xl bg-surface" />
           ))}
@@ -114,7 +114,7 @@ export function PublicMediaCarousel({
           <ChevronRight className="h-4 w-4" strokeWidth={2} />
         </span>
       </Link>
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      <div className="-mx-4 flex gap-2 overflow-x-auto overflow-y-hidden px-4 pb-1">
         {items.map((item) => {
           const posterUrl = tmdbImage(item.posterPath, "w185");
           const itemHref = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;

@@ -64,7 +64,7 @@ export function ProfileListsPreview() {
       </Link>
 
       {isLoading ? (
-        <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+        <div className="-mx-4 flex gap-3 overflow-x-auto overflow-y-hidden px-4 pb-1">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-32 w-28 shrink-0 animate-pulse rounded-lg bg-surface" />
           ))}
@@ -78,7 +78,7 @@ export function ProfileListsPreview() {
           <p className="text-sm font-semibold text-text">{t("profile.createFirstList")}</p>
         </Link>
       ) : (
-        <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+        <div className="-mx-4 flex gap-3 overflow-x-auto overflow-y-hidden px-4 pb-1">
           {lists.map((list) => (
             <Link key={list.id} href={`/profile/lists/${list.id}`} className="w-28 shrink-0">
               <div className="relative h-28 w-28">

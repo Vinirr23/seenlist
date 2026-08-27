@@ -8,7 +8,7 @@ export function CastCarousel({ cast }: { cast: CastMember[] }) {
   if (cast.length === 0) return null;
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1">
+    <div className="flex gap-3 overflow-x-auto overflow-y-hidden pb-1">
       {cast.map((member) => {
         const photoUrl = tmdbImage(member.profilePath, "w185");
         return (

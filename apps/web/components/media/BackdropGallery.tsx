@@ -12,7 +12,7 @@ export function BackdropGallery({ paths }: { paths: string[] }) {
   if (paths.length === 0) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
+    <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-1">
       {paths.map((path) => {
         const url = tmdbImage(path, "w780");
         if (!url) return null;

@@ -21,7 +21,7 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
   if (items.length === 0) return null;
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1">
+    <div className="flex gap-3 overflow-x-auto overflow-y-hidden pb-1">
       {items.map((item) => {
         const posterUrl = tmdbImage(item.posterPath, "w185");
         return (

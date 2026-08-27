@@ -40,7 +40,7 @@ export function MediaShelf({
       ) : (
         <div
           className={
-            "-mx-2 flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth px-2 pb-1 " +
+            "-mx-2 flex snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden scroll-smooth px-2 pb-1 " +
             "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           }
         >

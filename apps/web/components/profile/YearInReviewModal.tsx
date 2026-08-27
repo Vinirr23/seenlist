@@ -435,7 +435,7 @@ export function YearInReviewModal() {
               <div className="relative flex w-full max-w-[300px] flex-col items-center">
                 <Eyebrow>{t("yearInReview.heatmapTitle")}</Eyebrow>
                 <p className="mt-2 text-xl font-extrabold text-text">{t("yearInReview.heatmapSubtitle", { count: data.dailyActivity.length })}</p>
-                <div className="mt-5 flex justify-center overflow-x-auto">
+                <div className="mt-5 flex justify-center overflow-x-auto overflow-y-hidden">
                   <YearHeatmap dailyActivity={data.dailyActivity} year={reviewYear} />
                 </div>
                 {(data.longestStreakDays > 1 || data.biggestBingeDay) && (

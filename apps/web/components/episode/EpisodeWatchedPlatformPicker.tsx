@@ -35,7 +35,7 @@ export function EpisodeWatchedPlatformPicker({
   };
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1">
+    <div className="flex gap-3 overflow-x-auto overflow-y-hidden pb-1">
       {providers.map((provider) => {
         const logoUrl = tmdbImage(provider.logoPath, "w185");
         const selected = value === provider.name;

@@ -62,7 +62,7 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
   const imageByCharacterName = new Map((animeCharacters?.characters ?? []).map((c) => [normalizeCharacterName(c.name), c.imageUrl]));
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1">
+    <div className="flex gap-3 overflow-x-auto overflow-y-hidden pb-1">
       {cast.map((member) => {
         const characterImage = findCharacterImage(imageByCharacterName, member.character);
         /*

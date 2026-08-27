@@ -165,7 +165,7 @@ export function ProfileMediaCarousel({
           <h2 className="relative text-lg font-extrabold tracking-tight text-text [text-shadow:0_0_2px_rgba(0,0,0,0.9),0_0_5px_rgba(0,0,0,0.75),0_1px_6px_rgba(0,0,0,0.6)]">{label}</h2>
         </div>
         {/* w-36 (aspect-[2/3]) + gap-2 — mesmo padrão de tamanho/espaçamento da Explorar (a pedido), ver `DiscoverCard.tsx`/`DiscoverCarousel.tsx`. */}
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <div className="-mx-4 flex gap-2 overflow-x-auto overflow-y-hidden px-4 pb-1">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="aspect-[2/3] w-36 shrink-0 animate-pulse rounded-2xl bg-surface" />
           ))}
@@ -238,7 +238,7 @@ export function ProfileMediaCarousel({
         </span>
       </Link>
       {/* w-36 (aspect-[2/3]) + gap-2 — mesmo padrão de tamanho/espaçamento da Explorar (a pedido — "deixa o tamanho dos cards do perfil, no mesmo padrão de explorar"), ver `DiscoverCard.tsx`/`DiscoverCarousel.tsx`. Era `h-48 w-32` (128x192px) fixo — trocado por `aspect-[2/3] w-36` (144px de largura, mesma proporção 2:3), igual à Explorar. */}
-      <div ref={scrollRef} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      <div ref={scrollRef} className="-mx-4 flex gap-2 overflow-x-auto overflow-y-hidden px-4 pb-1">
         {visibleIds.map((id) => {
           const summary = summaryMap[id];
           const posterUrl = tmdbImage(summary?.posterPath ?? null, "w185");
