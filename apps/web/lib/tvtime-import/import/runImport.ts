@@ -358,9 +358,21 @@ export async function runImport(
         if (status !== "want_to_watch" && (!liveEpisodes || liveEpisodes.length === 0)) {
           liveTmdbUnavailableCount += 1;
         }
+        // CORREÇÃO (2026-08-27 — bug real, quebrou o build de produção)
+        // — `correctStatusWithLiveTmdb` passou a exigir o CONJUNTO de
+        // episódios assistidos (chave "temporada-episódio"), não mais
+        // um total agregado — mesmo motivo de `decideWatchingVsUpToDate`
+        // (airDateCategory.ts) ter sido reescrita antes ("motor
+        // resistente"/bug do Bleach: total agregado não prova QUAIS
+        // episódios específicos foram vistos). `reconstruction.episodes`
+        // já é a lista real e reconstruída de episódios assistidos —
+        // só precisa virar chave "temporada-episódio" aqui.
+        const watchedEpisodeKeys = new Set(
+          reconstruction.episodes.map((e) => `${e.seasonNumber}-${e.episodeNumber}`)
+        );
         const correction = correctStatusWithLiveTmdb(
           status,
-          reconstruction.uniqueEpisodesSeen,
+          watchedEpisodeKeys,
           totalKnownEpisodes ?? 0,
           summary?.ended ?? false,
           liveEpisodes
