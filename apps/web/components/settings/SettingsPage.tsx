@@ -9,7 +9,6 @@ import { AccountInfoRows } from "./AccountInfoRows";
 import { PrivacySection } from "./PrivacyRow";
 import { PendingTvTimeImportsRow } from "./PendingTvTimeImportsRow";
 import { LanguageRow } from "./LanguageRow";
-import { ThemeRow } from "./ThemeRow";
 import { SettingsRow } from "./SettingsRow";
 import { DeleteAccountRow } from "./DeleteAccountRow";
 
@@ -80,9 +79,9 @@ export function SettingsPage() {
         <h1 className="text-xl font-bold text-text">{t("settings.title")}</h1>
       </div>
 
+      {/* A PEDIDO (2026-08-27 — "tira a opção de cor de web e mobile") — a linha "Tema" (ThemeRow) saiu daqui; ver comentário completo em `app/providers.tsx`. */}
       <Section title={t("settings.section.preferences")}>
         <LanguageRow />
-        <ThemeRow />
         <SettingsRow label={t("settings.notifications")} href="/profile/settings/notifications" last />
       </Section>
 
