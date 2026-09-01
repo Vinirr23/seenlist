@@ -67,6 +67,19 @@ export interface EmptyLibraryHeroProps {
  * na conversão). Redimensionado de 1536×1024 pra 768×512 (mesma
  * proporção 3:2, sem cortar/distorcer); o .jpg anterior (sem
  * transparência) fica órfão — ver comandos git no fim da entrega.
+ *
+ * AJUSTE FINO (2026-09-01, seguinte, a pedido — "aumentaria um pouco
+ * a ilustração... subiria ligeiramente o bloco inteiro pra deixar
+ * mais espaço entre o botão e 'Populares no SeenList'") — composição
+ * já estava certa (usuário confirmou: "a composição agora está no
+ * caminho certo"), só dois ajustes de medida: `w-[78%]/max-w-[340px]`
+ * virou `w-[88%]/max-w-[380px]` (~13% maior, dentro da faixa "10-15%"
+ * pedida — `aspect-[3/2]` continua garantindo que não corta/estica
+ * nada, só escala). `pt-2` do container virou `pt-0` — sobe o bloco
+ * inteiro um pouco (menos respiro ACIMA da ilustração); o respiro
+ * ABAIXO (entre o divisor "OU" e "Populares no SeenList") não é deste
+ * componente — ver `mt-6` → `mt-10` no wrapper de `PopularMediaRow`
+ * em `MinhaListaSection.tsx`.
  */
 export function EmptyLibraryHero({
   illustrationSrc,
@@ -77,20 +90,21 @@ export function EmptyLibraryHero({
   dividerLabel,
 }: EmptyLibraryHeroProps) {
   return (
-    <div className="flex flex-col items-center px-2 pt-2 text-center">
+    <div className="flex flex-col items-center px-2 pt-0 text-center">
       {/*
-        * "75-80% da tela" (a pedido) — `w-[78%]` do container (que já
-        * corresponde à largura útil da tela no mobile — `SeriesHome.tsx`
-        * só tem `px-2` de respiro). `aspect-[3/2]` reproduz exatamente
-        * a proporção do arquivo atual (1536×1024 = 1,5 = 3/2), então
-        * a imagem cresce/encolhe sem cortar nem esticar nada.
-        * `max-w-[340px]` só entra em jogo no md/desktop (container já
-        * limitado a 430px ali) pra não virar uma imagem gigante. SEM
-        * `style`/máscara nenhuma aqui — o arquivo já é transparente de
-        * verdade (canal alfa real), nada pra "fingir" mais.
+        * "aumentaria um pouco a ilustração — 10-15%" (a pedido,
+        * 2026-09-01, seguinte) — era `w-[78%]/max-w-[340px]`, virou
+        * `w-[88%]/max-w-[380px]` (~13% maior nos dois eixos, meio da
+        * faixa pedida). `aspect-[3/2]` continua reproduzindo a
+        * proporção exata do arquivo (1536×1024 = 1,5 = 3/2), então só
+        * escala — não corta nem estica. `max-w-[380px]` só entra em
+        * jogo no md/desktop (container já limitado a 430px ali) pra
+        * não virar uma imagem gigante. SEM `style`/máscara nenhuma
+        * aqui — o arquivo já é transparente de verdade (canal alfa
+        * real), nada pra "fingir" mais.
         */}
-      <div className="relative -mb-3 aspect-[3/2] w-[78%] max-w-[340px]">
-        <Image src={illustrationSrc} alt="" fill sizes="340px" className="object-contain" priority />
+      <div className="relative -mb-3 aspect-[3/2] w-[88%] max-w-[380px]">
+        <Image src={illustrationSrc} alt="" fill sizes="380px" className="object-contain" priority />
       </div>
 
       <p className="text-xl font-bold text-text">{title}</p>

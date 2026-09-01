@@ -291,7 +291,14 @@ export function MinhaListaSection() {
             actionHref="/explore"
             dividerLabel={t("seriesHome.or")}
           />
-          <div className="mt-6">
+          {/*
+            * "mais espaço entre o botão e 'Populares no SeenList'" (a
+            * pedido, 2026-09-01, seguinte) — era `mt-6`, virou `mt-10`
+            * (respiro logo abaixo do divisor "OU" de `EmptyLibraryHero`,
+            * que teve o `pt-0` do próprio topo pra compensar — ver
+            * comentário lá).
+            */}
+          <div className="mt-10">
             <PopularMediaRow
               list="trending_series"
               title={
