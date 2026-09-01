@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchReceivedRecommendations, type ReceivedRecommendation } from "@/lib/recommendations";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text, Skeleton } from "@/components/ui";
+import { Text, Skeleton, Glass } from "@/components/ui";
 import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -59,17 +59,19 @@ export function ProfileRecommendationsPreview() {
 
   if (!recommendations || recommendations.length === 0) {
     return (
-      <Pressable style={styles.card} onPress={() => router.push("/profile/recommendations")}>
-        <View style={styles.emptyIcon}>
-          <Feather name="send" size={16} color={colors.primary} />
-        </View>
-        <Text numberOfLines={1} style={styles.title}>
-          {t("profile.recommendationsTitle")}
-        </Text>
-        <Text variant="muted" style={styles.emptyLabel}>
-          {t("profile.noRecommendationsShort")}
-        </Text>
-        <Feather name="chevron-right" size={16} color={colors.muted} />
+      <Pressable onPress={() => router.push("/profile/recommendations")}>
+        <Glass style={styles.card}>
+          <View style={styles.emptyIcon}>
+            <Feather name="send" size={16} color={colors.primary} />
+          </View>
+          <Text numberOfLines={1} style={styles.title}>
+            {t("profile.recommendationsTitle")}
+          </Text>
+          <Text variant="muted" style={styles.emptyLabel}>
+            {t("profile.noRecommendationsShort")}
+          </Text>
+          <Feather name="chevron-right" size={16} color={colors.muted} />
+        </Glass>
       </Pressable>
     );
   }
@@ -102,41 +104,40 @@ export function ProfileRecommendationsPreview() {
   }
 
   return (
-    <Pressable
-      style={[styles.card, unreadCount > 0 && styles.cardHighlighted]}
-      onPress={() => router.push("/profile/recommendations")}
-    >
-      <View style={styles.avatarStack}>
-        <View style={styles.avatarRow}>
-          {uniqueSenders.map((sender, index) => (
-            <View
-              key={sender.userId}
-              style={[styles.avatar, { marginLeft: index === 0 ? 0 : -10, zIndex: uniqueSenders.length - index }]}
-            >
-              {sender.avatarUrl ? (
-                <Image source={{ uri: sender.avatarUrl }} style={styles.avatarImage} />
-              ) : (
-                <Text style={styles.avatarInitial}>{(sender.displayName ?? sender.username).slice(0, 1).toUpperCase()}</Text>
-              )}
+    <Pressable onPress={() => router.push("/profile/recommendations")}>
+      <Glass style={[styles.card, unreadCount > 0 && styles.cardHighlighted]}>
+        <View style={styles.avatarStack}>
+          <View style={styles.avatarRow}>
+            {uniqueSenders.map((sender, index) => (
+              <View
+                key={sender.userId}
+                style={[styles.avatar, { marginLeft: index === 0 ? 0 : -10, zIndex: uniqueSenders.length - index }]}
+              >
+                {sender.avatarUrl ? (
+                  <Image source={{ uri: sender.avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarInitial}>{(sender.displayName ?? sender.username).slice(0, 1).toUpperCase()}</Text>
+                )}
+              </View>
+            ))}
+          </View>
+          {unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
             </View>
-          ))}
+          )}
         </View>
-        {unreadCount > 0 && (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+
+        <Text numberOfLines={2} style={styles.message}>
+          {message}
+        </Text>
+
+        {posterUrl && (
+          <View style={styles.poster}>
+            <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
           </View>
         )}
-      </View>
-
-      <Text numberOfLines={2} style={styles.message}>
-        {message}
-      </Text>
-
-      {posterUrl && (
-        <View style={styles.poster}>
-          <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
-        </View>
-      )}
+      </Glass>
     </Pressable>
   );
 }
@@ -148,17 +149,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 4,
   },
-  /** Contorno/fundo de destaque quando tem recomendação não lida — mesmo ajuste feito no web. */
+  /** Contorno de destaque quando tem recomendação não lida — mesmo ajuste feito no web. Só a borda (não o fundo, que já é o vidro) pra não brigar com o gradiente/blur do `Glass`. */
   cardHighlighted: {
     borderColor: tint.border,
-    backgroundColor: tint.subtle,
   },
   emptyIcon: {
     height: 32,

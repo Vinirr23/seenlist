@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchDisplaySummariesCached, tmdbImageUrl, type MediaSummary } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -97,9 +97,11 @@ export function ProfileMediaCarousel({
           <Feather name={icon} size={16} color={colors.primary} />
           <Text style={styles.sectionTitleText}>{label}</Text>
         </View>
-        <Pressable style={styles.emptyCard} onPress={() => router.push(emptyHref ?? href)}>
-          <Feather name="plus" size={22} color={colors.muted} />
-          <Text style={styles.emptyText}>{emptyLabel}</Text>
+        <Pressable onPress={() => router.push(emptyHref ?? href)}>
+          <Glass style={styles.emptyCard}>
+            <Feather name="plus" size={22} color={colors.muted} />
+            <Text style={styles.emptyText}>{emptyLabel}</Text>
+          </Glass>
         </Pressable>
       </View>
     );
@@ -202,10 +204,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
-    borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
     paddingVertical: spacing.xl,
   },

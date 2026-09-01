@@ -1,6 +1,6 @@
-import { View, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 export function StatCard({
@@ -15,7 +15,7 @@ export function StatCard({
   subtext?: string;
 }) {
   return (
-    <View style={styles.card}>
+    <Glass style={styles.card}>
       <Feather name={icon} size={18} color={colors.primary} />
       <Text style={styles.value}>{value}</Text>
       {!!subtext && (
@@ -26,7 +26,7 @@ export function StatCard({
       <Text variant="muted" style={styles.title}>
         {title}
       </Text>
-    </View>
+    </Glass>
   );
 }
 
@@ -35,9 +35,6 @@ const CARD_WIDTH = 152;
 const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.md,
   },

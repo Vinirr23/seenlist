@@ -1,10 +1,9 @@
 import { View, Pressable, ScrollView, StyleSheet } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useProfileStats } from "@/lib/useProfileStats";
 import { formatWatchDuration } from "@/lib/profileStats";
-import { Text, Skeleton } from "@/components/ui";
+import { Text, Skeleton, Glass, GelSurface } from "@/components/ui";
 import { PageError } from "../media/PageError";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
@@ -73,20 +72,17 @@ export function StatisticsCard() {
   ];
 
   return (
-    <LinearGradient
-      colors={["rgba(232,163,61,0.16)", "rgba(19,24,38,1)", "rgba(79,209,197,0.10)"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.card}
-    >
+    <Glass style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Feather name="bar-chart-2" size={16} color={colors.primary} />
           <Text variant="label">{t("profile.statistics")}</Text>
         </View>
-        <Pressable style={styles.pillButton} onPress={() => router.push("/profile/stats")}>
-          <Text style={styles.pillButtonText}>{t("profile.viewDetails")}</Text>
-          <Feather name="chevron-right" size={12} color={colors.background} />
+        <Pressable onPress={() => router.push("/profile/stats")}>
+          <GelSurface style={styles.pillButton}>
+            <Text style={styles.pillButtonText}>{t("profile.viewDetails")}</Text>
+            <Feather name="chevron-right" size={12} color={colors.background} />
+          </GelSurface>
         </Pressable>
       </View>
       <ScrollView
@@ -95,16 +91,16 @@ export function StatisticsCard() {
         contentContainerStyle={styles.carousel}
       >
         {preview.map((item) => (
-          <View key={item.label} style={styles.carouselItem}>
+          <Glass key={item.label} style={styles.carouselItem}>
             <Feather name={item.icon} size={16} color={colors.secondary} />
             <Text style={styles.value}>{item.value}</Text>
             <Text variant="muted" style={styles.label}>
               {item.label}
             </Text>
-          </View>
+          </Glass>
         ))}
       </ScrollView>
-    </LinearGradient>
+    </Glass>
   );
 }
 
@@ -113,8 +109,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   card: {
-    borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.md,
   },
@@ -136,7 +130,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
-    backgroundColor: colors.primary,
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 4,
@@ -152,10 +145,7 @@ const styles = StyleSheet.create({
   },
   carouselItem: {
     width: 108,
-    borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: "rgba(19,24,38,0.4)",
     padding: spacing.sm,
     gap: 2,
   },

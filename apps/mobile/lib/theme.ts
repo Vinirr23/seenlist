@@ -156,3 +156,36 @@ export const fontSize = {
   xl: 22,
   xxl: 28,
 } as const;
+
+/**
+ * Porte do redesign "âmbar/vidro" do web pro mobile (ver comentário
+ * "Vidro"/"gel" em qualquer arquivo `apps/web/components` que usa
+ * `backdrop-blur` + `radial-gradient` translúcido) — precisou esperar
+ * o upgrade pro Expo SDK 55 (RN 0.83): antes disso, o `expo-blur` só
+ * desfoca de verdade no iOS — no Android cai pra uma caixa
+ * semi-transparente lisa, sem desfoque nenhum, o que deixaria as duas
+ * plataformas com visual DIFERENTE (pedido explícito do usuário:
+ * "preciso que o app web e o mobile tenham o mesmo design"). Com o
+ * SDK 55 e a API nova (`BlurTargetView`, ver `components/ui/Glass.tsx`),
+ * o blur é real e igual nas duas.
+ *
+ * React Native não tem `radial-gradient()` — os gradientes aqui usam
+ * `LinearGradient` na diagonal (canto superior-esquerdo mais claro,
+ * apagando pro canto oposto) como aproximação do "brilho concentrado"
+ * do radial do web. Mesma ideia, sem a curvatura exata.
+ */
+export const glass = {
+  /** Intensidade do blur (escala 0-100 do BlurView) — mesma sensação do `backdrop-blur-[10-18px]` do web. */
+  blurIntensity: 45,
+  /** Borda clara sutil — mesmo papel do `border-white/10` do web. */
+  borderNeutral: "rgba(255,255,255,0.1)",
+  /** Camada de gradiente translúcido por cima do blur — mesmo papel do `radial-gradient` sutil do web. */
+  gradientNeutral: ["rgba(255,255,255,0.13)", "rgba(255,255,255,0.06)"] as const,
+} as const;
+
+/** "Gel" âmbar — versão OPACA (não translúcida, sem blur) do vidro, pra CTA primário/pílula em destaque. Mesma receita do botão amber do web. */
+export const gel = {
+  gradient: ["rgba(240,169,79,0.95)", "rgba(232,163,61,0.92)", "rgba(176,95,27,0.95)"] as const,
+  /** Reflexo claro no topo — aproximação do inset box-shadow do web (RN não tem sombra interna). */
+  highlight: ["rgba(255,255,255,0.35)", "rgba(255,255,255,0)"] as const,
+} as const;

@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyListsWithPreview, type ListWithPreview } from "@/lib/lists";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text, Skeleton } from "@/components/ui";
+import { Text, Skeleton, Glass } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -67,9 +67,11 @@ export function ProfileListsPreview() {
           ))}
         </ScrollView>
       ) : !lists || lists.length === 0 ? (
-        <Pressable style={styles.emptyCard} onPress={() => router.push("/lists")}>
-          <Feather name="plus" size={22} color={colors.muted} />
-          <Text style={styles.emptyText}>Criar sua primeira lista</Text>
+        <Pressable onPress={() => router.push("/lists")}>
+          <Glass style={styles.emptyCard}>
+            <Feather name="plus" size={22} color={colors.muted} />
+            <Text style={styles.emptyText}>Criar sua primeira lista</Text>
+          </Glass>
         </Pressable>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
@@ -137,10 +139,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
-    borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
     paddingVertical: spacing.xl,
   },

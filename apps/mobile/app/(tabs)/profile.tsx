@@ -11,13 +11,13 @@ import { useFollowCounts } from "@/lib/usePublicProfile";
 import { fetchEditableProfile } from "@/lib/editProfile";
 import { useSeriesActivityIds, useMovieActivityIds, useFavoriteIds } from "@/lib/profileMediaCarousel";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
-import { Screen, Text } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow, GelSurface } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
 import { ProfileRecommendationsPreview } from "@/components/profile/ProfileRecommendationsPreview";
 import { ProfileListsPreview } from "@/components/profile/ProfileListsPreview";
 import { ProfileMediaCarousel } from "@/components/profile/ProfileMediaCarousel";
-import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 
@@ -159,6 +159,8 @@ export default function ProfileScreen() {
   return (
     <Screen padded={false}>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
+      <GlassTargetProvider>
+        <AmbientGlow />
         {!!bannerUrl ? (
           <View style={styles.bannerOuter}>
             <View style={styles.bannerInner}>
@@ -171,17 +173,23 @@ export default function ProfileScreen() {
             </View>
 
             <Pressable hitSlop={8} style={styles.bannerIconLeft} onPress={() => router.push("/settings/edit-profile")}>
-              <Feather name="edit-2" size={16} color="#fff" />
+              <Glass style={styles.bannerIconGlass}>
+                <Feather name="edit-2" size={16} color="#fff" />
+              </Glass>
             </Pressable>
 
             <View style={styles.bannerIconsRight}>
               {!!username && (
-                <Pressable hitSlop={8} style={styles.bannerIconButton} onPress={handleShare}>
-                  <Feather name="share-2" size={16} color="#fff" />
+                <Pressable hitSlop={8} onPress={handleShare}>
+                  <Glass style={styles.bannerIconButton}>
+                    <Feather name="share-2" size={16} color="#fff" />
+                  </Glass>
                 </Pressable>
               )}
-              <Pressable hitSlop={8} style={styles.bannerIconButton} onPress={() => router.push("/settings")}>
-                <Feather name="settings" size={16} color="#fff" />
+              <Pressable hitSlop={8} onPress={() => router.push("/settings")}>
+                <Glass style={styles.bannerIconButton}>
+                  <Feather name="settings" size={16} color="#fff" />
+                </Glass>
               </Pressable>
             </View>
 
@@ -207,12 +215,16 @@ export default function ProfileScreen() {
         ) : (
           <View style={styles.topIconsRowNoBanner}>
             {!!username && (
-              <Pressable hitSlop={8} style={styles.bannerIconButtonFlat} onPress={handleShare}>
-                <Feather name="share-2" size={16} color={colors.muted} />
+              <Pressable hitSlop={8} onPress={handleShare}>
+                <Glass style={styles.bannerIconButtonFlat}>
+                  <Feather name="share-2" size={16} color={colors.muted} />
+                </Glass>
               </Pressable>
             )}
-            <Pressable hitSlop={8} style={styles.bannerIconButtonFlat} onPress={() => router.push("/settings")}>
-              <Feather name="settings" size={16} color={colors.muted} />
+            <Pressable hitSlop={8} onPress={() => router.push("/settings")}>
+              <Glass style={styles.bannerIconButtonFlat}>
+                <Feather name="settings" size={16} color={colors.muted} />
+              </Glass>
             </Pressable>
           </View>
         )}
@@ -241,30 +253,38 @@ export default function ProfileScreen() {
         {!!bio && <Text style={styles.bio}>{bio}</Text>}
 
         <View style={styles.countsRow}>
-          <Pressable style={styles.countCard} onPress={() => router.push(`/follow-list/${user.id}/following`)}>
-            <Text style={styles.countNumber}>{counts.following}</Text>
-            <Text variant="muted" style={styles.countLabel}>
-              Seguindo
-            </Text>
+          <Pressable style={styles.countCardFlex} onPress={() => router.push(`/follow-list/${user.id}/following`)}>
+            <Glass style={styles.countCard}>
+              <Text style={styles.countNumber}>{counts.following}</Text>
+              <Text variant="muted" style={styles.countLabel}>
+                Seguindo
+              </Text>
+            </Glass>
           </Pressable>
-          <Pressable style={styles.countCard} onPress={() => router.push(`/follow-list/${user.id}/followers`)}>
-            <Text style={styles.countNumber}>{counts.followers}</Text>
-            <Text variant="muted" style={styles.countLabel}>
-              Seguidores
-            </Text>
+          <Pressable style={styles.countCardFlex} onPress={() => router.push(`/follow-list/${user.id}/followers`)}>
+            <Glass style={styles.countCard}>
+              <Text style={styles.countNumber}>{counts.followers}</Text>
+              <Text variant="muted" style={styles.countLabel}>
+                Seguidores
+              </Text>
+            </Glass>
           </Pressable>
-          <Pressable style={styles.countCard} onPress={() => router.push("/profile/comments")}>
-            <Text style={styles.countNumber}>{socialCounts?.commentsGiven ?? 0}</Text>
-            <Text variant="muted" style={styles.countLabel}>
-              Comentários
-            </Text>
+          <Pressable style={styles.countCardFlex} onPress={() => router.push("/profile/comments")}>
+            <Glass style={styles.countCard}>
+              <Text style={styles.countNumber}>{socialCounts?.commentsGiven ?? 0}</Text>
+              <Text variant="muted" style={styles.countLabel}>
+                Comentários
+              </Text>
+            </Glass>
           </Pressable>
         </View>
 
         {!bannerUrl && (
           <View style={styles.actionsRow}>
-            <Pressable style={styles.editButton} onPress={() => router.push("/settings/edit-profile")}>
-              <Text style={styles.editButtonText}>Editar</Text>
+            <Pressable onPress={() => router.push("/settings/edit-profile")}>
+              <GelSurface style={styles.editButton}>
+                <Text style={styles.editButtonText}>Editar</Text>
+              </GelSurface>
             </Pressable>
           </View>
         )}
@@ -313,6 +333,7 @@ export default function ProfileScreen() {
             emptyHref="/profile/movies"
           />
         </View>
+      </GlassTargetProvider>
       </ScrollView>
     </Screen>
   );
@@ -344,16 +365,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 56,
   },
+  /** Posição (fica no `Pressable` de fora) separada da aparência (fica no `Glass` de dentro) — `position: absolute` num filho de um `Pressable` sem tamanho próprio faz a área de toque colapsar pra 0×0. */
   bannerIconLeft: {
     position: "absolute",
     left: 12,
     top: 12,
+  },
+  bannerIconGlass: {
     height: 36,
     width: 36,
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: scrim.overImage,
   },
   bannerIconsRight: {
     position: "absolute",
@@ -368,7 +391,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: scrim.overImage,
   },
   bannerIconButtonFlat: {
     height: 36,
@@ -376,7 +398,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surface,
   },
   topIconsRowNoBanner: {
     flexDirection: "row",
@@ -465,12 +486,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
   },
-  countCard: {
+  countCardFlex: {
     flex: 1,
+  },
+  countCard: {
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
   },
@@ -489,8 +509,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   editButton: {
-    borderWidth: 1,
-    borderColor: colors.primary,
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
@@ -498,7 +516,7 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontSize: 12,
     fontWeight: "700",
-    color: colors.primary,
+    color: colors.background,
     textTransform: "uppercase",
   },
   section: {

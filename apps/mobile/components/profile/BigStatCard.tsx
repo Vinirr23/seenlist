@@ -1,5 +1,5 @@
 import { View, StyleSheet } from "react-native";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 export function BigStatCard({
@@ -14,7 +14,7 @@ export function BigStatCard({
   children?: React.ReactNode;
 }) {
   return (
-    <View style={styles.card}>
+    <Glass style={styles.card}>
       <Text variant="muted" style={styles.title}>
         {title.toUpperCase()}
       </Text>
@@ -25,15 +25,12 @@ export function BigStatCard({
         </Text>
       )}
       {!!children && <View style={styles.children}>{children}</View>}
-    </View>
+    </Glass>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.md,
   },
