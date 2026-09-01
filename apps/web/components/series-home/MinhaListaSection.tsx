@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { Flame } from "lucide-react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
@@ -22,30 +23,34 @@ const CONTINUE_ASSISTINDO_LIMIT = 8;
 /**
  * A PEDIDO (2026-09-01 — "analisa essa imagem de um sofá, com pipoca
  * e tal e implementa algo assim", print de referência mandado pelo
- * usuário) — ilustração do estado vazio de Séries/Home. Feita com
- * EMOJI (🛋️🍿🪴), de propósito, em vez de importar um ícone novo
- * (`lucide-react`, já usado no resto do app): não dava pra confirmar
- * com certeza se a versão do `lucide-react` instalada no projeto
- * (0.454.0, ver `package.json`) já tinha ícones de "sofá"/"pipoca" —
- * um nome de ícone errado só quebraria o build na hora de compilar,
- * tarde demais pra perceber aqui. Emoji não tem essa dependência
- * nenhuma (funciona em qualquer navegador/versão), e o próprio
- * usuário já pediu emoji nessa mesma mensagem (o "🔥" de "Populares
- * no SeenList", ver `PopularMediaRow.tsx`) — mesma linguagem visual.
- * Glow radial atrás (`rgba(79,209,197,...)`, a cor secundária/teal do
- * app — mesma paleta de `globals.css`) pra ecoar a luz azulada por
- * trás do sofá no print, sem inventar cor nova.
+ * usuário) — ilustração do estado vazio de Séries/Home.
+ *
+ * HISTÓRICO — passou por 2 tentativas antes desta: (1) emoji
+ * (🛋️🍿🪴), rejeitada — "você colocou ícone, quero uma imagem criada
+ * por você"; (2) SVG desenhado à mão por mim, também rejeitada —
+ * "parecem desenhado por uma criança" (comparado ao acabamento do
+ * print original, que é claramente gerado por IA/render 3D — algo
+ * que eu não tenho ferramenta pra fazer aqui). Pesquisei bancos de
+ * ilustração gratuitos como alternativa (unDraw, Icons8, freesvg.org)
+ * — nenhum tinha uma cena "sofá + pipoca" no nível de acabamento do
+ * print, sem exigir crédito visual ou compra. Resolvido na raiz:
+ * o PRÓPRIO usuário gerou a imagem (provavelmente no mesmo gerador
+ * que já tinha usado antes pras recomendações de design) e mandou o
+ * arquivo — arquivo original processado (redimensionado de
+ * 1402×1122 pra 700×560, convertido pra .jpg otimizado, ~30KB) e
+ * salvo em `public/illustrations/empty-library-couch.jpg`.
  */
 function EmptyLibraryIllustration() {
   return (
-    <div className="relative mb-1 flex h-24 w-24 items-center justify-center" aria-hidden="true">
-      <div
-        className="absolute inset-0 rounded-full blur-xl"
-        style={{ background: "radial-gradient(60% 60% at 50% 45%, rgba(79,209,197,0.28), transparent 70%)" }}
+    <div className="relative mb-1 h-[126px] w-[158px] overflow-hidden rounded-2xl border border-white/10 shadow-lg shadow-black/30">
+      <Image
+        src="/illustrations/empty-library-couch.jpg"
+        alt=""
+        fill
+        sizes="158px"
+        className="object-cover"
+        priority
       />
-      <span className="relative text-6xl leading-none">🛋️</span>
-      <span className="absolute -bottom-1 -left-3 text-2xl leading-none">🍿</span>
-      <span className="absolute -top-1 -right-2 text-xl leading-none">🪴</span>
     </div>
   );
 }
