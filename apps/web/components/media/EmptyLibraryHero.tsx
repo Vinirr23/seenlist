@@ -80,6 +80,48 @@ export interface EmptyLibraryHeroProps {
  * ABAIXO (entre o divisor "OU" e "Populares no SeenList") não é deste
  * componente — ver `mt-6` → `mt-10` no wrapper de `PopularMediaRow`
  * em `MinhaListaSection.tsx`.
+ *
+ * TROCA DE ARTE + ANIMAÇÃO AMBIENTE (2026-09-01, seguinte, a pedido —
+ * "quero transformar o empty state... numa animação premium,
+ * extremamente sutil") — dois pedidos juntos, tratados com cuidado:
+ *
+ * 1) Imagem nova (`empty-library-scene.png`, luminária + gato dormindo
+ *    + pipoca + planta): CONFERIDA pixel a pixel antes de trocar — ao
+ *    contrário da anterior (objetos soltos em transparência quase
+ *    total), esta tem uma "vinheta" oval que ocupa ~90% do canvas
+ *    (só os 4 cantos são realmente transparentes); a cor de dentro
+ *    bate perto do fundo do app, então funde bem na maior parte da
+ *    tela, mas por baixo de uma das manchas azuis de `SeriesHome.tsx`
+ *    o halo oval pode reaparecer sutilmente — AVISADO ao usuário
+ *    (com composição sobre magenta pra provar) antes de trocar; ele
+ *    escolheu usar assim mesmo.
+ *
+ * 2) Animação: o pedido original descrevia luminária, reflexo, gato,
+ *    planta e manta como CAMADAS separadas de um SVG. Não existe tal
+ *    SVG neste projeto — nem o anterior nem este são nada além de um
+ *    PNG achatado, uma imagem só (conferido, não assumido). Avisado
+ *    ao usuário; ele escolheu implementar agora só o que é possível
+ *    SEM recortar a arte em camadas: (a) a ilustração inteira
+ *    flutuando muito sutilmente (`.empty-hero-float`, ver
+ *    `globals.css`) e (b) duas camadas SEPARADAS por CIMA da imagem,
+ *    nunca dentro dela — um brilho suave posicionado sobre a lâmpada
+ *    (`.empty-hero-glow`) e 3 partículas piscando em pontos vazios da
+ *    cena (`.empty-hero-particle`), cada uma com seu próprio atraso/
+ *    duração pra não sincronizar. Posições em `%` calculadas em cima
+ *    do arquivo fonte 1536×1024 (bulbo da luminária: pico de brilho
+ *    em ~31%/18% depois de um blur pra achar o centro real, não
+ *    chute). Se a arte trocar de novo, essas posições precisam ser
+ *    recalculadas.
+ *
+ * Tudo dentro de `prefers-reduced-motion: no-preference` (a pedido
+ * explícito) — ver `globals.css`: com "Reduzir movimento" ativado,
+ * as 3 classes caem pros valores estáticos definidos fora da media
+ * query (nada de animação, nada some).
+ *
+ * CSS puro (`transform`/`opacity`, mesmo padrão já usado em
+ * `.feed-item-enter` do `globals.css`) — sem lib de animação nova,
+ * sem JS/`requestAnimationFrame`, sem re-render do React: o navegador
+ * compila essas duas propriedades direto na GPU.
  */
 export function EmptyLibraryHero({
   illustrationSrc,
@@ -103,8 +145,58 @@ export function EmptyLibraryHero({
         * aqui — o arquivo já é transparente de verdade (canal alfa
         * real), nada pra "fingir" mais.
         */}
-      <div className="relative -mb-3 aspect-[3/2] w-[88%] max-w-[380px]">
+      <div className="empty-hero-float relative -mb-3 aspect-[3/2] w-[88%] max-w-[380px]">
         <Image src={illustrationSrc} alt="" fill sizes="380px" className="object-contain" priority />
+
+        {/*
+          * Brilho da luminária — camada SEPARADA por cima da imagem
+          * (não mexe no arquivo), posicionada no bulbo (~31%/18% do
+          * canvas fonte). `blur` próprio pra ficar macio, sem beirar
+          * neon. Ver comentário grande acima pro histórico completo.
+          */}
+        <div
+          aria-hidden="true"
+          className="empty-hero-glow pointer-events-none absolute rounded-full"
+          style={{
+            left: "31%",
+            top: "20%",
+            width: "48%",
+            height: "60%",
+            transform: "translate(-50%, -50%)",
+            background: "radial-gradient(closest-side, rgba(255,196,102,0.5), rgba(255,196,102,0.12) 55%, transparent 75%)",
+            filter: "blur(7px)",
+          }}
+        />
+
+        {/*
+          * Partículas — 3 pontos discretos em áreas "vazias" da cena
+          * (não em cima do sofá/gato), cada um com seu próprio atraso
+          * (`animationDelay`) e duração (`animationDuration`) pra não
+          * piscarem juntas — timing individual dá o efeito orgânico
+          * pedido, em vez de tudo sincronizado.
+          */}
+        {[
+          { left: "23%", top: "39%", size: 7, delay: "0s", duration: "4.4s" },
+          { left: "68%", top: "22%", size: 6, delay: "1.3s", duration: "3.8s" },
+          { left: "74%", top: "33%", size: 5, delay: "2.5s", duration: "5.1s" },
+        ].map((particle) => (
+          <div
+            key={`${particle.left}-${particle.top}`}
+            aria-hidden="true"
+            className="empty-hero-particle pointer-events-none absolute rounded-full"
+            style={{
+              left: particle.left,
+              top: particle.top,
+              width: particle.size,
+              height: particle.size,
+              transform: "translate(-50%, -50%)",
+              background: "radial-gradient(closest-side, rgba(255,214,140,0.95), transparent 70%)",
+              filter: "blur(0.5px)",
+              animationDelay: particle.delay,
+              animationDuration: particle.duration,
+            }}
+          />
+        ))}
       </div>
 
       <p className="text-xl font-bold text-text">{title}</p>

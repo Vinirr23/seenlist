@@ -284,7 +284,7 @@ export function MinhaListaSection() {
          */
         <>
           <EmptyLibraryHero
-            illustrationSrc="/illustrations/empty-library-couch.png"
+            illustrationSrc="/illustrations/empty-library-scene.png"
             title={series.length === 0 ? t("seriesHome.emptyLibraryTitle") : t("seriesHome.emptyCaughtUpTitle")}
             subtitle={series.length === 0 ? t("seriesHome.emptyLibrarySubtitle") : t("seriesHome.emptyCaughtUpSubtitle")}
             actionLabel={t("seriesHome.exploreSeries")}

@@ -55,3 +55,72 @@ body {
 .feed-item-enter {
   animation: feed-item-enter 300ms ease-out;
 }
+
+/*
+ * A PEDIDO (2026-09-01 — "quero transformar o empty state... numa
+ * animação premium, extremamente sutil") — mesmo padrão de
+ * `feed-item-enter` acima: CSS puro, sem lib de animação nova. A
+ * ilustração do empty state (`EmptyLibraryHero.tsx`) é um PNG
+ * achatado, uma imagem só — SEM camadas internas de verdade (gato,
+ * planta, manta não existem como elementos separados nela) — então só
+ * dá pra animar (a) a imagem inteira como bloco (flutuação) e (b)
+ * camadas por CIMA dela, independentes (brilho, partículas); nunca o
+ * desenho em si. Ver comentário completo em `EmptyLibraryHero.tsx`.
+ *
+ * As 3 classes têm um valor ESTÁTICO fora da media query — é o que
+ * quem tem "Reduzir movimento" ativado vê: cena parada, nada some,
+ * nada pisca. A animação de verdade só existe dentro de
+ * `prefers-reduced-motion: no-preference` (a pedido explícito de
+ * respeitar essa preferência).
+ */
+.empty-hero-glow {
+  opacity: 0.85;
+}
+
+.empty-hero-particle {
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes empty-hero-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-2px);
+    }
+  }
+
+  .empty-hero-float {
+    animation: empty-hero-float 7s ease-in-out infinite;
+  }
+
+  @keyframes empty-hero-glow {
+    0%,
+    100% {
+      opacity: 0.75;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .empty-hero-glow {
+    animation: empty-hero-glow 5s ease-in-out infinite;
+  }
+
+  @keyframes empty-hero-particle {
+    0%,
+    100% {
+      opacity: 0.15;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+
+  .empty-hero-particle {
+    animation: empty-hero-particle 4s ease-in-out infinite;
+  }
+}
