@@ -12,6 +12,7 @@ import { ContinueWatchingPosterGrid } from "./ContinueWatchingPosterGrid";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyShelf } from "../media/EmptyShelf";
+import { PopularMediaRow } from "../media/PopularMediaRow";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
@@ -270,11 +271,33 @@ export function MinhaListaSection() {
       ) : isLoading ? (
         <HomeSkeleton variant={viewMode === "grid" ? "grid" : "list"} />
       ) : continueWatching.length === 0 ? (
-        <EmptyShelf
-          message={t("seriesHome.emptyLibrary")}
-          actionLabel={t("seriesHome.exploreSeries")}
-          actionHref="/explore"
-        />
+        /*
+         * "Estado vazio melhorado" (2026-09-01, a pedido, opção
+         * escolhida pelo usuário entre as recomendações do GPT) —
+         * antes essa mensagem era ÚNICA ("Você ainda não está
+         * acompanhando nenhuma série") mesmo pra quem já tinha
+         * assistido tudo que adicionou (`series.length > 0`, só
+         * `continueWatching` que zerou) — confuso pra quem já usa o
+         * app há um tempo, parecia que a biblioteca tinha sumido.
+         * Agora diferencia: `series.length === 0` é "nunca adicionou
+         * nada" (mensagem original, com CTA pra Explorar); qualquer
+         * série na Biblioteca mas nada pendente agora é "tudo em
+         * dia" (`seriesHome.emptyCaughtUp`), reconhecendo que a
+         * pessoa JÁ tem histórico. As duas variantes ganham a mesma
+         * fileira "Populares no SeenList" embaixo (`PopularMediaRow`)
+         * — sugestão de descoberta em vez de deixar a tela parada só
+         * com o card vazio.
+         */
+        <>
+          <EmptyShelf
+            message={series.length === 0 ? t("seriesHome.emptyLibrary") : t("seriesHome.emptyCaughtUp")}
+            actionLabel={t("seriesHome.exploreSeries")}
+            actionHref="/explore"
+          />
+          <div className="mt-6">
+            <PopularMediaRow list="trending_series" title={t("seriesHome.popularSeries")} />
+          </div>
+        </>
       ) : viewMode === "grid" ? (
         <ContinueWatchingPosterGrid items={continueWatching} />
       ) : (
