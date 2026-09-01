@@ -139,10 +139,19 @@ export interface EmptyLibraryHeroProps {
  * SUBSTITUÍDA pela `illustrationNode` nova (`EmptyLibraryCouchScene.tsx`,
  * um SVG inline de verdade com grupos animáveis: gato respirando,
  * planta balançando, manta se mexendo, luz da luminária pulsando,
- * 2 estrelinhas piscando) — ver o comentário completo desse arquivo
- * pro histórico. `illustrationSrc`/`<Image>` continua existindo aqui
- * como caminho simples pra qualquer FUTURO uso deste componente que
- * não precise de animação por elemento.
+ * 2 estrelinhas piscando).
+ *
+ * ANIMAÇÃO CANCELADA (2026-09-01, seguinte, a pedido — "cancela a
+ * animação, coloca só essa imagem, aumenta uns 15% o tamanho atual
+ * dela na home e pronto") — a animação funcionava, mas o SVG (auto-
+ * trace de um PNG) tinha um efeito colateral visual de "linhas de
+ * contorno" (posterização das áreas de cor, degradês achatados em
+ * bandas) que não valeu o trade-off. Voltou a ser `illustrationSrc`
+ * simples (`<Image>`) apontando pro PNG raster de novo — `EmptyLibraryCouchScene.tsx`
+ * e o SVG gerado (`emptyLibraryCouchSceneSvg.ts`) ficaram órfãos,
+ * removidos do repo. `illustrationNode` continua existindo na
+ * interface (não removido) como caminho pra qualquer FUTURO uso deste
+ * componente que precise de algo além de uma imagem simples.
  */
 export function EmptyLibraryHero({
   illustrationSrc,
@@ -157,17 +166,29 @@ export function EmptyLibraryHero({
     <div className="flex flex-col items-center px-2 pt-0 text-center">
       {/*
         * "aumentaria um pouco a ilustração — 10-15%" (a pedido,
-        * 2026-09-01, seguinte) — era `w-[78%]/max-w-[340px]`, virou
-        * `w-[88%]/max-w-[380px]` (~13% maior nos dois eixos, meio da
-        * faixa pedida). `aspect-[3/2]` continua reproduzindo a
-        * proporção exata do arquivo (1536×1024 = 1,5 = 3/2), então só
-        * escala — não corta nem estica. `max-w-[380px]` só entra em
-        * jogo no md/desktop (container já limitado a 430px ali) pra
-        * não virar uma imagem gigante. SEM `style`/máscara nenhuma
-        * aqui — o arquivo já é transparente de verdade (canal alfa
-        * real), nada pra "fingir" mais.
+        * 2026-09-01) — era `w-[78%]/max-w-[340px]`, virou
+        * `w-[88%]/max-w-[380px]` (~13% maior nos dois eixos).
+        *
+        * "aumenta uns 15% o tamanho atual dela" (a pedido, 2026-09-01,
+        * seguinte, junto com o cancelamento da animação) — novo
+        * aumento, desta vez sobre o `w-[88%]/max-w-[380px]` acima.
+        * `max-w` escala os +15% cheios (380 → 437px). `w` só vai até
+        * `100%` (não `101%`, que seria o +15% exato em cima de 88%) —
+        * a div já mora dentro de um pai com `px-2` de respiro nas
+        * bordas, então passar de 100% faria a ilustração invadir esse
+        * respiro; `100%` é o "tão grande quanto der" sem esse risco,
+        * e combinado com o `max-w` maior ainda cresce de verdade nas
+        * telas onde o container permite (o comentário de
+        * `MinhaListaSection.tsx`/histórico deste arquivo cita o
+        * container md limitado a 430px — com `max-w-[437px]` a
+        * ilustração agora pode chegar a preencher esse espaço quase
+        * todo, antes parava em 380px). `aspect-[3/2]` continua
+        * reproduzindo a proporção exata do arquivo (1536×1024 = 3/2),
+        * então só escala — não corta nem estica. SEM `style`/máscara
+        * nenhuma aqui — o arquivo já é transparente de verdade (canal
+        * alfa real), nada pra "fingir" mais.
         */}
-      <div className="empty-hero-float relative -mb-3 aspect-[3/2] w-[88%] max-w-[380px]">
+      <div className="empty-hero-float relative -mb-3 aspect-[3/2] w-full max-w-[437px]">
         {illustrationNode ??
           (illustrationSrc && (
             <Image src={illustrationSrc} alt="" fill sizes="380px" className="object-contain" priority />

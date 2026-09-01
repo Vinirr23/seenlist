@@ -61,38 +61,21 @@ body {
  * animação premium, extremamente sutil") — mesmo padrão de
  * `feed-item-enter` acima: CSS puro, sem lib de animação nova.
  *
- * `.empty-hero-float` continua sendo o "flutuar" da ILUSTRAÇÃO INTEIRA
- * como bloco (ver `EmptyLibraryHero.tsx`) — vale tanto pra imagem
- * raster simples quanto pro SVG animado abaixo.
+ * `.empty-hero-float` é o "flutuar" da ILUSTRAÇÃO INTEIRA como bloco
+ * (ver `EmptyLibraryHero.tsx`) — a imagem raster de novo, desde
+ * 2026-09-01 seguinte (abaixo).
  *
- * As `.scene-*` são os grupos de verdade de dentro do SVG animado
- * (`EmptyLibraryCouchScene.tsx` — ver o comentário completo lá pro
- * histórico: usuário enviou um SVG vetorial de verdade
- * (`seenlist_sofa_true_vector.svg`), reagrupado por região/cor em
- * gato, folhas da planta, manta, luz da luminária (luminária em si
- * fica parada — só o brilho pulsa) e 2 estrelinhas). Cada `transform-
- * origin` usa coordenadas em px do PRÓPRIO arquivo fonte (viewBox
- * "0 0 1536 1024", `transform-box: view-box` faz o navegador usar
- * essas coordenadas em vez da caixa do elemento) — pivô calculado do
- * bounding box real de cada grupo (planta e manta usam a base/topo, não
- * o centro, pra balançar/esticar a partir de onde estão presas, não do
- * meio do ar).
- *
- * TODAS as classes têm um valor ESTÁTICO fora da media query — é o
- * que quem tem "Reduzir movimento" ativado vê: cena parada, nada
- * some, nada pisca, nada se move. A animação de verdade só existe
- * dentro de `prefers-reduced-motion: no-preference` (a pedido
- * explícito de respeitar essa preferência).
+ * ANIMAÇÃO POR GRUPO CANCELADA (2026-09-01, seguinte, a pedido —
+ * "cancela a animação, coloca só essa imagem... e pronto") — chegou a
+ * existir aqui um conjunto de classes `.scene-*` (gato respirando,
+ * planta balançando, manta se mexendo, luz da luminária pulsando, 2
+ * estrelinhas piscando) pros grupos de dentro do SVG animado inline
+ * (`EmptyLibraryCouchScene.tsx`). Removidas junto com o componente e o
+ * SVG gerado (`emptyLibraryCouchSceneSvg.ts`) — o material de origem
+ * (auto-trace de um PNG) tinha um efeito colateral visual de "linhas
+ * de contorno" que não valeu o trade-off de performance/complexidade.
+ * `.empty-hero-float` sozinha, abaixo, continua valendo.
  */
-.scene-lamp-glow {
-  opacity: 0.85;
-}
-
-.scene-sparkle-1,
-.scene-sparkle-2 {
-  opacity: 0.55;
-}
-
 @media (prefers-reduced-motion: no-preference) {
   @keyframes empty-hero-float {
     0%,
@@ -106,90 +89,5 @@ body {
 
   .empty-hero-float {
     animation: empty-hero-float 7s ease-in-out infinite;
-  }
-
-  /* Gato — respiração: escala quase imperceptível (~0,8%), nunca a cabeça/patas (não são elementos separados). */
-  @keyframes scene-cat-breathe {
-    0%,
-    100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.008);
-    }
-  }
-
-  .scene-cat {
-    transform-box: view-box;
-    transform-origin: 771px 550.5px;
-    animation: scene-cat-breathe 3.6s ease-in-out infinite;
-  }
-
-  /* Planta — balanço: pivô na base (onde as folhas encontram o vaso), não no centro, senão pareceria girar no ar. */
-  @keyframes scene-plant-sway {
-    0%,
-    100% {
-      transform: rotate(0deg);
-    }
-    50% {
-      transform: rotate(1.2deg);
-    }
-  }
-
-  .scene-plant-leaves {
-    transform-box: view-box;
-    transform-origin: 1325.5px 709px;
-    animation: scene-plant-sway 6.5s ease-in-out infinite;
-  }
-
-  /* Manta — variação mínima, pivô no topo (onde está presa no braço do sofá), como se o ar a tocasse de leve. */
-  @keyframes scene-blanket-drift {
-    0%,
-    100% {
-      transform: scaleY(1);
-    }
-    50% {
-      transform: scaleY(1.005);
-    }
-  }
-
-  .scene-blanket {
-    transform-box: view-box;
-    transform-origin: 892px 335px;
-    animation: scene-blanket-drift 6s ease-in-out infinite;
-  }
-
-  /* Luz da luminária — só o brilho pulsa; a luminária em si (`.scene-lamp-fixture`) fica parada, sem classe/animação. */
-  @keyframes scene-lamp-glow {
-    0%,
-    100% {
-      opacity: 0.75;
-    }
-    50% {
-      opacity: 1;
-    }
-  }
-
-  .scene-lamp-glow {
-    animation: scene-lamp-glow 5s ease-in-out infinite;
-  }
-
-  /* Estrelinhas — piscam com timing e duração diferentes uma da outra, pra não sincronizar. */
-  @keyframes scene-sparkle-blink {
-    0%,
-    100% {
-      opacity: 0.15;
-    }
-    50% {
-      opacity: 0.85;
-    }
-  }
-
-  .scene-sparkle-1 {
-    animation: scene-sparkle-blink 4.2s ease-in-out infinite;
-  }
-
-  .scene-sparkle-2 {
-    animation: scene-sparkle-blink 5s ease-in-out 1.6s infinite;
   }
 }

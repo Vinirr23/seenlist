@@ -15,7 +15,6 @@ import { UpToDatePendingGate } from "./UpToDatePendingGate";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyLibraryHero } from "../media/EmptyLibraryHero";
-import { EmptyLibraryCouchScene } from "../media/EmptyLibraryCouchScene";
 import { PopularMediaRow } from "../media/PopularMediaRow";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
@@ -284,8 +283,32 @@ export function MinhaListaSection() {
          * com o card vazio.
          */
         <>
+          {/*
+            * REVERTIDO PRA ILUSTRAÇÃO ESTÁTICA (2026-09-01, a pedido —
+            * "cancela a animação, coloca só essa imagem, aumenta uns
+            * 15% o tamanho atual dela na home e pronto") — a versão
+            * animada (`illustrationNode={<EmptyLibraryCouchScene />}`,
+            * SVG inline de 2235 paths reagrupados) funcionava, mas o
+            * material de origem (auto-trace de um PNG) trazia um efeito
+            * colateral visual de "linhas de contorno" (posterização das
+            * áreas de cor) que o usuário decidiu não valer o
+            * trade-off — voltou a pedir a imagem raster simples.
+            * `illustrationSrc` aponta pro MESMO arquivo já usado antes
+            * da tentativa de animação (`empty-library-scene.png` —
+            * conferido byte a byte, é o arquivo que o usuário reenviou
+            * agora: PNG RGBA real, 51% do canvas 100% transparente,
+            * seguindo o contorno dos objetos, sem vinheta). O aumento
+            * de ~15% é só no tamanho do container, em `EmptyLibraryHero.tsx`
+            * — ver comentário lá. O componente `EmptyLibraryCouchScene`
+            * e o arquivo `emptyLibraryCouchSceneSvg.ts` (gerado por
+            * script, ~520KB de markup) ficaram órfãos — removidos (ver
+            * comandos `git rm` na entrega). As classes `.scene-*` de
+            * `globals.css` também foram removidas (só serviam pros
+            * grupos desse SVG); `.empty-hero-float` continua, porque
+            * também vale pra imagem raster.
+            */}
           <EmptyLibraryHero
-            illustrationNode={<EmptyLibraryCouchScene />}
+            illustrationSrc="/illustrations/empty-library-scene.png"
             title={series.length === 0 ? t("seriesHome.emptyLibraryTitle") : t("seriesHome.emptyCaughtUpTitle")}
             subtitle={series.length === 0 ? t("seriesHome.emptyLibrarySubtitle") : t("seriesHome.emptyCaughtUpSubtitle")}
             actionLabel={t("seriesHome.exploreSeries")}

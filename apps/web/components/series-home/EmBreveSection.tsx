@@ -215,7 +215,26 @@ export function EmBreveSection() {
                    * mesmo espaço que antes era `mb-2.5` no card — mas por
                    * estar DENTRO desta coluna, a trilha (irmã, `stretch`)
                    * cobre ele também, o que fecha o vão da linha. */}
-                  <div className="flex flex-1 flex-col">
+                  {/*
+                   * BUG REAL CORRIGIDO (2026-08-27, reportado — "quando o
+                   * card tem um título e nome do episódio longos, fica
+                   * bugado", print real mostrando o card vazando pra fora
+                   * da tela, sem borda direita visível e a emissora
+                   * cortada fora da tela) — causa raiz: item clássico de
+                   * layout flex aninhado — o filho mais fundo (a coluna de
+                   * texto dentro do `<Link>`, algumas linhas abaixo) já
+                   * tinha `min-w-0` (permite encolher/quebrar linha), mas
+                   * ESTE nível aqui (o `<div>` que embrulha o card inteiro
+                   * dentro da timeline) não tinha — sem `min-w-0` em TODOS
+                   * os níveis da cadeia, o navegador podia calcular a
+                   * largura "preferida" (sem quebra nenhuma) de título +
+                   * nome do episódio somados e forçar o card inteiro a
+                   * crescer até esse tamanho, vazando pra fora da tela.
+                   * Cards com título/episódio curtos nunca expunham isso
+                   * (a largura preferida já cabia sozinha); só apareceu
+                   * agora com uma combinação longa o bastante.
+                   */}
+                  <div className="flex min-w-0 flex-1 flex-col">
                   {/*
                    * AJUSTE (a pedido, 2026-08-26, mesmo feedback) — "o
                    * poster termina em uma posição e o texto começa
@@ -325,9 +344,20 @@ export function EmBreveSection() {
                         <span className="text-[10px] font-bold tracking-wide text-muted">{t("seriesHome.daysUntil")}</span>
                       </div>
                     ) : (
+                      /*
+                       * BUG REAL CORRIGIDO (2026-08-27, mesmo reportado
+                       * acima) — segunda parte da mesma causa: mesmo com
+                       * o `min-w-0` de cima já resolvendo o vazamento da
+                       * largura, o nome da emissora (ex.: uma emissora com
+                       * nome mais longo) ainda não tinha corte nenhum
+                       * (`shrink-0`, sem `truncate`/limite de largura) —
+                       * `max-w-[76px] truncate` corta com "…" só nos
+                       * nomes realmente longos; nomes curtos (AT-X, Fuji
+                       * TV, Prime Video) continuam exatamente iguais.
+                       */
                       network && (
-                        <div className="shrink-0 self-center text-right">
-                          <p className="text-xs text-muted">{network}</p>
+                        <div className="max-w-[76px] shrink-0 self-center text-right">
+                          <p className="truncate text-xs text-muted">{network}</p>
                         </div>
                       )
                     )}
