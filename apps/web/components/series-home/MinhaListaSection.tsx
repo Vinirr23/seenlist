@@ -39,16 +39,32 @@ const CONTINUE_ASSISTINDO_LIMIT = 8;
  * arquivo — arquivo original processado (redimensionado de
  * 1402×1122 pra 700×560, convertido pra .jpg otimizado, ~30KB) e
  * salvo em `public/illustrations/empty-library-couch.jpg`.
+ *
+ * CORREÇÃO NA RAIZ (2026-09-01, seguinte — "no print 2 a imagem está
+ * fundida ao fundo do app... não tente inventar nada, copie
+ * exatamente o print 2") — a causa NÃO era a imagem em si: conferi
+ * pixel a pixel e o fundo do arquivo já é quase idêntico ao
+ * `--color-background` do app (imagem: rgb(11,14,21) nos cantos;
+ * app: rgb(11,14,20) — diferença de 1 em cada canal, imperceptível).
+ * O "quadro" no print 1 vinha 100% do WRAPPER: `border` +
+ * `shadow-lg` + `rounded-2xl overflow-hidden` desenhavam uma moldura
+ * em volta de uma imagem pequena (158×126) — exatamente o efeito
+ * "imagem emoldurada" que o print 2 não tem. Removida a moldura
+ * inteira (sem borda, sem sombra, sem recorte arredondado) e
+ * aumentado o tamanho (158×126 → 240×192, mesma proporção 1,25:1 do
+ * arquivo original, sem cortar nem distorcer) — com o fundo já
+ * batendo, a imagem passa a se misturar com o resto da tela sozinha,
+ * igual ao print de referência.
  */
 function EmptyLibraryIllustration() {
   return (
-    <div className="relative mb-1 h-[126px] w-[158px] overflow-hidden rounded-2xl border border-white/10 shadow-lg shadow-black/30">
+    <div className="relative mb-2 h-48 w-60">
       <Image
         src="/illustrations/empty-library-couch.jpg"
         alt=""
         fill
-        sizes="158px"
-        className="object-cover"
+        sizes="240px"
+        className="object-contain"
         priority
       />
     </div>
