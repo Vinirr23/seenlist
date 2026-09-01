@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { Flame } from "lucide-react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
@@ -13,7 +12,7 @@ import { ContinueWatchingCard } from "./ContinueWatchingCard";
 import { UpToDatePendingGate } from "./UpToDatePendingGate";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
-import { EmptyShelf } from "../media/EmptyShelf";
+import { EmptyLibraryHero } from "../media/EmptyLibraryHero";
 import { PopularMediaRow } from "../media/PopularMediaRow";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
@@ -21,55 +20,22 @@ import { HomeSkeleton } from "../media/HomeSkeleton";
 const CONTINUE_ASSISTINDO_LIMIT = 8;
 
 /**
- * A PEDIDO (2026-09-01 — "analisa essa imagem de um sofá, com pipoca
- * e tal e implementa algo assim", print de referência mandado pelo
- * usuário) — ilustração do estado vazio de Séries/Home.
- *
- * HISTÓRICO — passou por 2 tentativas antes desta: (1) emoji
- * (🛋️🍿🪴), rejeitada — "você colocou ícone, quero uma imagem criada
- * por você"; (2) SVG desenhado à mão por mim, também rejeitada —
- * "parecem desenhado por uma criança" (comparado ao acabamento do
- * print original, que é claramente gerado por IA/render 3D — algo
- * que eu não tenho ferramenta pra fazer aqui). Pesquisei bancos de
- * ilustração gratuitos como alternativa (unDraw, Icons8, freesvg.org)
- * — nenhum tinha uma cena "sofá + pipoca" no nível de acabamento do
- * print, sem exigir crédito visual ou compra. Resolvido na raiz:
- * o PRÓPRIO usuário gerou a imagem (provavelmente no mesmo gerador
- * que já tinha usado antes pras recomendações de design) e mandou o
- * arquivo — arquivo original processado (redimensionado de
- * 1402×1122 pra 700×560, convertido pra .jpg otimizado, ~30KB) e
- * salvo em `public/illustrations/empty-library-couch.jpg`.
- *
- * CORREÇÃO NA RAIZ (2026-09-01, seguinte — "no print 2 a imagem está
- * fundida ao fundo do app... não tente inventar nada, copie
- * exatamente o print 2") — a causa NÃO era a imagem em si: conferi
- * pixel a pixel e o fundo do arquivo já é quase idêntico ao
- * `--color-background` do app (imagem: rgb(11,14,21) nos cantos;
- * app: rgb(11,14,20) — diferença de 1 em cada canal, imperceptível).
- * O "quadro" no print 1 vinha 100% do WRAPPER: `border` +
- * `shadow-lg` + `rounded-2xl overflow-hidden` desenhavam uma moldura
- * em volta de uma imagem pequena (158×126) — exatamente o efeito
- * "imagem emoldurada" que o print 2 não tem. Removida a moldura
- * inteira (sem borda, sem sombra, sem recorte arredondado) e
- * aumentado o tamanho (158×126 → 240×192, mesma proporção 1,25:1 do
- * arquivo original, sem cortar nem distorcer) — com o fundo já
- * batendo, a imagem passa a se misturar com o resto da tela sozinha,
- * igual ao print de referência.
+ * HISTÓRICO da ilustração do estado vazio de Séries/Home (mantido
+ * aqui como referência, já que a lógica em si mudou de lugar — ver
+ * `EmptyLibraryHero.tsx`, componente novo usado logo abaixo):
+ * (1) emoji (🛋️🍿🪴), rejeitada — "você colocou ícone, quero uma
+ * imagem criada por você"; (2) SVG desenhado à mão por mim, também
+ * rejeitada — "parecem desenhado por uma criança"; (3) o próprio
+ * usuário gerou e mandou a imagem real (`public/illustrations/
+ * empty-library-couch.jpg`), processada (1402×1122 → 700×560, .jpg
+ * otimizado); (4) removida a moldura (borda/sombra/cantos) que
+ * sobrava em volta dela; (5) — ESTA — a ilustração + texto + botão
+ * saíram de dentro de qualquer card (`EmptyShelf` era um card, por
+ * definição) e passaram a `EmptyLibraryHero`, solto direto em cima
+ * do fundo da Home (ver o comentário completo lá, incluindo a causa
+ * raiz de por que só tirar a borda não bastava — os blobs azuis
+ * desfocados que `SeriesHome.tsx` pinta atrás de tudo).
  */
-function EmptyLibraryIllustration() {
-  return (
-    <div className="relative mb-2 h-48 w-60">
-      <Image
-        src="/illustrations/empty-library-couch.jpg"
-        alt=""
-        fill
-        sizes="240px"
-        className="object-contain"
-        priority
-      />
-    </div>
-  );
-}
 
 /**
  * A PEDIDO — seção "Faz um tempo que você não assiste". Série que
@@ -416,9 +382,9 @@ export function MinhaListaSection() {
          * com o card vazio.
          */
         <>
-          <EmptyShelf
-            illustration={<EmptyLibraryIllustration />}
-            message={series.length === 0 ? t("seriesHome.emptyLibraryTitle") : t("seriesHome.emptyCaughtUpTitle")}
+          <EmptyLibraryHero
+            illustrationSrc="/illustrations/empty-library-couch.jpg"
+            title={series.length === 0 ? t("seriesHome.emptyLibraryTitle") : t("seriesHome.emptyCaughtUpTitle")}
             subtitle={series.length === 0 ? t("seriesHome.emptyLibrarySubtitle") : t("seriesHome.emptyCaughtUpSubtitle")}
             actionLabel={t("seriesHome.exploreSeries")}
             actionHref="/explore"
