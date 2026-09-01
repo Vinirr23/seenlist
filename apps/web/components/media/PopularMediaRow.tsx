@@ -73,6 +73,9 @@ export function PopularMediaRow({ list, title, viewAllHref }: PopularMediaRowPro
       hasNextPage={discover.hasNextPage}
       isFetchingNextPage={discover.isFetchingNextPage}
       fetchNextPage={discover.fetchNextPage}
+      // A PEDIDO — nome de cada série embaixo do pôster, igual o
+      // print de referência (ver comentário em `DiscoverCard.tsx`).
+      showItemTitles
     />
   );
 }

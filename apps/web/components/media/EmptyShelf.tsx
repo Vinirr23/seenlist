@@ -1,9 +1,23 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
+import { Plus } from "lucide-react";
 
 export interface EmptyShelfProps {
   message: string;
   actionLabel?: string;
   actionHref?: string;
+  /**
+   * A PEDIDO (2026-09-01 — "copia a ideia desse print", print com
+   * sofá/pipoca, título+subtítulo, botão e um "OU" antes da fileira
+   * de populares) — 3 props NOVAS, todas opcionais. Nenhuma delas
+   * muda em nada as outras 11 telas que já usam `EmptyShelf` sem
+   * passá-las (Filmes, "Em breve", Assistir depois, Pausadas,
+   * Concluídas etc.) — só o estado vazio de Séries/Home
+   * (`MinhaListaSection.tsx`) usa a versão "rica" por enquanto.
+   */
+  illustration?: ReactNode;
+  subtitle?: string;
+  dividerLabel?: string;
 }
 
 /**
@@ -19,8 +33,27 @@ export interface EmptyShelfProps {
  * (mesmo raciocínio de `HomeTabs.tsx` — vira o componente
  * compartilhado entre Séries e Filmes) e todo mundo que usava
  * `HomeEmptyState` passou a usar este.
+ *
+ * BUG REAL CORRIGIDO NA RAIZ (2026-09-01, reportado — "o botão que
+ * você fez, não tem o mesmo efeito do padrão dos botões do app") —
+ * o botão de ação aqui era `rounded-lg bg-primary` liso, com
+ * `hover:opacity-90` — um estilo PRÓPRIO, inventado só pra este
+ * componente, que nunca existiu em nenhum outro CTA primário do
+ * app. O padrão de verdade (documentado como tal em
+ * `EpisodeDetailView.tsx`, "mesmo padrão da pílula 'gel' âmbar —
+ * aba ativa/CTA primário de `ExploreTabs.tsx`/`StatisticsCard.tsx`")
+ * é `rounded-full` + gradiente radial âmbar + o `boxShadow` inset
+ * duplo que dá o brilho "gel" (realce claro em cima, sombra quente
+ * embaixo) — usado em TODO botão/pílula âmbar primário real do app,
+ * exceto este. Substituído pelo padrão de verdade, ícone "+" incluso
+ * (o print de referência mostra o botão assim).
  */
-export function EmptyShelf({ message, actionLabel, actionHref }: EmptyShelfProps) {
+export function EmptyShelf({ message, actionLabel, actionHref, illustration, subtitle, dividerLabel }: EmptyShelfProps) {
+  // Só a variante "rica" (com ilustração) usa título maior/em negrito
+  // — as outras 11 telas continuam com a mesma mensagem pequena e
+  // discreta de sempre, sem essa mudança.
+  const isRich = Boolean(illustration);
+
   return (
     // "Vidro" (toque leve — mantém a borda tracejada, ganha blur/gradiente translúcido em vez de `bg-surface/50` opaco).
     <div
@@ -29,14 +62,28 @@ export function EmptyShelf({ message, actionLabel, actionHref }: EmptyShelfProps
         background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.10), transparent 60%), rgba(255,255,255,0.04)",
       }}
     >
-      <p className="text-sm text-muted">{message}</p>
+      {illustration}
+      <p className={isRich ? "text-base font-bold text-text" : "text-sm text-muted"}>{message}</p>
+      {subtitle && <p className="max-w-[260px] text-xs leading-relaxed text-muted">{subtitle}</p>}
       {actionLabel && actionHref && (
         <Link
           href={actionHref}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-90"
+          className="mt-1 flex items-center gap-1.5 rounded-full border border-white/15 px-6 py-3 text-sm font-bold text-background shadow-lg transition-transform active:scale-95"
+          style={{
+            background: "radial-gradient(130% 170% at 28% 18%, rgba(240,169,79,0.88) 0%, rgba(232,163,61,0.85) 42%, rgba(176,95,27,0.9) 100%)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -4px 7px rgba(120,66,10,0.4)",
+          }}
         >
+          <Plus className="h-4 w-4" strokeWidth={2.75} />
           {actionLabel}
         </Link>
+      )}
+      {dividerLabel && (
+        <div className="mt-2 flex w-full items-center gap-3 text-[11px] font-semibold uppercase tracking-wide text-muted/70">
+          <span className="h-px flex-1 bg-white/10" />
+          {dividerLabel}
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
       )}
     </div>
   );

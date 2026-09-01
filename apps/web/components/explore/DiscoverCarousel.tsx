@@ -35,6 +35,12 @@ export interface DiscoverCarouselProps {
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   fetchNextPage?: () => void;
+  /**
+   * A PEDIDO (2026-09-01, mesma leva do "populares") — repassa direto
+   * pra `DiscoverCard` (ver comentário completo lá). `false`/ausente
+   * em todo carrossel de antes, sem mudança nenhuma.
+   */
+  showItemTitles?: boolean;
 }
 
 // CORREÇÃO (a pedido — "tira esse botões, são redundantes") — o botão
@@ -51,6 +57,7 @@ export function DiscoverCarousel({
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
+  showItemTitles,
 }: DiscoverCarouselProps) {
   // `?? false`/`?? (() => {})` — o hook já não faz nada quando
   // `hasNextPage` é falso (ver `useInfiniteScrollSentinel.ts`), então
@@ -84,7 +91,7 @@ export function DiscoverCarousel({
         // gap-2 (era gap-3) — cards mais próximos, a pedido.
         <div className="-mx-4 flex gap-2 overflow-x-auto overflow-y-hidden px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {items.map((item) => (
-            <DiscoverCard key={`${item.mediaType}-${item.id}`} item={item} />
+            <DiscoverCard key={`${item.mediaType}-${item.id}`} item={item} showTitle={showItemTitles} />
           ))}
           {hasNextPage && (
             // Sentinela + esqueleto — mesmo raciocínio do botão "Carregar

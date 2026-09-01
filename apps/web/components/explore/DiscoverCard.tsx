@@ -8,7 +8,22 @@ import type { DiscoverItem } from "@/lib/tmdb/client";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { AddToLibraryButton } from "./AddToLibraryButton";
 
-export const DiscoverCard = memo(function DiscoverCard({ item }: { item: DiscoverItem }) {
+export interface DiscoverCardProps {
+  item: DiscoverItem;
+  /**
+   * A PEDIDO (2026-09-01 — "copia a ideia desse print", print mostrava
+   * o nome de cada série embaixo do pôster) — OPCIONAL, `false` por
+   * padrão. Todo carrossel que já existia (Em alta agora, Para você,
+   * Novas séries etc.) continua sem legenda nenhuma, exatamente como
+   * sempre foi — só `PopularMediaRow.tsx` (fileira "Populares no
+   * SeenList" do estado vazio) liga isso. Mesmo texto/estilo de
+   * legenda que a grade de "ver tudo" já usa (`DiscoverAllView.tsx`),
+   * sem inventar um terceiro jeito de mostrar título.
+   */
+  showTitle?: boolean;
+}
+
+export const DiscoverCard = memo(function DiscoverCard({ item, showTitle }: DiscoverCardProps) {
   const posterUrl = tmdbImage(item.posterPath, "w342");
   const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
 
@@ -34,6 +49,8 @@ export const DiscoverCard = memo(function DiscoverCard({ item }: { item: Discove
         )}
         <AddToLibraryButton mediaType={item.mediaType} mediaId={item.id} className="absolute right-1.5 top-1.5" />
       </div>
+      {/* Mesma legenda (classe e tudo) de DiscoverAllView.tsx, só que opcional aqui. */}
+      {showTitle && <p className="mt-1.5 truncate text-xs font-medium text-text">{item.title}</p>}
     </Link>
   );
 });

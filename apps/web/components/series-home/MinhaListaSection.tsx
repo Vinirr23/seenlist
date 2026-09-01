@@ -19,6 +19,37 @@ import { HomeSkeleton } from "../media/HomeSkeleton";
 const CONTINUE_ASSISTINDO_LIMIT = 8;
 
 /**
+ * A PEDIDO (2026-09-01 — "analisa essa imagem de um sofá, com pipoca
+ * e tal e implementa algo assim", print de referência mandado pelo
+ * usuário) — ilustração do estado vazio de Séries/Home. Feita com
+ * EMOJI (🛋️🍿🪴), de propósito, em vez de importar um ícone novo
+ * (`lucide-react`, já usado no resto do app): não dava pra confirmar
+ * com certeza se a versão do `lucide-react` instalada no projeto
+ * (0.454.0, ver `package.json`) já tinha ícones de "sofá"/"pipoca" —
+ * um nome de ícone errado só quebraria o build na hora de compilar,
+ * tarde demais pra perceber aqui. Emoji não tem essa dependência
+ * nenhuma (funciona em qualquer navegador/versão), e o próprio
+ * usuário já pediu emoji nessa mesma mensagem (o "🔥" de "Populares
+ * no SeenList", ver `PopularMediaRow.tsx`) — mesma linguagem visual.
+ * Glow radial atrás (`rgba(79,209,197,...)`, a cor secundária/teal do
+ * app — mesma paleta de `globals.css`) pra ecoar a luz azulada por
+ * trás do sofá no print, sem inventar cor nova.
+ */
+function EmptyLibraryIllustration() {
+  return (
+    <div className="relative mb-1 flex h-24 w-24 items-center justify-center" aria-hidden="true">
+      <div
+        className="absolute inset-0 rounded-full blur-xl"
+        style={{ background: "radial-gradient(60% 60% at 50% 45%, rgba(79,209,197,0.28), transparent 70%)" }}
+      />
+      <span className="relative text-6xl leading-none">🛋️</span>
+      <span className="absolute -bottom-1 -left-3 text-2xl leading-none">🍿</span>
+      <span className="absolute -top-1 -right-2 text-xl leading-none">🪴</span>
+    </div>
+  );
+}
+
+/**
  * A PEDIDO — seção "Faz um tempo que você não assiste". Série que
  * está em "Assistindo" mas sem NENHUM episódio marcado há 2 semanas
  * desce automaticamente de "Continue assistindo" pra essa seção
@@ -364,9 +395,12 @@ export function MinhaListaSection() {
          */
         <>
           <EmptyShelf
-            message={series.length === 0 ? t("seriesHome.emptyLibrary") : t("seriesHome.emptyCaughtUp")}
+            illustration={<EmptyLibraryIllustration />}
+            message={series.length === 0 ? t("seriesHome.emptyLibraryTitle") : t("seriesHome.emptyCaughtUpTitle")}
+            subtitle={series.length === 0 ? t("seriesHome.emptyLibrarySubtitle") : t("seriesHome.emptyCaughtUpSubtitle")}
             actionLabel={t("seriesHome.exploreSeries")}
             actionHref="/explore"
+            dividerLabel={t("seriesHome.or")}
           />
           <div className="mt-6">
             <PopularMediaRow
