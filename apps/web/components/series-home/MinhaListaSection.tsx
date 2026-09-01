@@ -369,7 +369,11 @@ export function MinhaListaSection() {
             actionHref="/explore"
           />
           <div className="mt-6">
-            <PopularMediaRow list="trending_series" title={t("seriesHome.popularSeries")} />
+            <PopularMediaRow
+              list="trending_series"
+              title={t("seriesHome.popularSeries")}
+              viewAllHref="/explore/all/trending_series"
+            />
           </div>
         </>
       ) : viewMode === "grid" ? (
