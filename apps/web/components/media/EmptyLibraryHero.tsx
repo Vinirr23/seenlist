@@ -1,11 +1,20 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Plus } from "lucide-react";
 
 export interface EmptyLibraryHeroProps {
-  illustrationSrc: string;
+  /** Caminho de uma imagem raster simples (`next/image`). Ignorado quando `illustrationNode` é passado. */
+  illustrationSrc?: string;
+  /**
+   * Ilustração "rica" — um componente próprio (ex.: SVG inline animado)
+   * no lugar da imagem raster simples. Ver `EmptyLibraryCouchScene.tsx`
+   * pro único uso atual. Tem prioridade sobre `illustrationSrc` quando
+   * os dois são passados.
+   */
+  illustrationNode?: ReactNode;
   title: string;
   subtitle?: string;
   actionLabel: string;
@@ -115,16 +124,29 @@ export interface EmptyLibraryHeroProps {
  *
  * Tudo dentro de `prefers-reduced-motion: no-preference` (a pedido
  * explícito) — ver `globals.css`: com "Reduzir movimento" ativado,
- * as 3 classes caem pros valores estáticos definidos fora da media
+ * as classes caem pros valores estáticos definidos fora da media
  * query (nada de animação, nada some).
  *
  * CSS puro (`transform`/`opacity`, mesmo padrão já usado em
  * `.feed-item-enter` do `globals.css`) — sem lib de animação nova,
  * sem JS/`requestAnimationFrame`, sem re-render do React: o navegador
  * compila essas duas propriedades direto na GPU.
+ *
+ * ANIMAÇÃO COMPLETA (2026-09-01, seguinte, a pedido — usuário enviou
+ * `seenlist_sofa_true_vector.svg` e escolheu "tentar a animação
+ * completa" mesmo sabendo do custo de performance) — a versão acima
+ * (overlay de brilho/partículas em cima de uma imagem raster) foi
+ * SUBSTITUÍDA pela `illustrationNode` nova (`EmptyLibraryCouchScene.tsx`,
+ * um SVG inline de verdade com grupos animáveis: gato respirando,
+ * planta balançando, manta se mexendo, luz da luminária pulsando,
+ * 2 estrelinhas piscando) — ver o comentário completo desse arquivo
+ * pro histórico. `illustrationSrc`/`<Image>` continua existindo aqui
+ * como caminho simples pra qualquer FUTURO uso deste componente que
+ * não precise de animação por elemento.
  */
 export function EmptyLibraryHero({
   illustrationSrc,
+  illustrationNode,
   title,
   subtitle,
   actionLabel,
@@ -146,57 +168,10 @@ export function EmptyLibraryHero({
         * real), nada pra "fingir" mais.
         */}
       <div className="empty-hero-float relative -mb-3 aspect-[3/2] w-[88%] max-w-[380px]">
-        <Image src={illustrationSrc} alt="" fill sizes="380px" className="object-contain" priority />
-
-        {/*
-          * Brilho da luminária — camada SEPARADA por cima da imagem
-          * (não mexe no arquivo), posicionada no bulbo (~31%/18% do
-          * canvas fonte). `blur` próprio pra ficar macio, sem beirar
-          * neon. Ver comentário grande acima pro histórico completo.
-          */}
-        <div
-          aria-hidden="true"
-          className="empty-hero-glow pointer-events-none absolute rounded-full"
-          style={{
-            left: "31%",
-            top: "20%",
-            width: "48%",
-            height: "60%",
-            transform: "translate(-50%, -50%)",
-            background: "radial-gradient(closest-side, rgba(255,196,102,0.5), rgba(255,196,102,0.12) 55%, transparent 75%)",
-            filter: "blur(7px)",
-          }}
-        />
-
-        {/*
-          * Partículas — 3 pontos discretos em áreas "vazias" da cena
-          * (não em cima do sofá/gato), cada um com seu próprio atraso
-          * (`animationDelay`) e duração (`animationDuration`) pra não
-          * piscarem juntas — timing individual dá o efeito orgânico
-          * pedido, em vez de tudo sincronizado.
-          */}
-        {[
-          { left: "23%", top: "39%", size: 7, delay: "0s", duration: "4.4s" },
-          { left: "68%", top: "22%", size: 6, delay: "1.3s", duration: "3.8s" },
-          { left: "74%", top: "33%", size: 5, delay: "2.5s", duration: "5.1s" },
-        ].map((particle) => (
-          <div
-            key={`${particle.left}-${particle.top}`}
-            aria-hidden="true"
-            className="empty-hero-particle pointer-events-none absolute rounded-full"
-            style={{
-              left: particle.left,
-              top: particle.top,
-              width: particle.size,
-              height: particle.size,
-              transform: "translate(-50%, -50%)",
-              background: "radial-gradient(closest-side, rgba(255,214,140,0.95), transparent 70%)",
-              filter: "blur(0.5px)",
-              animationDelay: particle.delay,
-              animationDuration: particle.duration,
-            }}
-          />
-        ))}
+        {illustrationNode ??
+          (illustrationSrc && (
+            <Image src={illustrationSrc} alt="" fill sizes="380px" className="object-contain" priority />
+          ))}
       </div>
 
       <p className="text-xl font-bold text-text">{title}</p>

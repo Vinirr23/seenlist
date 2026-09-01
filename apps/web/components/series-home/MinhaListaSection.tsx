@@ -15,6 +15,7 @@ import { UpToDatePendingGate } from "./UpToDatePendingGate";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyLibraryHero } from "../media/EmptyLibraryHero";
+import { EmptyLibraryCouchScene } from "../media/EmptyLibraryCouchScene";
 import { PopularMediaRow } from "../media/PopularMediaRow";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
@@ -284,7 +285,7 @@ export function MinhaListaSection() {
          */
         <>
           <EmptyLibraryHero
-            illustrationSrc="/illustrations/empty-library-scene.png"
+            illustrationNode={<EmptyLibraryCouchScene />}
             title={series.length === 0 ? t("seriesHome.emptyLibraryTitle") : t("seriesHome.emptyCaughtUpTitle")}
             subtitle={series.length === 0 ? t("seriesHome.emptyLibrarySubtitle") : t("seriesHome.emptyCaughtUpSubtitle")}
             actionLabel={t("seriesHome.exploreSeries")}
