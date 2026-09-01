@@ -318,9 +318,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.reviewPlaceholder": "Escreva uma review (opcional)...",
     "social.containsSpoiler": "Contém spoiler",
     "social.saveReview": "Salvar avaliação",
-    "social.shareToFeed": "Publicar também no Feed",
-    "social.publishedToFeed": "Publicado no Feed",
-    "social.publishToFeedError": "Avaliação salva, mas não foi possível publicar no Feed agora.",
     "social.removeMyReview": "Remover minha avaliação",
     "social.emptyOtherReviews": "Nenhuma outra avaliação ainda.",
 
@@ -1119,9 +1116,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.reviewPlaceholder": "Write a review (optional)...",
     "social.containsSpoiler": "Contains spoiler",
     "social.saveReview": "Save rating",
-    "social.shareToFeed": "Also post to Feed",
-    "social.publishedToFeed": "Posted to Feed",
-    "social.publishToFeedError": "Rating saved, but couldn't post to Feed right now.",
     "social.removeMyReview": "Remove my rating",
     "social.emptyOtherReviews": "No other reviews yet.",
 
@@ -1902,9 +1896,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.reviewPlaceholder": "Escribe una reseña (opcional)...",
     "social.containsSpoiler": "Contiene spoiler",
     "social.saveReview": "Guardar calificación",
-    "social.shareToFeed": "Publicar también en el Feed",
-    "social.publishedToFeed": "Publicado en el Feed",
-    "social.publishToFeedError": "Calificación guardada, pero no se pudo publicar en el Feed ahora.",
     "social.removeMyReview": "Eliminar mi calificación",
     "social.emptyOtherReviews": "Todavía no hay otras reseñas.",
 

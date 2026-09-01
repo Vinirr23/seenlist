@@ -8,12 +8,10 @@ export interface ReviewFullComposerProps {
   initialRating?: number;
   initialText?: string | null;
   hasExistingReview: boolean;
-  onSubmit: (rating: number, reviewText: string | null, shareToFeed: boolean) => void;
+  onSubmit: (rating: number, reviewText: string | null) => void;
   onDelete?: () => void;
   isPending?: boolean;
   isDeleting?: boolean;
-  /** Só mostra "Publicar também no Feed" quando a tela sabe pra qual título isso é. */
-  canShareToFeed?: boolean;
 }
 
 /**
@@ -26,14 +24,17 @@ export interface ReviewFullComposerProps {
  *
  * A PEDIDO — "Contém spoiler" saiu (review de mídia inteira raramente
  * precisa disso; quem quiser avisar spoiler pode escrever no próprio
- * texto). "Publicar também no Feed" vem MARCADO por padrão só na
- * PRIMEIRA vez (`hasExistingReview` false) — reabrir uma review já
- * existente pra editar vem DESMARCADO, porque senão cada edição
- * disparava uma republicação no Feed sem a pessoa perceber (bug real,
- * reportado — "review duplicada no Feed"; a causa de fundo foi
- * corrigida em `posts.ts`/`usePublishReviewToFeed`, mas o padrão do
- * checkbox também precisava mudar pra não incentivar o problema de
- * novo).
+ * texto).
+ *
+ * BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em
+ * `ReviewTextSection.tsx`) — existia aqui uma caixa "Publicar também
+ * no Feed", escondida (nunca recebia `canShareToFeed={true}`) desde
+ * que o Feed foi descontinuado. Só a caixa tinha sido escondida: o
+ * estado dela (`shareToFeed`) continuava começando `true` em toda
+ * avaliação nova, sem jeito nenhum de desmarcar, e isso disparava um
+ * envio pro Feed que sempre falhava. Removida por completo agora —
+ * caixa, estado, e o parâmetro `shareToFeed` que saía daqui pro
+ * `onSubmit` — não só escondida de novo.
  *
  * A aba Sobre continua só com o resumo da comunidade
  * (`ReviewSummary.tsx`, sem interação) — ver `ReviewsSection.tsx`.
@@ -46,11 +47,9 @@ export function ReviewFullComposer({
   onDelete,
   isPending,
   isDeleting,
-  canShareToFeed = false,
 }: ReviewFullComposerProps) {
   const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState(initialText ?? "");
-  const [shareToFeed, setShareToFeed] = useState(!hasExistingReview);
   const { t } = useTranslation();
 
   return (
@@ -72,18 +71,6 @@ export function ReviewFullComposer({
         className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none"
       />
 
-      {canShareToFeed && (
-        <label className="flex items-center gap-1.5 text-xs text-muted">
-          <input
-            type="checkbox"
-            checked={shareToFeed}
-            onChange={(e) => setShareToFeed(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-border accent-primary"
-          />
-          {t("social.shareToFeed")}
-        </label>
-      )}
-
       <div className="flex items-center justify-between border-t border-border pt-2.5">
         {hasExistingReview && onDelete ? (
           <button
@@ -100,7 +87,7 @@ export function ReviewFullComposer({
         <button
           type="button"
           disabled={rating === 0 || isPending}
-          onClick={() => onSubmit(rating, text.trim() || null, shareToFeed)}
+          onClick={() => onSubmit(rating, text.trim() || null)}
           className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-background disabled:opacity-50"
         >
           {t("social.saveReview")}

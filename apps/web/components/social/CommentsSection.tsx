@@ -128,7 +128,9 @@ export function CommentsSection({ target, highlightCommentId, media }: CommentsS
 
   // Série/filme inteiro: só review em texto, sem comentário comum (ver docstring do componente).
   if (media) {
-    return <ReviewTextSection target={target} media={media} />;
+    // `media` só decide qual seção mostrar aqui — `ReviewTextSection` não
+    // usa mais o valor em si (ver comentário do bug corrigido lá).
+    return <ReviewTextSection target={target} />;
   }
 
   return (
