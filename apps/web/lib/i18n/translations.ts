@@ -257,6 +257,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "lang.zh": "Mandarim",
 
     "seriesHome.continueWatching": "Continue assistindo",
+    "seriesHome.viewAllContinueWatching": "Ver tudo em Continue assistindo",
     "seriesHome.completed": "Concluídas",
     "seriesHome.paused": "Interrompidas",
     "seriesHome.watchlist": "Assistir depois",
@@ -1061,6 +1062,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "lang.zh": "Mandarin",
 
     "seriesHome.continueWatching": "Continue watching",
+    "seriesHome.viewAllContinueWatching": "View all Continue watching",
     "seriesHome.completed": "Completed",
     "seriesHome.paused": "Paused",
     "seriesHome.watchlist": "Watch later",
@@ -1847,6 +1849,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "lang.zh": "Mandarín",
 
     "seriesHome.continueWatching": "Continuar viendo",
+    "seriesHome.viewAllContinueWatching": "Ver todo en Continuar viendo",
     "seriesHome.completed": "Completadas",
     "seriesHome.paused": "Pausadas",
     "seriesHome.watchlist": "Ver más tarde",

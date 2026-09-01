@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Flame } from "lucide-react";
-import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { ChevronRight, Flame } from "lucide-react";
+import { useLibraryRealtimeSync } from "@/lib/queries/library";
+import { useContinueWatchingSeries } from "@/lib/queries/continueWatchingSeries";
 import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -50,8 +52,16 @@ const CONTINUE_ASSISTINDO_LIMIT = 8;
  * significar o que promete. Sem botão nenhum e sem tela própria (a
  * pedido) — a seção só aparece quando tem algo nela, e some sozinha
  * quando a pessoa volta a assistir.
+ *
+ * MUDOU DE LUGAR (2026-09-01 — ver `continueWatchingSeries.ts`): o
+ * corte de 14 dias em si (`STALE_AFTER_DAYS`) e o cálculo de
+ * `recentSeries`/`staleSeries` viraram parte do hook compartilhado
+ * `useContinueWatchingSeries`, junto com o resto da lógica de
+ * "Continue assistindo" — precisava ser assim pra "Ver tudo"
+ * (`ContinueWatchingAllView.tsx`) aplicar exatamente a MESMA exclusão
+ * (senão uma série parada podia aparecer em Home E em "Ver tudo" ao
+ * mesmo tempo).
  */
-const STALE_AFTER_DAYS = 14;
 
 /**
  * Ajuste — o botão de alternância grade/lista mora aqui agora
@@ -66,12 +76,35 @@ const STALE_AFTER_DAYS = 14;
  * (`PosterGrid`) e lista (`MediaListRow`) — a prateleira de scroll
  * horizontal que existia antes era o modo "grade" implícito; agora é
  * uma escolha explícita, com uma alternativa de verdade ao lado.
+ *
+ * REFATORADO (2026-09-01 — "sobre o limite de 8 cards na home, me
+ * relembra a solução") — toda a lógica de "quais séries entram em
+ * Continue assistindo" (filtro, ordenação, corte de 14 dias,
+ * confirmação assíncrona de pendência) mudou pra `useContinueWatchingSeries`
+ * (novo, `lib/queries/continueWatchingSeries.ts`), reaproveitado
+ * também por `ContinueWatchingAllView.tsx` ("Ver tudo") — evita
+ * exatamente o tipo de duplicação que já causou o bug real do Bleach
+ * (`SEENLIST-HANDOFF.md`, "Bleach aparece na lista e não na grade").
+ * Aqui só passa `limit: CONTINUE_ASSISTINDO_LIMIT`; "Ver tudo" chama
+ * sem `limit`.
  */
 export function MinhaListaSection() {
   useLibraryRealtimeSync();
-  const { data: items, isLoading, isError, error, refetch } = useLibraryItems();
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("series-library");
   const { t } = useTranslation();
+
+  const {
+    series,
+    staleSeries,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    visibleContinueWatching,
+    upToDateCandidateIds,
+    handlePendingResolved,
+    stillResolvingPending,
+  } = useContinueWatchingSeries({ limit: CONTINUE_ASSISTINDO_LIMIT });
 
   /**
    * BUG REAL CORRIGIDO (2026-08-27, reportado — "barra de rolagem
@@ -183,144 +216,6 @@ export function MinhaListaSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
-
-  /**
-   * A PEDIDO — "Faz um tempo que você não assiste": corte por
-   * `lastActivityAt` (episódio realmente assistido), 14 dias. Feito
-   * ANTES das listas de "Continue assistindo" porque as duas
-   * precisam desse mesmo corte pra não mostrar a mesma série nas
-   * duas seções.
-   */
-  const { recentSeries, staleSeries } = useMemo(() => {
-    const cutoff = Date.now() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
-    const recent: typeof series = [];
-    const stale: typeof series = [];
-
-    for (const item of series) {
-      // Só "watching" pode ficar parada — "Em dia" não tem nada
-      // pendente pra assistir, então não faz sentido cobrar.
-      const isStale = item.status === "watching" && new Date(item.lastActivityAt).getTime() < cutoff;
-      (isStale ? stale : recent).push(item);
-    }
-
-    stale.sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
-    return { recentSeries: recent, staleSeries: stale };
-  }, [series]);
-
-  /**
-   * Correção (bug real, reportado): "Em dia" (`up_to_date`) é um status
-   * PRÓPRIO, separado de "watching" — mesma causa raiz já documentada
-   * em `useUpcomingEpisodes`/"Em breve". Filtrando só "watching" aqui,
-   * uma série que já estava em dia sumia de "Continue assistindo" pra
-   * sempre, mesmo quando saía episódio novo — nunca tinha chance de
-   * mostrar o card (e o selo NOVO) de novo, porque nada no web
-   * recalcula essa categoria sozinho (diferente do app nativo, que
-   * refaz esse recálculo toda vez que a aba ganha foco — decisão
-   * documentada como só-nativo na época, não portada pro web).
-   *
-   * UNIFICAÇÃO (2026-08-25, bug real reportado — "Bleach aparece na
-   * lista e não na grade") — antes esse filtro (`watching` OU
-   * `up_to_date`) só valia pro modo LISTA; o modo GRADE usava um
-   * segundo cálculo à parte, só `watching`, porque `PosterGrid` não
-   * tinha como confirmar se uma série "em dia" tinha episódio
-   * pendente de verdade (só `ContinueWatchingCard`, no modo lista,
-   * sabia fazer essa checagem e se auto-esconder quando não tinha
-   * nada pendente). Isso fazia a MESMA série (com episódio pendente
-   * de verdade, mas status "em dia") aparecer só na lista, nunca na
-   * grade — confuso, já que os dois modos deveriam mostrar o mesmo
-   * conjunto de séries, só com apresentação diferente. Agora os dois
-   * modos usam esta MESMA lista de candidatos (`continueWatching`,
-   * abaixo).
-   *
-   * BUG REAL CORRIGIDO NA RAIZ (2026-09-01, reportado — "está tudo
-   * em dia, e não apareceu nada", print confirmando espaço em branco
-   * embaixo de "CONTINUE WATCHING") — `continueWatching` (candidatos
-   * por STATUS bruto) é suficiente pra decidir o que RENDERIZAR
-   * dentro de cada card, mas não era suficiente pra decidir SE tem
-   * algo pra mostrar: uma série "em dia" só tem episódio de verdade
-   * quando `findPendingEpisodes` confirma isso, e essa confirmação é
-   * ASSÍNCRONA (busca a série na TMDB). Antes, essa confirmação só
-   * acontecia tarde demais — escondida dentro de cada card
-   * (`ContinueWatchingCard`) ou dentro da antiga
-   * `ContinueWatchingPosterGrid`/`UpToDateGate` (removida, ver
-   * `UpToDatePendingGate.tsx`) — depois que o container já tinha
-   * decidido "tem algo, então mostra a lista/grade" só de olhar
-   * `continueWatching.length > 0`. Quando NENHUMA série "em dia" da
-   * pessoa tinha episódio pendente de verdade (cenário comum —
-   * "tudo em dia"), cada card se escondia sozinho ao confirmar isso,
-   * sobrando um espaço em branco no lugar da mensagem de vazio.
-   *
-   * `visibleContinueWatching` (abaixo) sobe essa MESMA confirmação
-   * pro nível do container, ANTES da decisão — só depois de saber de
-   * verdade quantas séries "em dia" têm episódio pendente é que a
-   * tela escolhe entre lista/grade normal e a mensagem de vazio/
-   * "tudo em dia" (+ "Populares no SeenList"). `UpToDatePendingGate`
-   * reaproveita a mesma checagem (`findPendingEpisodes`) sem duplicar
-   * a regra — só mudou ONDE o resultado dela é usado pra decidir.
-   */
-  const continueWatching = useMemo(
-    () =>
-      recentSeries
-        .filter((item) => item.status === "watching" || item.status === "up_to_date")
-        /*
-         * CORREÇÃO (bug real, reportado — Tanya the Evil, Daemons do
-         * Reino das Sombras e Rick and Morty sumindo só no modo
-         * lista) — antes ordenava tudo junto por `updatedAt`, sem
-         * diferenciar "watching" (tem episódio pronto pra assistir
-         * AGORA) de "up_to_date" (pode não ter nada pendente, só
-         * está aqui pra eventualmente voltar a mostrar o selo NOVO).
-         * Ao ampliar o filtro pra incluir "up_to_date", o corte de
-         * `CONTINUE_ASSISTINDO_LIMIT` passou a ter mais candidatos
-         * disputando as mesmas vagas — uma série "up_to_date"
-         * mexida recentemente conseguia empurrar pra fora do top-8
-         * uma série "watching" de verdade, mesmo essa tendo algo
-         * pendente pra assistir agora. Ordenação em duas camadas:
-         * primeiro por status (watching sempre antes de up_to_date),
-         * dentro de cada grupo por `updatedAt`. Uma série com
-         * episódio pendente de verdade nunca perde vaga pra uma que
-         * talvez nem tenha nada pra mostrar.
-         */
-        .sort((a, b) => {
-          if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
-          return b.updatedAt.localeCompare(a.updatedAt);
-        })
-        .slice(0, CONTINUE_ASSISTINDO_LIMIT),
-    [recentSeries]
-  );
-
-  /**
-   * Ver comentário longo acima de `continueWatching` ("BUG REAL
-   * CORRIGIDO NA RAIZ") — `confirmedPending` guarda, por id de série
-   * "em dia", se ela de fato tem episódio pendente (`true`/`false`),
-   * assim que cada `UpToDatePendingGate` (montado mais abaixo, um por
-   * candidata) termina de checar. Ausente do objeto = ainda checando.
-   */
-  const [confirmedPending, setConfirmedPending] = useState<Record<number, boolean>>({});
-  const handlePendingResolved = useCallback((seriesId: number, hasPending: boolean) => {
-    setConfirmedPending((current) => (current[seriesId] === hasPending ? current : { ...current, [seriesId]: hasPending }));
-  }, []);
-
-  const upToDateCandidateIds = useMemo(
-    () => continueWatching.filter((item) => item.status === "up_to_date").map((item) => item.id),
-    [continueWatching]
-  );
-
-  // "watching" sempre conta (nunca precisa de confirmação — sempre tem
-  // episódio pendente por definição do próprio status); "em dia" só
-  // conta depois que `UpToDatePendingGate` confirmar `true`.
-  const visibleContinueWatching = useMemo(
-    () => continueWatching.filter((item) => item.status === "watching" || confirmedPending[item.id] === true),
-    [continueWatching, confirmedPending]
-  );
-
-  // Ainda faltam candidatas "em dia" sem resposta — só importa
-  // esperar quando a lista visível ainda está vazia (se já tem
-  // "watching" confirmado pra mostrar, não faz sentido segurar a
-  // tela só por causa de uma checagem que só afetaria o card em si).
-  const stillResolvingPending =
-    visibleContinueWatching.length === 0 && upToDateCandidateIds.some((id) => confirmedPending[id] === undefined);
-
   if (isError) {
     return <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />;
   }
@@ -328,7 +223,27 @@ export function MinhaListaSection() {
   return (
     <>
       <div className="mb-2 flex items-center justify-between">
-        <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
+        <div className="flex items-center gap-1.5">
+          <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
+          {/*
+            * A PEDIDO (2026-09-01 — "sobre o limite de 8 cards na
+            * home, me relembra a solução") — mesma seta ">" que toda
+            * outra fileira "ver tudo" já usa (ver `DiscoverCarousel.tsx`).
+            * Só aparece quando tem de fato algo pra mostrar em "Ver
+            * tudo" (mesma condição do ramo de baixo que decide entre
+            * grade/lista e o estado vazio) — sem seta apontando pra
+            * uma tela "Ver tudo" vazia.
+            */}
+          {visibleContinueWatching.length > 0 && (
+            <Link
+              href="/series/continue-assistindo"
+              aria-label={t("seriesHome.viewAllContinueWatching")}
+              className="text-muted"
+            >
+              <ChevronRight className="h-4 w-4" strokeWidth={2} />
+            </Link>
+          )}
+        </div>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
 
