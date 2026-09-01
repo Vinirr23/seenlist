@@ -220,10 +220,14 @@ const RING_MAX_SCALE = 1.8;
  * data (especulação de futuro, ainda sem estreia) não conta mais.
  */
 /**
- * Exportada (2026-08-25) pra ser reaproveitada por
- * `ContinueWatchingPosterGrid.tsx` — mesma checagem de "tem episódio
- * pendente de verdade" usada aqui, sem duplicar a regra num segundo
- * lugar. Ver comentário lá pro porquê.
+ * Exportada (2026-08-25) pra ser reaproveitada por outros lugares que
+ * precisam da MESMA checagem "tem episódio pendente de verdade" sem
+ * duplicar a regra — hoje: `UpToDatePendingGate.tsx` (usado por
+ * `MinhaListaSection.tsx`, tanto pra decidir o que renderizar no modo
+ * grade quanto, desde 2026-09-01, pra decidir no CONTAINER se
+ * "Continue assistindo" tem algo de verdade pra mostrar antes de
+ * escolher entre a lista/grade normal e a mensagem de vazio/"tudo em
+ * dia" — ver comentário completo lá).
  */
 export function findPendingEpisodes(
   seasons: {

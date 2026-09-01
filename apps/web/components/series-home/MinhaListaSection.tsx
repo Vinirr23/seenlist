@@ -8,7 +8,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { markElapsed } from "@/lib/perfMarks";
 import { ViewModeToggle } from "../media/ViewModeToggle";
 import { ContinueWatchingCard } from "./ContinueWatchingCard";
-import { ContinueWatchingPosterGrid } from "./ContinueWatchingPosterGrid";
+import { UpToDatePendingGate } from "./UpToDatePendingGate";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyShelf } from "../media/EmptyShelf";
@@ -211,12 +211,34 @@ export function MinhaListaSection() {
    * de verdade, mas status "em dia") aparecer só na lista, nunca na
    * grade — confuso, já que os dois modos deveriam mostrar o mesmo
    * conjunto de séries, só com apresentação diferente. Agora os dois
-   * modos usam esta MESMA lista de candidatos; quem resolve se uma
-   * série "em dia" tem episódio pendente de verdade é
-   * `ContinueWatchingCard` no modo lista (como já era) e
-   * `ContinueWatchingPosterGrid`/`UpToDateGate` no modo grade (novo,
-   * reaproveita a mesma checagem — `findPendingEpisodes` — sem
-   * duplicar a regra).
+   * modos usam esta MESMA lista de candidatos (`continueWatching`,
+   * abaixo).
+   *
+   * BUG REAL CORRIGIDO NA RAIZ (2026-09-01, reportado — "está tudo
+   * em dia, e não apareceu nada", print confirmando espaço em branco
+   * embaixo de "CONTINUE WATCHING") — `continueWatching` (candidatos
+   * por STATUS bruto) é suficiente pra decidir o que RENDERIZAR
+   * dentro de cada card, mas não era suficiente pra decidir SE tem
+   * algo pra mostrar: uma série "em dia" só tem episódio de verdade
+   * quando `findPendingEpisodes` confirma isso, e essa confirmação é
+   * ASSÍNCRONA (busca a série na TMDB). Antes, essa confirmação só
+   * acontecia tarde demais — escondida dentro de cada card
+   * (`ContinueWatchingCard`) ou dentro da antiga
+   * `ContinueWatchingPosterGrid`/`UpToDateGate` (removida, ver
+   * `UpToDatePendingGate.tsx`) — depois que o container já tinha
+   * decidido "tem algo, então mostra a lista/grade" só de olhar
+   * `continueWatching.length > 0`. Quando NENHUMA série "em dia" da
+   * pessoa tinha episódio pendente de verdade (cenário comum —
+   * "tudo em dia"), cada card se escondia sozinho ao confirmar isso,
+   * sobrando um espaço em branco no lugar da mensagem de vazio.
+   *
+   * `visibleContinueWatching` (abaixo) sobe essa MESMA confirmação
+   * pro nível do container, ANTES da decisão — só depois de saber de
+   * verdade quantas séries "em dia" têm episódio pendente é que a
+   * tela escolhe entre lista/grade normal e a mensagem de vazio/
+   * "tudo em dia" (+ "Populares no SeenList"). `UpToDatePendingGate`
+   * reaproveita a mesma checagem (`findPendingEpisodes`) sem duplicar
+   * a regra — só mudou ONDE o resultado dela é usado pra decidir.
    */
   const continueWatching = useMemo(
     () =>
@@ -248,6 +270,38 @@ export function MinhaListaSection() {
     [recentSeries]
   );
 
+  /**
+   * Ver comentário longo acima de `continueWatching` ("BUG REAL
+   * CORRIGIDO NA RAIZ") — `confirmedPending` guarda, por id de série
+   * "em dia", se ela de fato tem episódio pendente (`true`/`false`),
+   * assim que cada `UpToDatePendingGate` (montado mais abaixo, um por
+   * candidata) termina de checar. Ausente do objeto = ainda checando.
+   */
+  const [confirmedPending, setConfirmedPending] = useState<Record<number, boolean>>({});
+  const handlePendingResolved = useCallback((seriesId: number, hasPending: boolean) => {
+    setConfirmedPending((current) => (current[seriesId] === hasPending ? current : { ...current, [seriesId]: hasPending }));
+  }, []);
+
+  const upToDateCandidateIds = useMemo(
+    () => continueWatching.filter((item) => item.status === "up_to_date").map((item) => item.id),
+    [continueWatching]
+  );
+
+  // "watching" sempre conta (nunca precisa de confirmação — sempre tem
+  // episódio pendente por definição do próprio status); "em dia" só
+  // conta depois que `UpToDatePendingGate` confirmar `true`.
+  const visibleContinueWatching = useMemo(
+    () => continueWatching.filter((item) => item.status === "watching" || confirmedPending[item.id] === true),
+    [continueWatching, confirmedPending]
+  );
+
+  // Ainda faltam candidatas "em dia" sem resposta — só importa
+  // esperar quando a lista visível ainda está vazia (se já tem
+  // "watching" confirmado pra mostrar, não faz sentido segurar a
+  // tela só por causa de uma checagem que só afetaria o card em si).
+  const stillResolvingPending =
+    visibleContinueWatching.length === 0 && upToDateCandidateIds.some((id) => confirmedPending[id] === undefined);
+
   if (isError) {
     return <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />;
   }
@@ -259,6 +313,17 @@ export function MinhaListaSection() {
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
 
+      {/*
+        * Gates invisíveis (ver "BUG REAL CORRIGIDO NA RAIZ" acima) —
+        * um por série "em dia" candidata, sempre montados (não dependem
+        * de `viewMode` nem de qual ramo abaixo está ativo) pra que a
+        * confirmação comece assim que os dados chegam, e a decisão de
+        * qual ramo mostrar já leve em conta o resultado.
+        */}
+      {upToDateCandidateIds.map((seriesId) => (
+        <UpToDatePendingGate key={seriesId} seriesId={seriesId} onResolved={handlePendingResolved} />
+      ))}
+
       {!viewModeReady ? (
         // CORREÇÃO (2026-08-27, "ainda mostra 2 esqueletons" — ver
         // comentário de `useViewModePreference.ts`) — enquanto o modo
@@ -268,9 +333,18 @@ export function MinhaListaSection() {
         // formato "grid" assumido e trocar de formato na frente da
         // pessoa assim que o valor real (ex.: "list") chegar.
         null
-      ) : isLoading ? (
+      ) : isLoading || stillResolvingPending ? (
+        /*
+         * `stillResolvingPending` (ver comentário em cima da própria
+         * variável) — sem isso, a tela decidiria "vazio" cedo demais,
+         * antes de confirmar se alguma série "em dia" tinha episódio
+         * pendente, e trocaria de mensagem/conteúdo na frente da
+         * pessoa assim que a confirmação chegasse (mesmo problema que
+         * o `viewModeReady` acima evita, só que pra este outro dado
+         * assíncrono).
+         */
         <HomeSkeleton variant={viewMode === "grid" ? "grid" : "list"} />
-      ) : continueWatching.length === 0 ? (
+      ) : visibleContinueWatching.length === 0 ? (
         /*
          * "Estado vazio melhorado" (2026-09-01, a pedido, opção
          * escolhida pelo usuário entre as recomendações do GPT) —
@@ -299,7 +373,7 @@ export function MinhaListaSection() {
           </div>
         </>
       ) : viewMode === "grid" ? (
-        <ContinueWatchingPosterGrid items={continueWatching} />
+        <PosterGrid items={visibleContinueWatching} />
       ) : (
         /*
          * CORREÇÃO (2026-08-25, "MARCAR EPISÓDIO: UMA EXPERIÊNCIA") —
@@ -312,7 +386,7 @@ export function MinhaListaSection() {
          * animação do filho, e sobraria um buraco vazio na saída).
          */
         <div>
-          {continueWatching.map((item, index) => (
+          {visibleContinueWatching.map((item, index) => (
             /*
              * A PEDIDO (polimento visual, 2026-08-25 — ajustado depois
              * de comparar com o print de referência do usuário) —
