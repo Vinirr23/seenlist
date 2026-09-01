@@ -226,20 +226,33 @@ export function MinhaListaSection() {
     return <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />;
   }
 
+  /*
+   * A PEDIDO (2026-09-01 — "no empty state, não faz sentido ter
+   * 'continue assistindo/assistir depois' e a seleção de lista/grid.
+   * tira isso, mas somente na tela de empty state") — só o cabeçalho
+   * (título da seção + alternador grade/lista) some quando o estado
+   * vazio de verdade está confirmado; nos outros ramos (carregando,
+   * ainda resolvendo pendência, ou com cards) continua exatamente
+   * como sempre foi, sem mudança nenhuma.
+   */
+  const isEmptyState = viewModeReady && !isLoading && !stillResolvingPending && visibleContinueWatching.length === 0;
+
   return (
     <>
-      {/*
-        * PADRONIZADO (2026-09-01, a pedido — "deixe os espaços
-        * padronizados") — era `mb-2` (8px, espaço entre o cabeçalho e
-        * a lista/estado vazio abaixo); virou `mb-3` (12px), o mesmo
-        * espaçamento título-conteúdo usado no Perfil
-        * (`ProfileMediaCarousel.tsx`) e agora também em todo carrossel
-        * de Explorar (`DiscoverCarousel.tsx`, ver comentário lá).
-        */}
-      <div className="mb-3 flex items-center justify-between">
-        <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
-        <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-      </div>
+      {!isEmptyState && (
+        /*
+         * PADRONIZADO (2026-09-01, a pedido — "deixe os espaços
+         * padronizados") — era `mb-2` (8px, espaço entre o cabeçalho e
+         * a lista/estado vazio abaixo); virou `mb-3` (12px), o mesmo
+         * espaçamento título-conteúdo usado no Perfil
+         * (`ProfileMediaCarousel.tsx`) e agora também em todo carrossel
+         * de Explorar (`DiscoverCarousel.tsx`, ver comentário lá).
+         */
+        <div className="mb-3 flex items-center justify-between">
+          <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
+          <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+        </div>
+      )}
 
       {/*
         * Gates invisíveis (ver "BUG REAL CORRIGIDO NA RAIZ" acima) —

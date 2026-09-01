@@ -60,23 +60,35 @@ export function MinhaListaSection() {
     return <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />;
   }
 
+  /*
+   * A PEDIDO (2026-09-01 — "no empty state, não faz sentido ter
+   * 'continue assistindo/assistir depois' e a seleção de lista/grid.
+   * tira isso, mas somente na tela de empty state", mesmo ajuste em
+   * `series-home/MinhaListaSection.tsx`) — só o cabeçalho (título da
+   * seção + alternador grade/lista) some quando o estado vazio de
+   * verdade está confirmado; carregando ou com itens continua igual.
+   */
+  const isEmptyState = viewModeReady && !isLoading && wantToWatch.length === 0;
+
   return (
     <>
-      {/*
-        * CORREÇÃO (2026-08-27, ver comentário de `HomeSkeleton.tsx`) —
-        * cabeçalho sempre visível, mesmo raciocínio de
-        * `movies-home/EmBreveSection.tsx`.
-        *
-        * PADRONIZADO (2026-09-01, a pedido — "deixe os espaços
-        * padronizados", mesmo ajuste já feito em `series-home/MinhaListaSection.tsx`)
-        * — era `mb-2` (8px), virou `mb-3` (12px), o mesmo espaçamento
-        * título-conteúdo usado em toda fileira de carrossel do app
-        * (Explorar, Perfil) e agora também na Home de Séries.
-        */}
-      <div className="mb-3 flex items-center justify-between">
-        <SectionTitle>{t("seriesHome.watchlist")}</SectionTitle>
-        <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-      </div>
+      {!isEmptyState && (
+        /*
+         * CORREÇÃO (2026-08-27, ver comentário de `HomeSkeleton.tsx`) —
+         * cabeçalho sempre visível, mesmo raciocínio de
+         * `movies-home/EmBreveSection.tsx`.
+         *
+         * PADRONIZADO (2026-09-01, a pedido — "deixe os espaços
+         * padronizados", mesmo ajuste já feito em `series-home/MinhaListaSection.tsx`)
+         * — era `mb-2` (8px), virou `mb-3` (12px), o mesmo espaçamento
+         * título-conteúdo usado em toda fileira de carrossel do app
+         * (Explorar, Perfil) e agora também na Home de Séries.
+         */
+        <div className="mb-3 flex items-center justify-between">
+          <SectionTitle>{t("seriesHome.watchlist")}</SectionTitle>
+          <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+        </div>
+      )}
 
       {!viewModeReady ? (
         // CORREÇÃO (2026-08-27, "ainda mostra 2 esqueletons" — ver
