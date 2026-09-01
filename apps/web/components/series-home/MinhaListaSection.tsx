@@ -228,7 +228,15 @@ export function MinhaListaSection() {
 
   return (
     <>
-      <div className="mb-2 flex items-center justify-between">
+      {/*
+        * PADRONIZADO (2026-09-01, a pedido — "deixe os espaços
+        * padronizados") — era `mb-2` (8px, espaço entre o cabeçalho e
+        * a lista/estado vazio abaixo); virou `mb-3` (12px), o mesmo
+        * espaçamento título-conteúdo usado no Perfil
+        * (`ProfileMediaCarousel.tsx`) e agora também em todo carrossel
+        * de Explorar (`DiscoverCarousel.tsx`, ver comentário lá).
+        */}
+      <div className="mb-3 flex items-center justify-between">
         <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
@@ -317,12 +325,20 @@ export function MinhaListaSection() {
           />
           {/*
             * "mais espaço entre o botão e 'Populares no SeenList'" (a
-            * pedido, 2026-09-01, seguinte) — era `mt-6`, virou `mt-10`
-            * (respiro logo abaixo do divisor "OU" de `EmptyLibraryHero`,
-            * que teve o `pt-0` do próprio topo pra compensar — ver
+            * pedido, 2026-09-01) — era `mt-6`, virou `mt-10` (respiro
+            * logo abaixo do divisor "OU" de `EmptyLibraryHero`, que
+            * teve o `pt-0` do próprio topo pra compensar — ver
             * comentário lá).
+            *
+            * PADRONIZADO (2026-09-01, seguinte, a pedido — "deixe os
+            * espaços padronizados") — `mt-10` (40px) virou `mt-8`
+            * (32px), o mesmo espaçamento entre blocos usado no Perfil
+            * (`ProfileMediaCarousel.tsx`, `mb-8` entre carrosséis) e
+            * já usado logo abaixo, na seção "Faz um tempo que você não
+            * assiste" — três lugares, três valores diferentes (40px/
+            * 32px/32px) viraram um só.
             */}
-          <div className="mt-10">
+          <div className="mt-8">
             <PopularMediaRow
               list="trending_series"
               title={
@@ -423,7 +439,8 @@ export function MinhaListaSection() {
       {staleSeries.length > 0 && (
         <div className="mt-8">
           <SectionTitle>Faz um tempo que você não assiste</SectionTitle>
-          <div className="mt-2">
+          {/* PADRONIZADO (2026-09-01, a pedido — "deixe os espaços padronizados") — era `mt-2` (8px), virou `mt-3` (12px), mesmo espaçamento título-conteúdo do resto da tela (ver comentário no cabeçalho de "Continue assistindo" acima). */}
+          <div className="mt-3">
             {viewMode === "grid" ? (
               <PosterGrid items={staleSeries} />
             ) : (

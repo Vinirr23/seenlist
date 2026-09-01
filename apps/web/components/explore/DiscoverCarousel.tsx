@@ -35,12 +35,6 @@ export interface DiscoverCarouselProps {
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   fetchNextPage?: () => void;
-  /**
-   * A PEDIDO (2026-09-01, mesma leva do "populares") — repassa direto
-   * pra `DiscoverCard` (ver comentário completo lá). `false`/ausente
-   * em todo carrossel de antes, sem mudança nenhuma.
-   */
-  showItemTitles?: boolean;
 }
 
 // CORREÇÃO (a pedido — "tira esse botões, são redundantes") — o botão
@@ -57,7 +51,6 @@ export function DiscoverCarousel({
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
-  showItemTitles,
 }: DiscoverCarouselProps) {
   // `?? false`/`?? (() => {})` — o hook já não faz nada quando
   // `hasNextPage` é falso (ver `useInfiniteScrollSentinel.ts`), então
@@ -70,9 +63,38 @@ export function DiscoverCarousel({
   });
 
   return (
-    <section className="mb-6">
-      <div className="mb-2 flex items-center justify-between px-4">
-        <h2 className="text-base font-bold text-text">{title}</h2>
+    <section className="mb-8">
+      {/*
+        * PADRONIZADO (2026-09-01, a pedido — "verifique se 'populares
+        * no seenlist' está do mesmo tamanho das fontes em perfil, se
+        * não estiver, padronize" + "deixe os espaços padronizados",
+        * usuário escolheu estender pro Explorar inteiro quando
+        * perguntado sobre o alcance) — dois ajustes, os dois batendo
+        * com `ProfileMediaCarousel.tsx`:
+        *
+        * 1) Fonte do título: era `text-base font-bold` (16px/700);
+        *    Perfil usa `text-lg font-extrabold` (18px/800) pros
+        *    títulos de carrossel de lá — tamanho e peso realmente
+        *    diferentes, não impressão. Não copiado o `tracking-tight`/
+        *    `text-shadow` do Perfil — aqueles existem lá pra
+        *    legibilidade sobre o brilho ambiente atrás do título
+        *    "Séries", não fazem parte do "tamanho da fonte" em si.
+        *
+        * 2) Espaçamento: `mb-6` (24px, entre uma fileira e a próxima)
+        *    virou `mb-8` (32px) — Perfil usa `mb-8` entre os próprios
+        *    carrosséis; `mb-2` (8px, entre o título e os pôsteres)
+        *    virou `mb-3` (12px) — Perfil usa `mb-3` no mesmo lugar.
+        *
+        * Como este `<section>`/`<h2>` é o MESMO usado em TODO
+        * carrossel de Explorar (Em alta agora, Para você, Novas
+        * séries etc.), não só em "Populares no SeenList", os dois
+        * ajustes valem pra tela inteira — intencional, é exatamente
+        * esse o pedido: acabar com dois tamanhos/espaçamentos de
+        * carrossel diferentes convivendo no app (um em Explorar,
+        * outro em Perfil).
+        */}
+      <div className="mb-3 flex items-center justify-between px-4">
+        <h2 className="text-lg font-extrabold text-text">{title}</h2>
         {viewAllHref && (
           <Link href={viewAllHref} className="text-muted">
             <ChevronRight className="h-4 w-4" strokeWidth={2} />
@@ -91,7 +113,7 @@ export function DiscoverCarousel({
         // gap-2 (era gap-3) — cards mais próximos, a pedido.
         <div className="-mx-4 flex gap-2 overflow-x-auto overflow-y-hidden px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {items.map((item) => (
-            <DiscoverCard key={`${item.mediaType}-${item.id}`} item={item} showTitle={showItemTitles} />
+            <DiscoverCard key={`${item.mediaType}-${item.id}`} item={item} />
           ))}
           {hasNextPage && (
             // Sentinela + esqueleto — mesmo raciocínio do botão "Carregar

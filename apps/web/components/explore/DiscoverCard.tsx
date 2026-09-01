@@ -10,20 +10,18 @@ import { AddToLibraryButton } from "./AddToLibraryButton";
 
 export interface DiscoverCardProps {
   item: DiscoverItem;
-  /**
-   * A PEDIDO (2026-09-01 — "copia a ideia desse print", print mostrava
-   * o nome de cada série embaixo do pôster) — OPCIONAL, `false` por
-   * padrão. Todo carrossel que já existia (Em alta agora, Para você,
-   * Novas séries etc.) continua sem legenda nenhuma, exatamente como
-   * sempre foi — só `PopularMediaRow.tsx` (fileira "Populares no
-   * SeenList" do estado vazio) liga isso. Mesmo texto/estilo de
-   * legenda que a grade de "ver tudo" já usa (`DiscoverAllView.tsx`),
-   * sem inventar um terceiro jeito de mostrar título.
-   */
-  showTitle?: boolean;
 }
 
-export const DiscoverCard = memo(function DiscoverCard({ item, showTitle }: DiscoverCardProps) {
+/**
+ * REMOVIDO (2026-09-01, a pedido — "tire os nomes dos titulos debaixo
+ * das capas, o padrão é apenas as capas") — chegou a existir aqui um
+ * `showTitle`/legenda opcional (ligado só em `PopularMediaRow.tsx`,
+ * "Populares no SeenList" do estado vazio de Séries/Home — todo
+ * carrossel de Explorar já não usava). Removido de volta: card volta
+ * a ser só a capa, igual a TODO outro carrossel do app (Explorar,
+ * Perfil) sempre foi.
+ */
+export const DiscoverCard = memo(function DiscoverCard({ item }: DiscoverCardProps) {
   const posterUrl = tmdbImage(item.posterPath, "w342");
   const href = item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
 
@@ -49,8 +47,6 @@ export const DiscoverCard = memo(function DiscoverCard({ item, showTitle }: Disc
         )}
         <AddToLibraryButton mediaType={item.mediaType} mediaId={item.id} className="absolute right-1.5 top-1.5" />
       </div>
-      {/* Mesma legenda (classe e tudo) de DiscoverAllView.tsx, só que opcional aqui. */}
-      {showTitle && <p className="mt-1.5 truncate text-xs font-medium text-text">{item.title}</p>}
     </Link>
   );
 });
