@@ -8,7 +8,6 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0E14",
     "icon": "./assets/images/icon.png",
-    "newArchEnabled": true,
     "plugins": [
       "expo-router",
       "expo-web-browser",
@@ -34,7 +33,8 @@
           "color": "#E8A33D"
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      "expo-image"
     ],
     "ios": {
       "bundleIdentifier": "com.seenlist.app"

@@ -1,29 +1,22 @@
 const { getDefaultConfig } = require("expo/metro-config");
-const path = require("path");
 
 const projectRoot = __dirname;
-const monorepoRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);
 
-// Receita oficial atual do Expo pra monorepo (docs.expo.dev/guides/monorepos),
-// SDK 54 — sem customização extra além do que o próprio guia pede.
+// CORREÇÃO (upgrade SDK 55 — achado real do `expo-doctor`, "watchFolders
+// does not contain all entries from Expo's defaults") — este arquivo
+// configurava `watchFolders`/`resolver.nodeModulesPaths` manualmente à
+// mão (receita de ANTES do SDK 52). Desde o SDK 52, o `getDefaultConfig`
+// já detecta e configura isso sozinho pra monorepo — a versão manual
+// SUBSTITUÍA (não somava) o que o Expo já monta por padrão, escondendo
+// entradas que o `expo-doctor` espera encontrar. Removido, seguindo a
+// recomendação atual (docs.expo.dev/guides/monorepos): "You don't have
+// to manually configure Metro when using monorepos if you use
+// expo/metro-config". Só a correção abaixo (não relacionada a monorepo)
+// continua manual.
 //
-// 1. Observa o monorepo inteiro, não só apps/mobile — sem isso, o
-// Metro não vê os pacotes irmãos (@seenlist/ui, @seenlist/types etc.)
-// nem os node_modules hoisted na raiz.
-config.watchFolders = [monorepoRoot];
-
-// 2. Onde procurar node_modules, e em que ordem — primeiro local
-// (apps/mobile/node_modules, se algo estiver instalado só ali),
-// depois a raiz do monorepo (onde o pnpm hoisted concentra a maior
-// parte dos pacotes).
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, "node_modules"),
-  path.resolve(monorepoRoot, "node_modules"),
-];
-
-// 3. Causa raiz do erro "ws/lib/stream.js attempted to import the Node
+// Causa raiz do erro "ws/lib/stream.js attempted to import the Node
 // standard library module 'stream'" durante o bundle Android:
 //
 // Desde RN 0.72+, o Metro resolve `package.json`'s `exports` por

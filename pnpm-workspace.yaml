@@ -13,12 +13,27 @@ shamefullyHoist: true
 strictPeerDependencies: false
 
 overrides:
-  # React Native 0.81.4 (apps/mobile) traz o "react-native-renderer"
-  # embutido fixo na versão 19.1.0 — o React precisa bater EXATAMENTE
-  # com essa versão, senão o app quebra na hora de abrir ("Incompatible
-  # React versions"). O pin era 19.1.7 (só pra web); alinhado aqui pros
-  # dois apps, já que nodeLinker: hoisted força uma cópia física só.
-  "react": "19.1.0"
-  "react-dom": "19.1.0"
-  "@types/react": "19.1.9"
-  "@types/react-dom": "19.1.9"
+  # React Native (apps/mobile) traz o "react-native-renderer" embutido
+  # fixo numa versão — o React precisa bater EXATAMENTE com essa versão,
+  # senão o app quebra na hora de abrir ("Incompatible React versions").
+  # Como nodeLinker: hoisted força uma cópia física só pro monorepo
+  # inteiro, os dois apps (web + mobile) ficam sempre no mesmo React.
+  #
+  # ATUALIZAÇÃO (upgrade Expo SDK 55, achado real do `expo-doctor`) — a
+  # troca de RN 0.81.4 pra RN 0.83.10 (que o SDK 55 exige) trouxe um
+  # "react-native-renderer" que precisa do React 19.2.0, não mais
+  # 19.1.0 — sem essa mudança, era exatamente esse pin antigo que ia
+  # forçar o app a abrir com a versão errada e quebrar. Compatibilidade
+  # com o Next.js 15.5.x do apps/web conferida antes de mudar (peer
+  # range "^19.0.0", cobre 19.2.0 sem problema).
+  #
+  # CORREÇÃO — `@types/react` e `@types/react-dom` NÃO são publicados
+  # em versões espelhadas 1-pra-1 (achado real, `pnpm install` recusou
+  # "19.2.18" pro react-dom: não existe — o mais recente publicado dos
+  # tipos do react-dom é 19.2.5, bem menos granular que os tipos do
+  # react, que já vão até 19.2.18). Usar a versão real mais recente de
+  # cada pacote, não assumir que os números batem entre si.
+  "react": "19.2.0"
+  "react-dom": "19.2.0"
+  "@types/react": "19.2.18"
+  "@types/react-dom": "19.2.5"
