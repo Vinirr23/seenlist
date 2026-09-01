@@ -229,27 +229,7 @@ export function MinhaListaSection() {
   return (
     <>
       <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
-          {/*
-            * A PEDIDO (2026-09-01 — "sobre o limite de 8 cards na
-            * home, me relembra a solução") — mesma seta ">" que toda
-            * outra fileira "ver tudo" já usa (ver `DiscoverCarousel.tsx`).
-            * Só aparece quando tem de fato algo pra mostrar em "Ver
-            * tudo" (mesma condição do ramo de baixo que decide entre
-            * grade/lista e o estado vazio) — sem seta apontando pra
-            * uma tela "Ver tudo" vazia.
-            */}
-          {visibleContinueWatching.length > 0 && (
-            <Link
-              href="/series/continue-assistindo"
-              aria-label={t("seriesHome.viewAllContinueWatching")}
-              className="text-muted"
-            >
-              <ChevronRight className="h-4 w-4" strokeWidth={2} />
-            </Link>
-          )}
-        </div>
+        <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
 
@@ -369,6 +349,36 @@ export function MinhaListaSection() {
               onTransitionActiveChange={handleTransitionActiveChange}
             />
           ))}
+        </div>
+      )}
+
+      {/*
+        * CORREÇÃO (2026-09-01, "você adicionou uma > ao lado de
+        * 'continue assistindo' ao invés disso ao final dos 8 cards,
+        * adicione um botão 'ver tudo'") — tentativa anterior era uma
+        * setinha (`ChevronRight`) ao lado do título da seção, no
+        * cabeçalho; rejeitada explicitamente. Agora é um botão de
+        * verdade, com texto, posicionado DEPOIS dos cards renderizados
+        * (grade OU lista, o `viewMode` não muda onde o botão entra) —
+        * mesmo padrão visual "vidro" já usado no botão "Carregar mais"
+        * de `DiscoverAllView.tsx`/`GenreAllView.tsx`/`SimilarAllView.tsx`
+        * (mesma borda, blur, gradiente radial), reaproveitado aqui em
+        * vez de inventar um estilo de botão novo. Mesma condição de
+        * antes (`visibleContinueWatching.length > 0`) — sem botão
+        * apontando pra uma tela "Ver tudo" vazia.
+        */}
+      {visibleContinueWatching.length > 0 && (
+        <div className="mt-3 flex justify-center">
+          <Link
+            href="/series/continue-assistindo"
+            className="flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-text backdrop-blur-[10px] backdrop-saturate-[160%] transition-colors"
+            style={{
+              background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+            }}
+          >
+            {t("seriesHome.viewAllContinueWatching")}
+            <ChevronRight className="h-4 w-4" strokeWidth={2} />
+          </Link>
         </div>
       )}
 
