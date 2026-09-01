@@ -573,6 +573,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.exploreMovies": "Explorar filmes",
     "moviesHome.completed": "Concluídos",
     "moviesHome.emptyCompleted": "Nenhum filme concluído ainda.",
+    "moviesHome.emptyWatchlistTitle": "Sua lista está esperando por você.",
+    "moviesHome.emptyWatchlistSubtitle": "Adicione filmes que você quer assistir.",
 
     "explore.alreadyInLibrary": "Já está na biblioteca",
     "explore.addToLibrary": "Adicionar à biblioteca",
@@ -1378,6 +1380,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.exploreMovies": "Explore movies",
     "moviesHome.completed": "Completed",
     "moviesHome.emptyCompleted": "No completed movies yet.",
+    "moviesHome.emptyWatchlistTitle": "Your list is waiting for you.",
+    "moviesHome.emptyWatchlistSubtitle": "Add movies you want to watch.",
 
     "explore.alreadyInLibrary": "Already in your library",
     "explore.addToLibrary": "Add to library",
@@ -2163,6 +2167,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.emptyUpcoming": "Ninguna película de tu lista 'Ver más tarde' tiene un estreno futuro conocido.",
     "moviesHome.emptyWatching": "Todavía no agregaste ninguna película.",
     "moviesHome.exploreMovies": "Explorar películas",
+    "moviesHome.emptyWatchlistTitle": "Tu lista te está esperando.",
+    "moviesHome.emptyWatchlistSubtitle": "Agrega películas que quieras ver.",
     "moviesHome.completed": "Completadas",
     "moviesHome.emptyCompleted": "Ninguna película completada todavía.",
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { Flame } from "lucide-react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -8,7 +9,8 @@ import { ViewModeToggle } from "../media/ViewModeToggle";
 import { MediaListRow } from "../media/MediaListRow";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
-import { EmptyShelf } from "../media/EmptyShelf";
+import { EmptyLibraryHero } from "../media/EmptyLibraryHero";
+import { PopularMediaRow } from "../media/PopularMediaRow";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 import { todayLocalKey, isReleased } from "./release-date";
@@ -60,8 +62,18 @@ export function MinhaListaSection() {
 
   return (
     <>
-      {/* CORREÇÃO (2026-08-27, ver comentário de `HomeSkeleton.tsx`) — cabeçalho sempre visível, mesmo raciocínio de `movies-home/EmBreveSection.tsx`. */}
-      <div className="mb-2 flex items-center justify-between">
+      {/*
+        * CORREÇÃO (2026-08-27, ver comentário de `HomeSkeleton.tsx`) —
+        * cabeçalho sempre visível, mesmo raciocínio de
+        * `movies-home/EmBreveSection.tsx`.
+        *
+        * PADRONIZADO (2026-09-01, a pedido — "deixe os espaços
+        * padronizados", mesmo ajuste já feito em `series-home/MinhaListaSection.tsx`)
+        * — era `mb-2` (8px), virou `mb-3` (12px), o mesmo espaçamento
+        * título-conteúdo usado em toda fileira de carrossel do app
+        * (Explorar, Perfil) e agora também na Home de Séries.
+        */}
+      <div className="mb-3 flex items-center justify-between">
         <SectionTitle>{t("seriesHome.watchlist")}</SectionTitle>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
@@ -73,7 +85,56 @@ export function MinhaListaSection() {
       ) : isLoading ? (
         <HomeSkeleton variant={viewMode === "grid" ? "grid" : "list"} />
       ) : wantToWatch.length === 0 ? (
-        <EmptyShelf message={t("seriesHome.emptyWatchlist")} />
+        /*
+         * "PORTE DO ESTADO VAZIO ILUSTRADO PRA FILMES" (2026-09-01, a
+         * pedido — "faça isso", depois de eu ter sinalizado que Filmes
+         * ainda usava o `EmptyShelf` simples enquanto Séries já tinha
+         * ganhado a versão ilustrada) — mesma receita de
+         * `series-home/MinhaListaSection.tsx`: `EmptyLibraryHero`
+         * (ilustração + título + subtítulo + botão + divisor) seguido
+         * da fileira `PopularMediaRow`. Reaproveita a MESMA imagem
+         * (`empty-library-scene.png`) — a ilustração (sofá/luminária/
+         * gato/manta/pipoca) não é específica de série ou filme.
+         *
+         * Só UMA variante de texto aqui (`emptyWatchlistTitle`/
+         * `Subtitle`, chaves novas), não duas como em Séries: essa
+         * seção é literalmente "Assistir depois" (`wantToWatch`), sem
+         * conceito de "progresso"/"tudo em dia" — filme não tem
+         * episódio pendente pra zerar (ver comentário no topo deste
+         * arquivo, "filme não tem um estado 'assistindo'"). Lista
+         * vazia aqui só tem um significado possível: "não tem nada
+         * pra assistir depois ainda".
+         *
+         * `list="trending_movies"` (existia no tipo `DiscoverListKey`,
+         * já usado em Explorar) + `viewAllHref="/explore/all/trending_movies"`
+         * (mesma rota genérica "ver todos" que Séries já usa pra
+         * `trending_series`). Título reaproveita `seriesHome.popularSeries`
+         * ("Populares no SeenList") — o texto já era genérico de
+         * propósito (marca do app, não "séries populares"), mesmo
+         * ícone de chama âmbar.
+         */
+        <>
+          <EmptyLibraryHero
+            illustrationSrc="/illustrations/empty-library-scene.png"
+            title={t("moviesHome.emptyWatchlistTitle")}
+            subtitle={t("moviesHome.emptyWatchlistSubtitle")}
+            actionLabel={t("moviesHome.exploreMovies")}
+            actionHref="/explore"
+            dividerLabel={t("seriesHome.or")}
+          />
+          <div className="mt-8">
+            <PopularMediaRow
+              list="trending_movies"
+              title={
+                <span className="flex items-center gap-1.5 text-primary">
+                  <Flame className="h-4 w-4" fill="currentColor" strokeWidth={0} />
+                  {t("seriesHome.popularSeries")}
+                </span>
+              }
+              viewAllHref="/explore/all/trending_movies"
+            />
+          </div>
+        </>
       ) : viewMode === "grid" ? (
         <PosterGrid items={wantToWatch} />
       ) : (
