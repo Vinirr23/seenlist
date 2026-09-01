@@ -41,21 +41,32 @@ export interface EmptyLibraryHeroProps {
  * trás dela, o retângulo da imagem volta a aparecer, só que agora
  * mais sutil (por isso ficou "quase certo, mas ainda meio quadro").
  *
- * NOTA IMPORTANTE — o usuário mencionou ter anexado
- * "seenlist-empty-state.svg" (um SVG de fundo transparente de
- * verdade). Conferi: o arquivo que de fato chegou aqui é
- * byte-a-byte IDÊNTICO (mesmo hash) ao .jpg opaco que eu já tinha
- * processado da vez anterior — o SVG não chegou a ser recebido nesta
- * sessão. Sem um arquivo com canal alfa de verdade em mãos, a
- * correção aplicada foi via CSS `mask-image` (gradiente radial:
- * opaco no centro, transparente nas bordas) diretamente no wrapper
- * da imagem — isso força transparência REAL nas bordas no navegador,
- * independente do fundo por trás (mancha azul, cor sólida ou
- * qualquer outra coisa) ser combinado com a cor do arquivo ou não.
- * Resultado equivalente a um PNG/SVG com alfa, sem precisar de um
- * arquivo novo. Se a pessoa mandar o SVG de verdade depois, é só
- * trocar `illustrationSrc` — o resto (tamanho, posição, hierarquia)
- * continua igual.
+ * RESOLVIDO NA RAIZ DE VERDADE (2026-09-01, seguinte — "identifiquei
+ * o problema: o SVG possui um fundo próprio... nenhum <rect>
+ * cobrindo toda a área") — a tentativa anterior (`seenlist-empty-state.svg`)
+ * nunca chegou de fato (era byte-a-byte idêntica ao .jpg opaco já
+ * processado antes — ver histórico completo em `MinhaListaSection.tsx`),
+ * então a correção daquela vez foi uma máscara CSS (gradiente radial)
+ * pra FINGIR transparência nas bordas, já que o arquivo real não
+ * tinha canal alfa nenhum.
+ *
+ * Desta vez o arquivo que chegou é DIFERENTE de verdade — conferido
+ * pixel a pixel antes de usar (não assumido): PNG real, modo RGBA,
+ * 1536×1024, canto a canto com alfa **0** (100% transparente) e o
+ * sofá/pipoca/planta/halo com alfa alto (~253) — ou seja, JÁ vem sem
+ * nenhum "rect de fundo", exatamente o que foi pedido. Composto por
+ * cima de magenta pra confirmar visualmente (nenhuma borda
+ * retangular aparece, só os objetos da cena) antes de integrar.
+ * Como a transparência agora é REAL (do próprio arquivo), a máscara
+ * CSS da vez anterior foi REMOVIDA — não é mais necessária, e
+ * mantê-la só arriscaria cortar a imagem de um jeito redundante/
+ * errado por cima de uma transparência que já está certa.
+ *
+ * Arquivo salvo em `public/illustrations/empty-library-couch.png`
+ * (PNG, não .jpg — JPEG não tem canal alfa, perderia a transparência
+ * na conversão). Redimensionado de 1536×1024 pra 768×512 (mesma
+ * proporção 3:2, sem cortar/distorcer); o .jpg anterior (sem
+ * transparência) fica órfão — ver comandos git no fim da entrega.
  */
 export function EmptyLibraryHero({
   illustrationSrc,
@@ -70,26 +81,15 @@ export function EmptyLibraryHero({
       {/*
         * "75-80% da tela" (a pedido) — `w-[78%]` do container (que já
         * corresponde à largura útil da tela no mobile — `SeriesHome.tsx`
-        * só tem `px-2` de respiro). `aspect-[5/4]` reproduz exatamente
-        * a proporção do arquivo original (700×560 = 1,25 = 5/4), então
+        * só tem `px-2` de respiro). `aspect-[3/2]` reproduz exatamente
+        * a proporção do arquivo atual (1536×1024 = 1,5 = 3/2), então
         * a imagem cresce/encolhe sem cortar nem esticar nada.
         * `max-w-[340px]` só entra em jogo no md/desktop (container já
-        * limitado a 430px ali) pra não virar uma imagem gigante.
+        * limitado a 430px ali) pra não virar uma imagem gigante. SEM
+        * `style`/máscara nenhuma aqui — o arquivo já é transparente de
+        * verdade (canal alfa real), nada pra "fingir" mais.
         */}
-      <div
-        className="relative -mb-3 aspect-[5/4] w-[78%] max-w-[340px]"
-        style={{
-          // Transparência real nas bordas via máscara CSS — ver
-          // comentário completo acima. Centro opaco (a cena inteira
-          // aparece), some suavemente a partir da metade do raio.
-          WebkitMaskImage: "radial-gradient(ellipse at 50% 45%, black 58%, transparent 96%)",
-          maskImage: "radial-gradient(ellipse at 50% 45%, black 58%, transparent 96%)",
-          WebkitMaskRepeat: "no-repeat",
-          maskRepeat: "no-repeat",
-          WebkitMaskSize: "100% 100%",
-          maskSize: "100% 100%",
-        }}
-      >
+      <div className="relative -mb-3 aspect-[3/2] w-[78%] max-w-[340px]">
         <Image src={illustrationSrc} alt="" fill sizes="340px" className="object-contain" priority />
       </div>
 

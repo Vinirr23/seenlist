@@ -36,7 +36,13 @@ const CONTINUE_ASSISTINDO_LIMIT = 8;
  * definição) e passaram a `EmptyLibraryHero`, solto direto em cima
  * do fundo da Home (ver o comentário completo lá, incluindo a causa
  * raiz de por que só tirar a borda não bastava — os blobs azuis
- * desfocados que `SeriesHome.tsx` pinta atrás de tudo).
+ * desfocados que `SeriesHome.tsx` pinta atrás de tudo); (6) — a mais
+ * recente — o usuário mandou um arquivo NOVO, desta vez com
+ * transparência real de verdade (PNG RGBA, conferido pixel a pixel:
+ * alfa 0 nos cantos, ~253 na cena) — `empty-library-couch.png`
+ * substituiu o `.jpg` opaco, e a máscara CSS que fingia transparência
+ * (item 5) foi removida por não ser mais necessária (ver
+ * `EmptyLibraryHero.tsx` pro comentário completo).
  */
 
 /**
@@ -298,7 +304,7 @@ export function MinhaListaSection() {
          */
         <>
           <EmptyLibraryHero
-            illustrationSrc="/illustrations/empty-library-couch.jpg"
+            illustrationSrc="/illustrations/empty-library-couch.png"
             title={series.length === 0 ? t("seriesHome.emptyLibraryTitle") : t("seriesHome.emptyCaughtUpTitle")}
             subtitle={series.length === 0 ? t("seriesHome.emptyLibrarySubtitle") : t("seriesHome.emptyCaughtUpSubtitle")}
             actionLabel={t("seriesHome.exploreSeries")}
