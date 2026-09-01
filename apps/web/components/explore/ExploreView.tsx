@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { SearchBar } from "@/components/search/SearchBar";
 import { SearchResults } from "@/components/search/SearchResults";
 import { ExploreTabs, type ExploreTab } from "./ExploreTabs";
@@ -24,10 +25,35 @@ import { ExploreActivityTab } from "./ExploreActivityTab";
  * filmes) virou 2 abas dedicadas: Filmes | Séries | Atividade
  * (`ExploreDiscoverTab.tsx` não é mais usado por este arquivo — ver
  * `ExploreMoviesTab.tsx`/`ExploreSeriesTab.tsx`).
+ *
+ * CORREÇÃO (causa raiz de um bug real, reportado — o botão "Explorar
+ * séries" do estado vazio de Séries/Home abria a Explorar sempre na
+ * aba Filmes) — a aba inicial vinha só de `useState("movies")`,
+ * fixa, sem nenhuma leitura da URL. Todo botão "Explorar séries"
+ * espalhado pelo app (Minha Lista, Em breve, Pausadas, Assistir
+ * depois, Concluídas — ver `series-home/*.tsx`) linkava pra
+ * "/explore" pura, então caía sempre em Filmes por ser a aba padrão,
+ * não importa de onde a pessoa veio — mesmo bug em 5 lugares
+ * diferentes, mesma causa. Agora `?tab=series`/`?tab=movies`/
+ * `?tab=activity` na URL escolhe a aba inicial (lida 1x, no mount —
+ * trocar de aba depois continua só estado local, sem reescrever a
+ * URL, mesmo comportamento de sempre). `useSearchParams` exige um
+ * `<Suspense>` no App Router (mesmo padrão já usado em
+ * `app/(auth)/login/page.tsx`) — por isso o conteúdo de verdade
+ * ficou em `ExploreViewContent`, e `ExploreView` só embrulha isso
+ * num Suspense.
  */
-export function ExploreView() {
+const EXPLORE_TABS: ExploreTab[] = ["movies", "series", "activity"];
+
+function ExploreViewContent() {
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const initialTab: ExploreTab = EXPLORE_TABS.includes(requestedTab as ExploreTab)
+    ? (requestedTab as ExploreTab)
+    : "movies";
+
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<ExploreTab>("movies");
+  const [tab, setTab] = useState<ExploreTab>(initialTab);
 
   return (
     <div className="relative w-full pb-32 md:mx-auto md:max-w-[430px]">
@@ -68,5 +94,13 @@ export function ExploreView() {
         </div>
       )}
     </div>
+  );
+}
+
+export function ExploreView() {
+  return (
+    <Suspense fallback={null}>
+      <ExploreViewContent />
+    </Suspense>
   );
 }

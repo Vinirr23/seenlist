@@ -152,6 +152,17 @@ export interface EmptyLibraryHeroProps {
  * removidos do repo. `illustrationNode` continua existindo na
  * interface (não removido) como caminho pra qualquer FUTURO uso deste
  * componente que precise de algo além de uma imagem simples.
+ *
+ * ANIMAÇÃO REMOVIDA DE VEZ (2026-09-01, seguinte, a pedido — "a
+ * imagem está com animação de respiração, é pra tirar todas as
+ * animações dessa imagem") — a classe `empty-hero-float` (flutuar
+ * bem sutil, `translateY` em loop, `globals.css`) foi removida daqui
+ * e apagada de `globals.css`. A ilustração agora é 100% estática.
+ * Também trocado o arquivo de origem por uma versão em resolução
+ * mais alta (1536×1024 — o mesmo arquivo mestre, sem o corte pra
+ * 768×512 que existia antes) — a imagem ficava borrada em telas de
+ * alta densidade porque a fonte era pequena demais pro tamanho de
+ * exibição, não por causa do `next/image`.
  */
 export function EmptyLibraryHero({
   illustrationSrc,
@@ -188,7 +199,7 @@ export function EmptyLibraryHero({
         * nenhuma aqui — o arquivo já é transparente de verdade (canal
         * alfa real), nada pra "fingir" mais.
         */}
-      <div className="empty-hero-float relative -mb-3 aspect-[3/2] w-full max-w-[437px]">
+      <div className="relative -mb-3 aspect-[3/2] w-full max-w-[437px]">
         {illustrationNode ??
           (illustrationSrc && (
             <Image src={illustrationSrc} alt="" fill sizes="380px" className="object-contain" priority />

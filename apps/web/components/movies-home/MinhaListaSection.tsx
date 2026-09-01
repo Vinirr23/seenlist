@@ -126,15 +126,22 @@ export function MinhaListaSection() {
          * ícone de chama âmbar.
          */
         <>
+          {/*
+            * PADRONIZADO junto com `series-home/MinhaListaSection.tsx`
+            * (2026-09-01, a pedido — mesmos 3 ajustes lá: sem
+            * animação/resolução maior na ilustração, sem divisor "OU",
+            * espaço menor até "Populares no SeenList", link explícito
+            * de aba em vez de "/explore" pura) — ver comentário
+            * completo lá, mesma causa raiz nos dois.
+            */}
           <EmptyLibraryHero
             illustrationSrc="/illustrations/empty-library-scene.png"
             title={t("moviesHome.emptyWatchlistTitle")}
             subtitle={t("moviesHome.emptyWatchlistSubtitle")}
             actionLabel={t("moviesHome.exploreMovies")}
-            actionHref="/explore"
-            dividerLabel={t("seriesHome.or")}
+            actionHref="/explore?tab=movies"
           />
-          <div className="mt-8">
+          <div className="mt-4">
             <PopularMediaRow
               list="trending_movies"
               title={

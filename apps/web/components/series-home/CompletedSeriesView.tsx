@@ -44,7 +44,7 @@ export function CompletedSeriesView() {
       ) : isError ? (
         <PageError message={t("seriesHome.errorLoadList")} onRetry={() => refetch()} />
       ) : completed.length === 0 ? (
-        <EmptyShelf message={t("seriesHome.emptyCompleted")} actionLabel={t("seriesHome.exploreSeries")} actionHref="/explore" />
+        <EmptyShelf message={t("seriesHome.emptyCompleted")} actionLabel={t("seriesHome.exploreSeries")} actionHref="/explore?tab=series" />
       ) : (
         <div className="flex flex-wrap gap-3">
           {completed.map((item) => (

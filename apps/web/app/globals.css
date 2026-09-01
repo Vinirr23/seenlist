@@ -57,37 +57,14 @@ body {
 }
 
 /*
- * A PEDIDO (2026-09-01 — "quero transformar o empty state... numa
- * animação premium, extremamente sutil") — mesmo padrão de
- * `feed-item-enter` acima: CSS puro, sem lib de animação nova.
- *
- * `.empty-hero-float` é o "flutuar" da ILUSTRAÇÃO INTEIRA como bloco
- * (ver `EmptyLibraryHero.tsx`) — a imagem raster de novo, desde
- * 2026-09-01 seguinte (abaixo).
- *
- * ANIMAÇÃO POR GRUPO CANCELADA (2026-09-01, seguinte, a pedido —
- * "cancela a animação, coloca só essa imagem... e pronto") — chegou a
- * existir aqui um conjunto de classes `.scene-*` (gato respirando,
- * planta balançando, manta se mexendo, luz da luminária pulsando, 2
- * estrelinhas piscando) pros grupos de dentro do SVG animado inline
- * (`EmptyLibraryCouchScene.tsx`). Removidas junto com o componente e o
- * SVG gerado (`emptyLibraryCouchSceneSvg.ts`) — o material de origem
- * (auto-trace de um PNG) tinha um efeito colateral visual de "linhas
- * de contorno" que não valeu o trade-off de performance/complexidade.
- * `.empty-hero-float` sozinha, abaixo, continua valendo.
+ * HISTÓRICO — chegou a existir aqui uma animação "premium" sutil pro
+ * empty state de Séries/Home: primeiro um conjunto de classes
+ * `.scene-*` (gato respirando, planta balançando, manta se mexendo,
+ * luz da luminária pulsando, 2 estrelinhas piscando) pros grupos de
+ * dentro de um SVG animado inline, depois substituída por uma única
+ * `.empty-hero-float` (a ilustração raster inteira flutuando bem
+ * sutilmente, `translateY` em loop). Tudo removido a pedido
+ * (2026-09-01 — "a imagem está com animação de respiração, é pra
+ * tirar todas as animações dessa imagem") — a ilustração em
+ * `EmptyLibraryHero.tsx` é 100% estática agora.
  */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes empty-hero-float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-2px);
-    }
-  }
-
-  .empty-hero-float {
-    animation: empty-hero-float 7s ease-in-out infinite;
-  }
-}

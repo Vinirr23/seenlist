@@ -325,16 +325,22 @@ export function MinhaListaSection() {
             * script, ~520KB de markup) ficaram órfãos — removidos (ver
             * comandos `git rm` na entrega). As classes `.scene-*` de
             * `globals.css` também foram removidas (só serviam pros
-            * grupos desse SVG); `.empty-hero-float` continua, porque
-            * também vale pra imagem raster.
+            * grupos desse SVG).
+            *
+            * ANIMAÇÃO REMOVIDA DE VEZ + IMAGEM EM RESOLUÇÃO MAIOR
+            * (2026-09-01, seguinte, a pedido) — `.empty-hero-float`
+            * (que sobreviveu ao parágrafo acima) foi removida também;
+            * ver comentário completo em `EmptyLibraryHero.tsx` e
+            * `globals.css`. `empty-library-scene.png` virou a versão
+            * 1536×1024 (era 768×512) — mesmo arquivo, resolução maior,
+            * corrige o "borrado" em telas de alta densidade.
             */}
           <EmptyLibraryHero
             illustrationSrc="/illustrations/empty-library-scene.png"
             title={series.length === 0 ? t("seriesHome.emptyLibraryTitle") : t("seriesHome.emptyCaughtUpTitle")}
             subtitle={series.length === 0 ? t("seriesHome.emptyLibrarySubtitle") : t("seriesHome.emptyCaughtUpSubtitle")}
             actionLabel={t("seriesHome.exploreSeries")}
-            actionHref="/explore"
-            dividerLabel={t("seriesHome.or")}
+            actionHref="/explore?tab=series"
           />
           {/*
             * "mais espaço entre o botão e 'Populares no SeenList'" (a
@@ -350,8 +356,17 @@ export function MinhaListaSection() {
             * já usado logo abaixo, na seção "Faz um tempo que você não
             * assiste" — três lugares, três valores diferentes (40px/
             * 32px/32px) viraram um só.
+            *
+            * "tira esse ---OU--- e sobe o 'Populares no SeenList'" (a
+            * pedido, 2026-09-01, seguinte) — o `dividerLabel` do
+            * `EmptyLibraryHero` acima foi removido (não passa mais
+            * essa prop, então o divisor nem renderiza — ver
+            * `EmptyLibraryHero.tsx`), e este `mt-8` (32px) virou
+            * `mt-4` (16px): com o divisor fora, o respiro do `mt-8`
+            * sozinho ficava grande demais entre o botão e esta
+            * fileira.
             */}
-          <div className="mt-8">
+          <div className="mt-4">
             <PopularMediaRow
               list="trending_series"
               title={

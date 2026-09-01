@@ -93,14 +93,28 @@ export function DiscoverCarousel({
         * carrossel diferentes convivendo no app (um em Explorar,
         * outro em Perfil).
         */}
-      <div className="mb-3 flex items-center justify-between px-4">
-        <h2 className="text-lg font-extrabold text-text">{title}</h2>
-        {viewAllHref && (
-          <Link href={viewAllHref} className="text-muted">
-            <ChevronRight className="h-4 w-4" strokeWidth={2} />
-          </Link>
-        )}
-      </div>
+      {/*
+        * CORREÇÃO (a pedido — "torna esse nome clicável", sobre o
+        * título "Populares no SeenList") — antes só a setinha
+        * `ChevronRight` era um link; o título (`h2`) era texto solto,
+        * sem nenhuma ação ao tocar. Corrigido aqui, na base
+        * compartilhada por TODO carrossel de Explorar (não só
+        * "Populares"), pra não deixar o mesmo problema pra trás nos
+        * outros — "Em alta agora", "Para você" etc. ganham o mesmo
+        * comportamento de graça. Cabeçalho inteiro vira o `Link`
+        * quando existe `viewAllHref`; sem ele, continua só o `h2`
+        * (não vira link nenhum, como já era).
+        */}
+      {viewAllHref ? (
+        <Link href={viewAllHref} className="mb-3 flex items-center justify-between px-4">
+          <h2 className="text-lg font-extrabold text-text">{title}</h2>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted" strokeWidth={2} />
+        </Link>
+      ) : (
+        <div className="mb-3 flex items-center justify-between px-4">
+          <h2 className="text-lg font-extrabold text-text">{title}</h2>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex gap-2 overflow-hidden px-4">

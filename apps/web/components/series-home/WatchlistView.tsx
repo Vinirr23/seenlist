@@ -50,7 +50,7 @@ export function WatchlistView() {
       ) : isError ? (
         <PageError message={t("seriesHome.errorLoadList")} onRetry={() => refetch()} />
       ) : wantToWatch.length === 0 ? (
-        <EmptyShelf message={t("seriesHome.emptyWatchlist")} actionLabel={t("seriesHome.exploreSeries")} actionHref="/explore" />
+        <EmptyShelf message={t("seriesHome.emptyWatchlist")} actionLabel={t("seriesHome.exploreSeries")} actionHref="/explore?tab=series" />
       ) : (
         <div className="flex flex-wrap gap-3">
           {wantToWatch.map((item) => (

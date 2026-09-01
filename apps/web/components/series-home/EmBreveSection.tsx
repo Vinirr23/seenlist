@@ -112,7 +112,7 @@ export function EmBreveSection() {
       <EmptyShelf
         message={t("seriesHome.emptyUpcoming")}
         actionLabel={t("seriesHome.exploreSeries")}
-        actionHref="/explore"
+        actionHref="/explore?tab=series"
       />
     );
   }

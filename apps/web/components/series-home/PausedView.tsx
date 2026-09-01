@@ -51,7 +51,7 @@ export function PausedView() {
       ) : isError ? (
         <PageError message={t("seriesHome.errorLoadList")} onRetry={() => refetch()} />
       ) : paused.length === 0 ? (
-        <EmptyShelf message={t("seriesHome.emptyPaused")} actionLabel={t("seriesHome.exploreSeries")} actionHref="/explore" />
+        <EmptyShelf message={t("seriesHome.emptyPaused")} actionLabel={t("seriesHome.exploreSeries")} actionHref="/explore?tab=series" />
       ) : (
         <div className="flex flex-wrap gap-3">
           {paused.map((item) => (
