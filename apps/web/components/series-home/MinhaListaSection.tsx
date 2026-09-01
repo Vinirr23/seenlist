@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Flame } from "lucide-react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
@@ -405,7 +406,25 @@ export function MinhaListaSection() {
           <div className="mt-6">
             <PopularMediaRow
               list="trending_series"
-              title={t("seriesHome.popularSeries")}
+              title={
+                /*
+                 * BUG REAL CORRIGIDO (2026-09-01, reportado — "no
+                 * print 2 o titulo... e o icone, são âmbar (o icone
+                 * não é o icone padrão)") — antes era emoji 🔥 solto
+                 * dentro de uma string, sem cor nenhuma (herdava o
+                 * branco padrão de `DiscoverCarouselProps.title`).
+                 * Trocado por um ícone de verdade (`Flame`, do mesmo
+                 * `lucide-react` já usado em todo o app) + o texto,
+                 * os dois na cor âmbar (`text-primary`) via um `span`
+                 * pai — `currentColor` do ícone segue a cor do span
+                 * automaticamente, sem precisar colorir os dois
+                 * separado.
+                 */
+                <span className="flex items-center gap-1.5 text-primary">
+                  <Flame className="h-4 w-4" fill="currentColor" strokeWidth={0} />
+                  {t("seriesHome.popularSeries")}
+                </span>
+              }
               viewAllHref="/explore/all/trending_series"
             />
           </div>

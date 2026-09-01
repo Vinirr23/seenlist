@@ -1,12 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useDiscoverListInfinite, flattenDiscoverPages, useFilterOutLibraryItems, type DiscoverListKey } from "@/lib/queries/discover";
 import { DiscoverCarousel } from "../explore/DiscoverCarousel";
 
 export interface PopularMediaRowProps {
   list: DiscoverListKey;
-  title: string;
+  // `ReactNode` (não `string`) — a pedido, o título ganhou um ícone de
+  // chama âmbar do lado (ver `MinhaListaSection.tsx`), mesmo motivo já
+  // documentado em `DiscoverCarouselProps.title` (ExploreSeriesTab.tsx
+  // colore só o NOME em "Porque você assistiu a X").
+  title: ReactNode;
   viewAllHref?: string;
 }
 
