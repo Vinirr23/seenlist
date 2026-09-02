@@ -45,6 +45,40 @@ export async function POST(request: Request) {
     id: number;
     episodes: { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[];
   }[] = [];
+  /**
+   * CORREÇÃO (bug real, root cause — "só o Reacher aparece em Continue
+   * assistindo na Home, os outros 4 só aparecem em 'Ver tudo'") —
+   * antes, quando `getAllEpisodesWithAirDates` falhava pra uma série
+   * (rejeitava a Promise), essa série simplesmente NÃO entrava no array
+   * `series` — mas a resposta continuava `200 OK` (`Promise.allSettled`
+   * nunca faz a rota inteira falhar, de propósito, pra 1 série ruim não
+   * derrubar as outras 7 do lote). O cliente (`seriesEpisodesLight.ts`)
+   * não tinha como distinguir "essa série genuinamente não tem episódio
+   * nenhum" de "a busca falhou" — os dois casos chegavam como a MESMA
+   * coisa: `data.series[0]` undefined → `episodes: []`. Como `[]` é um
+   * resultado "de sucesso" pro React Query (não lança erro nenhum), a
+   * consulta nunca tentava de novo sozinha (sem erro, sem retry) — o
+   * card ficava escondido PRA SEMPRE (`ContinueWatchingCard.tsx`: sem
+   * episódio pendente = não renderiza), até o cache expirar (5 min,
+   * `seriesEpisodesLight.ts`) ou a pessoa recarregar a página.
+   *
+   * Na Home, até 8 séries disparam essa busca ao mesmo tempo, no
+   * mesmo instante em que a tela monta — rajada bem mais propensa a
+   * esbarrar num rate-limit da TMDB do que as mesmas buscas feitas
+   * mais espaçadas no tempo (ex.: abrir "Ver tudo" alguns segundos
+   * depois, quando parte já tinha sucesso em cache e o resto pega um
+   * momento sem rajada) — o que explica a série aparecer ali
+   * normalmente enquanto sumia na Home.
+   *
+   * Fix: a resposta agora também lista `failedIds` — os ids que
+   * realmente falharam (não "tem 0 episódios de verdade"). O cliente
+   * usa isso pra tratar esse caso como ERRO de verdade (lança, em vez
+   * de devolver `[]`), o que liga o retry automático do React Query
+   * (padrão do projeto, `app/providers.tsx` não desliga `retry`) — a
+   * série se recupera sozinha assim que uma tentativa seguinte
+   * funcionar, sem precisar sair da tela.
+   */
+  const failedIds: number[] = [];
   settled.forEach((outcome, index) => {
     if (outcome.status === "fulfilled") {
       series.push({
@@ -63,6 +97,7 @@ export async function POST(request: Request) {
         })),
       });
     } else {
+      failedIds.push(seriesIds[index]!);
       console.error(
         `[api/tmdb/series-episodes-at-export] Falha ao buscar episódios da série ${seriesIds[index]} — as demais não são afetadas.`,
         outcome.reason
@@ -70,5 +105,5 @@ export async function POST(request: Request) {
     }
   });
 
-  return NextResponse.json({ series });
+  return NextResponse.json({ series, failedIds });
 }

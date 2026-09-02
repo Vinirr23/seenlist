@@ -55,7 +55,26 @@ async function fetchLightEpisodes(seriesId: number, language: string): Promise<L
   if (!response.ok) {
     throw new Error("light episodes fetch failed");
   }
-  const data = (await response.json()) as { series: { id: number; episodes: LightEpisode[] }[] };
+  const data = (await response.json()) as { series: { id: number; episodes: LightEpisode[] }[]; failedIds?: number[] };
+  /**
+   * CORREÇÃO (bug real, root cause — "só o Reacher aparece em Continue
+   * assistindo na Home") — ver comentário completo em
+   * `app/api/tmdb/series-episodes-at-export/route.ts`. Antes, uma
+   * falha da TMDB pra ESTA série específica virava silenciosamente
+   * `episodes: []` (a rota inteira continuava `200 OK`) — o React
+   * Query via isso como sucesso normal, nunca tentava de novo, e o
+   * card (`ContinueWatchingCard.tsx`) ficava permanentemente escondido
+   * (mesmo tratamento visual de "não tem episódio pendente"). Agora a
+   * rota avisa QUAIS ids realmente falharam (`failedIds`) — se o
+   * nosso `seriesId` está nessa lista, isto aqui LANÇA (erro de
+   * verdade), o que liga o retry automático do React Query (padrão do
+   * projeto — `app/providers.tsx` não desliga `retry`); a série se
+   * recupera sozinha assim que uma tentativa seguinte funcionar, sem
+   * precisar sair da tela nem esperar os 5 minutos de cache expirar.
+   */
+  if (data.failedIds?.includes(seriesId)) {
+    throw new Error(`[useSeriesEpisodesLight] Busca de episódios falhou pra série ${seriesId} — tentando de novo.`);
+  }
   return data.series[0]?.episodes ?? [];
 }
 
