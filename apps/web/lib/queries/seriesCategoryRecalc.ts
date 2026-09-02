@@ -236,7 +236,29 @@ async function fetchEndedBySeriesId(seriesIds: number[]): Promise<Map<number, bo
  * decisão (`decideWatchingVsUpToDate`) resolve os dois sentidos.
  */
 const RECALC_STORAGE_KEY = "seenlist:series-recalc-last-run";
-const RECALC_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1x por dia — combinado com o usuário (ver PR/conversa de performance da Home).
+/**
+ * CORREÇÃO (bug real, causa raiz encontrada e confirmada com dado real,
+ * 2026-09-02 — "Tomb Raider King, Clevatess, Re:ZERO sumidas da Home,
+ * só aparecem em 'Ver tudo'") — era 24h. Diagnóstico (log temporário,
+ * removido depois de confirmado) mostrou exatamente o problema: o
+ * usuário tem 100 séries "Em dia" na Biblioteca; a Home só reavalia as
+ * 8 com `updated_at` mais recente (ver `continueWatchingSeries.ts`) —
+ * uma série só sobe pra essa janela quando ESTA rotina a promove de
+ * volta pra "Assistindo" (o que atualiza `updated_at`). Com 24h de
+ * intervalo, uma série podia ficar até um dia inteiro (ou mais, já que
+ * o carimbo de "já rodei" fica no `localStorage` do NAVEGADOR, não na
+ * conta — trocar de aparelho/navegador ou limpar dados reinicia a
+ * espera) sem ninguém verificar se ela ganhou episódio novo, mesmo com
+ * o episódio já disponível há dias na TMDB. Forçar esta rotina a rodar
+ * de novo (limpando o carimbo manualmente) promoveu as 3 séries na
+ * hora — confirma que a lógica de promoção em si está correta, só o
+ * INTERVALO era grande demais. Reduzido pra 2h: mesma rotina, mesmo
+ * custo por execução, só rodando bem mais vezes — o pior caso de
+ * atraso cai de "até 24h+" pra "até ~2h". `check-new-releases` (Edge
+ * Function, push) continua rodando 1x/dia, sem relação com isto — é
+ * uma notificação, não afeta o que a Home decide mostrar.
+ */
+const RECALC_MIN_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
 /**
  * A PEDIDO (achado de performance real, confirmado — "Home lenta") —
@@ -369,23 +391,6 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
   );
   const seriesIds = statusRows.map((row) => row.series_id as number);
 
-  /**
-   * TEMPORÁRIO (diagnóstico, 2026-09-02 — "Tomb Raider King, Clevatess,
-   * Re:ZERO sumidas da Home, e a promoção automática não está
-   * trazendo elas de volta pra 'watching'") — 3 ids específicos,
-   * reportados pelo usuário como afetados, pra ver exatamente em qual
-   * etapa desta função cada um "escapa" da promoção. Remover depois de
-   * confirmado.
-   */
-  const DIAGNOSTIC_SERIES_IDS = new Set([297826, 258348, 65942]); // Tomb Raider King, Clevatess, Re:ZERO
-  if (typeof window !== "undefined") {
-    for (const id of DIAGNOSTIC_SERIES_IDS) {
-      console.log(
-        `[DIAGNÓSTICO recalc] série ${id}: ${seriesIds.includes(id) ? "ESTÁ" : "NÃO ESTÁ"} na lista de ${seriesIds.length} avaliadas nesta rodada. Status atual no banco: ${currentStatusBySeriesId.get(id) ?? "(sem linha)"}`
-      );
-    }
-  }
-
   let watchedEpisodeKeysBySeriesId: Map<number, Set<string>>;
   let watchedEpisodeIdsBySeriesId: Map<number, Set<number>>;
   let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>;
@@ -438,12 +443,7 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
   const categoryBySeriesId = new Map<number, "watching" | "up_to_date" | "completed">();
   for (const seriesId of seriesIds) {
     const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
-    if (liveEpisodes.length === 0) {
-      if (DIAGNOSTIC_SERIES_IDS.has(seriesId)) {
-        console.log(`[DIAGNÓSTICO recalc] série ${seriesId}: TMDB não devolveu episódio nenhum nesta rodada — pulada, sem mudar categoria.`);
-      }
-      continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
-    }
+    if (liveEpisodes.length === 0) continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
 
     const watchedEpisodeKeys = watchedEpisodeKeysBySeriesId.get(seriesId) ?? new Set<string>();
     const watchedEpisodeIds = watchedEpisodeIdsBySeriesId.get(seriesId) ?? new Set<number>();
@@ -451,12 +451,6 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
     const specialEpisodeKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
     const { category } = resolveSeriesCategory({ watchedEpisodeKeys, liveEpisodes, ended, specialEpisodeKeys, watchedEpisodeIds });
     categoryBySeriesId.set(seriesId, category);
-
-    if (DIAGNOSTIC_SERIES_IDS.has(seriesId)) {
-      console.log(
-        `[DIAGNÓSTICO recalc] série ${seriesId}: ${liveEpisodes.length} episódios (TMDB), ${watchedEpisodeKeys.size} marcados como assistidos, ended=${ended}, ${specialEpisodeKeys.size} especiais → categoria calculada: "${category}"`
-      );
-    }
   }
 
   /*
@@ -530,21 +524,8 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
     // que a origem de `currentStatus` mude no futuro, `String(...)`
     // garante um `string` de verdade, nunca `unknown`/`any` vazando
     // pra dentro de `shouldWriteSeriesCategory`.
-    const willWrite = shouldWriteSeriesCategory(String(currentStatus ?? ""), newCategory);
-    if (DIAGNOSTIC_SERIES_IDS.has(seriesId)) {
-      console.log(
-        `[DIAGNÓSTICO recalc] série ${seriesId}: status atual "${currentStatus}" → categoria nova "${newCategory}" → shouldWriteSeriesCategory = ${willWrite} ${willWrite ? "(vai pro upsert)" : "(NÃO vai gravar nada)"}`
-      );
-    }
-    if (willWrite) {
+    if (shouldWriteSeriesCategory(String(currentStatus ?? ""), newCategory)) {
       updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
-    }
-  }
-
-  if (typeof window !== "undefined") {
-    for (const id of DIAGNOSTIC_SERIES_IDS) {
-      const inUpdates = updates.some((u) => u.series_id === id);
-      console.log(`[DIAGNÓSTICO recalc] série ${id}: ${inUpdates ? "ESTÁ" : "NÃO ESTÁ"} no lote final de updates (${updates.length} no total).`);
     }
   }
 

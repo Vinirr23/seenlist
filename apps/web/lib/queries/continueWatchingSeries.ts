@@ -92,40 +92,27 @@ export function useContinueWatchingSeries({ limit }: UseContinueWatchingSeriesOp
         if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
         return b.updatedAt.localeCompare(a.updatedAt);
       });
-    const limited = typeof limit === "number" ? sorted.slice(0, limit) : sorted;
-
     /**
-     * TEMPORÁRIO (diagnóstico, 2026-09-02 — "ainda só aparece reacher
-     * na home... não tente adivinhar, procure a fundo") — hipótese
-     * sendo testada: o corte de `limit` (8, só na Home) acontece ANTES
-     * de saber quais candidatas "em dia" realmente têm episódio
-     * pendente de verdade (isso só é confirmado depois, pelo
-     * `UpToDatePendingGate`, um nível acima). Se o usuário tiver mais
-     * de 8 séries "watching"/"em dia" no total, séries "em dia" sem
-     * nada pendente (que vão ser escondidas de qualquer jeito) podem
-     * estar ocupando vaga no top-8 e empurrando pra fora da janela uma
-     * série que TEM episódio pendente de verdade — "Ver tudo" (sem
-     * limit) nunca teria esse problema, porque avalia todo mundo.
-     * Só loga quando `limit` está definido (só a Home chama assim;
-     * "Ver tudo" não passa `limit`) — remover depois de confirmado.
+     * BUG REAL CORRIGIDO NA RAIZ (2026-09-02, causa raiz confirmada com
+     * dado real — "Tomb Raider King/Clevatess/Re:ZERO sumidas da Home,
+     * só aparecem em 'Ver tudo'") — este `limit` corta ANTES de saber
+     * quais candidatas "em dia" realmente têm episódio pendente
+     * (confirmado só depois, pelo `UpToDatePendingGate`, um nível
+     * acima). Numa biblioteca grande (confirmado: 100 séries "em dia"),
+     * a janela de 8 (ordenada por `updatedAt`) só reflete a verdade
+     * quando o `updated_at` de cada série está em dia — o que depende
+     * inteiramente de `recalculateUpToDateSeriesCategoriesThrottled()`
+     * (`seriesCategoryRecalc.ts`) ter promovido a tempo qualquer série
+     * que ganhou episódio novo de volta pra "watching". Essa rotina
+     * tinha intervalo de 24h (reduzido pra 2h — ver comentário completo
+     * em `RECALC_MIN_INTERVAL_MS`, `seriesCategoryRecalc.ts`) — a causa
+     * raiz real não estava aqui, no corte em si (que continua
+     * necessário pra não checar as 100 séries a cada carregamento da
+     * Home), e sim no atraso grande daquela outra rotina. Corrigido lá;
+     * nada muda aqui além de já não ter mais o `limited`/log de
+     * diagnóstico temporário que existiu só durante a investigação.
      */
-    if (typeof limit === "number" && typeof window !== "undefined") {
-      console.log(
-        `[DIAGNÓSTICO continue-watching] total de candidatas watching/em-dia: ${sorted.length} | limite: ${limit} | cortadas pelo limite (nunca chegam a ser avaliadas): ${Math.max(0, sorted.length - limit)}`
-      );
-      console.table(
-        sorted.map((item, index) => ({
-          posicao: index + 1,
-          dentroDoTop8: index < limit,
-          id: item.id,
-          titulo: item.title,
-          status: item.status,
-          updatedAt: item.updatedAt,
-        }))
-      );
-    }
-
-    return limited;
+    return typeof limit === "number" ? sorted.slice(0, limit) : sorted;
   }, [recentSeries, limit]);
 
   const [confirmedPending, setConfirmedPending] = useState<Record<number, boolean>>({});
