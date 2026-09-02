@@ -470,11 +470,46 @@ interface TmdbSeriesSeasonsResponse {
  */
 const SEASON_FETCH_BATCH_SIZE = 5;
 
+/**
+ * CORREÇÃO 2 (bug real, causa raiz de VERDADE — "só o Reacher continua
+ * aparecendo na Home", reportado DEPOIS do commit bf47544 que corrigiu
+ * `series-episodes-at-export/route.ts`) — aquele primeiro conserto
+ * cobria só a falha da chamada MAIS externa (`/tv/{id}`, os metadados
+ * da série). Mas quem decide "tem episódio pendente?" (`UpToDatePendingGate.tsx`
+ * → `findPendingEpisodes`) depende da lista de episódios de TODAS as
+ * temporadas — e o loop abaixo, de propósito (ver comentário acima,
+ * "uma temporada com problema não derruba as outras"), quando uma
+ * temporada falhava (mesmo depois das 3 tentativas do `tmdbGet`),
+ * simplesmente LOGAVA e seguia em frente sem essa temporada — a
+ * função inteira ainda RESOLVIA com sucesso (`fulfilled` lá em
+ * `route.ts`), só que com uma lista de episódios INCOMPLETA. Se a
+ * temporada que falhou era justo a que tinha o episódio pendente, o
+ * resultado era "série sem nada pendente" — indistinguível de "série
+ * genuinamente em dia" — exatamente o mesmo tipo de bug do commit
+ * anterior, só que numa camada mais funda (por temporada, não por
+ * série inteira), por isso o fix de `route.ts` sozinho não resolveu.
+ *
+ * Fix: agora QUALQUER temporada que falhe (mesmo após as retentativas
+ * do `tmdbGet`) faz a função inteira LANÇAR (com a lista de quais
+ * temporadas falharam, pra facilitar diagnóstico no log do servidor)
+ * em vez de devolver uma lista incompleta como se fosse completa. Isso
+ * propaga pra cima e ativa a MESMA rede de segurança já existente:
+ * `route.ts` marca a série em `failedIds` (rejeita no `Promise.allSettled`
+ * de lá) → `seriesEpisodesLight.ts` lança um erro de verdade → o retry
+ * automático do React Query tenta de novo sozinho. Verificado nos 2
+ * únicos chamadores desta função (`series-episodes-at-export/route.ts`
+ * e `admin/repair-series-categories/route.ts`) — os dois já tratam uma
+ * rejeição desta função corretamente (o primeiro via `Promise.allSettled`
+ * + `failedIds`, o segundo com seu próprio `try/catch` que já existia,
+ * empurrando o id pra `errors`), então não há nenhum consumidor que
+ * dependia da lista parcial silenciosa.
+ */
 export async function getAllEpisodesWithAirDates(seriesId: string, language = "pt-BR"): Promise<Episode[]> {
   const seasonsData = await tmdbGet<TmdbSeriesSeasonsResponse>(`/tv/${seriesId}`);
   const seasonNumbers = seasonsData.seasons.filter((s) => s.season_number >= 1).map((s) => s.season_number);
 
   const episodes: Episode[] = [];
+  const failedSeasons: number[] = [];
   for (let i = 0; i < seasonNumbers.length; i += SEASON_FETCH_BATCH_SIZE) {
     const batch = seasonNumbers.slice(i, i + SEASON_FETCH_BATCH_SIZE);
     const settled = await Promise.allSettled(batch.map((n) => getSeasonEpisodes(seriesId, n, language)));
@@ -482,13 +517,21 @@ export async function getAllEpisodesWithAirDates(seriesId: string, language = "p
       if (outcome.status === "fulfilled") {
         episodes.push(...outcome.value);
       } else {
+        failedSeasons.push(batch[index]!);
         console.error(
-          `[tmdb] Falha ao buscar temporada ${batch[index]} da série ${seriesId} — as demais temporadas não são afetadas.`,
+          `[tmdb] Falha ao buscar temporada ${batch[index]} da série ${seriesId} — as demais temporadas continuam sendo buscadas, mas a função vai lançar no final (lista incompleta não é confiável).`,
           outcome.reason
         );
       }
     });
   }
+
+  if (failedSeasons.length > 0) {
+    throw new Error(
+      `[tmdb] ${failedSeasons.length} de ${seasonNumbers.length} temporada(s) da série ${seriesId} falharam ao buscar (temporadas: ${failedSeasons.join(", ")}) — lista de episódios incompleta, não é seguro tratar como sucesso.`
+    );
+  }
+
   return episodes;
 }
 
