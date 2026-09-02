@@ -164,6 +164,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "lang.es": "Espanhol",
 
     "seriesHome.continueWatching": "Continue assistindo",
+    "seriesHome.popularSeries": "Populares no SeenList",
     "seriesHome.errorLoadLibrary": "Não foi possível carregar sua biblioteca agora. Tente de novo em instantes.",
     "seriesHome.emptyLibrary": "Você ainda não está acompanhando nenhuma série.",
     "seriesHome.exploreSeries": "Explorar séries",
@@ -368,11 +369,28 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.publish": "Publicar",
 
     "explore.tab.discover": "Descobrir",
+    "explore.tab.movies": "FILMES",
+    "explore.tab.series": "SÉRIES",
     "explore.tab.activity": "Atividade",
     "explore.discover.trendingSeries": "Séries em alta",
     "explore.discover.trendingMovies": "Filmes em alta",
-    "explore.discover.upcomingMovies": "Lançamentos recentes",
-    "explore.discover.onTheAir": "Em breve",
+    /**
+     * CORREÇÃO (porte do web, 2026-09-02 — "vamos implementar as
+     * mudanças que foram feitas no web") — os dois valores abaixo
+     * estavam com o texto TROCADO/errado (achado comparando com o
+     * web de verdade): "Lançamentos recentes"/"Em breve" descreviam o
+     * dado ao contrário do que ele é (`upcoming_movies` = filmes que
+     * AINDA VÃO estrear, não os já lançados; `on_the_air_series` =
+     * séries com episódio recente/no ar agora, não "em breve"). Já
+     * corrigido no web faz tempo (`translations.ts` de lá) — o mobile
+     * tinha ficado pra trás com os valores antigos.
+     */
+    "explore.discover.upcomingMovies": "Chegando em breve",
+    "explore.discover.onTheAir": "Novas séries",
+    "explore.discover.topSeriesForYou": "Principais séries para você",
+    "explore.discover.topMoviesForYou": "Principais filmes para você",
+    "explore.discover.becauseYouWatched": "Porque você assistiu a {title}",
+    "explore.discover.yourGenres": "Seus gêneros favoritos",
     "explore.discover.keepExploring": "Continuar explorando",
     "explore.errorLoadActivity": "Não foi possível carregar as atividades agora.",
     "explore.emptyActivityFollowSuggestion": "Nenhuma atividade recente de quem você segue. Que tal seguir mais gente?",
@@ -607,6 +625,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "lang.es": "Spanish",
 
     "seriesHome.continueWatching": "Continue watching",
+    "seriesHome.popularSeries": "Popular on SeenList",
     "seriesHome.errorLoadLibrary": "Couldn't load your library right now. Try again shortly.",
     "seriesHome.emptyLibrary": "You're not tracking any shows yet.",
     "seriesHome.exploreSeries": "Explore shows",
@@ -811,11 +830,17 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.publish": "Post",
 
     "explore.tab.discover": "Discover",
+    "explore.tab.movies": "MOVIES",
+    "explore.tab.series": "SHOWS",
     "explore.tab.activity": "Activity",
     "explore.discover.trendingSeries": "Trending shows",
     "explore.discover.trendingMovies": "Trending movies",
-    "explore.discover.upcomingMovies": "New releases",
-    "explore.discover.onTheAir": "Coming up",
+    "explore.discover.upcomingMovies": "Coming soon",
+    "explore.discover.onTheAir": "New shows",
+    "explore.discover.topSeriesForYou": "Top shows for you",
+    "explore.discover.topMoviesForYou": "Top movies for you",
+    "explore.discover.becauseYouWatched": "Because you watched {title}",
+    "explore.discover.yourGenres": "Your favorite genres",
     "explore.discover.keepExploring": "Keep exploring",
     "explore.errorLoadActivity": "Couldn't load activity right now.",
     "explore.emptyActivityFollowSuggestion": "No recent activity from people you follow. How about following more people?",
@@ -1050,6 +1075,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "lang.es": "Español",
 
     "seriesHome.continueWatching": "Continuar viendo",
+    "seriesHome.popularSeries": "Populares en SeenList",
     "seriesHome.errorLoadLibrary": "No se pudo cargar tu biblioteca ahora. Inténtalo de nuevo en un momento.",
     "seriesHome.emptyLibrary": "Todavía no estás siguiendo ninguna serie.",
     "seriesHome.exploreSeries": "Explorar series",
@@ -1254,11 +1280,17 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.publish": "Publicar",
 
     "explore.tab.discover": "Descubrir",
+    "explore.tab.movies": "PELÍCULAS",
+    "explore.tab.series": "SERIES",
     "explore.tab.activity": "Actividad",
     "explore.discover.trendingSeries": "Series en tendencia",
     "explore.discover.trendingMovies": "Películas en tendencia",
-    "explore.discover.upcomingMovies": "Estrenos recientes",
-    "explore.discover.onTheAir": "Próximamente",
+    "explore.discover.upcomingMovies": "Próximamente",
+    "explore.discover.onTheAir": "Series nuevas",
+    "explore.discover.topSeriesForYou": "Series destacadas para ti",
+    "explore.discover.topMoviesForYou": "Películas destacadas para ti",
+    "explore.discover.becauseYouWatched": "Porque viste {title}",
+    "explore.discover.yourGenres": "Tus géneros favoritos",
     "explore.discover.keepExploring": "Seguir explorando",
     "explore.errorLoadActivity": "No se pudo cargar la actividad ahora.",
     "explore.emptyActivityFollowSuggestion": "Ninguna actividad reciente de quienes sigues. ¿Qué tal seguir a más personas?",

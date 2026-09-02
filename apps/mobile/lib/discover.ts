@@ -36,6 +36,37 @@ export async function fetchDiscoverList(list: DiscoverListKey, language?: string
 }
 
 /**
+ * PORTE DO WEB (2026-09-02 — "vamos implementar as mudanças que
+ * foram feitas no web", reformulação completa da Explorar) — as duas
+ * seções abaixo (`GenreDiscoverKey`/`SimilarDiscoverKey`) são idênticas
+ * a `lib/queries/discover.ts` do web: mesma rota `/api/tmdb/explore`
+ * (já liberada pro app nativo, mesma que `fetchDiscoverList` acima já
+ * usa), só com `genreId`/`anchorId` a mais na query string. Nenhuma
+ * rota nova no backend — só as duas funções que faltavam aqui pro
+ * lado mobile também poder pedir "descobrir por gênero"/"parecido com
+ * X", que antes só o web usava.
+ */
+export type GenreDiscoverKey = "genre_movies" | "genre_series";
+
+export async function fetchGenreDiscoverList(kind: GenreDiscoverKey, genreId: number, language?: string): Promise<DiscoverItem[]> {
+  const languageParam = language ? `&language=${encodeURIComponent(language)}` : "";
+  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${kind}&genreId=${genreId}${languageParam}`);
+  if (!response.ok) throw new Error("genre discover fetch failed");
+  const data = (await response.json()) as DiscoverListResponse;
+  return data.items;
+}
+
+export type SimilarDiscoverKey = "similar_movies" | "similar_series";
+
+export async function fetchSimilarDiscoverList(kind: SimilarDiscoverKey, anchorId: number, language?: string): Promise<DiscoverItem[]> {
+  const languageParam = language ? `&language=${encodeURIComponent(language)}` : "";
+  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${kind}&anchorId=${anchorId}${languageParam}`);
+  if (!response.ok) throw new Error("similar discover fetch failed");
+  const data = (await response.json()) as DiscoverListResponse;
+  return data.items;
+}
+
+/**
  * TASK-152 (correção — botão "+" aparecendo com atraso, depois do
  * pôster) — antes, cada `AddToLibraryButton` buscava seu próprio
  * status individualmente (uma consulta por pôster visível na tela) —

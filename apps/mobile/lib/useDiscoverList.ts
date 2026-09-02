@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { fetchDiscoverList, type DiscoverItem, type DiscoverListKey } from "./discover";
+import {
+  fetchDiscoverList,
+  fetchGenreDiscoverList,
+  fetchSimilarDiscoverList,
+  type DiscoverItem,
+  type DiscoverListKey,
+  type GenreDiscoverKey,
+  type SimilarDiscoverKey,
+} from "./discover";
 import { useTranslation } from "./i18n/LocaleProvider";
 
 const CACHE_VERSION = 1;
@@ -72,4 +80,84 @@ export function useDiscoverList(list: DiscoverListKey) {
   }, [list, locale]);
 
   return { items, isLoading, isError };
+}
+
+/**
+ * PORTE DO WEB (2026-09-02, reformulação completa da Explorar) —
+ * `useDiscoverByGenre`/`useDiscoverSimilar` são a versão mobile de
+ * `useDiscoverByGenre`/`useDiscoverSimilar` em
+ * `apps/web/lib/queries/discover.ts` (react-query lá; aqui,
+ * `useState`+`useEffect` manual, mesmo padrão do resto deste arquivo).
+ * SEM cache no `AsyncStorage` de propósito, diferente de
+ * `useDiscoverList` acima — essas duas dependem do gênero
+ * favorito/título-âncora da PESSOA (não é o mesmo dado pra todo
+ * mundo), então cachear por muito tempo arriscaria mostrar algo
+ * desatualizado se a Biblioteca mudar; ficam só em memória, refazendo
+ * a busca sempre que `genreId`/`anchorId` mudar.
+ *
+ * `genreId`/`anchorId` como `null` = "ainda não sei o valor" (gênero
+ * favorito ainda carregando, ou pessoa sem item concluído daquele
+ * tipo) — não dispara busca nenhuma até ter um valor de verdade,
+ * mesmo racional do `enabled: genreId != null` do web.
+ */
+export function useDiscoverByGenre(kind: GenreDiscoverKey, genreId: number | null) {
+  const { locale } = useTranslation();
+  const [items, setItems] = useState<DiscoverItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (genreId == null) {
+      setItems([]);
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setIsLoading(true);
+    fetchGenreDiscoverList(kind, genreId, locale)
+      .then((data) => {
+        if (!cancelled) setItems(data);
+      })
+      .catch((error) => {
+        console.error(`[useDiscoverByGenre] Falha ao buscar "${kind}" (gênero ${genreId})`, error);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, genreId, locale]);
+
+  return { items, isLoading };
+}
+
+export function useDiscoverSimilar(kind: SimilarDiscoverKey, anchorId: number | null) {
+  const { locale } = useTranslation();
+  const [items, setItems] = useState<DiscoverItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (anchorId == null) {
+      setItems([]);
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setIsLoading(true);
+    fetchSimilarDiscoverList(kind, anchorId, locale)
+      .then((data) => {
+        if (!cancelled) setItems(data);
+      })
+      .catch((error) => {
+        console.error(`[useDiscoverSimilar] Falha ao buscar "${kind}" (âncora ${anchorId})`, error);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, anchorId, locale]);
+
+  return { items, isLoading };
 }
