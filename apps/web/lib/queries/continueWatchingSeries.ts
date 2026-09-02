@@ -92,7 +92,40 @@ export function useContinueWatchingSeries({ limit }: UseContinueWatchingSeriesOp
         if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
         return b.updatedAt.localeCompare(a.updatedAt);
       });
-    return typeof limit === "number" ? sorted.slice(0, limit) : sorted;
+    const limited = typeof limit === "number" ? sorted.slice(0, limit) : sorted;
+
+    /**
+     * TEMPORÁRIO (diagnóstico, 2026-09-02 — "ainda só aparece reacher
+     * na home... não tente adivinhar, procure a fundo") — hipótese
+     * sendo testada: o corte de `limit` (8, só na Home) acontece ANTES
+     * de saber quais candidatas "em dia" realmente têm episódio
+     * pendente de verdade (isso só é confirmado depois, pelo
+     * `UpToDatePendingGate`, um nível acima). Se o usuário tiver mais
+     * de 8 séries "watching"/"em dia" no total, séries "em dia" sem
+     * nada pendente (que vão ser escondidas de qualquer jeito) podem
+     * estar ocupando vaga no top-8 e empurrando pra fora da janela uma
+     * série que TEM episódio pendente de verdade — "Ver tudo" (sem
+     * limit) nunca teria esse problema, porque avalia todo mundo.
+     * Só loga quando `limit` está definido (só a Home chama assim;
+     * "Ver tudo" não passa `limit`) — remover depois de confirmado.
+     */
+    if (typeof limit === "number" && typeof window !== "undefined") {
+      console.log(
+        `[DIAGNÓSTICO continue-watching] total de candidatas watching/em-dia: ${sorted.length} | limite: ${limit} | cortadas pelo limite (nunca chegam a ser avaliadas): ${Math.max(0, sorted.length - limit)}`
+      );
+      console.table(
+        sorted.map((item, index) => ({
+          posicao: index + 1,
+          dentroDoTop8: index < limit,
+          id: item.id,
+          titulo: item.title,
+          status: item.status,
+          updatedAt: item.updatedAt,
+        }))
+      );
+    }
+
+    return limited;
   }, [recentSeries, limit]);
 
   const [confirmedPending, setConfirmedPending] = useState<Record<number, boolean>>({});
