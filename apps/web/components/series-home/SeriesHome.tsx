@@ -57,13 +57,40 @@ export function SeriesHome() {
   return (
     <div className="relative w-full px-2 pb-32 pt-4 md:mx-auto md:max-w-[430px]">
       {/*
-        * "Vidro" (mesmo padrão do Perfil/Explorar) — campo de manchas
-        * desfocadas atrás do conteúdo. Pintado primeiro, sem z-index
-        * negativo nenhum — ordem de DOM só, fica atrás dos irmãos
-        * seguintes (ver ProfileView.tsx pro histórico completo de causa
-        * raiz).
+        * A PEDIDO (2026-09-02 — "fazer o que fizemos no mobile, de
+        * deixar esse fundo estático e movimentar apenas o restante")
+        * — antes, essas manchas eram `absolute` DENTRO do container que
+        * cresce com o conteúdo (a coluna inteira da página), então
+        * roçavam junto com o scroll, como qualquer outro elemento
+        * normal da página.
+        *
+        * NÃO usei `position: fixed` aqui — essa mesma ideia já foi
+        * tentada no Perfil (`ProfileView.tsx`, "CAUSA RAIZ #1" no
+        * comentário de lá) e revertida de propósito: `fixed` posiciona
+        * relativo à JANELA INTEIRA do navegador, não à coluna
+        * centralizada de ~430px (`md:max-w-[430px] mx-auto`, aqui
+        * embaixo) — em tela larga (desktop/notebook) o fundo ficaria
+        * preso no canto da janela em vez de acompanhar a coluna,
+        * dessincronizado do conteúdo.
+        *
+        * Truque usado em vez disso: `position: sticky` (que RESPEITA a
+        * largura/posição do pai — fica preso ao rolar, mas sem escapar
+        * pra fora da coluna) num wrapper de `h-screen` (reserva 100vh
+        * de espaço na página) cancelado na hora por `-mb-[100vh]`
+        * (margem negativa do mesmo tamanho) — o wrapper OCUPA 100vh só
+        * o suficiente pra participar do algoritmo de "sticky", mas não
+        * empurra o conteúdo seguinte pra baixo (a margem negativa
+        * "devolve" esse espaço). Resultado: as manchas ficam paradas
+        * na tela conforme rola, e a coluna de conteúdo (abaixo) rola
+        * normalmente por cima. Sem `z-index` nenhum (nem positivo nem
+        * negativo) — mesma lição da "CAUSA RAIZ #3" do Perfil: só
+        * ordem de DOM (pintado primeiro = fica atrás dos irmãos
+        * seguintes) já resolve, e z-index around aqui já causou bug
+        * antes. Sem `overflow-hidden` no wrapper — mesmo motivo do
+        * "AJUSTE #2" do Perfil (deixa o desfoque vazar naturalmente
+        * pra margem em tela larga, sem criar uma "caixa" reta de luz).
         */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      <div className="pointer-events-none sticky top-0 h-screen -mb-[100vh]" aria-hidden="true">
         <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "40px", left: "-22%", background: "#1B4B7A" }} />
         <div className="absolute h-60 w-60 rounded-full opacity-40 blur-[60px]" style={{ top: "280px", right: "-20%", background: "#2A7FB8" }} />
         <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "520px", left: "-18%", background: "#0D3B5C" }} />
