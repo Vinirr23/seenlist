@@ -6,11 +6,20 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
+import { useFonts } from "expo-font";
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from "@expo-google-fonts/plus-jakarta-sans";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { colors } from "@/lib/theme";
+import { markFontsReady } from "@/lib/appReady";
 
 /**
  * TASK-165 (splash, retomada) — sem isso, a splash NATIVA (a que o
@@ -35,6 +44,14 @@ import { colors } from "@/lib/theme";
  * intencional PRA ESTA FASE: primeiro descobre a velocidade real,
  * depois decide se ainda faz sentido um piso mínimo (e de quanto —
  * 3s pode ter sido generoso demais mesmo no cenário original).
+ *
+ * "Plus Jakarta Sans" (a pedido — "perfil não se parece com o web") —
+ * ganhou uma SEGUNDA condição além da sessão: a fonte custom
+ * (`useFonts` abaixo) também precisa terminar de carregar antes de
+ * esconder, senão o app pisca com a fonte do sistema por um instante
+ * antes de trocar pra Plus Jakarta Sans. As duas condições vivem em
+ * `lib/appReady.ts` (`markFontsReady`/`markSessionReady`) — continua
+ * sem piso de tempo fixo, só que agora esperando as duas, não só uma.
  */
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Ignora — só pode falhar se chamado depois do auto-hide já ter
@@ -76,6 +93,30 @@ function useNotificationDeepLinks() {
 }
 
 /**
+ * "Plus Jakarta Sans" (a pedido — "perfil não se parece com o web",
+ * ver `lib/theme.ts` export `fontFamily` pro porquê de 5 pesos
+ * separados) — precisa terminar de carregar (`fontsLoaded === true`)
+ * antes da splash sumir, senão o app renderiza um instante com a
+ * fonte do sistema (ver comentário grande acima, perto do
+ * `preventAutoHideAsync`). `fontError` também libera a splash (não
+ * trava o app pra sempre se o carregamento falhar por algum motivo —
+ * cai pra fonte do sistema, pior do que o esperado mas usável).
+ */
+function useFontsReady() {
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) markFontsReady();
+  }, [fontsLoaded, fontError]);
+}
+
+/**
  * TASK-096 (detalhes de série) — trocado de `<Slot />` pra `<Stack />`.
  * Até aqui, a raiz só tinha duas telas mutuamente exclusivas
  * ((auth) e (tabs), decidido por `<Redirect>` em `app/index.tsx`) —
@@ -89,6 +130,7 @@ function useNotificationDeepLinks() {
  */
 export default function RootLayout() {
   useNotificationDeepLinks();
+  useFontsReady();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

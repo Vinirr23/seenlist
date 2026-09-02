@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
-import * as SplashScreen from "expo-splash-screen";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { registerForPushNotifications, removePushToken } from "@/lib/pushNotifications";
+import { markSessionReady } from "@/lib/appReady";
 
 export type AuthResult = { error: string | null; message?: string };
 
@@ -69,10 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      // A splash nativa esconde exatamente aqui — assim que a sessão
-      // (pronta ou não) resolve de verdade, não num tempo fixo. Ver
-      // comentário grande em app/_layout.tsx pro raciocínio completo.
-      SplashScreen.hideAsync().catch(() => {});
+      // A splash nativa só esconde de vez quando ISTO e o carregamento
+      // da fonte (`app/_layout.tsx`, `useFonts`) tiverem os dois
+      // terminado — ver `lib/appReady.ts` pro raciocínio completo
+      // (antes era só a sessão; ganhou a fonte como segunda condição
+      // a pedido, pra não "piscar" trocando de fonte na frente do
+      // usuário). Continua sem piso de tempo fixo nenhum.
+      markSessionReady();
       setSession(data.session);
       setLoading(false);
     });

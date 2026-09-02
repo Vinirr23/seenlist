@@ -4,7 +4,7 @@ import { Tabs } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { colors } from "@/lib/theme";
+import { colors, fontFamily } from "@/lib/theme";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -170,6 +170,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 10,
     fontWeight: "600",
+    // "Plus Jakarta Sans" (a pedido) — este arquivo usa `Text` do
+    // "react-native" direto, não o `Text` de `components/ui` (que já
+    // resolve `fontFamily` sozinho a partir do `fontWeight` — ver
+    // `lib/theme.ts`), então precisa declarar a fonte na mão aqui.
+    fontFamily: fontFamily[600],
   },
   badge: {
     position: "absolute",
@@ -187,5 +192,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 9,
     fontWeight: "700",
+    fontFamily: fontFamily[700],
   },
 });

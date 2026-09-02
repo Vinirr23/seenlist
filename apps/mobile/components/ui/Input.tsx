@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { TextInput, View, StyleSheet, type TextInputProps } from "react-native";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, fontFamily } from "@/lib/theme";
 import { Text } from "./Text";
 
 export interface InputProps extends TextInputProps {
@@ -60,6 +60,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     fontSize: fontSize.md,
     color: colors.text,
+    // "Plus Jakarta Sans" (a pedido) — `TextInput` não é um `Text`
+    // (o componente `Text` de `components/ui`, que resolve a fonte
+    // sozinho, não se aplica aqui), precisa declarar na mão. Peso
+    // 400 (regular) — é a mesma coisa que este campo já tinha antes
+    // (nenhum `fontWeight`, o padrão do sistema já era "normal").
+    fontFamily: fontFamily[400],
   },
   inputFocused: {
     borderColor: colors.primary,
