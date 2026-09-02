@@ -369,6 +369,23 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
   );
   const seriesIds = statusRows.map((row) => row.series_id as number);
 
+  /**
+   * TEMPORÁRIO (diagnóstico, 2026-09-02 — "Tomb Raider King, Clevatess,
+   * Re:ZERO sumidas da Home, e a promoção automática não está
+   * trazendo elas de volta pra 'watching'") — 3 ids específicos,
+   * reportados pelo usuário como afetados, pra ver exatamente em qual
+   * etapa desta função cada um "escapa" da promoção. Remover depois de
+   * confirmado.
+   */
+  const DIAGNOSTIC_SERIES_IDS = new Set([297826, 258348, 65942]); // Tomb Raider King, Clevatess, Re:ZERO
+  if (typeof window !== "undefined") {
+    for (const id of DIAGNOSTIC_SERIES_IDS) {
+      console.log(
+        `[DIAGNÓSTICO recalc] série ${id}: ${seriesIds.includes(id) ? "ESTÁ" : "NÃO ESTÁ"} na lista de ${seriesIds.length} avaliadas nesta rodada. Status atual no banco: ${currentStatusBySeriesId.get(id) ?? "(sem linha)"}`
+      );
+    }
+  }
+
   let watchedEpisodeKeysBySeriesId: Map<number, Set<string>>;
   let watchedEpisodeIdsBySeriesId: Map<number, Set<number>>;
   let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>;
@@ -421,7 +438,12 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
   const categoryBySeriesId = new Map<number, "watching" | "up_to_date" | "completed">();
   for (const seriesId of seriesIds) {
     const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
-    if (liveEpisodes.length === 0) continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
+    if (liveEpisodes.length === 0) {
+      if (DIAGNOSTIC_SERIES_IDS.has(seriesId)) {
+        console.log(`[DIAGNÓSTICO recalc] série ${seriesId}: TMDB não devolveu episódio nenhum nesta rodada — pulada, sem mudar categoria.`);
+      }
+      continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
+    }
 
     const watchedEpisodeKeys = watchedEpisodeKeysBySeriesId.get(seriesId) ?? new Set<string>();
     const watchedEpisodeIds = watchedEpisodeIdsBySeriesId.get(seriesId) ?? new Set<number>();
@@ -429,6 +451,12 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
     const specialEpisodeKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
     const { category } = resolveSeriesCategory({ watchedEpisodeKeys, liveEpisodes, ended, specialEpisodeKeys, watchedEpisodeIds });
     categoryBySeriesId.set(seriesId, category);
+
+    if (DIAGNOSTIC_SERIES_IDS.has(seriesId)) {
+      console.log(
+        `[DIAGNÓSTICO recalc] série ${seriesId}: ${liveEpisodes.length} episódios (TMDB), ${watchedEpisodeKeys.size} marcados como assistidos, ended=${ended}, ${specialEpisodeKeys.size} especiais → categoria calculada: "${category}"`
+      );
+    }
   }
 
   /*
@@ -502,8 +530,21 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
     // que a origem de `currentStatus` mude no futuro, `String(...)`
     // garante um `string` de verdade, nunca `unknown`/`any` vazando
     // pra dentro de `shouldWriteSeriesCategory`.
-    if (shouldWriteSeriesCategory(String(currentStatus ?? ""), newCategory)) {
+    const willWrite = shouldWriteSeriesCategory(String(currentStatus ?? ""), newCategory);
+    if (DIAGNOSTIC_SERIES_IDS.has(seriesId)) {
+      console.log(
+        `[DIAGNÓSTICO recalc] série ${seriesId}: status atual "${currentStatus}" → categoria nova "${newCategory}" → shouldWriteSeriesCategory = ${willWrite} ${willWrite ? "(vai pro upsert)" : "(NÃO vai gravar nada)"}`
+      );
+    }
+    if (willWrite) {
       updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    for (const id of DIAGNOSTIC_SERIES_IDS) {
+      const inUpdates = updates.some((u) => u.series_id === id);
+      console.log(`[DIAGNÓSTICO recalc] série ${id}: ${inUpdates ? "ESTÁ" : "NÃO ESTÁ"} no lote final de updates (${updates.length} no total).`);
     }
   }
 
