@@ -1,5 +1,6 @@
 "use client";
 
+import { Flame } from "lucide-react";
 import { useDiscoverList, useDiscoverByGenre, useDiscoverSimilar, useFilterOutLibraryItems } from "@/lib/queries/discover";
 import { useFavoriteGenres } from "@/lib/queries/favorite-genres";
 import { useAnchorTitle } from "@/lib/queries/anchor-title";
@@ -100,14 +101,26 @@ export function ExploreSeriesTab() {
 
   return (
     <div className="pt-4">
-      {showForYou && (
-        <DiscoverCarousel
-          title={t("explore.discover.topSeriesForYou")}
-          items={forYouFiltered}
-          isLoading={favoriteGenresLoading || forYou.isLoading}
-          viewAllHref={topGenre ? `/explore/genre/series/${topGenre.genreId}` : undefined}
-        />
-      )}
+      {/*
+        * A PEDIDO (2026-09-02 — mesmo pedido feito em `ExploreMoviesTab.tsx`,
+        * ver comentário completo lá) — "Em alta agora" (`trending_series`)
+        * ganha o texto+ícone de "Populares no SeenList" (reaproveita
+        * `t("seriesHome.popularSeries")`, mesma chave já usada em outro
+        * lugar de propósito) e sobe pra 1ª posição, trocando de lugar
+        * com "Para você" (`showForYou`, que desce pra depois dos chips
+        * de gênero).
+        */}
+      <DiscoverCarousel
+        title={
+          <span className="flex items-center gap-1.5 text-primary">
+            <Flame className="h-4 w-4" fill="currentColor" strokeWidth={0} />
+            {t("seriesHome.popularSeries")}
+          </span>
+        }
+        items={trendingSeriesFiltered}
+        isLoading={trendingSeries.isLoading}
+        viewAllHref="/explore/all/trending_series"
+      />
 
       {showBecauseYouWatched && (
         <DiscoverCarousel
@@ -120,12 +133,14 @@ export function ExploreSeriesTab() {
 
       <GenreChips title={t("explore.discover.yourGenres")} genres={topSeriesGenres} isLoading={favoriteGenresLoading} mediaType="series" />
 
-      <DiscoverCarousel
-        title={t("explore.discover.trendingNow")}
-        items={trendingSeriesFiltered}
-        isLoading={trendingSeries.isLoading}
-        viewAllHref="/explore/all/trending_series"
-      />
+      {showForYou && (
+        <DiscoverCarousel
+          title={t("explore.discover.topSeriesForYou")}
+          items={forYouFiltered}
+          isLoading={favoriteGenresLoading || forYou.isLoading}
+          viewAllHref={topGenre ? `/explore/genre/series/${topGenre.genreId}` : undefined}
+        />
+      )}
 
       <DiscoverCarousel
         title={t("explore.discover.onTheAir")}

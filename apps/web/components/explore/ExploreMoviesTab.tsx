@@ -1,5 +1,6 @@
 "use client";
 
+import { Flame } from "lucide-react";
 import { useDiscoverList, useDiscoverByGenre, useDiscoverSimilar, useFilterOutLibraryItems } from "@/lib/queries/discover";
 import { useFavoriteGenres } from "@/lib/queries/favorite-genres";
 import { useAnchorTitle } from "@/lib/queries/anchor-title";
@@ -100,14 +101,32 @@ export function ExploreMoviesTab() {
 
   return (
     <div className="pt-4">
-      {showForYou && (
-        <DiscoverCarousel
-          title={t("explore.discover.topMoviesForYou")}
-          items={forYouFiltered}
-          isLoading={favoriteGenresLoading || forYou.isLoading}
-          viewAllHref={topGenre ? `/explore/genre/movie/${topGenre.genreId}` : undefined}
-        />
-      )}
+      {/*
+        * A PEDIDO (2026-09-02 — "muda 'em alta agora' pra 'populares no
+        * seenlist' com o foguinho âmbar de antes, e muda de lugar com o
+        * 'principais filmes para você'") — dois ajustes juntos nesta
+        * seção (era "Em alta agora", `trending_movies`, 4ª posição):
+        * (1) título trocado pro MESMO texto+ícone já usados no estado
+        * vazio de Séries/Filmes (`t("seriesHome.popularSeries")` +
+        * `Flame` âmbar, ver `MinhaListaSection.tsx`/`PopularMediaRow.tsx`)
+        * — reaproveitado de propósito (o texto já era genérico, "marca
+        * do app", não específico de série), não uma chave nova; (2)
+        * posição trocada com "Para você" (`showForYou`, abaixo) — essa
+        * seção sobe pra 1ª posição, "Para você" desce pra onde esta
+        * ficava (depois dos chips de gênero). O DADO em si
+        * (`trending_movies`) não mudou, só rótulo/ícone/posição.
+        */}
+      <DiscoverCarousel
+        title={
+          <span className="flex items-center gap-1.5 text-primary">
+            <Flame className="h-4 w-4" fill="currentColor" strokeWidth={0} />
+            {t("seriesHome.popularSeries")}
+          </span>
+        }
+        items={trendingMoviesFiltered}
+        isLoading={trendingMovies.isLoading}
+        viewAllHref="/explore/all/trending_movies"
+      />
 
       {showBecauseYouWatched && (
         <DiscoverCarousel
@@ -120,12 +139,14 @@ export function ExploreMoviesTab() {
 
       <GenreChips title={t("explore.discover.yourGenres")} genres={topMovieGenres} isLoading={favoriteGenresLoading} mediaType="movie" />
 
-      <DiscoverCarousel
-        title={t("explore.discover.trendingNow")}
-        items={trendingMoviesFiltered}
-        isLoading={trendingMovies.isLoading}
-        viewAllHref="/explore/all/trending_movies"
-      />
+      {showForYou && (
+        <DiscoverCarousel
+          title={t("explore.discover.topMoviesForYou")}
+          items={forYouFiltered}
+          isLoading={favoriteGenresLoading || forYou.isLoading}
+          viewAllHref={topGenre ? `/explore/genre/movie/${topGenre.genreId}` : undefined}
+        />
+      )}
 
       <DiscoverCarousel
         title={t("explore.discover.upcomingMovies")}
