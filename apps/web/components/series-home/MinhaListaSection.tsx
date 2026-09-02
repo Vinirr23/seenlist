@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Flame } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useLibraryRealtimeSync } from "@/lib/queries/library";
 import { useContinueWatchingSeries } from "@/lib/queries/continueWatchingSeries";
 import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
@@ -15,7 +15,6 @@ import { UpToDatePendingGate } from "./UpToDatePendingGate";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyLibraryHero } from "../media/EmptyLibraryHero";
-import { PopularMediaRow } from "../media/PopularMediaRow";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
@@ -335,6 +334,21 @@ export function MinhaListaSection() {
             * 1536×1024 (era 768×512) — mesmo arquivo, resolução maior,
             * corrige o "borrado" em telas de alta densidade.
             */}
+          {/*
+            * A PEDIDO (2026-09-02 — "tira o 'populares no seenlist' e
+            * deixa o restante de cima centralizado") — fileira
+            * `PopularMediaRow` (título "Populares no SeenList" + ícone
+            * `Flame`) removida por completo deste estado vazio. Único
+            * conteúdo restante agora é o `EmptyLibraryHero` abaixo —
+            * ele já nasceu centralizado NA HORIZONTAL sozinho
+            * (`items-center text-center` no próprio componente, ver
+            * `EmptyLibraryHero.tsx`), então nenhuma mudança de
+            * alinhamento foi necessária além de remover a fileira. Bloco
+            * escolhido explicitamente pelo usuário (entre "sobe pro
+            * topo, do jeito que já está" e "centraliza no meio do
+            * espaço vazio"): permanece ancorado perto do topo, sem
+            * altura mínima nem centralização vertical nova.
+            */}
           <EmptyLibraryHero
             illustrationSrc="/illustrations/empty-library-scene.png"
             title={series.length === 0 ? t("seriesHome.emptyLibraryTitle") : t("seriesHome.emptyCaughtUpTitle")}
@@ -342,55 +356,6 @@ export function MinhaListaSection() {
             actionLabel={t("seriesHome.exploreSeries")}
             actionHref="/explore?tab=series"
           />
-          {/*
-            * "mais espaço entre o botão e 'Populares no SeenList'" (a
-            * pedido, 2026-09-01) — era `mt-6`, virou `mt-10` (respiro
-            * logo abaixo do divisor "OU" de `EmptyLibraryHero`, que
-            * teve o `pt-0` do próprio topo pra compensar — ver
-            * comentário lá).
-            *
-            * PADRONIZADO (2026-09-01, seguinte, a pedido — "deixe os
-            * espaços padronizados") — `mt-10` (40px) virou `mt-8`
-            * (32px), o mesmo espaçamento entre blocos usado no Perfil
-            * (`ProfileMediaCarousel.tsx`, `mb-8` entre carrosséis) e
-            * já usado logo abaixo, na seção "Faz um tempo que você não
-            * assiste" — três lugares, três valores diferentes (40px/
-            * 32px/32px) viraram um só.
-            *
-            * "tira esse ---OU--- e sobe o 'Populares no SeenList'" (a
-            * pedido, 2026-09-01, seguinte) — o `dividerLabel` do
-            * `EmptyLibraryHero` acima foi removido (não passa mais
-            * essa prop, então o divisor nem renderiza — ver
-            * `EmptyLibraryHero.tsx`), e este `mt-8` (32px) virou
-            * `mt-4` (16px): com o divisor fora, o respiro do `mt-8`
-            * sozinho ficava grande demais entre o botão e esta
-            * fileira.
-            */}
-          <div className="mt-4">
-            <PopularMediaRow
-              list="trending_series"
-              title={
-                /*
-                 * BUG REAL CORRIGIDO (2026-09-01, reportado — "no
-                 * print 2 o titulo... e o icone, são âmbar (o icone
-                 * não é o icone padrão)") — antes era emoji 🔥 solto
-                 * dentro de uma string, sem cor nenhuma (herdava o
-                 * branco padrão de `DiscoverCarouselProps.title`).
-                 * Trocado por um ícone de verdade (`Flame`, do mesmo
-                 * `lucide-react` já usado em todo o app) + o texto,
-                 * os dois na cor âmbar (`text-primary`) via um `span`
-                 * pai — `currentColor` do ícone segue a cor do span
-                 * automaticamente, sem precisar colorir os dois
-                 * separado.
-                 */
-                <span className="flex items-center gap-1.5 text-primary">
-                  <Flame className="h-4 w-4" fill="currentColor" strokeWidth={0} />
-                  {t("seriesHome.popularSeries")}
-                </span>
-              }
-              viewAllHref="/explore/all/trending_series"
-            />
-          </div>
         </>
       ) : viewMode === "grid" ? (
         <PosterGrid items={visibleContinueWatching} />

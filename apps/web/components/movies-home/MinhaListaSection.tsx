@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Flame } from "lucide-react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -10,7 +9,6 @@ import { MediaListRow } from "../media/MediaListRow";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyLibraryHero } from "../media/EmptyLibraryHero";
-import { PopularMediaRow } from "../media/PopularMediaRow";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 import { todayLocalKey, isReleased } from "./release-date";
@@ -127,12 +125,17 @@ export function MinhaListaSection() {
          */
         <>
           {/*
-            * PADRONIZADO junto com `series-home/MinhaListaSection.tsx`
-            * (2026-09-01, a pedido — mesmos 3 ajustes lá: sem
-            * animação/resolução maior na ilustração, sem divisor "OU",
-            * espaço menor até "Populares no SeenList", link explícito
-            * de aba em vez de "/explore" pura) — ver comentário
-            * completo lá, mesma causa raiz nos dois.
+            * A PEDIDO (2026-09-02 — "tira o 'populares no seenlist' e
+            * deixa o restante de cima centralizado", pedido em Séries,
+            * PADRONIZADO aqui também a pedido explícito, pra ficar
+            * igual nas duas Centrais) — fileira `PopularMediaRow`
+            * removida daqui junto com `series-home/MinhaListaSection.tsx`.
+            * `EmptyLibraryHero` já nasce centralizado na horizontal
+            * sozinho (`items-center text-center`, ver o componente),
+            * então nenhuma mudança de alinhamento foi necessária além
+            * de remover a fileira. Fica ancorado perto do topo, sem
+            * centralização vertical nova (mesma escolha do usuário
+            * pro lado de Séries).
             */}
           <EmptyLibraryHero
             illustrationSrc="/illustrations/empty-library-scene.png"
@@ -141,18 +144,6 @@ export function MinhaListaSection() {
             actionLabel={t("moviesHome.exploreMovies")}
             actionHref="/explore?tab=movies"
           />
-          <div className="mt-4">
-            <PopularMediaRow
-              list="trending_movies"
-              title={
-                <span className="flex items-center gap-1.5 text-primary">
-                  <Flame className="h-4 w-4" fill="currentColor" strokeWidth={0} />
-                  {t("seriesHome.popularSeries")}
-                </span>
-              }
-              viewAllHref="/explore/all/trending_movies"
-            />
-          </div>
         </>
       ) : viewMode === "grid" ? (
         <PosterGrid items={wantToWatch} />

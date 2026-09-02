@@ -209,16 +209,28 @@ export function EmptyLibraryHero({
       <p className="text-xl font-bold text-text">{title}</p>
       {subtitle && <p className="mt-2 max-w-[280px] text-sm leading-relaxed text-muted">{subtitle}</p>}
 
+      {/*
+        * A PEDIDO (2026-09-02 — "diminue uns 8% o tamanho desse botão
+        * 'explorar séries'") — todas as medidas do botão reduzidas em
+        * ~8% (não só a fonte — padding e ícone junto, senão o botão
+        * ficaria com "ar" desproporcional por dentro): `px-8` (32px) →
+        * `px-[29px]`, `py-3.5` (14px) → `py-[13px]`, `text-base` (16px)
+        * → `text-[15px]`, ícone `h-5 w-5` (20px) → `h-[18px] w-[18px]`.
+        * Valores em px arbitrários (não a escala padrão do Tailwind)
+        * porque nenhum degrau da escala cai perto o bastante de -8% —
+        * usar o degrau abaixo teria reduzido demais (ex.: `px-7` seria
+        * -12.5%, não -8%).
+        */}
       <Link
         href={actionHref}
-        className="mt-5 flex items-center gap-1.5 rounded-full border border-white/15 px-8 py-3.5 text-base font-bold text-background shadow-lg transition-transform active:scale-95"
+        className="mt-5 flex items-center gap-1.5 rounded-full border border-white/15 px-[29px] py-[13px] text-[15px] font-bold text-background shadow-lg transition-transform active:scale-95"
         style={{
           background:
             "radial-gradient(130% 170% at 28% 18%, rgba(240,169,79,0.88) 0%, rgba(232,163,61,0.85) 42%, rgba(176,95,27,0.9) 100%)",
           boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -4px 7px rgba(120,66,10,0.4)",
         }}
       >
-        <Plus className="h-5 w-5" strokeWidth={2.75} />
+        <Plus className="h-[18px] w-[18px]" strokeWidth={2.75} />
         {actionLabel}
       </Link>
 
