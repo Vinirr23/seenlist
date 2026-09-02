@@ -66,8 +66,18 @@ function ExploreViewContent() {
        * (reformulação da Explorar) — cada aba agora tem só 3
        * carrosséis (era 6 misturados antes), altura bem menor; ainda é
        * um PRIMEIRO PALPITE, não tem medição ao vivo pra esta tela.
+       *
+       * Fundo estático (2026-09-02, "implementa isso nas outras
+       * abas" — mesmo pedido já aplicado e confirmado funcionando,
+       * celular e desktop, em `SeriesHome.tsx`) — `position: sticky`
+       * num wrapper de `h-screen` cancelado por `-mb-[100vh]`, no
+       * lugar do antigo `absolute inset-0` que rolava junto com o
+       * conteúdo. Ver comentário completo (motivo de não usar `fixed`,
+       * por quê sem z-index) em `SeriesHome.tsx`. Só a técnica de
+       * posicionamento mudou aqui — as manchas em si (cor, tamanho,
+       * posição) continuam exatamente as mesmas de antes.
        */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      <div className="pointer-events-none sticky top-0 h-screen -mb-[100vh]" aria-hidden="true">
         <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "40px", left: "-22%", background: "#1B4B7A" }} />
         <div className="absolute h-60 w-60 rounded-full opacity-40 blur-[60px]" style={{ top: "280px", right: "-20%", background: "#2A7FB8" }} />
         <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "520px", left: "-18%", background: "#0D3B5C" }} />

@@ -136,8 +136,22 @@ export function ProfileView() {
        * acima, pro `MainLayout` (`app/(main)/layout.tsx`,
        * `overflow-x-hidden`), então continua 100% seguro contra barra
        * de rolagem horizontal em qualquer tamanho de tela.
+       *
+       * Fundo estático (2026-09-02, "implementa isso nas outras
+       * abas" — mesmo pedido já aplicado e confirmado funcionando,
+       * celular e desktop, em `SeriesHome.tsx`) — `position: sticky`
+       * num wrapper de `h-screen` cancelado por `-mb-[100vh]`, no
+       * lugar do `absolute inset-0` de antes. IMPORTANTE: isso NÃO É
+       * a mesma coisa que a CAUSA RAIZ #1 acima (`position: fixed`,
+       * revertida) — `sticky` respeita a largura/posição do pai
+       * (`md:max-w-[430px] mx-auto`, herda a centralização), só
+       * "gruda" verticalmente durante o scroll; `fixed` posicionava
+       * relativo à janela inteira, por isso quebrava em tela larga.
+       * As manchas em si (posição em pixel, cor, blur) continuam
+       * exatamente as mesmas — só a técnica de fixar mudou. Sem
+       * z-index nenhum, mesma lição da CAUSA RAIZ #3.
        */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      <div className="pointer-events-none sticky top-0 h-screen -mb-[100vh]" aria-hidden="true">
         <div
           className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]"
           style={{ top: "220px", left: "-22%", background: "#1B4B7A" }}
