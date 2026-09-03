@@ -148,8 +148,22 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
             * fileira ter largura definida (sem isso o `truncate` do
             * nome não tem limite nenhum pra truncar contra).
             */}
-          <div className="absolute -bottom-8 left-0 right-0 flex items-center gap-4">
-            <div className="relative h-16 w-16 shrink-0">
+          {/*
+            * AJUSTE (2026-09-03, a pedido — "aumentou o tamanho da foto
+            * de perfil no mobile, faz a mesma coisa no web, e junta mais
+            * o 'seenlist + @seenlistapp' da foto") —
+            * `h-16 w-16` (64px) → `h-[74px] w-[74px]`: mesmo +15% já
+            * aplicado no mobile (`AVATAR_SIZE`, `profile.tsx`:
+            * 64 × 1.15 = 73.6, arredondado pra 74). `gap-4` (16px) →
+            * `gap-2` (8px): "junta mais" o nome/@ da foto — usei o
+            * mesmo valor que o mobile já tinha PRA ESSA fileira
+            * (`avatarHeaderRow`, `profile.tsx`: `gap: spacing.sm` = 8),
+            * não um número novo inventado — mantém web e mobile iguais,
+            * igual pedido em "preciso que o app web e o mobile tenham o
+            * mesmo design".
+            */}
+          <div className="absolute -bottom-8 left-0 right-0 flex items-center gap-2">
+            <div className="relative h-[74px] w-[74px] shrink-0">
               <div
                 className="absolute -inset-0.5 rounded-full border border-white/40 shadow-[0_4px_18px_rgba(0,0,0,0.35)] backdrop-blur-md backdrop-saturate-150"
                 style={{
@@ -197,7 +211,10 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         );
 
         return (
-          <div className="flex items-center gap-4">
+          // AJUSTE (2026-09-03 — mesmo motivo do bloco COM capa acima:
+          // avatar +15% e `gap-4`→`gap-2` pra "juntar mais" o nome/@ da
+          // foto, igual valor já usado no mobile).
+          <div className="flex items-center gap-2">
             {/*
              * Ajuste (a pedido, "tira o brilho ao redor da foto de perfil
              * e ajusta ela pra cima um pouco pra ficar uns 20% dentro da
@@ -205,7 +222,7 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
              * blur-lg) que ficava atrás do avatar; mantido só o anel de
              * vidro (borda + reflexo) mais colado à foto.
              */}
-            <div className="relative h-16 w-16 shrink-0">
+            <div className="relative h-[74px] w-[74px] shrink-0">
               <div
                 className="absolute -inset-0.5 rounded-full border border-white/40 shadow-[0_4px_18px_rgba(0,0,0,0.35)] backdrop-blur-md backdrop-saturate-150"
                 style={{
