@@ -26,11 +26,17 @@ const config: Config = {
           "0%": { transform: "translateY(-10dvh) rotate(0deg)", opacity: "1" },
           "100%": { transform: "translateY(90dvh) rotate(360deg)", opacity: "0" },
         },
+        // A PEDIDO (2026-09-03) — indicador de carregamento "pontinhos" da Home (ver HomeSkeleton.tsx).
+        "home-skeleton-dot": {
+          "0%, 80%, 100%": { opacity: "0.35", transform: "scale(0.6)" },
+          "40%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "toast-in": "toast-in 200ms ease-out",
         "press": "press 120ms ease-out",
         "confetti-fall": "confetti-fall 2400ms ease-in forwards",
+        "home-skeleton-dot": "home-skeleton-dot 1.2s ease-in-out infinite",
       },
     },
   },

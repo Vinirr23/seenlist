@@ -42,35 +42,37 @@ export interface HomeSkeletonProps {
   variant?: "grid" | "list";
 }
 
+/**
+ * CORREÇÃO (2026-09-03, a pedido — "ao invés de uma tela sem nada,
+ * algo interessante enquanto carrega os cards na Home") — as
+ * caixinhas cinzas piscando ("grade de pôsteres falsos"/"linhas
+ * falsas") viraram 3 pontinhos pulsando, cor de destaque da marca
+ * (`bg-primary`, mesma usada na barra de navegação inferior). Escolha
+ * do usuário entre 6 opções mostradas (brilho deslizante, cascata,
+ * respiração, baralho de pôsteres, spinner, pontinhos) — "pontinhos"
+ * venceu por ser o mais minimalista dos seis.
+ *
+ * `variant` continua existindo só pra decidir a ALTURA reservada
+ * (evita a página "pular" quando o conteúdo de verdade chega — grade
+ * costuma ocupar mais espaço vertical que lista) — a animação em si é
+ * a mesma nos dois casos, não depende mais do formato do conteúdo
+ * real que vem depois.
+ */
 export function HomeSkeleton({ variant = "grid" }: HomeSkeletonProps) {
   const { t } = useTranslation();
 
-  if (variant === "list") {
-    return (
-      <div className="animate-pulse space-y-2" aria-busy="true" aria-label={t("media.loadingLibrary")}>
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-3 rounded-2xl border border-white/10 px-3 py-2.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
-            style={{
-              background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.10), transparent 60%), rgba(255,255,255,0.06)",
-            }}
-          >
-            <div className="h-20 w-14 shrink-0 rounded bg-surface" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="h-3 w-3/4 rounded bg-border" />
-              <div className="h-2.5 w-1/3 rounded bg-border" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="grid animate-pulse grid-cols-3 gap-2" aria-busy="true" aria-label={t("media.loadingLibrary")}>
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="aspect-[2/3] w-full rounded-lg bg-surface" />
+    <div
+      className={`flex items-center justify-center gap-2 ${variant === "grid" ? "min-h-[220px]" : "min-h-[180px]"}`}
+      aria-busy="true"
+      aria-label={t("media.loadingLibrary")}
+    >
+      {[0, 1, 2].map((index) => (
+        <span
+          key={index}
+          className="h-2.5 w-2.5 animate-home-skeleton-dot rounded-full bg-primary"
+          style={{ animationDelay: `${index * 0.15}s` }}
+        />
       ))}
     </div>
   );
