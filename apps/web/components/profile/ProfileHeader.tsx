@@ -7,7 +7,6 @@ import { useMyProfile } from "@/lib/queries/my-profile";
 import { useFollowCounts } from "@/lib/queries/public-profile";
 import { useSocialCounts } from "@/lib/queries/social-counts";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { ShareProfileButton } from "@/components/social/ShareProfileButton";
 import { Avatar } from "@/components/common/Avatar";
 
@@ -45,14 +44,24 @@ const GLASS_ICON_BTN_STYLE = {
  * continuar"), só não tem mais o avatar encavalado nela: o avatar
  * entrou na mesma linha do nome, a linha ficou uma só, reaproveitada
  * tanto pra quem tem capa quanto pra quem não tem.
+ *
+ * REVERTIDO (2026-09-03, a pedido — "retira o 'membro desde' do
+ * perfil, e coloque os dados ao lado da foto de perfil, igual está no
+ * mobile", depois de eu ter feito a mesma mudança no mobile primeiro
+ * e avisado que isso desfazia a "ENTREGA 10" abaixo) — a "ENTREGA 10"
+ * (ver ela mais abaixo, mantida como histórico) tinha justamente
+ * mudado de "lado a lado" pra "nome numa linha própria ABAIXO do
+ * avatar" quando existe capa, a pedido de um print de referência na
+ * época. Pedido novo e explícito reverte só essa parte de novo — nome
+ * volta a ficar do LADO do avatar mesmo com capa — E remove "Membro
+ * desde" de vez (as duas mudanças a pedido, não é engano). O `bio`
+ * abaixo continua igual (não fazia parte do pedido).
  */
 export function ProfileHeader({ user }: { user: CurrentUser }) {
   const { data: profile } = useMyProfile();
   const { data: counts } = useFollowCounts(user.id);
   const { data: socialCounts } = useSocialCounts();
-  const { t, locale } = useTranslation();
-  const joinDateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { month: "long", year: "numeric" });
-  const joinDate = joinDateFormatter.format(new Date(user.createdAt));
+  const { t } = useTranslation();
 
   const statPills = [
     { href: "/profile/following", value: counts?.following ?? 0, label: t("profile.following") },
@@ -113,16 +122,32 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
               </div>
             </div>
           </div>
-          <div className="absolute -bottom-8 left-0 h-16 w-16">
-            <div
-              className="absolute -inset-0.5 rounded-full border border-white/40 shadow-[0_4px_18px_rgba(0,0,0,0.35)] backdrop-blur-md backdrop-saturate-150"
-              style={{
-                background: "radial-gradient(65% 65% at 28% 22%, rgba(255,255,255,0.3), transparent 60%), rgba(255,255,255,0.10)",
-              }}
-              aria-hidden="true"
-            />
-            {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
-            <Avatar src={user.avatarUrl} name={user.name} className="relative h-full w-full bg-surface" textClassName="text-lg" />
+          {/*
+            * REVERTIDO (2026-09-03 — ver comentário completo no topo do
+            * arquivo) — a "ENTREGA 10" original tirava o nome de perto
+            * do avatar (virava um bloco `pt-10` separado, mais abaixo,
+            * na IIFE). Voltou a ser UMA fileira só (avatar + nome),
+            * `position: absolute` ancorada na borda de baixo da capa
+            * (mesmo `-bottom-8 left-0` de antes) — `right-0` a mais pra
+            * fileira ter largura definida (sem isso o `truncate` do
+            * nome não tem limite nenhum pra truncar contra).
+            */}
+          <div className="absolute -bottom-8 left-0 right-0 flex items-center gap-4">
+            <div className="relative h-16 w-16 shrink-0">
+              <div
+                className="absolute -inset-0.5 rounded-full border border-white/40 shadow-[0_4px_18px_rgba(0,0,0,0.35)] backdrop-blur-md backdrop-saturate-150"
+                style={{
+                  background: "radial-gradient(65% 65% at 28% 22%, rgba(255,255,255,0.3), transparent 60%), rgba(255,255,255,0.10)",
+                }}
+                aria-hidden="true"
+              />
+              {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
+              <Avatar src={user.avatarUrl} name={user.name} className="relative h-full w-full bg-surface" textClassName="text-lg" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-bold text-text">{user.name}</p>
+              {profile?.username && <p className="truncate text-sm text-primary">@{profile.username}</p>}
+            </div>
           </div>
         </div>
       )}
@@ -140,31 +165,20 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         </div>
       )}
 
-      {(() => {
+      {/*
+        * Só roda mais pro caso SEM capa — o caso COM capa (que passou
+        * pelas "ENTREGA 8/9/10" descritas no topo do arquivo, depois
+        * revertido de novo em 2026-09-03) agora se resolve inteiro
+        * dentro do bloco `{profile?.bannerUrl && (...)}`  acima, junto
+        * com o avatar (mesma fileira, ver comentário lá).
+        */}
+      {!profile?.bannerUrl && (() => {
         const nameBlockContent = (
           <>
             <p className="truncate text-lg font-bold text-text">{user.name}</p>
             {profile?.username && <p className="truncate text-sm text-primary">@{profile.username}</p>}
-            <p className="text-xs text-muted">{t("profile.memberSince", { date: joinDate })}</p>
           </>
         );
-
-        // ENTREGA 10 (a pedido, 2026-08-26 — ver comentário completo em
-        // `PublicProfileView.tsx`, mesma receita replicada aqui) — depois
-        // de 2 rodadas tentando alinhar avatar+nome LADO A LADO (Entregas
-        // 8 e 9), o usuário mandou um print de referência e pediu "copie
-        // esse estilo": nome numa linha PRÓPRIA, ABAIXO do avatar — não
-        // mais do lado. Resolve o alinhamento pela raiz (não tem mais
-        // nenhuma tentativa de centralizar o texto contra o avatar, então
-        // não tem como desalinhar) E a legibilidade em capas claras (o
-        // texto nunca mais chega perto da capa, só do fundo sólido do
-        // card, então nunca corre risco de ficar ilegível numa foto
-        // clara). Avatar continua irmão da capa (ver Entrega 8 pro
-        // motivo). `pt-10` (40px) dá o mesmo respiro testado no perfil
-        // público.
-        if (profile?.bannerUrl) {
-          return <div className="min-w-0 pt-10">{nameBlockContent}</div>;
-        }
 
         return (
           <div className="flex items-center gap-4">
