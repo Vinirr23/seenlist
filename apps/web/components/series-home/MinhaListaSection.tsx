@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Flame } from "lucide-react";
 import { useLibraryRealtimeSync } from "@/lib/queries/library";
 import { useContinueWatchingSeries } from "@/lib/queries/continueWatchingSeries";
 import { recalculateUpToDateSeriesCategoriesThrottled } from "@/lib/queries/seriesCategoryRecalc";
@@ -15,6 +15,7 @@ import { UpToDatePendingGate } from "./UpToDatePendingGate";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyLibraryHero } from "../media/EmptyLibraryHero";
+import { PopularMediaRow } from "../media/PopularMediaRow";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 
@@ -335,19 +336,19 @@ export function MinhaListaSection() {
             * corrige o "borrado" em telas de alta densidade.
             */}
           {/*
-            * A PEDIDO (2026-09-02 — "tira o 'populares no seenlist' e
-            * deixa o restante de cima centralizado") — fileira
-            * `PopularMediaRow` (título "Populares no SeenList" + ícone
-            * `Flame`) removida por completo deste estado vazio. Único
-            * conteúdo restante agora é o `EmptyLibraryHero` abaixo —
-            * ele já nasceu centralizado NA HORIZONTAL sozinho
-            * (`items-center text-center` no próprio componente, ver
-            * `EmptyLibraryHero.tsx`), então nenhuma mudança de
-            * alinhamento foi necessária além de remover a fileira. Bloco
-            * escolhido explicitamente pelo usuário (entre "sobe pro
-            * topo, do jeito que já está" e "centraliza no meio do
-            * espaço vazio"): permanece ancorado perto do topo, sem
-            * altura mínima nem centralização vertical nova.
+            * RESTAURADO (2026-09-03, a pedido — "na empty state, coloca
+            * de volta o 'popular no seenlist' do jeito que estava" — o
+            * usuário mandou um print do mobile mostrando a fileira
+            * ainda presente lá, como referência do resultado esperado)
+            * — tinha sido removido em 2026-09-02 ("tira o 'populares no
+            * seenlist'"). Restaurado exatamente como documentado no
+            * histórico deste bloco (mantido acima, "Estado vazio
+            * melhorado") e em `EmptyLibraryHero.tsx` (`mt-10` do
+            * wrapper) — mesmo `PopularMediaRow` (nunca foi apagado do
+            * projeto, só parou de ser chamado aqui), mesmo
+            * `dividerLabel={t("seriesHome.or")}` no `EmptyLibraryHero`
+            * acima dele (sem ele, o "OU"/"OR" nunca aparece — é
+            * condicional).
             */}
           <EmptyLibraryHero
             illustrationSrc="/illustrations/empty-library-scene.png"
@@ -355,7 +356,20 @@ export function MinhaListaSection() {
             subtitle={series.length === 0 ? t("seriesHome.emptyLibrarySubtitle") : t("seriesHome.emptyCaughtUpSubtitle")}
             actionLabel={t("seriesHome.exploreSeries")}
             actionHref="/explore?tab=series"
+            dividerLabel={t("seriesHome.or")}
           />
+          <div className="mt-10">
+            <PopularMediaRow
+              list="trending_series"
+              title={
+                <span className="flex items-center gap-1.5 text-primary">
+                  <Flame className="h-4 w-4" fill="currentColor" strokeWidth={0} />
+                  {t("seriesHome.popularSeries")}
+                </span>
+              }
+              viewAllHref="/explore/all/trending_series"
+            />
+          </div>
         </>
       ) : viewMode === "grid" ? (
         <PosterGrid items={visibleContinueWatching} />

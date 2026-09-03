@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { Flame } from "lucide-react";
 import { useLibraryItems, useLibraryRealtimeSync } from "@/lib/queries/library";
 import { useViewModePreference } from "@/lib/view-mode/useViewModePreference";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -9,6 +10,7 @@ import { MediaListRow } from "../media/MediaListRow";
 import { PosterGrid } from "../profile/PosterGrid";
 import { SectionTitle } from "../media/SectionTitle";
 import { EmptyLibraryHero } from "../media/EmptyLibraryHero";
+import { PopularMediaRow } from "../media/PopularMediaRow";
 import { PageError } from "../media/PageError";
 import { HomeSkeleton } from "../media/HomeSkeleton";
 import { todayLocalKey, isReleased } from "./release-date";
@@ -125,17 +127,19 @@ export function MinhaListaSection() {
          */
         <>
           {/*
-            * A PEDIDO (2026-09-02 — "tira o 'populares no seenlist' e
-            * deixa o restante de cima centralizado", pedido em Séries,
-            * PADRONIZADO aqui também a pedido explícito, pra ficar
-            * igual nas duas Centrais) — fileira `PopularMediaRow`
-            * removida daqui junto com `series-home/MinhaListaSection.tsx`.
-            * `EmptyLibraryHero` já nasce centralizado na horizontal
-            * sozinho (`items-center text-center`, ver o componente),
-            * então nenhuma mudança de alinhamento foi necessária além
-            * de remover a fileira. Fica ancorado perto do topo, sem
-            * centralização vertical nova (mesma escolha do usuário
-            * pro lado de Séries).
+            * RESTAURADO (2026-09-03, a pedido — "na empty state, coloca
+            * de volta o 'popular no seenlist' do jeito que estava",
+            * pedido em Séries, PADRONIZADO aqui também — mesmo raciocínio
+            * da remoção original em 2026-09-02: as duas Centrais ficam
+            * iguais) — fileira `PopularMediaRow` de volta, mesma receita
+            * de `series-home/MinhaListaSection.tsx` (ver comentário
+            * completo lá): `list="trending_movies"` +
+            * `viewAllHref="/explore/all/trending_movies"` (mesma rota
+            * genérica "ver todos" que já existia), título reaproveita
+            * `seriesHome.popularSeries` ("Populares no SeenList" — texto
+            * já era genérico de propósito, não específico de série) +
+            * ícone de chama âmbar, `dividerLabel` novo no
+            * `EmptyLibraryHero` (sem ele o "OU"/"OR" não aparece).
             */}
           <EmptyLibraryHero
             illustrationSrc="/illustrations/empty-library-scene.png"
@@ -143,7 +147,20 @@ export function MinhaListaSection() {
             subtitle={t("moviesHome.emptyWatchlistSubtitle")}
             actionLabel={t("moviesHome.exploreMovies")}
             actionHref="/explore?tab=movies"
+            dividerLabel={t("seriesHome.or")}
           />
+          <div className="mt-10">
+            <PopularMediaRow
+              list="trending_movies"
+              title={
+                <span className="flex items-center gap-1.5 text-primary">
+                  <Flame className="h-4 w-4" fill="currentColor" strokeWidth={0} />
+                  {t("seriesHome.popularSeries")}
+                </span>
+              }
+              viewAllHref="/explore/all/trending_movies"
+            />
+          </div>
         </>
       ) : viewMode === "grid" ? (
         <PosterGrid items={wantToWatch} />
