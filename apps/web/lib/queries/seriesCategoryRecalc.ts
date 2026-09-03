@@ -10,21 +10,58 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-async function fetchLiveEpisodesBySeriesId(
+const EPISODES_EXPORT_RETRY_DELAYS_MS = [800, 2000]; // até 2 tentativas extras, com pausa curta entre elas.
+
+/**
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-03, bug real reportado — "marquei
+ * todos os episódios novos, mas 3 séries ficaram presas em Continue
+ * assistindo, mesmo trocando de grade/lista") — `/api/tmdb/series-
+ * episodes-at-export` já distingue "essa série genuinamente não tem
+ * episódio nenhum" de "a busca falhou de verdade" através de
+ * `failedIds` (ver o comentário grande na própria rota — o MESMO bug
+ * já tinha sido corrigido uma vez, só que em `seriesEpisodesLight.ts`/
+ * `ContinueWatchingCard.tsx`, que só decide o que MOSTRA na tela; este
+ * arquivo, que decide o STATUS gravado no banco (o que faz a série
+ * sumir de "Continue assistindo" de verdade), nunca tinha recebido a
+ * mesma correção).
+ *
+ * Marcar várias séries seguidas (como "marcar todos os episódios
+ * novos") dispara várias buscas simultâneas nesta mesma rota — uma
+ * rajada bem mais propensa a esbarrar num rate-limit passageiro do
+ * TMDB do que uma busca isolada. Antes, `data.series` sem aquele id
+ * (por falha OU por "realmente não tem nada") virava a MESMA coisa:
+ * `liveEpisodes = []` → a função desiste em silêncio, sem gravar
+ * nada — a série ficava PRESA no status antigo até o próximo
+ * recálculo automático (que só roda de novo depois de todo o
+ * intervalo do throttle, até 2h) ou até a pessoa desmarcar/remarcar
+ * manualmente pra forçar uma nova tentativa.
+ *
+ * Agora: até 2 tentativas extras, só pros ids que vierem em
+ * `failedIds` (não refaz a rajada inteira, só o que realmente
+ * falhou), com uma pausa curta entre elas — dá tempo pro rate-limit
+ * passageiro aliviar sem fazer a pessoa esperar muito.
+ */
+async function fetchSeriesEpisodesAtExportWithRetry(
   seriesIds: number[]
 ): Promise<Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>> {
   const result = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>();
-  const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
-  const responses = await Promise.all(
-    chunks.map((idsChunk) =>
-      fetch("/api/tmdb/series-episodes-at-export", {
+  let pending = seriesIds;
+
+  for (let attempt = 0; attempt <= EPISODES_EXPORT_RETRY_DELAYS_MS.length && pending.length > 0; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, EPISODES_EXPORT_RETRY_DELAYS_MS[attempt - 1]));
+    }
+    let response: Response;
+    try {
+      response = await fetch("/api/tmdb/series-episodes-at-export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seriesIds: idsChunk }),
-      })
-    )
-  );
-  for (const response of responses) {
+        body: JSON.stringify({ seriesIds: pending }),
+      });
+    } catch (error) {
+      console.error(`[fetchSeriesEpisodesAtExportWithRetry] Falha de rede na tentativa ${attempt + 1}.`, error);
+      continue;
+    }
     if (!response.ok) continue;
     // `episodeId` (2026-08-26, "motor resistente") — a rota já devolve, ver route.ts.
     const data = (await response.json()) as {
@@ -32,8 +69,30 @@ async function fetchLiveEpisodesBySeriesId(
         id: number;
         episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[];
       }[];
+      failedIds?: number[];
     };
     for (const s of data.series) result.set(s.id, s.episodes);
+    pending = data.failedIds ?? [];
+  }
+
+  if (pending.length > 0) {
+    console.error(
+      `[fetchSeriesEpisodesAtExportWithRetry] ${pending.length} série(s) continuaram falhando depois de todas as tentativas — status não recalculado desta vez pra elas:`,
+      pending
+    );
+  }
+
+  return result;
+}
+
+async function fetchLiveEpisodesBySeriesId(
+  seriesIds: number[]
+): Promise<Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>> {
+  const result = new Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>();
+  const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
+  const chunkResults = await Promise.all(chunks.map((idsChunk) => fetchSeriesEpisodesAtExportWithRetry(idsChunk)));
+  for (const chunkResult of chunkResults) {
+    for (const [id, episodes] of chunkResult) result.set(id, episodes);
   }
   return result;
 }
@@ -661,18 +720,20 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   let watchedEpisodeIds: Set<number> = new Set();
   let specialKeys: Set<string> = new Set();
   try {
-    const [watchedLookup, specialKeysBySeriesId, episodesResponse, summaryResponse] = await Promise.all([
+    const [watchedLookup, specialKeysBySeriesId, episodesBySeriesId, summaryResponse] = await Promise.all([
       // CORREÇÃO (investigação do Bleach — ver comentário grande em
       // `fetchWatchedEpisodeKeysBySeriesId`, acima) — antes buscava só
       // um TOTAL (`count: "exact", head: true`); agora busca a
       // identidade real dos episódios assistidos, pro mesmo motivo.
       fetchWatchedEpisodeKeysBySeriesId(supabase, user.id, [seriesId]),
       fetchSpecialEpisodeKeysBySeriesId(supabase, user.id, [seriesId]),
-      fetch("/api/tmdb/series-episodes-at-export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seriesIds: [seriesId] }),
-      }),
+      // CORREÇÃO (2026-09-03 — "3 séries presas em Continue
+      // assistindo", ver comentário grande em
+      // `fetchSeriesEpisodesAtExportWithRetry` acima) — era um `fetch`
+      // cru aqui, que tratava "a busca falhou" e "série sem episódio
+      // nenhum" como a MESMA coisa. Agora tenta de novo sozinho quando
+      // a rota sinaliza falha de verdade (`failedIds`).
+      fetchSeriesEpisodesAtExportWithRetry([seriesId]),
       fetch("/api/tmdb/library-summaries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -682,12 +743,7 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     watchedEpisodeKeys = watchedLookup.keysBySeriesId.get(seriesId) ?? new Set<string>();
     watchedEpisodeIds = watchedLookup.idsBySeriesId.get(seriesId) ?? new Set<number>();
     specialKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
-    if (episodesResponse.ok) {
-      const data = (await episodesResponse.json()) as {
-        series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[] }[];
-      };
-      liveEpisodes = data.series.find((s) => s.id === seriesId)?.episodes ?? [];
-    }
+    liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
     if (summaryResponse.ok) {
       const data = (await summaryResponse.json()) as { series: { id: number; ended: boolean }[] };
       ended = data.series.find((s) => s.id === seriesId)?.ended ?? false;
