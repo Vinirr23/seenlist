@@ -149,7 +149,12 @@ export function MinhaListaSection() {
             actionHref="/explore?tab=movies"
             dividerLabel={t("seriesHome.or")}
           />
-          <div className="mt-10">
+          {/*
+            * AJUSTE (2026-09-03 — mesmo ajuste pedido em Séries, ver
+            * comentário completo em `series-home/MinhaListaSection.tsx`)
+            * — `mt-10` → `mt-6`, igualando ao espaço botão→"OU".
+            */}
+          <div className="mt-6">
             <PopularMediaRow
               list="trending_movies"
               title={

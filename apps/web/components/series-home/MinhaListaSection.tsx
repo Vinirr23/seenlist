@@ -358,7 +358,16 @@ export function MinhaListaSection() {
             actionHref="/explore?tab=series"
             dividerLabel={t("seriesHome.or")}
           />
-          <div className="mt-10">
+          {/*
+            * AJUSTE (2026-09-03, a pedido — "sobe mais o 'populares',
+            * deixa na mesma distância que o botão 'explorar séries' está
+            * do 'OU'") — era `mt-10` (40px, valor herdado do histórico
+            * documentado acima). O espaço botão→"OU" é `mt-6` (24px,
+            * classe no próprio divisor dentro de `EmptyLibraryHero.tsx`)
+            * — trocado pra IGUALAR esse valor exato, não um número
+            * chutado.
+            */}
+          <div className="mt-6">
             <PopularMediaRow
               list="trending_series"
               title={
