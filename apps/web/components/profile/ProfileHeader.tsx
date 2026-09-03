@@ -104,7 +104,23 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         // arredondados. Botões editar/compartilhar/config continuam
         // dentro da capa (não fazem parte do que overflow corta, ficam
         // na área visível).
-        <div className="relative mb-4">
+        //
+        // BUG REAL CORRIGIDO (2026-09-03, a pedido — "a bio ficou
+        // bugada, ela deve continuar onde estava, com um espaço abaixo
+        // da foto de perfil") — causa raiz: quando a fileira
+        // avatar+nome (logo abaixo) virou UM bloco só (`-bottom-8`,
+        // ver comentário nela), ela passou a se estender 32px pra BAIXO
+        // da borda da capa (a mesma distância que sempre existiu, só
+        // que antes só o avatar sozinho — 64px — ocupava esse espaço,
+        // com o nome numa fileira própria mais abaixo, empurrada por um
+        // `pt-10`). O `mb-4` (16px) daqui nunca dava conta de reservar
+        // esse espaço — a bio (element seguinte, fora deste `<div>`)
+        // sempre começou a 16px da capa, cedo demais agora que o texto
+        // também mora dentro da fileira dos 32px de sobreposição.
+        // `mb-14` (56px) reserva o suficiente pra fileira INTEIRA
+        // (avatar + nome) terminar de aparecer antes da bio começar —
+        // mesmo respiro total que o `pt-10` antigo dava (16 + 40 = 56).
+        <div className="relative mb-14">
           <div className="relative -mx-4 h-56 w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-surface shadow-lg shadow-black/30">
             {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
             <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
