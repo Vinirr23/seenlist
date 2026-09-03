@@ -89,7 +89,27 @@ export function BottomNavigation() {
     // e legenda (10px) continuam do mesmo tamanho de sempre.
     <nav
       aria-label={t("nav.mainNavigation")}
-      className="fixed inset-x-3 bottom-3 z-40 mx-auto flex max-w-[284px] items-center rounded-2xl border border-white/[0.06] px-2 shadow-lg shadow-black/20 backdrop-blur-[18px] backdrop-saturate-[180%] pb-[env(safe-area-inset-bottom)]"
+      /**
+       * CORREÇÃO (2026-09-03, a pedido — "no modo app web a barra fica
+       * com um espaço vazio embaixo, no navegador fica normal") —
+       * causa raiz: existiam DOIS tratamentos de área segura do iOS ao
+       * mesmo tempo — `bottom-3` (posição fixa, 12px do fundo) E
+       * `pb-[env(safe-area-inset-bottom)]` (padding-bottom extra, POR
+       * DENTRO da barra). `env(safe-area-inset-bottom)` só é > 0 quando
+       * o site roda em modo standalone/app instalado no iOS (a área do
+       * "home indicator") — no Safari normal (aba), esse valor é 0
+       * (quem reserva a área segura ali é o próprio navegador). Por
+       * isso só no modo app o `pb-[...]` virava um padding de ~34px
+       * (iPhone com Face ID) DENTRO da barra, esticando o fundo de
+       * vidro e a borda arredondada pra baixo dos ícones — sobrava
+       * aquela faixa vazia com a pilula do gesto do iOS dentro dela.
+       * Fix: tira o padding de dentro (que só engorda a caixa) e move a
+       * MESMA área segura pra fora, somada ao `bottom-3` — empurra a
+       * barra inteira pra cima da área do gesto, mantendo o tamanho
+       * compacto do "dock flutuante" (documentado abaixo) em vez de
+       * esticar a caixa.
+       */
+      className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-[284px] items-center rounded-2xl border border-white/[0.06] px-2 shadow-lg shadow-black/20 backdrop-blur-[18px] backdrop-saturate-[180%]"
       style={{
         background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
       }}
