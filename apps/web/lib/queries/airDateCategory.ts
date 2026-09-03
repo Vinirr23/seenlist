@@ -261,7 +261,7 @@ export function resolveSeriesCategory(input: SeriesStatusInputs): SeriesCategory
 /**
  * Decide se uma categoria recém-calculada deve ser GRAVADA, dado o
  * status ATUAL da série — único lugar que sabe as regras que
- * protegem decisão manual do usuário, pra qualquer um dos 3 lugares
+ * protegem decisão manual do usuário, pra qualquer um dos lugares
  * que gravam `series_status`:
  *
  * 1. "paused" nunca vira "watching" sozinho (bug real corrigido nesta
@@ -270,15 +270,48 @@ export function resolveSeriesCategory(input: SeriesStatusInputs): SeriesCategory
  *    marcou o Primal manualmente como "Assistir depois" depois de ver
  *    as temporadas antigas, rodou "Corrigir status das séries", e a
  *    série voltou pra "Assistindo" sozinha assim que saiu a Temporada
- *    3) — "want_to_watch" agora recebe a MESMA proteção que "paused"
- *    já tinha: sair de "Assistir depois" também é decisão manual do
- *    usuário, nunca automática só porque saiu episódio novo.
+ *    3) — "want_to_watch" ganhou a MESMA proteção que "paused" já
+ *    tinha: sair de "Assistir depois" não pode ser automático só
+ *    porque saiu episódio novo (recálculo passivo, ninguém tocou na
+ *    série).
  * 3. Categoria sem mudança só é regravada quando o resultado é
  *    "watching" (serve só pra atualizar `updated_at`, usado pra
  *    ordenar "Continue assistindo" — "up_to_date"/"completed" não
  *    têm nada pendente, não precisam subir no ranking à toa).
+ *
+ * BUG REAL CORRIGIDO (2026-09-03, reportado — "quando marco episódio
+ * numa série que está em 'assistir depois', não muda pra 'assistindo'",
+ * mais "não tem opção de retomar" — a 2ª queixa é CONSEQUÊNCIA da 1ª:
+ * "Continue assistindo" só lista séries "watching"/"up_to_date", então
+ * uma série presa em "want_to_watch" nunca aparece lá pra continuar) —
+ * causa raiz: a regra #2 acima (adicionada pelo Primal) protege contra
+ * o RECÁLCULO PASSIVO reviver sozinho uma série "want_to_watch" quando
+ * sai episódio novo (ninguém tocou nela) — mas essa MESMA função
+ * também é chamada depois que o usuário, de propósito, marca um
+ * episódio como assistido (`recalculateSeriesCategoryAfterEpisodeChange`,
+ * `seriesCategoryRecalc.ts`) — caso em que a promoção É o comportamento
+ * certo (documentado desde a TASK-061, no mesmo arquivo: marcar
+ * episódio É como uma série "want_to_watch" vira "watching", sem
+ * precisar de um botão "Começar a assistir" à parte). O `return false`
+ * daqui bloqueava os DOIS casos por igual, cancelando a TASK-061 pra
+ * esse status específico sem ninguém ter decidido isso de propósito.
+ *
+ * `allowWantToWatchPromotion` (novo, default `false` — comportamento
+ * de antes preservado pra quem não passar nada) deixa quem CHAMA dizer
+ * qual dos dois casos é: `recalculateSeriesCategoryAfterEpisodeChange`
+ * (ação explícita do usuário nesta série específica) passa `true`;
+ * o recálculo em lote (`recalculateUpToDateSeriesCategories`, roda
+ * sozinho ao abrir a Central de Séries) e a rota admin de reparo
+ * continuam SEM passar nada (`false`), preservando a proteção contra
+ * revivência automática que a correção do Primal pediu.
  */
-export function shouldWriteSeriesCategory(currentStatus: string, newCategory: SeriesCategory): boolean {
-  if ((currentStatus === "paused" || currentStatus === "want_to_watch") && newCategory === "watching") return false;
+export function shouldWriteSeriesCategory(
+  currentStatus: string,
+  newCategory: SeriesCategory,
+  options?: { allowWantToWatchPromotion?: boolean }
+): boolean {
+  const allowWantToWatchPromotion = options?.allowWantToWatchPromotion ?? false;
+  if (currentStatus === "paused" && newCategory === "watching") return false;
+  if (currentStatus === "want_to_watch" && newCategory === "watching" && !allowWantToWatchPromotion) return false;
   return newCategory !== currentStatus || newCategory === "watching";
 }

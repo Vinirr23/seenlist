@@ -772,7 +772,18 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     specialEpisodeKeys: specialKeys,
     watchedEpisodeIds,
   });
-  if (!shouldWriteSeriesCategory(currentStatus, newCategory)) return;
+  /**
+   * BUG REAL CORRIGIDO (2026-09-03, ver comentário completo em
+   * `shouldWriteSeriesCategory`, `airDateCategory.ts`) —
+   * `allowWantToWatchPromotion: true` só AQUI, nunca no recálculo em
+   * lote logo acima: esta função só roda quando o USUÁRIO marcou/
+   * desmarcou um episódio NESTA série, de propósito — é exatamente o
+   * caso que a TASK-061 (comentário no topo desta função) sempre quis
+   * permitir. Sem isso, uma série "Assistir depois" nunca saía desse
+   * status, mesmo com 100% dos episódios marcados — e por tabela nunca
+   * aparecia em "Continue assistindo" pra poder "retomar".
+   */
+  if (!shouldWriteSeriesCategory(currentStatus, newCategory, { allowWantToWatchPromotion: true })) return;
 
   /**
    * TASK-062 — `upsert` em vez de `update`: séries sem linha prévia

@@ -177,6 +177,18 @@ describe("shouldWriteSeriesCategory", () => {
     expect(shouldWriteSeriesCategory("want_to_watch", "completed")).toBe(true);
   });
 
+  it("BUG REAL CORRIGIDO (2026-09-03): 'want_to_watch' PODE virar 'watching' quando é o usuário marcando episódio de propósito (allowWantToWatchPromotion: true), sem afetar o recálculo passivo (default false)", () => {
+    // Regressão do fix acima: a mesma proteção que impede o recálculo
+    // passivo de reviver o Primal sozinho também bloqueava o caso
+    // oposto — usuário marca episódio numa série "Assistir depois" de
+    // propósito, esperando que ela vire "Assistindo" (comportamento
+    // documentado desde a TASK-061, `seriesCategoryRecalc.ts`).
+    expect(shouldWriteSeriesCategory("want_to_watch", "watching", { allowWantToWatchPromotion: true })).toBe(true);
+    // Sem o flag (recálculo em lote/rota admin), continua protegido.
+    expect(shouldWriteSeriesCategory("want_to_watch", "watching", { allowWantToWatchPromotion: false })).toBe(false);
+    expect(shouldWriteSeriesCategory("want_to_watch", "watching")).toBe(false);
+  });
+
   it("'watching' sempre é regravado, mesmo sem mudança de categoria (mantém 'updated_at' fresco pro ranking de Continue assistindo)", () => {
     expect(shouldWriteSeriesCategory("watching", "watching")).toBe(true);
   });
