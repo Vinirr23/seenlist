@@ -152,9 +152,10 @@ export function MinhaListaSection() {
           {/*
             * AJUSTE (2026-09-03 — mesmo ajuste pedido em Séries, ver
             * comentário completo em `series-home/MinhaListaSection.tsx`)
-            * — `mt-10` → `mt-6`, igualando ao espaço botão→"OU".
+            * — `mt-10` → `mt-6` → `mt-2` (2 rodadas, a segunda pedindo
+            * pra subir mais ainda).
             */}
-          <div className="mt-6">
+          <div className="mt-2">
             <PopularMediaRow
               list="trending_movies"
               title={

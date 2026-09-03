@@ -361,13 +361,17 @@ export function MinhaListaSection() {
           {/*
             * AJUSTE (2026-09-03, a pedido — "sobe mais o 'populares',
             * deixa na mesma distância que o botão 'explorar séries' está
-            * do 'OU'") — era `mt-10` (40px, valor herdado do histórico
-            * documentado acima). O espaço botão→"OU" é `mt-6` (24px,
-            * classe no próprio divisor dentro de `EmptyLibraryHero.tsx`)
-            * — trocado pra IGUALAR esse valor exato, não um número
-            * chutado.
+            * do 'OU'") — era `mt-10` (40px). O espaço botão→"OU" é
+            * `mt-6` (24px, classe no próprio divisor dentro de
+            * `EmptyLibraryHero.tsx`) — igualado nessa rodada.
+            *
+            * AJUSTE #2 (2026-09-03, seguinte, a pedido — print com uma
+            * marca vermelha logo abaixo do "OU", pedindo pra subir mais
+            * ainda) — `mt-6` (24px) ainda deixava espaço demais achando
+            * a marca do print; reduzido pra `mt-2` (8px, o menor degrau
+            * de espaçamento vertical entre blocos já usado no app).
             */}
-          <div className="mt-6">
+          <div className="mt-2">
             <PopularMediaRow
               list="trending_series"
               title={
