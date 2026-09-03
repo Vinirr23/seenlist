@@ -283,7 +283,7 @@ export function MinhaListaSection() {
          * o `viewModeReady` acima evita, só que pra este outro dado
          * assíncrono).
          */
-        <HomeSkeleton variant={viewMode === "grid" ? "grid" : "list"} />
+        <HomeSkeleton variant={viewMode === "grid" ? "grid" : "list"} message={t("seriesHome.loadingMessage")} />
       ) : visibleContinueWatching.length === 0 ? (
         /*
          * "Estado vazio melhorado" (2026-09-01, a pedido, opção

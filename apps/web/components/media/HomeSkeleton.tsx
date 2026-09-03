@@ -40,6 +40,17 @@ export interface HomeSkeletonProps {
    * `MediaListRow.tsx`/`ContinueWatchingCard.tsx`).
    */
   variant?: "grid" | "list";
+  /**
+   * A PEDIDO (2026-09-03 — "além dos pontinhos, uma frase tipo
+   * 'estamos carregando sua biblioteca'", depois restrito a "apenas
+   * na Home, que é a primeira tela ao abrir") — opcional, de
+   * propósito: só `series-home/MinhaListaSection.tsx` (a Home de
+   * verdade, aba "Séries" > "Minha Lista") passa isso. Os outros 3
+   * lugares que usam este componente (Filmes > "Minha Lista"/"Em
+   * breve", "Ver tudo" de Continue assistindo) continuam só com os
+   * pontinhos, sem frase — não são a tela de abertura do app.
+   */
+  message?: string;
 }
 
 /**
@@ -58,22 +69,25 @@ export interface HomeSkeletonProps {
  * a mesma nos dois casos, não depende mais do formato do conteúdo
  * real que vem depois.
  */
-export function HomeSkeleton({ variant = "grid" }: HomeSkeletonProps) {
+export function HomeSkeleton({ variant = "grid", message }: HomeSkeletonProps) {
   const { t } = useTranslation();
 
   return (
     <div
-      className={`flex items-center justify-center gap-2 ${variant === "grid" ? "min-h-[220px]" : "min-h-[180px]"}`}
+      className={`flex flex-col items-center justify-center gap-3 ${variant === "grid" ? "min-h-[220px]" : "min-h-[180px]"}`}
       aria-busy="true"
-      aria-label={t("media.loadingLibrary")}
+      aria-label={message ?? t("media.loadingLibrary")}
     >
-      {[0, 1, 2].map((index) => (
-        <span
-          key={index}
-          className="h-2.5 w-2.5 animate-home-skeleton-dot rounded-full bg-primary"
-          style={{ animationDelay: `${index * 0.15}s` }}
-        />
-      ))}
+      <div className="flex items-center gap-2">
+        {[0, 1, 2].map((index) => (
+          <span
+            key={index}
+            className="h-2.5 w-2.5 animate-home-skeleton-dot rounded-full bg-primary"
+            style={{ animationDelay: `${index * 0.15}s` }}
+          />
+        ))}
+      </div>
+      {message && <p className="text-sm text-muted">{message}</p>}
     </div>
   );
 }
