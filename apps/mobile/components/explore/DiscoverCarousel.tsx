@@ -31,16 +31,28 @@ const CARD_WIDTH = 144;
  * `<View>{title}</View>` "burro" (só layout), e quem chama passa o
  * `<Text>` (título simples) ou um `<View style={{flexDirection:
  * "row"}}>` com ícone+texto (título com destaque) já pronto.
+ *
+ * `viewAllHref` (2026-09-02, a pedido — "no web, explorar tem uma
+ * seta '>' [...] você não adicionou isso ao mobile") — igual ao web
+ * (`DiscoverCarousel.tsx`, prop de mesmo nome): quando presente, o
+ * cabeçalho INTEIRO vira tocável e navega pra tela "ver todos" daquela
+ * lista, com uma seta `chevron-right` ao lado do título. Sem essa
+ * prop, o cabeçalho continua só texto, sem toque nenhum — mesmo
+ * comportamento de sempre (nem todo carrossel do app tem uma tela "ver
+ * todos" — ver `PosterGrid`/carrosséis do Perfil).
  */
 export function DiscoverCarousel({
   title,
   items,
   isLoading,
+  viewAllHref,
 }: {
   title: ReactNode;
   items: DiscoverItem[];
   isLoading: boolean;
+  viewAllHref?: string;
 }) {
+  const router = useRouter();
   /**
    * TASK-152 — busca o status de TODOS os itens visíveis de uma vez
    * (2 consultas no total, não uma por pôster) assim que a lista
@@ -102,7 +114,16 @@ export function DiscoverCarousel({
 
   return (
     <View style={styles.section}>
-      <View style={styles.title}>{title}</View>
+      {viewAllHref ? (
+        <Pressable style={styles.titleRow} onPress={() => router.push(viewAllHref as never)}>
+          <View style={styles.titleGrow}>{title}</View>
+          <Feather name="chevron-right" size={16} color={colors.muted} />
+        </Pressable>
+      ) : (
+        <View style={styles.titleRow}>
+          <View style={styles.titleGrow}>{title}</View>
+        </View>
+      )}
 
       {showSkeleton ? (
         <View style={styles.row}>
@@ -167,14 +188,29 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.lg,
   },
-  title: {
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24) em
+  // `titleRow`/`row`. Este componente é usado "cru" (sem container
+  // extra) no Explorar, e com margem negativa cancelando o padding do
+  // pai em Filmes/Séries (`popularSection`) — nos dois casos, este
+  // `paddingHorizontal` é o que efetivamente vira a borda de tela do
+  // carrossel; por isso acompanha a mesma padronização pra `spacing.md`
+  // (16), igual ao resto da tela.
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.xs,
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  titleGrow: {
+    flex: 1,
   },
   row: {
     flexDirection: "row",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   card: {
     // CORREÇÃO (auditoria de consistência) — mesma elevação do

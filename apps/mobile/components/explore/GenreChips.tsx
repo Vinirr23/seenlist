@@ -1,4 +1,5 @@
-import { View, ScrollView, StyleSheet } from "react-native";
+import { View, ScrollView, Pressable, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { Text, Glass, Skeleton } from "@/components/ui";
 import { radius, spacing, fontSize } from "@/lib/theme";
 import type { FavoriteGenre } from "@/lib/useFavoriteGenres";
@@ -9,28 +10,28 @@ import type { FavoriteGenre } from "@/lib/useFavoriteGenres";
  * gêneros favoritos"). Mesmo tratamento de "vidro neutro" da aba
  * inativa (`ExploreTabs.tsx`) pra cada chip.
  *
- * DIFERENÇA DELIBERADA do web: lá cada chip é um link pra
- * `/explore/genre/[mediaType]/[genreId]` (listagem completa daquele
- * gênero). O mobile hoje NÃO tem nenhuma tela de destino desse tipo —
- * confirmado por varredura completa de `app/(tabs)`: nem "ver todos"
- * de carrossel, nem tela de gênero/similares existem no app nativo
- * ainda (todo carrossel mobile, incluindo `DiscoverCarousel.tsx`, já
- * é só visual, sem link "ver mais" nenhum). Construir essas telas
- * novas não fazia parte do pedido ("a reformulação completa da
- * Explorar" = igualar o CONTEÚDO/estrutura já existente no web, não
- * inventar navegação nova) — os chips aqui são só INFORMATIVOS
- * (mostram os gêneros, sem toque), mesmo padrão "sem destino" já
- * usado no resto do Explorar mobile.
+ * CORREÇÃO (2026-09-02 — "no web, explorar tem uma seta '>' e
+ * infinite scroll, implementa TUDO no mobile") — voltou a ser
+ * clicável, igual ao web: cada chip agora navega pra
+ * `app/explore/genre/[mediaType]/[genreId].tsx`, tela nova criada
+ * junto desta correção (grade paginada daquele gênero). Reverte a
+ * decisão anterior deste arquivo de deixar os chips só informativos —
+ * essa decisão fazia sentido enquanto a tela de destino não existia;
+ * agora existe, então o chip pode voltar a fazer a MESMA coisa que
+ * faz no web.
  */
 export function GenreChips({
   title,
   genres,
   isLoading,
+  mediaType,
 }: {
   title: string;
   genres: FavoriteGenre[];
   isLoading?: boolean;
+  mediaType: "movie" | "series";
 }) {
+  const router = useRouter();
   if (!isLoading && genres.length === 0) return null;
 
   return (
@@ -48,9 +49,11 @@ export function GenreChips({
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
           {genres.map((genre) => (
-            <Glass key={genre.genreId} style={styles.chip}>
-              <Text style={styles.chipLabel}>{genre.name}</Text>
-            </Glass>
+            <Pressable key={genre.genreId} onPress={() => router.push(`/explore/genre/${mediaType}/${genre.genreId}` as never)}>
+              <Glass style={styles.chip}>
+                <Text style={styles.chipLabel}>{genre.name}</Text>
+              </Glass>
+            </Pressable>
           ))}
         </ScrollView>
       )}
@@ -62,14 +65,19 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.lg,
   },
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24) em
+  // `title`/`row`. Este componente é renderizado "cru" (sem container
+  // com padding) no Explorar — este `paddingHorizontal` É a borda de
+  // tela.
   title: {
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   row: {
     flexDirection: "row",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   chip: {
     borderRadius: radius.full,

@@ -46,11 +46,17 @@ export function FollowListRow({ user }: { user: FollowListUser }) {
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela. Esta linha é
+  // renderizada "crua" (sem container com padding, `Screen padded=
+  // {false}`) na tela de seguindo/seguidores — este `paddingHorizontal`
+  // É a borda de tela.
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 4,
   },
   avatar: {

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Tv, CalendarClock, Users, ListChecks, ArrowRight, Check, Star, MessageSquare, ChevronRight } from "lucide-react";
+import { Tv, CalendarClock, Users, ArrowRight, Check, ChevronRight } from "lucide-react";
 import { getTrendingMovies, getTrendingSeries } from "@/lib/tmdb/client";
 import { tmdbImage } from "@/lib/tmdb/image";
 import {
@@ -114,7 +114,6 @@ async function fetchLandingItems(): Promise<LandingItem[]> {
 export default async function LandingPage() {
   const pool = await fetchLandingItems();
   const withPoster = pool.filter((item) => item.posterPath);
-  const heroBackdrop = pool.find((item) => item.backdropPath)?.backdropPath ?? null;
 
   const posterRowItems = withPoster.slice(0, 8);
   const trendingItems = withPoster.slice(8, 16);
@@ -125,9 +124,8 @@ export default async function LandingPage() {
   return (
     <main className="relative overflow-hidden bg-background">
       <CtaHoverStyle />
-      <Hero backdropPath={heroBackdrop} />
+      <Hero posters={withPoster} />
       <PosterRow items={posterRowItems} />
-      <LetsYouGrid />
 
       {/* Brilho ambiente atrás das seções de fundo liso — mesma dupla âmbar/teal usada em app/beta/page.tsx. */}
       <div
@@ -183,19 +181,52 @@ function PosterBlock({
  * do cabeçalho (topo) e do texto (base), título + CTA centralizados
  * perto da base — sem subtítulo/parágrafo embaixo do título (a
  * pedido, pra ficar mais enxuto, igual a referência).
+ *
+ * A PEDIDO (2026-09-04 — "ao invés de uma capa de filme/série, coloca
+ * uma colagem de várias capas de séries/filmes em alta") — trocado o
+ * still único (`backdropPath`, 1 imagem 16:9) por um mosaico de
+ * pôsteres reais "em alta" (`posters`, mesma lista de `withPoster` que
+ * o resto da página já usa — sem busca nova). Grade fixa de
+ * `HERO_COLLAGE_COLUMNS` colunas × linhas suficientes pra preencher a
+ * altura do hero, cada célula com um pôster (`object-cover`, sem
+ * distorcer). Se a lista tiver menos itens que células (TMDB deu menos
+ * resultado que o normal), os pôsteres se repetem por `% posters.length`
+ * em vez de deixar buraco — mesmo espírito defensivo do resto da
+ * página (nunca quebra por causa de uma lista mais curta). Os degradês
+ * escuros por cima (mesmo motivo do comentário logo abaixo) continuam
+ * os únicos responsáveis pela legibilidade do texto — o mosaico em si
+ * não escurece nada sozinho.
  */
-function Hero({ backdropPath }: { backdropPath: string | null }) {
+const HERO_COLLAGE_COLUMNS = 6;
+const HERO_COLLAGE_ROWS = 5;
+
+function Hero({ posters }: { posters: LandingItem[] }) {
+  const tileCount = HERO_COLLAGE_COLUMNS * HERO_COLLAGE_ROWS;
+  const tiles: LandingItem[] = [];
+  for (let i = 0; i < tileCount && posters.length > 0; i++) {
+    // `!` — mesma garantia/explicação do `PosterRow`/`TrendingRow` desta
+    // página: `i % posters.length` sempre cai num índice válido (o `for`
+    // só roda com `posters.length > 0`), mas `noUncheckedIndexedAccess`
+    // não deixa o TypeScript provar isso sozinho.
+    tiles.push(posters[i % posters.length]!);
+  }
+
   return (
     <section className="relative h-[85vh] min-h-[560px] max-h-[780px] w-full overflow-hidden">
-      {backdropPath ? (
-        <Image
-          src={tmdbImage(backdropPath, "w1280")!}
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-top"
-        />
+      {tiles.length > 0 ? (
+        <div
+          className="absolute inset-0 grid gap-0.5"
+          style={{ gridTemplateColumns: `repeat(${HERO_COLLAGE_COLUMNS}, 1fr)`, gridAutoRows: "1fr" }}
+          aria-hidden="true"
+        >
+          {tiles.map((item, i) => (
+            <div key={i} className="relative overflow-hidden bg-surface">
+              {item.posterPath && (
+                <Image src={tmdbImage(item.posterPath, "w342")!} alt="" fill sizes="200px" className="object-cover" />
+              )}
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-surface via-background to-background" aria-hidden="true" />
       )}
@@ -209,9 +240,46 @@ function Hero({ backdropPath }: { backdropPath: string | null }) {
         até quase o topo dessa metade, igual a referência — antes ele
         clareava demais no meio (`via-background/10`) e a foto
         "vazava" atrás do título.
+
+        AJUSTE (2026-09-04, a pedido — "deixa as bordas escuras, mal dá
+        pra ver a logo superior e o 'entrar e criar conta'") — o mosaico
+        de pôsteres (acima) é bem mais colorido/claro que o still único
+        de antes, e o degradê de cima tinha sido calibrado pra aquele
+        still, não pro mosaico. `Header` (`shared.tsx`) desenha a logo à
+        esquerda e "Entrar" (texto puro, sem fundo próprio) à direita —
+        os dois SEM nenhum fundo sólido atrás, dependem só deste degradê
+        pra contraste. Escurecido (topo passa a nascer OPACO, `from-
+        background` em vez de `/85`, e só começa a clarear depois de
+        22% em vez de 28%) e somada uma vinheta radial nova logo abaixo
+        — escurece as 4 bordas (não só topo/base), cobrindo também os
+        CANTOS esquerdo/direito onde logo e "Entrar" ficam, sem tampar o
+        centro do mosaico.
+
+        AJUSTE 2 (mesmo dia, a pedido — "aumenta mais o degradê de
+        cima, uns 30%") — os dois pontos de corte (`via`/`to`) aumentados
+        em ~30% (10%→13%, 22%→29%), mesma técnica de ajuste percentual
+        já usada no `GLOW_BRIGHTNESS_BOOST` do mobile (`Glass.tsx`):
+        multiplica o valor que já funcionava, em vez de escolher um
+        número novo a dedo.
+
+        AJUSTE 3 (mesmo dia, a pedido — "ainda não é suficiente,
+        aumenta mais") — o AJUSTE 2 só esticou o ALCANCE (onde o
+        degradê termina de clarear), não a intensidade dele — a
+        opacidade no ponto `via` continuava em 45%, então mesmo dentro
+        da área "escura" o mosaico ainda aparecia bastante forte. Desta
+        vez os dois eixos junto: opacidade do `via` (45%→65%) E alcance
+        (13%/29%→20%/42%) — mais escuro E cobrindo mais altura. A
+        vinheta radial (logo abaixo) também reforçada (0.65→0.78 de
+        opacidade no canto, 55%→45% onde o centro claro começa) pelo
+        mesmo motivo.
       */}
       <div
-        className="absolute inset-0 bg-gradient-to-b from-background/85 from-0% via-transparent via-[28%] to-transparent"
+        className="absolute inset-0 bg-gradient-to-b from-background from-0% via-background/65 via-[20%] to-transparent to-[42%]"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute inset-0"
+        style={{ background: "radial-gradient(65% 60% at 50% 30%, transparent 45%, rgb(11 14 20 / 0.78) 100%)" }}
         aria-hidden="true"
       />
       <div
@@ -223,7 +291,7 @@ function Hero({ backdropPath }: { backdropPath: string | null }) {
 
       <div className="absolute inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 pb-16 pt-10 text-center sm:px-8 sm:pb-20">
         <h1 className="text-balance text-4xl font-extrabold leading-[1.08] tracking-tight text-text sm:text-5xl lg:text-[3.4rem]">
-          Acompanhe tudo que você já viu e o que vem por aí, <span className="text-primary">num só lugar</span>.
+          Filmes e séries, tudo que você assiste, <span className="text-primary">num só lugar</span>.
         </h1>
 
         <Link
@@ -276,41 +344,6 @@ function PosterRow({ items }: { items: LandingItem[] }) {
             radius="rounded-lg"
             sizes="128px"
           />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/**
- * Grade "SeenList deixa você..." — mesmo formato do "LETTERBOXD LETS
- * YOU..." (referência visual), seis cartões pequenos com ícone + frase
- * curta. Cada item é uma funcionalidade real do app, não promessa —
- * conferido no código antes de escrever (nota por episódio, resenha
- * com spoiler, linha do tempo de estreias, listas, seguir gente).
- */
-function LetsYouGrid() {
-  const items = [
-    { icon: Tv, text: "Marca cada episódio que você assiste, ou começa a acompanhar a partir de hoje" },
-    { icon: Star, text: "Dá uma nota de 1 a 5 estrelas pra cada episódio e guarda sua reação" },
-    { icon: MessageSquare, text: "Escreve resenhas com aviso de spoiler, e lê o que os amigos acharam" },
-    { icon: CalendarClock, text: "Mostra a agenda de estreias dos seus títulos, série por série" },
-    { icon: ListChecks, text: "Monta e compartilha listas de filmes e séries sobre qualquer assunto" },
-    { icon: Users, text: "Deixa você seguir outras pessoas e ver o que elas estão assistindo agora" },
-  ];
-  return (
-    <section className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 sm:px-8 sm:py-14">
-      <span className="mb-4 block text-xs font-bold uppercase tracking-[0.2em] text-muted">
-        SeenList deixa você...
-      </span>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((item, i) => (
-          <div key={i} className={`${GLASS_CARD} flex items-start gap-3.5 p-5`} style={GLASS_CARD_BG}>
-            <span className={`${GLASS_CHIP} h-9 w-9 shrink-0 items-center justify-center text-primary`} style={GLASS_CHIP_BG}>
-              <item.icon className="h-4 w-4" strokeWidth={2.25} />
-            </span>
-            <p className="text-sm leading-relaxed text-text">{item.text}</p>
-          </div>
         ))}
       </div>
     </section>
@@ -620,10 +653,10 @@ function Highlights({
   const columns = [
     {
       icon: Tv,
-      title: "Acompanhe episódio por episódio",
+      title: "Filme e série, do seu jeito",
       description:
-        "Marque o que já assistiu, dê nota pra cada episódio e guarde sua reação — tudo isso funcionando em qualquer plataforma de streaming.",
-      items: ["Marque cada episódio assistido", "Dê nota de 1 a 5 estrelas", "Escreva sua reação, sem soltar spoiler"],
+        "Acompanhe o que você está assistindo — filmes, séries, animes, doramas e etc. — dê nota e guarde sua reação, em qualquer plataforma de streaming.",
+      items: ["Marque filmes e episódios assistidos", "Dê nota de 1 a 5 estrelas", "Escreva sua reação, sem soltar spoiler"],
       visual: <TrackingMockup posters={trackPosters} />,
     },
     {
@@ -631,7 +664,7 @@ function Highlights({
       title: "Nunca perca uma estreia",
       description:
         "A aba Em breve organiza os próximos episódios das suas séries por data, pra você saber exatamente o que estreia essa semana.",
-      items: ["Linha do tempo dos próximos episódios", "Data e emissora de cada estreia", "Zero spoiler antes da hora"],
+      items: ["Linha do tempo dos próximos episódios", "Data e emissora de cada estreia", "Nós te avisamos sempre que tiver algo novo"],
       visual: <UpcomingMockup posters={upcomingPosters} />,
     },
     {
@@ -767,7 +800,7 @@ function Faq() {
   const items = [
     {
       q: "O que é o SeenList?",
-      a: "O SeenList é uma plataforma pra acompanhar tudo que você assiste — séries e filmes, episódio por episódio — e uma comunidade de gente que também leva isso a sério. Você marca o que já viu, dá nota, escreve resenhas, monta listas e acompanha o que os amigos estão assistindo.",
+      a: "O SeenList é uma plataforma pra acompanhar tudo que você assiste — filmes e séries — e uma comunidade de gente que também leva isso a sério. Você marca o que já viu, dá nota, escreve resenhas, monta listas e acompanha o que os amigos estão assistindo.",
     },
     {
       q: "O SeenList é gratuito?",

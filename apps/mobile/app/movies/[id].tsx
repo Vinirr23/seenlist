@@ -83,6 +83,16 @@ export default function MovieDetailScreen() {
         <View style={styles.body}>
           <MovieActions movieId={numericId} currentStatus={status} busy={busy} onChange={changeStatus} />
 
+          {/* CORREÇÃO (2026-09-04, achado ao portar "onde assistir" pra
+              Série — regra de padronização) — o web tem um comentário
+              explícito ("onde assistir antes da sinopse, não depois do
+              elenco como estava", MovieDetailsView.tsx) confirmando que
+              essa posição (depois do elenco) ficou desatualizada lá em
+              2026-08-25 e nunca foi replicada aqui no mobile. Movido pra
+              bater com o web de verdade: logo após as ações, antes da
+              sinopse. */}
+          <StreamingProviders providers={movie.watchProviders} />
+
           <Text style={styles.overview}>{movie.overview || t("media.noSynopsisAvailable")}</Text>
 
           <View style={styles.metaGrid}>
@@ -112,9 +122,6 @@ export default function MovieDetailScreen() {
             </Text>
             <CastCarousel cast={movie.cast} />
           </View>
-
-          {/* A PEDIDO (confirmação de paridade web/mobile) — ordem trocada pra bater com o web: "Onde assistir" vem ANTES de "Filmes parecidos" lá, estava depois aqui. */}
-          <StreamingProviders providers={movie.watchProviders} />
 
           <View>
             <Text variant="subtitle" style={styles.sectionTitle}>
@@ -163,9 +170,15 @@ export default function MovieDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `padding` (esquerda/direita) era `spacing.lg`
+  // (24); web usa `px-4` (`spacing.md`=16) como borda de tela.
+  // `paddingBottom` (herdado do `padding` antigo) e `gap` (ritmo
+  // vertical entre seções) NÃO foram tocados — fora do escopo.
   body: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
     gap: spacing.lg,
   },
   overview: {

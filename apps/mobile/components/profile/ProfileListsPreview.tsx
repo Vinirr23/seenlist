@@ -55,10 +55,19 @@ export function ProfileListsPreview() {
 
   return (
     <View style={styles.section}>
-      <View style={styles.sectionTitle}>
-        <Feather name="check-square" size={16} color={colors.primary} />
-        <Text style={styles.sectionTitleText}>Minhas listas</Text>
-      </View>
+      {/* PADRONIZAÇÃO (2026-09-03, auditoria "implementar tudo que não
+        * envolve redesign") — cabeçalho agora é clicável (Pressable +
+        * chevron), levando pra `/lists`, igual ao padrão já usado em
+        * `ProfileMediaCarousel.tsx` ("Séries"/"Filmes"/favoritos). Antes
+        * só os cards individuais navegavam — o título "Minhas listas"
+        * em si não era um link, inconsistente com o resto do Perfil. */}
+      <Pressable style={styles.sectionHeader} onPress={() => router.push("/lists")}>
+        <View style={styles.sectionTitle}>
+          <Feather name="check-square" size={16} color={colors.primary} />
+          <Text style={styles.sectionTitleText}>Minhas listas</Text>
+        </View>
+        <Feather name="chevron-right" size={16} color={colors.muted} />
+      </Pressable>
 
       {isLoading ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
@@ -117,28 +126,41 @@ export function ProfileListsPreview() {
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela. `marginBottom`
+  // (ritmo vertical entre seções) NÃO foi tocado — fora do escopo.
   section: {
     marginBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.xs` (4); o web usa `gap-2` (`ProfileListsPreview.tsx`, ícone+título) = 8px. */
   sectionTitle: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
+  /** fontSize.md (16) / "700" já batem com o web (`text-base font-bold` = 16px/700, `ProfileListsPreview.tsx`) — menor/menos peso que o título dos carrosséis de pôster (`ProfileMediaCarousel.tsx`, 18px/800) de propósito, os dois são diferentes no próprio web. */
   sectionTitleText: {
     fontSize: fontSize.md,
     fontWeight: "700",
     color: colors.text,
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); o web usa `gap-3` (`ProfileListsPreview.tsx`, fileira de listas) = 12px — sem token exato, valor literal. */
   row: {
-    gap: spacing.sm,
+    gap: 12,
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.xs` (4); o web usa `gap-2` (`ProfileListsPreview.tsx`, card de convite vazio) = 8px. */
   emptyCard: {
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xs,
+    gap: spacing.sm,
     borderStyle: "dashed",
     borderRadius: radius.md,
     paddingVertical: spacing.xl,
@@ -179,9 +201,10 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — `fontSize.sm` (14) era maior que o web: `text-xs font-medium` (`ProfileListsPreview.tsx`, nome da lista) = 12px/500. `marginTop: 6` já batia com `mt-1.5` (6px) — não mudou. */
   listName: {
     marginTop: 6,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     fontWeight: "500",
     color: colors.text,
   },

@@ -41,7 +41,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela. Este é o padding
+  // padrão do `<Screen>` (usado quando `padded` não é `false`) — hoje
+  // só entra em jogo nos estados de carregamento/erro das telas de
+  // detalhe (`<Screen><MediaDetailSkeleton /></Screen>`, `<Screen>
+  // <PageError /></Screen>`), já que as telas com conteúdo próprio
+  // usam `padded={false}` e cuidam do próprio padding — sem esta
+  // troca, a borda "pularia" de 16 pra 24px ao trocar do skeleton pro
+  // conteúdo real.
   padded: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
 });

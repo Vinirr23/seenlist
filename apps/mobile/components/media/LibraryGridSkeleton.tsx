@@ -13,7 +13,11 @@ const GAP = spacing.sm;
  */
 export function LibraryGridSkeleton({ count = 6 }: { count?: number }) {
   const { width } = useWindowDimensions();
-  const cardWidth = Math.floor((width - spacing.lg * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — mesmo ajuste do `PosterGrid.tsx` de verdade
+  // (era `spacing.lg * 2`), pra continuar batendo exatamente o mesmo
+  // tamanho e não pular quando o conteúdo real substituir o skeleton.
+  const cardWidth = Math.floor((width - spacing.md * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
 
   return (
     <View style={styles.grid}>

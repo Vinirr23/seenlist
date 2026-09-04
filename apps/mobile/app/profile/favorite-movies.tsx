@@ -27,7 +27,12 @@ export default function FavoriteMoviesScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { session } = useAuth();
-  const { items, isLoading, isError, refetch } = usePublicFavorites(session?.user.id ?? "");
+  // CORREÇÃO (2026-09-03, causa raiz — ver comentário grande em
+  // `usePublicProfile.ts`) — era `session?.user.id ?? ""`, disparava a
+  // busca com uuid vazio (erro passageiro) enquanto a sessão ainda
+  // carregava. O hook agora aceita `undefined` direto e só busca
+  // quando o id chega.
+  const { items, isLoading, isError, refetch } = usePublicFavorites(session?.user.id);
   const { viewMode, setViewMode } = useViewModePreference("profile-favorite-movies");
   const cardWidth = usePosterCardWidth();
 
@@ -91,21 +96,24 @@ export default function FavoriteMoviesScreen() {
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela.
   header: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   content: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
   toggleRow: {
     alignItems: "flex-end",
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
   gridRow: {

@@ -95,10 +95,14 @@ const styles = StyleSheet.create({
     // CORREÇÃO (auditoria de consistência) — faltava o `paddingTop`
     // que as outras 20 telas com cabeçalho têm: o título ficava
     // colado no topo aqui e com respiro em todo o resto do app.
+    //
+    // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de
+    // tela em 16px app-wide) — `paddingHorizontal` era `spacing.lg`
+    // (24); web usa `px-4` (`spacing.md`=16) como borda de tela.
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
@@ -106,7 +110,7 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   content: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
   gridRow: {

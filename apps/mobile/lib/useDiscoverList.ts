@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   fetchDiscoverList,
   fetchGenreDiscoverList,
   fetchSimilarDiscoverList,
+  fetchDiscoverListPage,
+  fetchGenreDiscoverListPage,
+  fetchSimilarDiscoverListPage,
   type DiscoverItem,
   type DiscoverListKey,
   type GenreDiscoverKey,
   type SimilarDiscoverKey,
+  type SimilarSource,
 } from "./discover";
 import { useTranslation } from "./i18n/LocaleProvider";
 
@@ -131,6 +135,137 @@ export function useDiscoverByGenre(kind: GenreDiscoverKey, genreId: number | nul
   return { items, isLoading };
 }
 
+/**
+ * PORTE DO WEB (2026-09-02 — "no web, explorar tem uma seta '>' e
+ * infinite scroll, implementa TUDO no mobile") — versão paginada de
+ * `useDiscoverList` acima, só pra tela "ver todos"
+ * (`app/explore/all/[list].tsx`), mesmo espírito de
+ * `useDiscoverListInfinite` do web (`lib/queries/discover.ts`) — só
+ * troca `useInfiniteQuery` (react-query) por estado manual
+ * (`useState`+`useEffect`), mesmo padrão do resto deste arquivo.
+ *
+ * `requestIdRef` — sem react-query cuidando de corrida de requisição
+ * sozinho, precisa de proteção manual: se `list`/`locale` mudar
+ * enquanto uma página 2+ ainda está a caminho (`fetchNextPage`), a
+ * resposta atrasada não pode ser aplicada por cima da lista NOVA já
+ * carregada. Cada novo pedido (troca de lista, ou próxima página)
+ * carimba um id crescente; a resposta só é aplicada se o id ainda for
+ * o mais recente quando ela chegar.
+ */
+export function useDiscoverListInfinite(list: DiscoverListKey) {
+  const { locale } = useTranslation();
+  const [items, setItems] = useState<DiscoverItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    const requestId = ++requestIdRef.current;
+    setIsLoading(true);
+    setItems([]);
+    setPage(1);
+    setTotalPages(1);
+    fetchDiscoverListPage(list, 1, locale)
+      .then((data) => {
+        if (requestIdRef.current !== requestId) return;
+        setItems(data.items);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+      })
+      .catch((error) => {
+        console.error(`[useDiscoverListInfinite] Falha ao buscar "${list}" (página 1)`, error);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) setIsLoading(false);
+      });
+  }, [list, locale]);
+
+  function fetchNextPage() {
+    if (isFetchingNextPage || page >= totalPages) return;
+    const requestId = requestIdRef.current;
+    setIsFetchingNextPage(true);
+    fetchDiscoverListPage(list, page + 1, locale)
+      .then((data) => {
+        if (requestIdRef.current !== requestId) return;
+        setItems((prev) => [...prev, ...data.items]);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+      })
+      .catch((error) => {
+        console.error(`[useDiscoverListInfinite] Falha ao buscar "${list}" (página ${page + 1})`, error);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) setIsFetchingNextPage(false);
+      });
+  }
+
+  return { items, isLoading, isFetchingNextPage, hasNextPage: page < totalPages, fetchNextPage };
+}
+
+/** Versão paginada de `useDiscoverByGenre`, só pra tela "ver todos" de um gênero (`app/explore/genre/[mediaType]/[genreId].tsx`) — mesmo raciocínio de `useDiscoverListInfinite` acima. Também expõe `genreMap` (a própria resposta já traz o mapa de nomes, ver `route.ts`) — a tela usa pra montar o título da página. */
+export function useDiscoverByGenreInfinite(kind: GenreDiscoverKey, genreId: number | null) {
+  const { locale } = useTranslation();
+  const [items, setItems] = useState<DiscoverItem[]>([]);
+  const [genreMap, setGenreMap] = useState<Record<number, string> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    if (genreId == null) {
+      requestIdRef.current += 1;
+      setItems([]);
+      setGenreMap(null);
+      setIsLoading(false);
+      return;
+    }
+    const requestId = ++requestIdRef.current;
+    setIsLoading(true);
+    setItems([]);
+    setPage(1);
+    setTotalPages(1);
+    fetchGenreDiscoverListPage(kind, genreId, 1, locale)
+      .then((data) => {
+        if (requestIdRef.current !== requestId) return;
+        setItems(data.items);
+        setGenreMap(data.genreMap);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+      })
+      .catch((error) => {
+        console.error(`[useDiscoverByGenreInfinite] Falha ao buscar "${kind}" (gênero ${genreId}, página 1)`, error);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) setIsLoading(false);
+      });
+  }, [kind, genreId, locale]);
+
+  function fetchNextPage() {
+    if (genreId == null || isFetchingNextPage || page >= totalPages) return;
+    const requestId = requestIdRef.current;
+    setIsFetchingNextPage(true);
+    fetchGenreDiscoverListPage(kind, genreId, page + 1, locale)
+      .then((data) => {
+        if (requestIdRef.current !== requestId) return;
+        setItems((prev) => [...prev, ...data.items]);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+      })
+      .catch((error) => {
+        console.error(`[useDiscoverByGenreInfinite] Falha ao buscar "${kind}" (gênero ${genreId}, página ${page + 1})`, error);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) setIsFetchingNextPage(false);
+      });
+  }
+
+  return { items, genreMap, isLoading, isFetchingNextPage, hasNextPage: page < totalPages, fetchNextPage };
+}
+
 export function useDiscoverSimilar(kind: SimilarDiscoverKey, anchorId: number | null) {
   const { locale } = useTranslation();
   const [items, setItems] = useState<DiscoverItem[]>([]);
@@ -160,4 +295,76 @@ export function useDiscoverSimilar(kind: SimilarDiscoverKey, anchorId: number | 
   }, [kind, anchorId, locale]);
 
   return { items, isLoading };
+}
+
+/**
+ * Versão paginada de `useDiscoverSimilar`, só pra tela "ver todos"
+ * (`app/explore/similar/[mediaType]/[anchorId].tsx`) — mesmo
+ * raciocínio de `useDiscoverListInfinite`.
+ *
+ * IMPORTANTE, igual ao web (`useDiscoverSimilarInfinite`,
+ * `lib/queries/discover.ts`) — `source` ("recommendations" vs.
+ * "similar") só é decidido pelo SERVIDOR na página 1; guardado aqui
+ * (`sourceRef`) e reenviado em toda página seguinte, pra origem dos
+ * dados nunca trocar no meio da rolagem.
+ */
+export function useDiscoverSimilarInfinite(kind: SimilarDiscoverKey, anchorId: number | null) {
+  const { locale } = useTranslation();
+  const [items, setItems] = useState<DiscoverItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const requestIdRef = useRef(0);
+  const sourceRef = useRef<SimilarSource | undefined>(undefined);
+
+  useEffect(() => {
+    if (anchorId == null) {
+      requestIdRef.current += 1;
+      setItems([]);
+      setIsLoading(false);
+      return;
+    }
+    const requestId = ++requestIdRef.current;
+    sourceRef.current = undefined;
+    setIsLoading(true);
+    setItems([]);
+    setPage(1);
+    setTotalPages(1);
+    fetchSimilarDiscoverListPage(kind, anchorId, 1, undefined, locale)
+      .then((data) => {
+        if (requestIdRef.current !== requestId) return;
+        sourceRef.current = data.source;
+        setItems(data.items);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+      })
+      .catch((error) => {
+        console.error(`[useDiscoverSimilarInfinite] Falha ao buscar "${kind}" (âncora ${anchorId}, página 1)`, error);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) setIsLoading(false);
+      });
+  }, [kind, anchorId, locale]);
+
+  function fetchNextPage() {
+    if (anchorId == null || isFetchingNextPage || page >= totalPages) return;
+    const requestId = requestIdRef.current;
+    setIsFetchingNextPage(true);
+    fetchSimilarDiscoverListPage(kind, anchorId, page + 1, sourceRef.current, locale)
+      .then((data) => {
+        if (requestIdRef.current !== requestId) return;
+        setItems((prev) => [...prev, ...data.items]);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+      })
+      .catch((error) => {
+        console.error(`[useDiscoverSimilarInfinite] Falha ao buscar "${kind}" (âncora ${anchorId}, página ${page + 1})`, error);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) setIsFetchingNextPage(false);
+      });
+  }
+
+  return { items, isLoading, isFetchingNextPage, hasNextPage: page < totalPages, fetchNextPage };
 }

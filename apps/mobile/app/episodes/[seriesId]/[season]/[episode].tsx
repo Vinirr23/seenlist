@@ -551,8 +551,14 @@ const styles = StyleSheet.create({
   episodeName: {
     color: "#FFFFFF",
   },
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `padding` (esquerda/direita) era `spacing.lg`
+  // (24); web usa `px-4` (`spacing.md`=16) como borda de tela.
+  // `paddingVertical` (herdado do `padding` antigo) e `gap` (ritmo
+  // vertical entre seções) NÃO foram tocados — fora do escopo.
   body: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
     gap: spacing.lg,
   },
   watchedRow: {

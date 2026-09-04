@@ -117,13 +117,29 @@ export function useFollow(targetUserId: string | null) {
   return { isFollowing, isLoading, busy, toggle };
 }
 
-function usePublicItems(fetcher: (userId: string) => Promise<LibraryItem[]>, userId: string) {
+/**
+ * CORREÇÃO (bug real, causa raiz — achado ao construir as novas
+ * subpáginas "ver tudo" do perfil público, 2026-09-03) — `userId`
+ * virou `string | null | undefined` (era só `string`). Antes, TODO
+ * chamador que ainda não tinha o id de verdade na mão (perfil público
+ * ainda carregando; `session?.user.id ?? ""` nas telas de favoritos do
+ * PRÓPRIO perfil, `favorite-series.tsx`/`favorite-movies.tsx`) era
+ * obrigado a passar `""` — o hook disparava a busca com uma string
+ * vazia mesmo assim, o Postgres rejeitava ("invalid input syntax for
+ * type uuid"), `isError` virava `true` por um instante até o id de
+ * verdade chegar e a busca real suceder. Sintoma visível: uma tela de
+ * erro piscando rápido antes da lista aparecer. Mesmo padrão de guarda
+ * já usado em `useFollow`/`useFollowCounts` deste arquivo — sem id de
+ * verdade, nem dispara a busca (fica só "carregando", nunca "erro").
+ */
+function usePublicItems(fetcher: (userId: string) => Promise<LibraryItem[]>, userId: string | null | undefined) {
   const [items, setItems] = useState<LibraryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const hasLoadedOnce = useRef(false);
 
   const load = useCallback(() => {
+    if (!userId) return Promise.resolve();
     if (!hasLoadedOnce.current) setIsLoading(true);
     setIsError(false);
     return fetcher(userId)
@@ -157,10 +173,10 @@ function usePublicItems(fetcher: (userId: string) => Promise<LibraryItem[]>, use
   return { items, isLoading, isError, refetch: load };
 }
 
-export function usePublicFavorites(userId: string) {
+export function usePublicFavorites(userId: string | null | undefined) {
   return usePublicItems(fetchPublicFavorites, userId);
 }
 
-export function usePublicLibraryItems(userId: string) {
+export function usePublicLibraryItems(userId: string | null | undefined) {
   return usePublicItems(fetchPublicLibraryItems, userId);
 }

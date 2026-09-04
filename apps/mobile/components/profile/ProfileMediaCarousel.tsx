@@ -9,8 +9,21 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const PAGE_SIZE = 20;
-const POSTER_WIDTH = 96;
-const POSTER_HEIGHT = 144;
+/**
+ * CORREÇÃO (bug real, reportado — "os cards de perfil [...] não estão
+ * com o mesmo tamanho do web", 2026-09-03) — era `96×144` (largura
+ * fixa 96, proporção ~2:3 aproximada por acaso). O web usa `w-36
+ * aspect-[2/3]` (144px de largura, proporção 2:3 exata → 216px de
+ * altura) em TODO carrossel de pôster do Perfil/Explorar
+ * (`ProfileMediaCarousel.tsx`, `DiscoverCard.tsx`) — mesmo valor já
+ * usado certo no `DiscoverCarousel.tsx` deste app (mobile), só este
+ * componente (e `PublicMediaCarousel.tsx`, mesmo bug, mesma correção)
+ * tinham ficado pra trás com o valor antigo, menor. `POSTER_HEIGHT`
+ * fixo saiu — a altura agora vem de `aspectRatio: 2/3` (igual ao
+ * `aspect-[2/3]` do web), não de um número fixo independente da
+ * largura.
+ */
+const POSTER_WIDTH = 144;
 
 /**
  * Porta de `ProfileMediaCarousel.tsx` do web — recebe a lista de IDs
@@ -151,27 +164,35 @@ export function ProfileMediaCarousel({
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela. `marginBottom`
+  // (ritmo vertical entre seções) NÃO foi tocado — fora do escopo.
   section: {
     marginBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); o web usa `mb-3` (`ProfileMediaCarousel.tsx`, cabeçalho clicável) = 12px — sem token exato, valor literal. */
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.xs` (4); o web usa `gap-2` (`ProfileMediaCarousel.tsx`, ícone+título) = 8px. */
   sectionTitle: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); os estados "carregando"/vazio no web usam o MESMO `mb-3` (12px) do cabeçalho clicável (`ProfileMediaCarousel.tsx`), não um valor menor à parte. */
   sectionTitleStandalone: {
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — era `fontSize.md` (16) / `"700"`; o web usa `text-lg font-extrabold` (`ProfileMediaCarousel.tsx`, título de cada carrossel) = 18px / peso 800. */
   sectionTitleText: {
-    fontSize: fontSize.md,
-    fontWeight: "700",
+    fontSize: fontSize.lg,
+    fontWeight: "800",
     color: colors.text,
   },
   row: {
@@ -179,7 +200,7 @@ const styles = StyleSheet.create({
   },
   poster: {
     width: POSTER_WIDTH,
-    height: POSTER_HEIGHT,
+    aspectRatio: 2 / 3,
     borderRadius: radius.md,
     overflow: "hidden",
     backgroundColor: colors.surface,
@@ -196,14 +217,15 @@ const styles = StyleSheet.create({
   },
   skeleton: {
     width: POSTER_WIDTH,
-    height: POSTER_HEIGHT,
+    aspectRatio: 2 / 3,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.xs` (4); o web usa `gap-2` (`ProfileMediaCarousel.tsx`, card de convite vazio) = 8px. */
   emptyCard: {
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xs,
+    gap: spacing.sm,
     borderStyle: "dashed",
     borderRadius: radius.md,
     paddingVertical: spacing.xl,

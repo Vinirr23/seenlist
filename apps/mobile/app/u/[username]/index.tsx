@@ -10,8 +10,7 @@ import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowButton } from "@/components/profile/FollowButton";
 import { StatsCarousel } from "@/components/profile/StatsCarousel";
-import { PublicFavoritesSection } from "@/components/profile/PublicFavoritesSection";
-import { PublicLibrarySection } from "@/components/profile/PublicLibrarySection";
+import { PublicMediaSectionsList } from "@/components/profile/PublicMediaSectionsList";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -33,6 +32,23 @@ function initials(name: string): string {
  * (`StatsCarousel` — uma feature de análise própria, maior que o
  * resto desta tela). "Editar" (leva TASK-105) já leva pra
  * `/settings/edit-profile`.
+ *
+ * MOVIDO (2026-09-03, auditoria "implementar tudo que não envolve
+ * redesign" — "Perfil público, ordem") — era um arquivo solto
+ * `app/u/[username].tsx`; virou `app/u/[username]/index.tsx` (mesma
+ * rota `/u/:username`, expo-router trata os dois formatos como
+ * equivalentes) pra abrir espaço pras 4 subpáginas novas "ver tudo"
+ * (`series.tsx`/`favorite-series.tsx`/`movies.tsx`/`favorite-movies.tsx`,
+ * arquivos irmãos deste, dentro da mesma pasta `[username]/`) — mesma
+ * receita que o Perfil PRÓPRIO já usa (`app/profile/series.tsx` etc).
+ * `PublicFavoritesSection`/`PublicLibrarySection` (renderizados aqui
+ * antes, nessa ordem errada) saíram — ver `PublicMediaSectionsList.tsx`
+ * pro racional completo da correção de ordem.
+ *
+ * IMPORTANTE — o arquivo antigo `app/u/[username].tsx` (fora desta
+ * pasta) precisa ser APAGADO manualmente: duas rotas definindo o
+ * mesmo caminho `/u/:username` (o arquivo solto de antes + este
+ * `index.tsx` novo) conflitam no expo-router. Ver instruções no chat.
  */
 export default function PublicProfileScreen() {
   const router = useRouter();
@@ -149,8 +165,7 @@ export default function PublicProfileScreen() {
               ownerLabel="other"
               onRetry={() => publicStats.refetch()}
             />
-            <PublicFavoritesSection userId={profile.userId} />
-            <PublicLibrarySection userId={profile.userId} />
+            <PublicMediaSectionsList userId={profile.userId} username={profile.username} />
           </View>
         </View>
       </ScrollView>
@@ -211,8 +226,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.muted,
   },
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela.
   body: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: AVATAR_SIZE / 2 + spacing.sm,
     gap: 2,
   },

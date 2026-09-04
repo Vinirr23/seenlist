@@ -23,11 +23,23 @@ export function EpisodeWatchedButton({
   onPress,
   disabled,
   size = "md",
+  confirmColor,
 }: {
   watched: boolean;
   onPress: () => void;
   disabled?: boolean;
   size?: "sm" | "md" | "lg";
+  /**
+   * A PEDIDO (2026-09-04, fidelidade ao web — mesma decisão documentada
+   * em `EpisodeWatchedButton.tsx`/`ContinueWatchingCard.tsx` do web:
+   * "verde na confirmação, só ali e só transitório; não muda a cor 'de
+   * categoria' padrão do botão em nenhum outro lugar do app") — troca a
+   * cor de fundo do estado `watched` só enquanto informado. Usado hoje
+   * só por `ContinueWatchingListRow.tsx`, durante a animação de
+   * confirmação. Sem isso, `watched` sempre usa `colors.primary`
+   * (âmbar) — nenhum outro uso deste botão no app muda de comportamento.
+   */
+  confirmColor?: string;
 }) {
   const dimensions = SIZES[size];
 
@@ -43,7 +55,7 @@ export function EpisodeWatchedButton({
           width: dimensions.button,
           height: dimensions.button,
           borderRadius: dimensions.button / 2,
-          backgroundColor: watched ? colors.primary : "#FFFFFF",
+          backgroundColor: watched ? (confirmColor ?? colors.primary) : "#FFFFFF",
         },
         disabled && styles.disabled,
       ]}

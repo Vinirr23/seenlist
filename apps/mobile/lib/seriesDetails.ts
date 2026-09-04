@@ -358,11 +358,31 @@ function resolveSeriesCategory(input: {
  *
  * CORREÇÃO (2026-08-26, mesmo bug real corrigido no web — Primal
  * marcado manualmente como "Assistir depois" voltando sozinho pra
- * "Assistindo" quando saiu episódio novo) — "want_to_watch" agora
- * recebe a MESMA proteção que "paused" já tinha.
+ * "Assistindo" quando saiu episódio novo) — "want_to_watch" ganhou a
+ * MESMA proteção que "paused" já tinha, mas só contra o recálculo
+ * PASSIVO (sozinho, ninguém tocou na série).
+ *
+ * BUG REAL CORRIGIDO (2026-09-03, mesmo fix do web, ver comentário
+ * completo em `shouldWriteSeriesCategory` de `airDateCategory.ts`) —
+ * essa MESMA função também é chamada depois que o usuário, de
+ * propósito, marca um episódio como assistido
+ * (`recalculateSeriesCategoryAfterEpisodeChange`, abaixo) — nesse
+ * caso a promoção É o comportamento certo, e a proteção acima
+ * bloqueava os dois casos por igual: reportado como "quando marco
+ * episódio numa série 'assistir depois', não muda pra 'assistindo'"
+ * (e, por tabela, "não tem opção de retomar" — "Continue assistindo"
+ * só lista "watching"/"up_to_date"). `allowWantToWatchPromotion`
+ * (default `false`, preserva o comportamento de antes pra quem não
+ * passar nada) deixa quem chama dizer qual dos dois casos é.
  */
-function shouldWriteSeriesCategory(currentStatus: string, newCategory: "watching" | "up_to_date" | "completed"): boolean {
-  if ((currentStatus === "paused" || currentStatus === "want_to_watch") && newCategory === "watching") return false;
+function shouldWriteSeriesCategory(
+  currentStatus: string,
+  newCategory: "watching" | "up_to_date" | "completed",
+  options?: { allowWantToWatchPromotion?: boolean }
+): boolean {
+  const allowWantToWatchPromotion = options?.allowWantToWatchPromotion ?? false;
+  if (currentStatus === "paused" && newCategory === "watching") return false;
+  if (currentStatus === "want_to_watch" && newCategory === "watching" && !allowWantToWatchPromotion) return false;
   return newCategory !== currentStatus || newCategory === "watching";
 }
 
@@ -500,24 +520,61 @@ async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: numb
   return result;
 }
 
-export async function fetchLiveEpisodesBySeriesId(
+const EPISODES_EXPORT_RETRY_DELAYS_MS = [800, 2000]; // até 2 tentativas extras, com pausa curta entre elas.
+
+/**
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-03, bug real reportado no web —
+ * "marquei todos os episódios novos, mas 3 séries ficaram presas em
+ * Continue assistindo, mesmo trocando de grade/lista" — mesmo bug
+ * conferido e corrigido aqui também, "tudo deve ser padronizado":
+ * a causa é a MESMA rota, chamada do mesmo jeito, nos dois apps) —
+ * `/api/tmdb/series-episodes-at-export` já distingue "essa série
+ * genuinamente não tem episódio nenhum" de "a busca falhou de
+ * verdade" através de `failedIds` (ver o comentário grande na própria
+ * rota — o MESMO bug já tinha sido corrigido uma vez no web, só que
+ * em `seriesEpisodesLight.ts`/`ContinueWatchingCard.tsx`, que só
+ * decide o que MOSTRA na tela; a recalculação de STATUS — o que faz a
+ * série sumir de "Continue assistindo" de verdade — nunca tinha
+ * recebido a mesma correção, nem aqui nem no web (corrigido junto,
+ * mesma data, `seriesCategoryRecalc.ts`).
+ *
+ * Marcar várias séries seguidas (como "marcar todos os episódios
+ * novos") dispara várias buscas simultâneas nesta mesma rota — uma
+ * rajada bem mais propensa a esbarrar num rate-limit passageiro do
+ * TMDB do que uma busca isolada. Antes, `data.series` sem aquele id
+ * (por falha OU por "realmente não tem nada") virava a MESMA coisa:
+ * lista vazia → a função desiste em silêncio, sem gravar nada — a
+ * série ficava PRESA no status antigo até o próximo recálculo
+ * automático (só roda de novo depois de todo o intervalo do throttle,
+ * ver `RECALC_MIN_INTERVAL_MS`) ou até a pessoa desmarcar/remarcar
+ * manualmente pra forçar uma nova tentativa.
+ *
+ * Agora: até 2 tentativas extras, só pros ids que vierem em
+ * `failedIds` (não refaz a rajada inteira, só o que realmente
+ * falhou), com uma pausa curta entre elas.
+ */
+async function fetchSeriesEpisodesAtExportWithRetry(
   seriesIds: number[],
-  language = "pt-BR"
+  language: string
 ): Promise<Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[]>> {
   const result = new Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[]>();
-  const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
+  let pending = seriesIds;
 
-  const responses = await Promise.all(
-    chunks.map((idsChunk) =>
-      fetch(`${SITE_URL}/api/tmdb/series-episodes-at-export`, {
+  for (let attempt = 0; attempt <= EPISODES_EXPORT_RETRY_DELAYS_MS.length && pending.length > 0; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, EPISODES_EXPORT_RETRY_DELAYS_MS[attempt - 1]));
+    }
+    let response: Response;
+    try {
+      response = await fetch(`${SITE_URL}/api/tmdb/series-episodes-at-export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seriesIds: idsChunk, language }),
-      })
-    )
-  );
-
-  for (const response of responses) {
+        body: JSON.stringify({ seriesIds: pending, language }),
+      });
+    } catch (error) {
+      console.error(`[fetchSeriesEpisodesAtExportWithRetry] Falha de rede na tentativa ${attempt + 1}.`, error);
+      continue;
+    }
     if (!response.ok) continue;
     // `episodeId` (2026-08-26, "motor resistente") — a rota já devolve, ver route.ts.
     const data = (await response.json()) as {
@@ -525,8 +582,31 @@ export async function fetchLiveEpisodesBySeriesId(
         id: number;
         episodes: { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[];
       }[];
+      failedIds?: number[];
     };
     for (const s of data.series) result.set(s.id, s.episodes);
+    pending = data.failedIds ?? [];
+  }
+
+  if (pending.length > 0) {
+    console.error(
+      `[fetchSeriesEpisodesAtExportWithRetry] ${pending.length} série(s) continuaram falhando depois de todas as tentativas — status não recalculado desta vez pra elas:`,
+      pending
+    );
+  }
+
+  return result;
+}
+
+export async function fetchLiveEpisodesBySeriesId(
+  seriesIds: number[],
+  language = "pt-BR"
+): Promise<Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[]>> {
+  const result = new Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[]>();
+  const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
+  const chunkResults = await Promise.all(chunks.map((idsChunk) => fetchSeriesEpisodesAtExportWithRetry(idsChunk, language)));
+  for (const chunkResult of chunkResults) {
+    for (const [id, episodes] of chunkResult) result.set(id, episodes);
   }
   return result;
 }
@@ -584,7 +664,24 @@ async function fetchEndedBySeriesId(seriesIds: number[]): Promise<Map<number, bo
 }
 
 const RECALC_STORAGE_KEY = "seenlist:series-recalc-last-run";
-const RECALC_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1x por dia — mesma decisão já aplicada no web.
+/**
+ * CORREÇÃO (porte do web, 2026-09-02 — "vamos implementar as
+ * mudanças que foram feitas no web") — era 24h aqui também (mesma
+ * decisão copiada do web na época). BUG REAL, já encontrado e
+ * corrigido no web nesta mesma sessão, com dado real de um usuário
+ * (100 séries "em dia", 3 sumindo de "Continue assistindo" por até
+ * 24h+ depois de episódio novo — ver `RECALC_MIN_INTERVAL_MS` em
+ * `apps/web/lib/queries/seriesCategoryRecalc.ts` pro histórico
+ * completo do diagnóstico) — a causa raiz é a MESMA arquitetura aqui:
+ * "Continue assistindo" corta pras 8 mais recentes (`CONTINUE_LIMIT`,
+ * `app/(tabs)/series/index.tsx`) ANTES de confirmar quais séries "em
+ * dia" têm episódio pendente de verdade — só fica correto se o
+ * `updated_at` de cada série estiver em dia, o que depende desta
+ * rotina ter rodado recentemente. 24h era tempo demais pra biblioteca
+ * grande. Reduzido pra 2h, igual ao web — mesmo valor nas duas
+ * plataformas, "mesmo design" inclui o comportamento, não só a cor.
+ */
+const RECALC_MIN_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
 /**
  * ACHADO DE PERFORMANCE (a pedido — mesmo achado já corrigido no
@@ -596,10 +693,11 @@ const RECALC_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1x por dia — mesma deci
  * web (trocar de aba e voltar já disparava de novo).
  *
  * Guarda em `AsyncStorage` (equivalente ao `localStorage` do web) o
- * horário da última execução BEM-SUCEDIDA — se rodou há menos de
- * 24h, pula inteiramente. Só grava o carimbo em caso de SUCESSO — se
- * falhar (rede, TMDB fora do ar), tenta de novo no próximo foco em
- * vez de esperar 24h por causa de uma falha passageira.
+ * horário da última execução BEM-SUCEDIDA — se rodou há menos do
+ * intervalo mínimo, pula inteiramente. Só grava o carimbo em caso de
+ * SUCESSO — se falhar (rede, TMDB fora do ar), tenta de novo no
+ * próximo foco em vez de esperar o intervalo todo por causa de uma
+ * falha passageira.
  */
 export async function recalculateUpToDateSeriesCategoriesThrottled(): Promise<void> {
   const lastRun = await AsyncStorage.getItem(RECALC_STORAGE_KEY);
@@ -813,14 +911,16 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   let liveEpisodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[] = [];
   let ended = false;
   try {
-    const [watchedLookup, specialKeysBySeriesId, episodesResponse, summaryResponse] = await Promise.all([
+    const [watchedLookup, specialKeysBySeriesId, episodesBySeriesId, summaryResponse] = await Promise.all([
       fetchWatchedEpisodeKeysBySeriesId(user.id, [seriesId]),
       fetchSpecialEpisodeKeysBySeriesId(user.id, [seriesId]),
-      fetch(`${SITE_URL}/api/tmdb/series-episodes-at-export`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seriesIds: [seriesId] }),
-      }),
+      // CORREÇÃO (2026-09-03 — "3 séries presas em Continue
+      // assistindo", ver comentário grande em
+      // `fetchSeriesEpisodesAtExportWithRetry` acima) — era um `fetch`
+      // cru aqui, que tratava "a busca falhou" e "série sem episódio
+      // nenhum" como a MESMA coisa. Agora tenta de novo sozinho quando
+      // a rota sinaliza falha de verdade (`failedIds`).
+      fetchSeriesEpisodesAtExportWithRetry([seriesId], "pt-BR"),
       fetch(`${SITE_URL}/api/tmdb/library-summaries`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -830,13 +930,7 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     watchedEpisodeKeys = watchedLookup.keysBySeriesId.get(seriesId) ?? new Set<string>();
     watchedEpisodeIds = watchedLookup.idsBySeriesId.get(seriesId) ?? new Set<number>();
     specialKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
-    if (episodesResponse.ok) {
-      // `episodeId` (2026-08-26, "motor resistente") — a rota já devolve, ver route.ts.
-      const data = (await episodesResponse.json()) as {
-        series: { id: number; episodes: { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[] }[];
-      };
-      liveEpisodes = data.series.find((s) => s.id === seriesId)?.episodes ?? [];
-    }
+    liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
     if (summaryResponse.ok) {
       const data = (await summaryResponse.json()) as { series: { id: number; ended: boolean }[] };
       ended = data.series.find((s) => s.id === seriesId)?.ended ?? false;
@@ -862,7 +956,15 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     specialEpisodeKeys: specialKeys,
     watchedEpisodeIds,
   });
-  if (!shouldWriteSeriesCategory(currentStatus, newCategory)) return;
+  /**
+   * BUG REAL CORRIGIDO (2026-09-03, mesmo fix do web — ver comentário
+   * completo em `shouldWriteSeriesCategory`, acima) —
+   * `allowWantToWatchPromotion: true` só AQUI, nunca no recálculo em
+   * lote (`recalculateUpToDateSeriesCategories`): esta função só roda
+   * quando o usuário marcou/desmarcou episódio NESTA série, de
+   * propósito.
+   */
+  if (!shouldWriteSeriesCategory(currentStatus, newCategory, { allowWantToWatchPromotion: true })) return;
 
   const { error: updateError } = await supabase
     .from("series_status")

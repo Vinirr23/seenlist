@@ -111,7 +111,8 @@ export function ProfileRecommendationsPreview() {
             {uniqueSenders.map((sender, index) => (
               <View
                 key={sender.userId}
-                style={[styles.avatar, { marginLeft: index === 0 ? 0 : -10, zIndex: uniqueSenders.length - index }]}
+                /* CORREÇÃO (2026-09-03, comparado com o web) — era -10; o web usa `-space-x-3` (`ProfileRecommendationsPreview.tsx`, avatares sobrepostos) = -12px. */
+                style={[styles.avatar, { marginLeft: index === 0 ? 0 : -12, zIndex: uniqueSenders.length - index }]}
               >
                 {sender.avatarUrl ? (
                   <Image source={{ uri: sender.avatarUrl }} style={styles.avatarImage} />
@@ -143,15 +144,26 @@ export function ProfileRecommendationsPreview() {
 }
 
 const styles = StyleSheet.create({
+  /**
+   * CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.sm`
+   * (8); o web usa `gap-3` (`ProfileRecommendationsPreview.tsx`,
+   * card) = 12px — sem token exato, valor literal.
+   * `paddingVertical: spacing.sm + 4` (12) também estava errado — o
+   * web usa `py-3.5` = 14px.
+   */
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `marginHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela. `marginBottom`
+  // (ritmo vertical) NÃO foi tocado — fora do escopo.
   card: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    marginHorizontal: spacing.lg,
+    gap: 12,
+    marginHorizontal: spacing.md,
     marginBottom: spacing.lg,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4,
+    paddingVertical: 14,
   },
   /** Contorno de destaque quando tem recomendação não lida — mesmo ajuste feito no web. Só a borda (não o fundo, que já é o vidro) pra não brigar com o gradiente/blur do `Glass`. */
   cardHighlighted: {
@@ -171,8 +183,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: colors.text,
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — era `fontSize.sm` (14); o web usa `text-xs` (`ProfileRecommendationsPreview.tsx`, "profile.noneYet") = 12px. */
   emptyLabel: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
   },
   avatarStack: {
     position: "relative",
@@ -201,13 +214,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.muted,
   },
+  /** CORREÇÃO (2026-09-03, comparado com o web) — `paddingHorizontal: 3`; o web usa `px-1` (`ProfileRecommendationsPreview.tsx`, selo de não lidas) = 4px. Resto (h-4/min-w-4/rounded-full/border-2 = 16/16/full/2) já batia. */
   unreadBadge: {
     position: "absolute",
     right: -4,
     top: -4,
     minWidth: 16,
     height: 16,
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
     borderRadius: 8,
     borderWidth: 2,
     borderColor: colors.surface,

@@ -19,17 +19,20 @@ import { colors, spacing } from "@/lib/theme";
  *
  * 1. Populares no SeenList (`trending_movies`, ícone de chama âmbar).
  * 2. Porque você assistiu a [X] (só se houver título-âncora).
- * 3. Seus gêneros favoritos (chips, não-clicáveis no mobile — ver
- *    comentário em `GenreChips.tsx`).
+ * 3. Seus gêneros favoritos (chips, clicáveis).
  * 4. Principais filmes para você (só se houver gênero favorito).
  * 5. Chegando em breve (`upcoming_movies`).
  *
- * DIFERENÇAS deliberadas em relação ao web (mesmo racional em
- * `GenreChips.tsx`): sem `viewAllHref`/seta "ver todos" em nenhuma
- * seção — o mobile não tem NENHUMA tela de destino desse tipo hoje
- * (nem pros carrosséis que já existiam antes desta reformulação).
- * `useFilterOutLibraryItems` do web também não tem equivalente aqui
- * porque não faz falta — `DiscoverCarousel.tsx` mobile já filtra
+ * CORREÇÃO (2026-09-02 — "no web, explorar tem uma seta '>' e
+ * infinite scroll, implementa TUDO no mobile, não assuma nada") — toda
+ * seção agora tem `viewAllHref`, igual ao web: as 3 telas "ver todos"
+ * (`app/explore/all/[list].tsx`, `app/explore/genre/[mediaType]/
+ * [genreId].tsx`, `app/explore/similar/[mediaType]/[anchorId].tsx`)
+ * foram criadas nesta mesma correção — a decisão anterior de omitir a
+ * seta (porque a tela de destino não existia ainda) não vale mais.
+ *
+ * `useFilterOutLibraryItems` do web não tem equivalente aqui porque
+ * não faz falta — `DiscoverCarousel.tsx` mobile já filtra
  * item-já-na-Biblioteca internamente (TASK-152), diferente do web que
  * filtra fora.
  */
@@ -59,6 +62,7 @@ export function ExploreMoviesTab() {
         }
         items={trendingMovies.items}
         isLoading={trendingMovies.isLoading}
+        viewAllHref="/explore/all/trending_movies"
       />
 
       {showBecauseYouWatched && (
@@ -70,10 +74,11 @@ export function ExploreMoviesTab() {
           }
           items={becauseYouWatched.items}
           isLoading={anchorLoading || becauseYouWatched.isLoading}
+          viewAllHref={anchor ? `/explore/similar/movie/${anchor.id}?title=${encodeURIComponent(anchor.title)}` : undefined}
         />
       )}
 
-      <GenreChips title={t("explore.discover.yourGenres")} genres={topMovieGenres} isLoading={favoriteGenresLoading} />
+      <GenreChips title={t("explore.discover.yourGenres")} genres={topMovieGenres} isLoading={favoriteGenresLoading} mediaType="movie" />
 
       {showForYou && (
         <DiscoverCarousel
@@ -84,6 +89,7 @@ export function ExploreMoviesTab() {
           }
           items={forYou.items}
           isLoading={favoriteGenresLoading || forYou.isLoading}
+          viewAllHref={topGenre ? `/explore/genre/movie/${topGenre.genreId}` : undefined}
         />
       )}
 
@@ -95,6 +101,7 @@ export function ExploreMoviesTab() {
         }
         items={upcomingMovies.items}
         isLoading={upcomingMovies.isLoading}
+        viewAllHref="/explore/all/upcoming_movies"
       />
     </View>
   );

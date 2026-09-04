@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useUpcomingEpisodes } from "@/lib/useUpcomingEpisodes";
 import { useViewModePreference } from "@/lib/useViewModePreference";
+import { useDiscoverList } from "@/lib/useDiscoverList";
 import { recalculateUpToDateSeriesCategoriesThrottled, prefetchSeriesDetails } from "@/lib/seriesDetails";
 import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
@@ -13,6 +15,7 @@ import { PosterGrid } from "@/components/media/PosterGrid";
 import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
+import { DiscoverCarousel } from "@/components/explore/DiscoverCarousel";
 import { PageError } from "@/components/media/PageError";
 import { UpcomingEpisodeCard } from "@/components/media/UpcomingEpisodeCard";
 import { UpcomingEpisodeCardSkeleton } from "@/components/media/UpcomingEpisodeCardSkeleton";
@@ -75,6 +78,17 @@ export default function SeriesHomeScreen() {
   const upcoming = useUpcomingEpisodes();
   const { viewMode, setViewMode } = useViewModePreference("series-library");
   const { t, locale } = useTranslation();
+  /**
+   * PORTE DO WEB (2026-09-03, auditoria "implementar tudo que não
+   * envolve redesign" — item "empty state") — `MinhaListaSection.tsx`
+   * do web mostra a fileira "Populares no SeenList" (`PopularMediaRow`,
+   * `trending_series`) embaixo do card vazio quando "Continue
+   * assistindo" está zerado. Aqui reaproveita 100% do que já existe
+   * (mesmo `DiscoverCarousel`/`useDiscoverList` do Explorar — nenhum
+   * componente novo), só sem a ilustração/`EmptyLibraryHero` (isso é
+   * visual/redesign, fora do escopo desta leva).
+   */
+  const trendingSeries = useDiscoverList("trending_series");
 
   /**
    * TASK-143/151 — toda vez que a aba Séries ganha foco, recalcula
@@ -113,12 +127,22 @@ export default function SeriesHomeScreen() {
    * (que lista por status puro, sem essa lacuna). Mesma correção já
    * aplicada no web (`MinhaListaSection.tsx`).
    *
-   * Ampliado só pro modo LISTA — é o único que mostra o próximo
-   * episódio pendente; sem pendência nenhuma, cai no fallback
-   * `MediaListRow` (só progresso, sem quebrar nada). O modo GRADE
-   * continua só "watching", igual ao web — incluir "Em dia" ali
-   * poluiria a grade com séries sem nada pendente e nenhum
-   * indicativo visual disso.
+   * CORREÇÃO #2 (2026-09-03 — auditoria "implementar tudo que não
+   * envolve redesign", achado real: o modo GRADE nunca recebeu esta
+   * mesma correção) — até aqui, só o modo LISTA incluía "Em dia" com
+   * pendência real; o modo GRADE continuava filtrando só "watching",
+   * excluindo TODA série "Em dia" de propósito (mesmo bug que o web
+   * já teve e corrigiu — "Bleach aparece na lista e não na grade",
+   * ver `ContinueWatchingPosterGrid.tsx`/`UpToDateGate` no web). Como
+   * o mobile já busca o "próximo episódio pendente" de cada série
+   * pra montar o card completo da lista (`fetchNextEpisodesToWatch`,
+   * abaixo), a correção mais simples e sem duplicar a regra é usar
+   * ESSE MESMO resultado como o "portão": os dois modos agora
+   * compartilham a mesma seleção (`continueWatching`, uma lista só,
+   * nunca mais duas calculadas em separado) e a grade só exibe uma
+   * série "Em dia" quando ela também aparece no mapa de próximos
+   * episódios pendentes — exatamente a mesma checagem que o card da
+   * lista já fazia pra decidir se mostra ou não.
    */
   /**
    * A PEDIDO — "Faz um tempo que você não assiste": corte por
@@ -161,7 +185,7 @@ export default function SeriesHomeScreen() {
    * `updatedAt` — uma série com episódio pendente de verdade nunca
    * mais perde vaga pra uma que talvez nem tenha nada pra mostrar.
    */
-  const continueWatchingList = useMemo(() => {
+  const continueWatching = useMemo(() => {
     return recentSeries
       .filter((item) => item.status === "watching" || item.status === "up_to_date")
       .sort((a, b) => {
@@ -171,20 +195,13 @@ export default function SeriesHomeScreen() {
       .slice(0, CONTINUE_LIMIT);
   }, [recentSeries]);
 
-  const continueWatchingGrid = useMemo(() => {
-    return recentSeries
-      .filter((item) => item.status === "watching")
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .slice(0, CONTINUE_LIMIT);
-  }, [recentSeries]);
-
-  const continueWatching = viewMode === "grid" ? continueWatchingGrid : continueWatchingList;
-
   /**
-   * TASK-145 (a pedido) — só busca o "próximo episódio pendente" de
-   * cada série quando o modo é LISTA (é onde esse card aparece) — no
-   * modo grade, ninguém vê essa informação, buscar seria trabalho à
-   * toa.
+   * TASK-145 — busca o "próximo episódio pendente" de cada série de
+   * "Continue assistindo"/"Faz um tempo que você não assiste". Usado
+   * pelo modo LISTA pra montar o card completo, e (2026-09-03) também
+   * pelo modo GRADE, como "portão" pra decidir se uma série "Em dia"
+   * tem pendência real — ver comentário grande acima de
+   * `continueWatching`.
    */
   const [nextEpisodes, setNextEpisodes] = useState<Map<number, NextEpisodeToWatch>>(new Map());
   /**
@@ -208,11 +225,14 @@ export default function SeriesHomeScreen() {
    * só com progresso, visualmente inconsistente com o resto da tela.
    * Por isso a busca de "próximo episódio pendente" precisa cobrir
    * as duas listas, não só a de cima.
+   *
+   * CORREÇÃO (2026-09-03, ver comentário grande acima de
+   * `continueWatching`) — antes só buscava no modo LISTA
+   * (`viewMode === "list" ? ... : []`); agora busca SEMPRE, porque o
+   * modo GRADE também depende deste mesmo resultado pra decidir se
+   * uma série "Em dia" tem pendência real (o "portão").
    */
-  const listNeedingEpisodes = useMemo(
-    () => (viewMode === "list" ? [...continueWatching, ...staleSeries] : []),
-    [viewMode, continueWatching, staleSeries]
-  );
+  const listNeedingEpisodes = useMemo(() => [...continueWatching, ...staleSeries], [continueWatching, staleSeries]);
 
   const loadNextEpisodes = useCallback(() => {
     if (listNeedingEpisodes.length === 0) return;
@@ -275,42 +295,95 @@ export default function SeriesHomeScreen() {
               <LibraryListSkeleton />
             )
           ) : continueWatching.length === 0 ? (
-            <EmptyShelf
-              message={t("seriesHome.emptyLibrary")}
-              actionLabel={t("seriesHome.exploreSeries")}
-              actionHref="/(tabs)/explore"
-            />
+            <>
+              <EmptyShelf
+                message={t("seriesHome.emptyLibrary")}
+                actionLabel={t("seriesHome.exploreSeries")}
+                actionHref="/(tabs)/explore"
+              />
+              {/*
+                * `DiscoverCarousel` já tem seu próprio `paddingHorizontal:
+                * spacing.md` interno (mesmo componente usado "cru", sem
+                * container extra, no Explorar — ver `explore.tsx`,
+                * `discoverContent` não tem padding horizontal nenhum,
+                * de propósito). Esta tela, diferente do Explorar, já
+                * envolve tudo num `ScrollView` com `styles.content`
+                * (`paddingHorizontal: spacing.md`) — sem a margem
+                * negativa abaixo, o carrossel ficaria com o dobro de
+                * respiro nas bordas, desalinhado do card vazio acima.
+                *
+                * CORREÇÃO (2026-09-03, decisão do usuário: padronizar
+                * borda de tela em 16px app-wide) — os três valores
+                * citados acima eram `spacing.lg` (24); atualizados
+                * juntos pra `spacing.md` (16), mantendo o alinhamento
+                * entre eles.
+                */}
+              <View style={styles.popularSection}>
+                <DiscoverCarousel
+                  title={
+                    <View style={styles.flameTitleRow}>
+                      <Ionicons name="flame" size={16} color={colors.primary} />
+                      <Text variant="subtitle" style={{ color: colors.primary }}>
+                        {t("seriesHome.popularSeries")}
+                      </Text>
+                    </View>
+                  }
+                  items={trendingSeries.items}
+                  isLoading={trendingSeries.isLoading}
+                  viewAllHref="/explore/all/trending_series"
+                />
+              </View>
+            </>
           ) : viewMode === "grid" ? (
-            <PosterGrid items={continueWatching} onPressItem={handlePressItem} />
+            !nextEpisodesLoaded ? (
+              <LibraryGridSkeleton />
+            ) : (
+              <PosterGrid
+                items={continueWatching.filter((item) => item.status === "watching" || nextEpisodes.has(item.id))}
+                onPressItem={handlePressItem}
+              />
+            )
           ) : !nextEpisodesLoaded ? (
             <LibraryListSkeleton />
           ) : (
             <View style={styles.listRows}>
               {continueWatching.map((item) => {
-                const nextEpisode = nextEpisodes.get(item.id);
                 /**
                  * CORREÇÃO (bug real, reportado com print — "série já
                  * em dia ainda na Home", card com formato errado) —
-                 * `nextEpisode` vem `undefined` tanto pra "ainda
-                 * buscando" (tratado acima, via `nextEpisodesLoaded`)
-                 * quanto pra "já buscou e essa série genuinamente não
-                 * tem episódio pendente com data já passada" — ou
-                 * seja, ela está em dia hoje, só o status no banco
-                 * ainda não foi recalculado (o recálculo agora roda
-                 * só 1x/dia). Antes, esse segundo caso caía pro card
-                 * antigo (`MediaListRow`, sem código de episódio nem
-                 * botão de check) — inconsistente e confuso. Mesma
-                 * decisão já tomada no web (`ContinueWatchingCard.tsx`:
-                 * `if (!episodes || !next) return null;`) — se não
-                 * tem nada pendente pra assistir agora, o card
-                 * simplesmente não aparece, em vez de aparecer errado.
+                 * `nextEpisodes.get(item.id)` vem `undefined` tanto pra
+                 * "ainda buscando" (tratado acima, via
+                 * `nextEpisodesLoaded`) quanto pra "já buscou e essa
+                 * série genuinamente não tem episódio pendente com
+                 * data já passada" — ou seja, ela está em dia hoje, só
+                 * o status no banco ainda não foi recalculado (o
+                 * recálculo agora roda só 1x/dia).
+                 *
+                 * CORREÇÃO (2026-09-04, achado ao implementar a
+                 * animação de "marcar assistido" — ver
+                 * ContinueWatchingListRow.tsx) — antes, o `if
+                 * (!nextEpisode) return null` ficava AQUI, no pai: assim
+                 * que `loadNextEpisodes()` (disparado pelo próprio
+                 * toque no ✓) trazia um mapa sem mais entrada pra esta
+                 * série, o React desmontava o card NA HORA, cortando a
+                 * animação de saída no meio (sem tempo de mostrar a
+                 * confirmação nem o card encolhendo). Agora o pai
+                 * SEMPRE renderiza `ContinueWatchingListRow` pra toda
+                 * série de `continueWatching` (ela só sai desta lista
+                 * quando o status muda de verdade, não por causa de um
+                 * episódio específico) — é o PRÓPRIO card quem decide
+                 * quando não tem mais nada pra mostrar, exatamente
+                 * como o web (`ContinueWatchingCard.tsx`: `if
+                 * (next.length === 0 && phase === "idle") return
+                 * null`), congelando o último episódio mostrado
+                 * enquanto a animação de confirmação/saída ainda está
+                 * rolando.
                  */
-                if (!nextEpisode) return null;
                 return (
                   <ContinueWatchingListRow
                     key={item.id}
                     item={item}
-                    nextEpisode={nextEpisode}
+                    nextEpisode={nextEpisodes.get(item.id) ?? null}
                     onMarkedWatched={() => {
                       refetchSilently();
                       loadNextEpisodes();
@@ -340,16 +413,16 @@ export default function SeriesHomeScreen() {
               ) : (
                 <View style={styles.listRows}>
                   {staleSeries.map((item) => {
-                    const nextEpisode = nextEpisodes.get(item.id);
-                    // Mesma regra do "Continue assistindo": sem
-                    // episódio pendente de verdade, não mostra card
-                    // (evita card meia-boca, sem código nem selo).
-                    if (!nextEpisode) return null;
+                    // Mesma regra do "Continue assistindo" acima (ver
+                    // comentário grande lá, 2026-09-04) — o próprio
+                    // `ContinueWatchingListRow` decide quando não tem
+                    // nada pra mostrar, pra não cortar a animação de
+                    // saída no meio.
                     return (
                       <ContinueWatchingListRow
                         key={item.id}
                         item={item}
-                        nextEpisode={nextEpisode}
+                        nextEpisode={nextEpisodes.get(item.id) ?? null}
                         onMarkedWatched={() => {
                           refetchSilently();
                           loadNextEpisodes();
@@ -375,6 +448,25 @@ export default function SeriesHomeScreen() {
               actionHref="/(tabs)/explore"
             />
           ) : (
+            /**
+             * CORREÇÃO (bug real, reportado — "'em breve' não está
+             * igual a web", 2026-09-04) — faltava a trilha vertical
+             * (ponto + linha) conectando os cards do MESMO grupo de
+             * data, que `EmBreveSection.tsx` do web tem desde a
+             * TASK-063 ("ajuda a ler 'isso é uma sequência de
+             * próximos lançamentos', não N caixas soltas"). Estrutura
+             * portada 1:1: cada linha é uma `View` `flexDirection:
+             * "row"` com uma coluna de trilha (ponto + linha, largura
+             * 12) ao lado da coluna de conteúdo (card + um "spacer"
+             * quando não é o último do grupo) — o spacer fica DENTRO
+             * da coluna de conteúdo (não como margem do lado de fora)
+             * pra que a trilha (irmã, que estica pra cobrir a altura
+             * do que está do lado dela por padrão do flexbox) cubra
+             * esse espaço também e a linha fique contínua, ponto a
+             * ponto — mesmo truque do web (ver comentário lá). Ponto
+             * do PRIMEIRO episódio de cada grupo é âmbar
+             * (`colors.primary`); os demais, cinza claro translúcido.
+             */
             <View style={styles.groupList}>
               {upcoming.groups.map((group) => (
                 <View key={group.dateKey}>
@@ -383,10 +475,23 @@ export default function SeriesHomeScreen() {
                       <Text style={styles.dayPillText}>{translateDayLabel(group.label, t)}</Text>
                     </View>
                   </View>
-                  <View style={styles.episodeList}>
-                    {group.episodes.map((episode) => (
-                      <UpcomingEpisodeCard key={`${episode.seriesId}-${episode.seasonNumber}-${episode.episodeNumber}`} episode={episode} />
-                    ))}
+                  <View>
+                    {group.episodes.map((episode, index) => {
+                      const isFirstInGroup = index === 0;
+                      const hasNextInGroup = index < group.episodes.length - 1;
+                      return (
+                        <View key={`${episode.seriesId}-${episode.seasonNumber}-${episode.episodeNumber}`} style={styles.timelineRow}>
+                          <View style={styles.track}>
+                            <View style={[styles.trackDot, isFirstInGroup ? styles.trackDotFirst : styles.trackDotMuted]} />
+                            {hasNextInGroup && <View style={styles.trackLine} />}
+                          </View>
+                          <View style={styles.timelineContent}>
+                            <UpcomingEpisodeCard episode={episode} />
+                            {hasNextInGroup && <View style={styles.timelineSpacer} />}
+                          </View>
+                        </View>
+                      );
+                    })}
                   </View>
                 </View>
               ))}
@@ -402,8 +507,11 @@ const styles = StyleSheet.create({
   tabsRow: {
     paddingTop: spacing.sm,
   },
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela.
   content: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
   sectionHeader: {
@@ -415,6 +523,18 @@ const styles = StyleSheet.create({
   listRows: {
     gap: spacing.sm,
   },
+  // CORREÇÃO (2026-09-03) — `marginHorizontal` era `-spacing.lg` pra
+  // cancelar exatamente o `paddingHorizontal` do `content` (acima) —
+  // ver comentário no JSX que usa este estilo. Atualizado junto.
+  popularSection: {
+    marginTop: spacing.lg,
+    marginHorizontal: -spacing.md,
+  },
+  flameTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
   staleSection: {
     marginTop: spacing.xl,
   },
@@ -424,23 +544,56 @@ const styles = StyleSheet.create({
   groupList: {
     gap: spacing.lg,
   },
+  // CORREÇÃO (fontes/espaçamento — mesma auditoria, conferido contra
+  // `EmBreveSection.tsx` do web) — `mb-3`=12 (não `spacing.sm`=8),
+  // `px-3.5`=14 (não `spacing.md`=16), `text-xs`=12 (não 11).
   dayPillWrapper: {
     alignItems: "center",
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
   dayPill: {
     backgroundColor: colors.surface,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 14,
     paddingVertical: 6,
   },
   dayPillText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.4,
     color: colors.muted,
   },
-  episodeList: {
-    gap: spacing.sm,
+  // Trilha (ponto + linha) conectando os cards do mesmo grupo — ver
+  // comentário grande acima, no JSX do modo "Em breve".
+  timelineRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  track: {
+    width: 12,
+    alignItems: "center",
+  },
+  trackDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  trackDotFirst: {
+    backgroundColor: colors.primary,
+  },
+  trackDotMuted: {
+    backgroundColor: "rgba(255,255,255,0.22)",
+  },
+  trackLine: {
+    width: 1,
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.13)",
+  },
+  timelineContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  timelineSpacer: {
+    height: 10,
   },
 });

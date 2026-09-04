@@ -135,24 +135,31 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela.
   searchArea: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   content: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
   tabs: {
     marginBottom: spacing.sm,
   },
+  // `discoverContent` de propósito NÃO tem `paddingHorizontal` — o
+  // `DiscoverCarousel` usado aqui "cru" fornece sua própria borda de
+  // tela internamente (ver `DiscoverCarousel.tsx`, também padronizada
+  // pra `spacing.md` nesta mesma correção).
   discoverContent: {
     paddingTop: spacing.xs,
     paddingBottom: spacing.xl,
   },
   loadingActivity: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
   },
   emptyActivity: {

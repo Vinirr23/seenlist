@@ -45,10 +45,14 @@ export function ExploreTabs({ active, onChange }: { active: ExploreTab; onChange
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24). Esta
+  // fileira é renderizada "crua" (sem container com padding) no
+  // Explorar — este `paddingHorizontal` É a borda de tela.
   row: {
     flexDirection: "row",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   pill: {
     borderRadius: radius.full,

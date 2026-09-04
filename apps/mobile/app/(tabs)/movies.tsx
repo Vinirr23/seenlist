@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useViewModePreference } from "@/lib/useViewModePreference";
+import { useDiscoverList } from "@/lib/useDiscoverList";
 import { todayLocalKey } from "@/lib/localDate";
 import { Screen, Text } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
@@ -13,6 +15,7 @@ import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
+import { DiscoverCarousel } from "@/components/explore/DiscoverCarousel";
 import { PageError } from "@/components/media/PageError";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -60,6 +63,17 @@ export default function MoviesScreen() {
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
   const { viewMode, setViewMode } = useViewModePreference("movies-library");
   const { t, locale } = useTranslation();
+  /**
+   * PORTE DO WEB (2026-09-03, mesma auditoria — `movies-home/
+   * MinhaListaSection.tsx`, empty state de "Assistir depois") —
+   * mesma receita de `series/index.tsx`: fileira "Populares no
+   * SeenList" (`trending_movies`) embaixo do card vazio, reaproveitando
+   * `DiscoverCarousel`/`useDiscoverList` já usados no Explorar. Título
+   * reaproveita a MESMA chave `seriesHome.popularSeries` — o texto já
+   * é genérico de propósito no original (marca do app, não
+   * "séries populares"), mesma decisão do web.
+   */
+  const trendingMovies = useDiscoverList("trending_movies");
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "long", year: "numeric" }),
     [locale]
@@ -107,7 +121,24 @@ export default function MoviesScreen() {
           ) : isLoading ? (
             viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
           ) : wantToWatch.length === 0 ? (
-            <EmptyShelf message={t("moviesHome.emptyWatchlist")} actionLabel={t("moviesHome.exploreMovies")} actionHref="/(tabs)/explore" />
+            <>
+              <EmptyShelf message={t("moviesHome.emptyWatchlist")} actionLabel={t("moviesHome.exploreMovies")} actionHref="/(tabs)/explore" />
+              <View style={styles.popularSection}>
+                <DiscoverCarousel
+                  title={
+                    <View style={styles.flameTitleRow}>
+                      <Ionicons name="flame" size={16} color={colors.primary} />
+                      <Text variant="subtitle" style={{ color: colors.primary }}>
+                        {t("seriesHome.popularSeries")}
+                      </Text>
+                    </View>
+                  }
+                  items={trendingMovies.items}
+                  isLoading={trendingMovies.isLoading}
+                  viewAllHref="/explore/all/trending_movies"
+                />
+              </View>
+            </>
           ) : viewMode === "grid" ? (
             <PosterGrid items={wantToWatch} onPressItem={handlePressItem} />
           ) : (
@@ -158,8 +189,11 @@ const styles = StyleSheet.create({
   tabsRow: {
     paddingTop: spacing.sm,
   },
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela.
   content: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
   sectionHeader: {
@@ -170,5 +204,22 @@ const styles = StyleSheet.create({
   },
   listRows: {
     gap: spacing.sm,
+  },
+  // Mesma margem negativa de `series/index.tsx` (ver comentário lá) —
+  // `DiscoverCarousel` já tem seu próprio `paddingHorizontal`, e esta
+  // tela já envolve tudo num `ScrollView` com `styles.content` pado.
+  // CORREÇÃO (2026-09-03) — `marginHorizontal` era `-spacing.lg` pra
+  // cancelar exatamente o `paddingHorizontal` do `content` (acima);
+  // como o `content` virou `spacing.md`, esta margem precisa
+  // acompanhar — senão o carrossel ficaria com 8px de respiro extra
+  // (ou faltando) na borda em relação ao resto da tela.
+  popularSection: {
+    marginTop: spacing.lg,
+    marginHorizontal: -spacing.md,
+  },
+  flameTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
 });

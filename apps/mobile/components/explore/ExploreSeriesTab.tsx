@@ -19,9 +19,14 @@ import { colors, spacing } from "@/lib/theme";
  *
  * 1. Populares no SeenList (`trending_series`, ícone de chama âmbar).
  * 2. Porque você assistiu a [X] (só se houver título-âncora).
- * 3. Seus gêneros favoritos (chips).
+ * 3. Seus gêneros favoritos (chips, clicáveis).
  * 4. Principais séries para você (só se houver gênero favorito).
  * 5. Novas séries (`on_the_air_series`).
+ *
+ * CORREÇÃO (2026-09-02 — "no web, explorar tem uma seta '>' e
+ * infinite scroll, implementa TUDO no mobile, não assuma nada") — toda
+ * seção agora tem `viewAllHref`, igual ao web — ver comentário
+ * completo em `ExploreMoviesTab.tsx`.
  */
 export function ExploreSeriesTab() {
   const { topSeriesGenres, isLoading: favoriteGenresLoading, hasCompletedItems } = useFavoriteGenres();
@@ -49,6 +54,7 @@ export function ExploreSeriesTab() {
         }
         items={trendingSeries.items}
         isLoading={trendingSeries.isLoading}
+        viewAllHref="/explore/all/trending_series"
       />
 
       {showBecauseYouWatched && (
@@ -60,10 +66,11 @@ export function ExploreSeriesTab() {
           }
           items={becauseYouWatched.items}
           isLoading={anchorLoading || becauseYouWatched.isLoading}
+          viewAllHref={anchor ? `/explore/similar/series/${anchor.id}?title=${encodeURIComponent(anchor.title)}` : undefined}
         />
       )}
 
-      <GenreChips title={t("explore.discover.yourGenres")} genres={topSeriesGenres} isLoading={favoriteGenresLoading} />
+      <GenreChips title={t("explore.discover.yourGenres")} genres={topSeriesGenres} isLoading={favoriteGenresLoading} mediaType="series" />
 
       {showForYou && (
         <DiscoverCarousel
@@ -74,6 +81,7 @@ export function ExploreSeriesTab() {
           }
           items={forYou.items}
           isLoading={favoriteGenresLoading || forYou.isLoading}
+          viewAllHref={topGenre ? `/explore/genre/series/${topGenre.genreId}` : undefined}
         />
       )}
 
@@ -85,6 +93,7 @@ export function ExploreSeriesTab() {
         }
         items={onTheAirSeries.items}
         isLoading={onTheAirSeries.isLoading}
+        viewAllHref="/explore/all/on_the_air_series"
       />
     </View>
   );

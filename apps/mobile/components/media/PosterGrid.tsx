@@ -50,7 +50,13 @@ export interface PosterGridProps {
  */
 export function PosterGrid({ items, onPressItem, barColor }: PosterGridProps) {
   const { width } = useWindowDimensions();
-  const cardWidth = Math.floor((width - spacing.lg * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — era `spacing.lg * 2` (48, borda de tela dos
+  // dois lados); as telas que usam este grid tiveram seu
+  // `paddingHorizontal` mudado pra `spacing.md` (16) — sem atualizar
+  // aqui, o cálculo ficaria pensando que a área disponível é 16px
+  // menor do que realmente é, encolhendo os pôsteres à toa.
+  const cardWidth = Math.floor((width - spacing.md * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
 
   return (
     <View style={styles.grid}>
@@ -67,7 +73,9 @@ export const POSTER_GRID_GAP = GAP;
 /** Calcula a largura do pôster do jeito certo (ver correções TASK-120/139 acima) — reaproveitado pelas versões virtualizadas (`FlatList`/`SectionList`) usadas nas telas "ver tudo" do Perfil, que podem ter centenas de itens. */
 export function usePosterCardWidth(): number {
   const { width } = useWindowDimensions();
-  return Math.floor((width - spacing.lg * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
+  // CORREÇÃO (2026-09-03) — mesmo ajuste do `cardWidth` acima (borda
+  // de tela padronizada pra `spacing.md`).
+  return Math.floor((width - spacing.md * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
 }
 
 export function PosterGridItem({

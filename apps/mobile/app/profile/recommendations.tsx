@@ -175,10 +175,15 @@ const styles = StyleSheet.create({
     // cima). Alinhada com as outras 20: lado a lado, o título e a
     // seta ficavam em posições ligeiramente diferentes ao navegar
     // entre telas.
+    //
+    // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de
+    // tela em 16px app-wide) — as 21 telas foram todas atualizadas
+    // juntas de `spacing.lg` (24) pra `spacing.md` (16) na horizontal,
+    // pra bater com o `px-4` do web; continuam consistentes entre si.
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },

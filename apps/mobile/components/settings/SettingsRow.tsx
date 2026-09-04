@@ -21,7 +21,7 @@ export function SettingsRow({
       <Text style={danger ? styles.labelDanger : styles.label}>{label}</Text>
       <View style={styles.right}>
         {!!value && (
-          <Text variant="muted" style={styles.value} numberOfLines={1}>
+          <Text variant="muted" style={styles.value} numberOfLines={1} ellipsizeMode="tail">
             {value}
           </Text>
         )}
@@ -36,17 +36,19 @@ export function SettingsRow({
 
 const styles = StyleSheet.create({
   row: {
-    // CORREÇÃO (auditoria de consistência) — altura mínima igual nas
-    // duas linhas de Configurações. `ToggleRow` tem um `Switch`
-    // nativo (~31px de altura) e `SettingsRow` só texto (~18px):
-    // com o mesmo `paddingVertical`, as duas ficavam com alturas
-    // diferentes no MESMO bloco, dando um ritmo visual irregular na
-    // lista. `minHeight` iguala sem esticar o que já é maior.
-    minHeight: 52,
+    // CORREÇÃO (auditoria consistência web/mobile, Configurações) —
+    // web (`SettingsRow.tsx` do web) usa `px-3 py-3` (12px/12px), não
+    // `px-4`/16 (`spacing.md`). Linha ficava mais larga de sobra nas
+    // laterais que a versão web. `minHeight` também era 52 — alto
+    // demais pro texto sozinho (`text-sm`=14 + `py-3`=12*2 ≈ 44px de
+    // verdade no web); reduzido pra 44. O comentário original sobre
+    // igualar com `ToggleRow` (que tem `Switch`) não se aplica mais:
+    // hoje nenhuma tela mistura os dois componentes no mesmo bloco.
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 12,
     paddingVertical: spacing.sm + 4,
   },
   rowBorder: {
@@ -61,13 +63,17 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.danger,
   },
+  // CORREÇÃO — web: `gap-2` (8px) entre valor e chevron, não `gap-1`/4
+  // (`spacing.xs`). O limite de largura também era só aproximado
+  // (`55%` do container) — web trava o VALOR em si (não o bloco
+  // valor+seta) em `max-w-[160px]`; movido pra `value` abaixo.
   right: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    maxWidth: "55%",
+    gap: spacing.sm,
   },
   value: {
     fontSize: fontSize.xs,
+    maxWidth: 160,
   },
 });

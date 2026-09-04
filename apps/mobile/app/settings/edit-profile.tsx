@@ -266,22 +266,30 @@ const styles = StyleSheet.create({
   skeletonField: {
     gap: spacing.xs,
   },
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela.
   header: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   content: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
     gap: spacing.md,
   },
+  // CORREÇÃO (2026-09-03) — `marginHorizontal` era `-spacing.lg` pra
+  // cancelar exatamente o `paddingHorizontal` do `content` acima (a
+  // capa sangra até a borda real do aparelho). Como o `content` virou
+  // `spacing.md`, a margem negativa precisa acompanhar — senão a capa
+  // ficaria descolada 8px da borda de tela.
   bannerWrapper: {
     height: 112,
-    marginHorizontal: -spacing.lg,
+    marginHorizontal: -spacing.md,
     marginBottom: AVATAR_SIZE / 2 + spacing.xs,
     backgroundColor: colors.surface,
   },
@@ -308,9 +316,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.text,
   },
+  // CORREÇÃO (2026-09-03) — `left` era `spacing.lg`; como a
+  // `bannerWrapper` agora sangra até a borda real do aparelho (ver
+  // acima), este `left` é o que efetivamente vira a borda de tela do
+  // avatar — precisa acompanhar o resto pra alinhar com bio/nome/etc.
   avatarWrapper: {
     position: "absolute",
-    left: spacing.lg,
+    left: spacing.md,
     bottom: -AVATAR_SIZE / 2,
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,

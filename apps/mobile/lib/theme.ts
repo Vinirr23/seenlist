@@ -189,3 +189,45 @@ export const gel = {
   /** Reflexo claro no topo — aproximação do inset box-shadow do web (RN não tem sombra interna). */
   highlight: ["rgba(255,255,255,0.35)", "rgba(255,255,255,0)"] as const,
 } as const;
+
+/**
+ * "Plus Jakarta Sans" (a pedido — "perfil não se parece com o web") —
+ * o web instalou essa fonte de verdade, app-wide, via `next/font/google`
+ * (`apps/web/app/layout.tsx`, pesos 400-800, ver sessão do redesign
+ * "vidro" 2026-08-21); o mobile nunca teve fonte customizada nenhuma,
+ * usava a fonte padrão do sistema (Roboto/San Francisco) — uma das
+ * causas reais de "não parece o mesmo app".
+ *
+ * React Native não tem "peso variável" pra fonte customizada como o
+ * `font-weight: 700` do CSS: cada peso do Google Fonts é um ARQUIVO
+ * (e um nome de `fontFamily`) diferente — `fontWeight: "700"` sozinho,
+ * sem trocar o `fontFamily`, não deixa nada em negrito (o SO só sabe
+ * fingir negrito/itálico em fontes DO SISTEMA, não em TTF custom
+ * carregado pelo app). Por isso o mapa + `fontFamilyForWeight` abaixo:
+ * o componente `Text` (`components/ui/Text.tsx`) resolve o
+ * `fontFamily` certo a partir do `fontWeight` pedido (variant OU
+ * style local), em vez de cada tela escolher a fonte na mão — mesma
+ * ideia de token central do resto deste arquivo.
+ */
+export const fontFamily = {
+  400: "PlusJakartaSans_400Regular",
+  500: "PlusJakartaSans_500Medium",
+  600: "PlusJakartaSans_600SemiBold",
+  700: "PlusJakartaSans_700Bold",
+  800: "PlusJakartaSans_800ExtraBold",
+} as const;
+
+/**
+ * Pesos que a fonte instalada não cobre (ex.: "300", "900", "black") —
+ * caem no peso existente mais PRÓXIMO por cima, nunca quebram nem
+ * caem silenciosamente pro padrão do sistema.
+ */
+export function fontFamilyForWeight(weight?: number | string): string {
+  const numeric = weight === "bold" ? 700 : weight === "normal" || weight === undefined ? 400 : Number(weight);
+  if (!Number.isFinite(numeric)) return fontFamily[400];
+  if (numeric >= 800) return fontFamily[800];
+  if (numeric >= 700) return fontFamily[700];
+  if (numeric >= 600) return fontFamily[600];
+  if (numeric >= 500) return fontFamily[500];
+  return fontFamily[400];
+}

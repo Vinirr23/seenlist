@@ -66,16 +66,19 @@ export default function DiscoverPeopleScreen() {
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
+  // usa `px-4` (`spacing.md`=16) como borda de tela.
   header: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   searchArea: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
   searchRow: {
@@ -94,8 +97,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.text,
   },
+  // CORREÇÃO (2026-09-03) — mesma padronização de borda de tela.
   suggestionsLabel: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
     fontSize: 11,
     fontWeight: "700",
@@ -104,6 +108,6 @@ const styles = StyleSheet.create({
   centerText: {
     textAlign: "center",
     marginTop: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
 });

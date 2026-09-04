@@ -36,8 +36,13 @@ export function HomeTabs({ active, onChange }: { active: HomeTab; onChange: (tab
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24). Como
+  // o comentário acima explica, `movies.tsx`/`series/index.tsx` só dão
+  // `paddingTop` e contam com este componente pro padding horizontal —
+  // este `paddingHorizontal` É a borda de tela das duas telas.
   wrapper: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
   },

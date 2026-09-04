@@ -24,6 +24,7 @@ import { MetaRow } from "@/components/media/MetaRow";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { SeasonAccordion } from "@/components/series-detail/SeasonAccordion";
 import { EpisodeCarousel } from "@/components/series-detail/EpisodeCarousel";
+import { SeriesWatchProviders } from "@/components/series-detail/SeriesWatchProviders";
 import { colors, spacing, radius } from "@/lib/theme";
 
 type DetailTab = "sobre" | "episodios";
@@ -167,6 +168,11 @@ export default function SeriesDetailScreen() {
 
           {tab === "sobre" ? (
             <View style={styles.section}>
+              {/* IMPLEMENTAÇÃO (2026-09-04) — "onde assistir" nunca existia
+                  nesta tela. Mesma posição do web (antes da sinopse, ver
+                  SeriesDetailsView.tsx/SeriesWatchProviders.tsx). */}
+              <SeriesWatchProviders providers={series.watchProviders} />
+
               <Text style={styles.overview}>{series.overview || t("media.noSynopsisAvailable")}</Text>
 
               {series.genres.length > 0 && (
@@ -331,8 +337,14 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
+  // em 16px app-wide) — `padding` (esquerda/direita) era `spacing.lg`
+  // (24); web usa `px-4` (`spacing.md`=16) como borda de tela.
+  // `paddingVertical` (herdado do `padding` antigo) e `gap` (ritmo
+  // vertical entre seções) NÃO foram tocados — fora do escopo.
   body: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
     gap: spacing.lg,
   },
   tabs: {
