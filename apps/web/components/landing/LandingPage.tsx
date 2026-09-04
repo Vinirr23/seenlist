@@ -265,7 +265,13 @@ function PosterRow({ items }: { items: LandingItem[] }) {
           <PosterBlock
             key={i}
             poster={item}
-            hue={hues[i % hues.length]}
+            // `!` (2026-09-04, achado no build da Vercel) — `i % hues.length`
+            // sempre cai num índice válido (`hues` tem 4 itens fixos, nunca
+            // vazio), mas o TypeScript não consegue provar isso
+            // estaticamente (`noUncheckedIndexedAccess` no tsconfig), então
+            // tipa como `string | undefined`. A asserção é segura aqui
+            // porque o módulo garante o índice dentro dos limites sempre.
+            hue={hues[i % hues.length]!}
             className="aspect-[2/3] w-24 shrink-0 sm:w-32"
             radius="rounded-lg"
             sizes="128px"
@@ -713,7 +719,9 @@ function TrendingRow({ items }: { items: LandingItem[] }) {
           <div key={i} className="flex w-28 shrink-0 flex-col gap-2 sm:w-32">
             <PosterBlock
               poster={item}
-              hue={hues[i % hues.length]}
+              // `!` — mesma garantia/explicação do `PosterRow` acima: índice
+              // do módulo sempre válido, `hues` fixo com 4 itens.
+              hue={hues[i % hues.length]!}
               className="aspect-[2/3] w-full"
               radius="rounded-lg"
               sizes="128px"
