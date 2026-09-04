@@ -91,10 +91,18 @@ async function fetchLandingItems(): Promise<LandingItem[]> {
     const pool: LandingItem[] = [];
     const max = Math.max(movies.items.length, series.items.length);
     for (let i = 0; i < max; i++) {
-      if (series.items[i])
-        pool.push({ title: series.items[i].title, posterPath: series.items[i].posterPath, backdropPath: series.items[i].backdropPath });
-      if (movies.items[i])
-        pool.push({ title: movies.items[i].title, posterPath: movies.items[i].posterPath, backdropPath: movies.items[i].backdropPath });
+      // CORREÇÃO (2026-09-04, achado no build da Vercel — "Object is
+      // possibly 'undefined'") — indexar o mesmo array duas vezes
+      // (`series.items[i]` no `if` e de novo dentro do `push`) não deixa
+      // o TypeScript enxergar que é o MESMO valor já checado — cada
+      // acesso por índice é reavaliado à parte, sem narrowing entre um e
+      // outro (diferente de checar uma variável). Guardando o item numa
+      // constante local ANTES do `if`, o TypeScript narrowa a constante
+      // de verdade — resolve o erro na raiz, sem precisar de `!`/`as`.
+      const seriesItem = series.items[i];
+      if (seriesItem) pool.push({ title: seriesItem.title, posterPath: seriesItem.posterPath, backdropPath: seriesItem.backdropPath });
+      const movieItem = movies.items[i];
+      if (movieItem) pool.push({ title: movieItem.title, posterPath: movieItem.posterPath, backdropPath: movieItem.backdropPath });
     }
     return pool;
   } catch (error) {
