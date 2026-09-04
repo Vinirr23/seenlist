@@ -1,3 +1,17 @@
+import type { Metadata } from "next";
+
+// SEO (2026-09-04) — mesmo motivo/correção do `app/about/page.tsx`
+// (ver comentário lá): sem `alternates.canonical` próprio, herdava o
+// canonical fixo da home definido em `app/layout.tsx`, e o Google
+// nunca indexaria esta página como própria.
+export const metadata: Metadata = {
+  title: "Política de Privacidade",
+  description: "Como o SeenList coleta, usa e protege seus dados, em conformidade com a LGPD.",
+  alternates: {
+    canonical: "/privacy",
+  },
+};
+
 export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-4xl px-6 py-12 prose">

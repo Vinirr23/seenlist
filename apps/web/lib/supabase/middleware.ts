@@ -14,7 +14,19 @@ import { env } from "@/lib/env";
 // `components/landing/shared.tsx`) — sem essa entrada, o middleware
 // mandava qualquer visitante sem sessão direto pra "/login" antes da
 // página sequer renderizar.
-const PUBLIC_ROUTES = ["/", "/about", "/login", "/register", "/forgot-password", "/beta"];
+// BUG REAL CORRIGIDO (2026-09-04, achado fazendo o SEO do site) —
+// "/privacy" e "/terms" NUNCA estiveram nessa lista, então qualquer
+// visitante deslogado (incluindo o Googlebot, que nunca tem cookie de
+// sessão) era redirecionado pro "/login" ao tentar abrir essas
+// páginas, mesmo elas já existindo e tendo conteúdo de verdade
+// (`app/privacy/page.tsx`, `app/terms/page.tsx`). Duas consequências
+// reais: o Google nunca conseguia indexar a política de privacidade
+// nem os termos, e — mais grave — a Apple/Google normalmente exigem
+// uma URL de política de privacidade PÚBLICA e acessível na hora de
+// avaliar o app pra publicação; apontando pra uma URL que redireciona
+// pro login, a submissão na App Store podia ser rejeitada por causa
+// disso.
+const PUBLIC_ROUTES = ["/", "/about", "/privacy", "/terms", "/login", "/register", "/forgot-password", "/beta"];
 // /login e /register não fazem sentido pra quem já está logado — mandamos
 // pra "/". /forgot-password fica de fora dessa lista de propósito: depois
 // de clicar no link do e-mail de recuperação, o usuário chega aqui com uma

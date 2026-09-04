@@ -1,3 +1,17 @@
+import type { Metadata } from "next";
+
+// SEO (2026-09-04) — mesmo motivo/correção do `app/about/page.tsx`
+// (ver comentário lá): sem `alternates.canonical` próprio, herdava o
+// canonical fixo da home definido em `app/layout.tsx`, e o Google
+// nunca indexaria esta página como própria.
+export const metadata: Metadata = {
+  title: "Termos de Uso",
+  description: "Os termos de uso do SeenList: o que esperamos de você e o que você pode esperar do aplicativo.",
+  alternates: {
+    canonical: "/terms",
+  },
+};
+
 export default function TermsPage() {
   return (
     <main className="mx-auto max-w-4xl px-6 py-12 prose">

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Tv, Star, MessageSquare, CalendarClock, ListChecks, Users, Download, Bug, Mail } from "lucide-react";
 import {
@@ -9,6 +10,34 @@ import {
   Footer,
   SOCIAL_LINKS,
 } from "@/components/landing/shared";
+
+/**
+ * SEO (2026-09-04) — sem isto, a página herdava título/descrição
+ * IDÊNTICOS aos da home (`app/layout.tsx`), perdendo a chance de
+ * rankear por buscas diferentes ("o que é o SeenList", etc). O
+ * `alternates.canonical` é o mais importante dos dois: sem ele, esta
+ * página também herdava o `canonical` da home (raiz achada aqui —
+ * `app/layout.tsx` define um `alternates.canonical` fixo pra
+ * "https://seenlist.app", e QUALQUER página-filha que não sobrescreva
+ * o dela herda esse mesmo valor) — na prática, isso dizia ao Google
+ * "a versão definitiva desta página é a home", e o Google nunca
+ * indexaria "/about" como página própria. Mesma correção replicada em
+ * `/privacy` e `/terms`, abaixo.
+ */
+export const metadata: Metadata = {
+  title: "Sobre o SeenList",
+  description:
+    "Conheça o SeenList: acompanhe episódio por episódio, avalie séries e filmes, escreva resenhas, monte listas e siga amigos — tudo num só lugar.",
+  alternates: {
+    canonical: "/about",
+  },
+  openGraph: {
+    title: "Sobre o SeenList",
+    description:
+      "Conheça o SeenList: acompanhe episódio por episódio, avalie séries e filmes, escreva resenhas, monte listas e siga amigos — tudo num só lugar.",
+    url: "/about",
+  },
+};
 
 /**
  * TASK-XXX (2026-09-04, a pedido — "privacidade, termos adiciona um
