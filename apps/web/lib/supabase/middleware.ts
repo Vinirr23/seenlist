@@ -2,7 +2,19 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
-const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password", "/beta"];
+// CORREÇÃO (2026-09-04, a pedido — landing page em "/") — "/" entrou
+// na lista: antes o middleware barrava qualquer visitante sem sessão
+// ANTES mesmo de `app/page.tsx` rodar, mandando direto pra "/login"
+// (raiz do "vai direto pra login" reportado) — "/" agora é público, e
+// quem TEM sessão continua caindo em "/series" (`app/page.tsx` decide
+// isso, não o middleware).
+// CORREÇÃO (2026-09-04, a pedido — página "/about") — mesmo raciocínio
+// do "/" acima: "/about" é a página pública que explica o que é o
+// SeenList pra quem ainda não tem conta (link "Sobre" no rodapé, ver
+// `components/landing/shared.tsx`) — sem essa entrada, o middleware
+// mandava qualquer visitante sem sessão direto pra "/login" antes da
+// página sequer renderizar.
+const PUBLIC_ROUTES = ["/", "/about", "/login", "/register", "/forgot-password", "/beta"];
 // /login e /register não fazem sentido pra quem já está logado — mandamos
 // pra "/". /forgot-password fica de fora dessa lista de propósito: depois
 // de clicar no link do e-mail de recuperação, o usuário chega aqui com uma
