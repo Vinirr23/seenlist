@@ -139,6 +139,11 @@ export async function runMigration(
           total_watch_events:
             reconstructed.mainWatched.length + reconstructed.mainWatched.reduce((sum, e) => sum + e.rewatchCount, 0),
           updated_at: new Date().toISOString(),
+          // Ver `series-status-mutations.ts` — migração é uma gravação
+          // explícita (a pessoa pediu a migração), sempre "vence" a
+          // trava de corrida do recálculo automático (migration
+          // `20260910000000_series_status_recalc_race_guard.sql`).
+          status_computed_at: null,
           // TASK-041 — campos opcionais do export, só enviados quando o CSV realmente os tem. Ausentes = comportamento antigo intacto (banco usa o default).
           ...(row.status ? { tvtime_status: row.status } : {}),
           ...(row.createdAt ? { created_at: new Date(row.createdAt).toISOString() } : {}),

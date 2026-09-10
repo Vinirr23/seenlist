@@ -455,6 +455,22 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
   let episodesBySeriesId: Map<number, { seasonNumber: number; episodeNumber: number; airDate: string | null; episodeId: number }[]>;
   let endedBySeriesId: Map<number, boolean>;
   let specialKeysBySeriesId: Map<number, Set<string>>;
+  /*
+   * CAUSA RAIZ (2026-09-10 — "Tomb Raider King fantasma em Continue
+   * assistindo", ver migration `20260910000000_series_status_recalc_
+   * race_guard.sql` — mesmo bug, mesma correção do mobile em
+   * `seriesDetails.ts`) — marcar vários episódios em sequência rápida
+   * disparava um recálculo POR TOQUE, concorrentes entre si; sem
+   * trava nenhuma, um recálculo mais ANTIGO (que demorou mais pra
+   * responder) podia terminar DEPOIS de um mais NOVO e sobrescrever o
+   * resultado certo com um cálculo já desatualizado.
+   * `recalcSnapshotAt` marca o instante em que a leitura fresca
+   * abaixo começou — o banco (gatilho
+   * `trg_guard_series_status_recalc_race`) descarta sozinho qualquer
+   * gravação cujo instante seja mais velho que a última mudança de
+   * verdade na linha.
+   */
+  const recalcSnapshotAt = new Date().toISOString();
   try {
     const [watchedLookup, episodesMap, endedMap, specialKeysMap] = await Promise.all([
       fetchWatchedEpisodeKeysBySeriesId(supabase, user.id, seriesIds),
@@ -495,7 +511,13 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
     return false;
   }
 
-  const updates: { user_id: string; series_id: number; status: "watching" | "up_to_date" | "completed"; updated_at: string }[] = [];
+  const updates: {
+    user_id: string;
+    series_id: number;
+    status: "watching" | "up_to_date" | "completed";
+    updated_at: string;
+    status_computed_at: string;
+  }[] = [];
   // UNIFICAÇÃO (ver airDateCategory.ts) — `resolveSeriesCategory` é a
   // ÚNICA função que decide "watching"/"up_to_date"/"completed" pra
   // qualquer um dos 3 lugares que gravam series_status no web.
@@ -584,7 +606,13 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
     // garante um `string` de verdade, nunca `unknown`/`any` vazando
     // pra dentro de `shouldWriteSeriesCategory`.
     if (shouldWriteSeriesCategory(String(currentStatus ?? ""), newCategory)) {
-      updates.push({ user_id: user.id, series_id: seriesId, status: newCategory, updated_at: new Date().toISOString() });
+      updates.push({
+        user_id: user.id,
+        series_id: seriesId,
+        status: newCategory,
+        updated_at: new Date().toISOString(),
+        status_computed_at: recalcSnapshotAt,
+      });
     }
   }
 
@@ -719,6 +747,9 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
   let watchedEpisodeKeys: Set<string> = new Set();
   let watchedEpisodeIds: Set<number> = new Set();
   let specialKeys: Set<string> = new Set();
+  // Ver comentário grande em `recalculateUpToDateSeriesCategories`,
+  // acima — mesma trava de corrida, mesmo motivo.
+  const recalcSnapshotAt = new Date().toISOString();
   try {
     const [watchedLookup, specialKeysBySeriesId, episodesBySeriesId, summaryResponse] = await Promise.all([
       // CORREÇÃO (investigação do Bleach — ver comentário grande em
@@ -808,6 +839,14 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
     p_series_id: seriesId,
     p_status: newCategory,
     p_source: "auto_recalc",
+    /*
+     * CAUSA RAIZ (2026-09-10, ver migration `20260910000000_series_
+     * status_recalc_race_guard.sql`) — igual ao `.upsert()` em lote
+     * logo acima: informa o instante em que a leitura que embasou
+     * esta decisão começou, pra `trg_guard_series_status_recalc_race`
+     * descartar sozinho se algo mais novo já tiver gravado.
+     */
+    p_status_computed_at: recalcSnapshotAt,
   });
   if (updateError) {
     console.error("[series-category-recalc] Falha ao atualizar categoria depois de marcar episódio.", updateError);

@@ -344,7 +344,17 @@ function MatchConfirmationScreen({ pending, onDone }: { pending: PendingItem[]; 
       if (user) {
         if (item.mediaType === "series") {
           await supabase.from("series_status").upsert(
-            { user_id: user.id, series_id: tmdbId, status: "watching", updated_at: new Date().toISOString() },
+            {
+              user_id: user.id,
+              series_id: tmdbId,
+              status: "watching",
+              updated_at: new Date().toISOString(),
+              // Ver `series-status-mutations.ts` — gravação manual
+              // sempre "vence" a trava de corrida do recálculo
+              // automático (migration `20260910000000_series_status_
+              // recalc_race_guard.sql`).
+              status_computed_at: null,
+            },
             { onConflict: "user_id,series_id" }
           );
         } else {

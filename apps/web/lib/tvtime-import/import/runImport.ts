@@ -418,6 +418,12 @@ export async function runImport(
               next_episode_number: reconstruction.nextEpisode?.episodeNumber ?? null,
               total_watch_events: match.show.totalWatchEvents,
               updated_at: new Date().toISOString(),
+              // Ver `series-status-mutations.ts` — importação é uma
+              // gravação explícita (a pessoa pediu a importação), sempre
+              // "vence" a trava de corrida do recálculo automático
+              // (migration `20260910000000_series_status_recalc_race_
+              // guard.sql`).
+              status_computed_at: null,
             },
             { onConflict: "user_id,series_id" }
           );

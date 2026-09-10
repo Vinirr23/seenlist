@@ -27,9 +27,17 @@ export function useMoveLibraryItem() {
           .upsert({ user_id: user.id, movie_id: id, status: movieStatus, updated_at: new Date().toISOString() });
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from("series_status")
-          .upsert({ user_id: user.id, series_id: id, status, updated_at: new Date().toISOString() });
+        const { error } = await supabase.from("series_status").upsert({
+          user_id: user.id,
+          series_id: id,
+          status,
+          updated_at: new Date().toISOString(),
+          // Ver comentário grande em `series-status-mutations.ts` —
+          // mesmo motivo: gravação manual sempre "vence" a trava de
+          // corrida do recálculo automático (migration
+          // `20260910000000_series_status_recalc_race_guard.sql`).
+          status_computed_at: null,
+        });
         if (error) throw error;
       }
     },

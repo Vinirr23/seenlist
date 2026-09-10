@@ -51,6 +51,14 @@ export function useSetSeriesStatus(seriesId: number) {
           series_id: seriesId,
           status,
           updated_at: new Date().toISOString(),
+          // CORREÇÃO (2026-09-10, ver migration `20260910000000_series_
+          // status_recalc_race_guard.sql`) — precisa gravar `null`
+          // EXPLICITAMENTE: como o `upsert` só toca as colunas do
+          // payload, omitir a coluna faria o gatilho novo herdar um
+          // valor antigo (de recálculo automático) e arriscar rejeitar
+          // esta troca manual. `null` sinaliza "escolha explícita da
+          // pessoa, sempre vale".
+          status_computed_at: null,
         });
         if (error) {
           console.error("[series-status] Falha ao salvar status", error);
