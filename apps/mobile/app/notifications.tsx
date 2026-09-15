@@ -10,7 +10,7 @@ import {
   type AppNotification,
 } from "@/lib/notifications";
 import { tmdbImageUrl } from "@/lib/library";
-import { Screen, Text, Skeleton, GlassTargetProvider, AmbientGlow } from "@/components/ui";
+import { Screen, Text, Skeleton, GlassTargetProvider, AmbientGlow, Glass } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, tint } from "@/lib/theme";
@@ -134,25 +134,27 @@ export default function NotificationsScreen() {
             renderItem={({ item: n }) => {
               const message = getNotificationMessage(n, t);
               return (
-                <Pressable style={[styles.card, !n.readAt && styles.cardUnread]} onPress={() => handleOpen(n)}>
-                  <View style={styles.avatarWrapper}>
-                    {n.actor ? (
-                      <Avatar uri={n.actor.avatarUrl} name={n.actor.displayName ?? n.actor.username} style={styles.avatar} textStyle={styles.avatarInitials} />
-                    ) : n.mediaPosterPath ? (
-                      <Image source={{ uri: tmdbImageUrl(n.mediaPosterPath, "w185") ?? undefined }} style={styles.avatar} />
-                    ) : (
-                      <View style={[styles.avatar, styles.iconFallback]}>
-                        <Feather name="bell" size={16} color={colors.primary} />
-                      </View>
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.message}>{message}</Text>
-                    <Text variant="muted" style={styles.date}>
-                      {dateFormatter.format(new Date(n.createdAt))}
-                    </Text>
-                  </View>
-                  {!n.readAt && <View style={styles.unreadDot} />}
+                <Pressable onPress={() => handleOpen(n)}>
+                  <Glass style={[styles.card, !n.readAt && styles.cardUnread]}>
+                    <View style={styles.avatarWrapper}>
+                      {n.actor ? (
+                        <Avatar uri={n.actor.avatarUrl} name={n.actor.displayName ?? n.actor.username} style={styles.avatar} textStyle={styles.avatarInitials} />
+                      ) : n.mediaPosterPath ? (
+                        <Image source={{ uri: tmdbImageUrl(n.mediaPosterPath, "w185") ?? undefined }} style={styles.avatar} />
+                      ) : (
+                        <View style={[styles.avatar, styles.iconFallback]}>
+                          <Feather name="bell" size={16} color={colors.primary} />
+                        </View>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.message}>{message}</Text>
+                      <Text variant="muted" style={styles.date}>
+                        {dateFormatter.format(new Date(n.createdAt))}
+                      </Text>
+                    </View>
+                    {!n.readAt && <View style={styles.unreadDot} />}
+                  </Glass>
                 </Pressable>
               );
             }}
@@ -197,16 +199,37 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.md,
   },
+  /*
+   * CORREÇÃO (a pedido, 2026-09-15 — "a tela de notificações não tem
+   * o design glass também"). Causa raiz: o campo de manchas
+   * (`GlassTargetProvider`/`AmbientGlow`, acima) já estava correto —
+   * mas o CARD em si continuava um `View`/`Pressable` com
+   * `backgroundColor: colors.surface` CHAPADO (opaco), o padrão
+   * antigo de antes do vidro existir. Numa lista densa (vários cards,
+   * só 8px de vão entre eles), isso cobre quase toda a mancha atrás —
+   * pouquíssimo vidro visível de verdade, mesmo com o fundo certo.
+   *
+   * Web (`NotificationsView.tsx`): cada linha é
+   * `backdrop-blur-[18px] backdrop-saturate-[180%]` — o mesmo card de
+   * vidro de `MyCommentRow.tsx`/`comments.tsx`. Porte fiel: `Glass`
+   * (variant "card", padrão) em vez de `View`+cor sólida.
+   */
   card: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     padding: spacing.sm,
   },
+  /*
+   * Não lida: mesmo par âmbar (`tint.border`/`tint.subtle`) já usado
+   * pra destaque de item ativo no resto do app — equivalente ao
+   * `rgba(240,169,79, ...)` que o web usa nesta MESMA tela pra
+   * notificação não lida. `Glass` aceita `borderColor`/`backgroundColor`
+   * no `style` como override explícito da receita padrão (ver
+   * `Glass.tsx`, "fundoDoChamador"/"bordaDoChamador") — continua
+   * sendo vidro de verdade (blur+saturação), só com o véu colorido.
+   */
   cardUnread: {
     borderColor: tint.border,
     backgroundColor: tint.subtle,
