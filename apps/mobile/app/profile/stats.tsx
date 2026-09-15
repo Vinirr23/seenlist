@@ -7,6 +7,7 @@ import { StatsMoviesTab } from "@/components/profile/StatsMoviesTab";
 import { Screen, Text } from "@/components/ui";
 import { colors, spacing } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 type StatsTab = "series" | "movies";
 
@@ -28,23 +29,32 @@ export default function ProfileStatsScreen() {
   const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const [tab, setTab] = useState<StatsTab>("series");
+  const { t } = useTranslation();
 
   return (
     <Screen padded={false}>
       {/* `bottomInset` saiu: a barra de navegação agora flutua sobre esta tela (ver `app/_layout.tsx`) e a folga do fim do conteúdo já soma a área segura, via `useTabBarClearance()`. Manter os dois empurrava o conteúdo pra cima duas vezes e ainda tirava o fundo de trás da barra, que é o que dá o efeito de vidro. */}
+      {/*
+        * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
+        * pendência de design", 2026-09-16) — título "Estatísticas" e
+        * as duas abas "Séries"/"Filmes" estavam com texto fixo em
+        * português; web usa `t("profile.statistics")`/`t("nav.series")`/
+        * `t("nav.movies")` — as 3 chaves já existem traduzidas nas 3
+        * línguas em `translations.ts`, só reaproveitadas aqui.
+        */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
         </Pressable>
-        <Text variant="subtitle">Estatísticas</Text>
+        <Text variant="subtitle">{t("profile.statistics")}</Text>
       </View>
 
       <View style={styles.tabs}>
         <Pressable style={[styles.tabButton, tab === "series" && styles.tabButtonActive]} onPress={() => setTab("series")}>
-          <Text style={tab === "series" ? styles.tabLabelActive : styles.tabLabel}>Séries</Text>
+          <Text style={tab === "series" ? styles.tabLabelActive : styles.tabLabel}>{t("nav.series")}</Text>
         </Pressable>
         <Pressable style={[styles.tabButton, tab === "movies" && styles.tabButtonActive]} onPress={() => setTab("movies")}>
-          <Text style={tab === "movies" ? styles.tabLabelActive : styles.tabLabel}>Filmes</Text>
+          <Text style={tab === "movies" ? styles.tabLabelActive : styles.tabLabel}>{t("nav.movies")}</Text>
         </Pressable>
       </View>
 

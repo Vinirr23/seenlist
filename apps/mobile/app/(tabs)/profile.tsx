@@ -410,9 +410,26 @@ export default function ProfileScreen() {
             <ProfileRecommendationsPreview />
           </View>
           <ProfileListsPreview />
+          {/*
+            * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem
+            * alguma pendência de design", 2026-09-16) — os 6 rótulos
+            * abaixo (título + "vazio, adicionar") dos carrosséis de
+            * Séries/Filmes/Favoritos estavam com texto fixo em
+            * português, apesar do componente já ter `useTranslation()`
+            * importado (usado em outro ponto desta mesma tela). No
+            * web (`ProfileSectionsList.tsx`) os rótulos "Séries"/
+            * "Filmes" (sem ser favoritos) usam `t("nav.series")`/
+            * `t("nav.movies")` — mesmas chaves já usadas na barra de
+            * navegação, reaproveitadas aqui; as de favoritos usam
+            * `profile.section.favoriteSeries` etc, só que o mobile já
+            * tinha equivalentes PRÓPRIOS e já traduzidos nas 3 línguas
+            * (`profile.favoriteSeries`/`profile.addFavoriteSeries`/
+            * `profile.favoriteMovies`/`profile.addFavoriteMovies`) —
+            * reaproveitados sem criar chave nova, só ligados aqui.
+            */}
           <ProfileMediaCarousel
             icon="tv"
-            label="Séries"
+            label={t("nav.series")}
             href="/profile/series"
             mediaType="series"
             ids={seriesActivity.ids}
@@ -420,17 +437,17 @@ export default function ProfileScreen() {
           />
           <ProfileMediaCarousel
             icon="star"
-            label="Séries favoritas"
+            label={t("profile.favoriteSeries")}
             href="/profile/favorite-series"
             mediaType="series"
             ids={favoriteSeries.ids}
             isLoadingIds={favoriteSeries.isLoading}
-            emptyLabel="Adicionar séries favoritas"
+            emptyLabel={t("profile.addFavoriteSeries")}
             emptyHref="/profile/series"
           />
           <ProfileMediaCarousel
             icon="film"
-            label="Filmes"
+            label={t("nav.movies")}
             href="/profile/movies"
             mediaType="movie"
             ids={movieActivity.ids}
@@ -438,12 +455,12 @@ export default function ProfileScreen() {
           />
           <ProfileMediaCarousel
             icon="star"
-            label="Filmes favoritos"
+            label={t("profile.favoriteMovies")}
             href="/profile/favorite-movies"
             mediaType="movie"
             ids={favoriteMovies.ids}
             isLoadingIds={favoriteMovies.isLoading}
-            emptyLabel="Adicionar filmes favoritos"
+            emptyLabel={t("profile.addFavoriteMovies")}
             emptyHref="/profile/movies"
           />
         </View>

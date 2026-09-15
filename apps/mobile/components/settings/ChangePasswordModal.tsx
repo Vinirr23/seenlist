@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Modal, TextInput, Pressable, StyleSheet } from "react-native";
 import { updatePassword } from "@/lib/settings";
-import { Text, Button } from "@/components/ui";
+import { Text, Button, Glass } from "@/components/ui";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -27,7 +27,22 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={styles.cardWrap} onPress={(e) => e.stopPropagation()}>
+          {/*
+            * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem
+            * alguma pendência de design", 2026-09-16) — o card era um
+            * `View` opaco (`colors.surface`), enquanto o equivalente
+            * do web (`TextPromptDialog.tsx`) usa vidro de verdade
+            * (`border-white/10` + `backdrop-blur-[18px]
+            * backdrop-saturate-[180%]` + o mesmo radial-gradient/base
+            * que a receita `dark` de `Glass` já calibrou — mesmos
+            * números: base `rgba(20,22,30,0.85)`, brilho
+            * `rgba(255,255,255,0.17)`, borda `rgba(255,255,255,0.1)`).
+            * Trocado pro mesmo padrão já usado em `ProfileMoreSheet.tsx`/
+            * `SeriesQuickActionsSheet.tsx` (`Modal` + `Pressable` pra
+            * "tocar fora fecha" + `<Glass variant="dark">` como card).
+            */}
+          <Glass style={styles.card} variant="dark">
           <Text style={styles.title}>
             {t("settings.changePassword")}
           </Text>
@@ -73,6 +88,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
               </Button>
             </View>
           </View>
+          </Glass>
         </Pressable>
       </Pressable>
     </Modal>
@@ -95,9 +111,13 @@ const styles = StyleSheet.create({
   // (título→campos 16, entre campos 12, campos→botões 20), tratados
   // agora item a item (`title.marginBottom`, `form.gap`,
   // `buttons.marginTop`) em vez de um valor só pra tudo.
-  card: {
+  cardWrap: {
     width: "100%",
-    backgroundColor: colors.surface,
+  },
+  // `backgroundColor` opaco saiu daqui — vidro de verdade agora vem do
+  // `<Glass variant="dark">` que envolve este style (ver comentário no
+  // JSX, acima). `borderRadius`/`padding` continuam os mesmos.
+  card: {
     borderRadius: radius.lg,
     padding: 20,
   },

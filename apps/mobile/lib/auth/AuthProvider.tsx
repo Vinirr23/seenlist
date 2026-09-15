@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { registerForPushNotifications, removePushToken } from "@/lib/pushNotifications";
 import { markSessionReady } from "@/lib/appReady";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export type AuthResult = { error: string | null; message?: string };
 
@@ -66,6 +67,20 @@ function extractTokensFromUrl(url: string): {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  /**
+   * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
+   * pendência de design", 2026-09-16) — todas as mensagens de
+   * erro/sucesso deste arquivo eram texto fixo em português, mesmo
+   * pra quem está usando o app em inglês/espanhol. Único arquivo
+   * "central" ainda faltando tradução (as telas de login/cadastro/
+   * esqueci-a-senha também estavam sem NENHUM `t()`, corrigidas
+   * juntas nesta mesma leva — ver `app/(auth)/{login,register,
+   * forgot-password}.tsx`). Chaves novas em `translations.ts`
+   * (`auth.fillEmailAndPassword`, `auth.invalidCredentials`, etc.) —
+   * as chaves de placeholder/rótulo já existiam, só as mensagens de
+   * validação/erro é que nunca tinham sido criadas.
+   */
+  const { t } = useTranslation();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -112,37 +127,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signInWithEmail(email, password) {
         const trimmedEmail = email.trim();
         if (!trimmedEmail || !password) {
-          return { error: "Preencha e-mail e senha." };
+          return { error: t("auth.fillEmailAndPassword") };
         }
         const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
-        if (error) return { error: "E-mail ou senha inválidos." };
+        if (error) return { error: t("auth.invalidCredentials") };
         return { error: null };
       },
 
       async signUpWithEmail(email, password, confirmPassword) {
         const trimmedEmail = email.trim();
         if (!trimmedEmail || !password) {
-          return { error: "Preencha e-mail e senha." };
+          return { error: t("auth.fillEmailAndPassword") };
         }
         if (password.length < 8) {
-          return { error: "A senha precisa ter pelo menos 8 caracteres." };
+          return { error: t("auth.passwordTooShort") };
         }
         if (password !== confirmPassword) {
-          return { error: "As senhas não coincidem." };
+          return { error: t("auth.passwordsDontMatch") };
         }
 
         const { data, error } = await supabase.auth.signUp({ email: trimmedEmail, password });
         if (error) {
           return {
-            error:
-              error.message === "User already registered" ? "Este e-mail já tem cadastro." : "Não foi possível criar a conta.",
+            error: error.message === "User already registered" ? t("auth.emailAlreadyRegistered") : t("auth.signUpError"),
           };
         }
 
         // Se a confirmação de e-mail estiver habilitada no projeto Supabase,
         // `session` vem nulo aqui — mesma regra do web (lib/actions/auth.ts).
         if (!data.session) {
-          return { error: null, message: "Cadastro criado. Confirme seu e-mail para poder entrar." };
+          return { error: null, message: t("auth.signUpConfirmEmail") };
         }
         return { error: null };
       },
@@ -154,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (error || !data?.url) {
-          return { error: "Não foi possível entrar com o Google agora. Tente de novo em instantes." };
+          return { error: t("auth.googleSignInError") };
         }
 
         const result = await WebBrowser.openAuthSessionAsync(data.url, GOOGLE_REDIRECT_URL);
@@ -163,13 +177,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: null }; // usuário desistiu — não é um erro pra mostrar
         }
         if (result.type !== "success" || !result.url) {
-          return { error: "Não foi possível entrar com o Google agora. Tente de novo em instantes." };
+          return { error: t("auth.googleSignInError") };
         }
 
         const { accessToken, refreshToken, errorDescription } = extractTokensFromUrl(result.url);
         if (errorDescription) return { error: errorDescription };
         if (!accessToken || !refreshToken) {
-          return { error: "Não foi possível concluir o login com o Google." };
+          return { error: t("auth.googleSignInIncomplete") };
         }
 
         const { error: sessionError } = await supabase.auth.setSession({
@@ -177,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           refresh_token: refreshToken,
         });
         if (sessionError) {
-          return { error: "Não foi possível concluir o login com o Google." };
+          return { error: t("auth.googleSignInIncomplete") };
         }
 
         return { error: null };
@@ -188,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut();
       },
     }),
-    [session, loading]
+    [session, loading, t]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

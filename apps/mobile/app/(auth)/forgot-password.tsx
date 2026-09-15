@@ -6,6 +6,7 @@ import { Screen, Text, Input, Button } from "@/components/ui";
 import { AuthBrand } from "@/components/auth/AuthBrand";
 import { colors, spacing, fontSize } from "@/lib/theme";
 import * as Linking from "expo-linking";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-090 — versão nativa mínima do `RequestResetForm.tsx` do web.
@@ -14,17 +15,22 @@ import * as Linking from "expo-linking";
  * recebido por e-mail) precisa de uma tela própria que trate o deep
  * link de volta pro app com uma sessão de recuperação ativa — fica
  * pra uma próxima tela dedicada, não faz parte da fundação.
+ *
+ * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
+ * pendência de design", 2026-09-16) — ver comentário completo em
+ * `login.tsx` (mesmo grupo de rotas, mesma causa raiz).
  */
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
 
   async function handleRequestReset() {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setError("Informe seu e-mail.");
+      setError(t("auth.emailRequired"));
       return;
     }
 
@@ -38,10 +44,10 @@ export default function ForgotPasswordScreen() {
     // Não revelamos se o e-mail existe ou não (evita enumeração de contas) —
     // mesma regra do web (lib/actions/auth.ts).
     if (resetError) {
-      setError("Não foi possível enviar o e-mail agora. Tente de novo em instantes.");
+      setError(t("auth.resetEmailError"));
       return;
     }
-    setMessage("Se esse e-mail tiver conta, enviamos um link de recuperação.");
+    setMessage(t("auth.resetEmailSuccess"));
   }
 
   return (
@@ -53,16 +59,16 @@ export default function ForgotPasswordScreen() {
             <AuthBrand compact />
 
             <View>
-              <Text variant="title">Esqueceu a senha?</Text>
+              <Text variant="title">{t("auth.forgotPasswordTitle")}</Text>
               <Text variant="muted" style={styles.subtitle}>
-                Enviamos um link de recuperação pro seu e-mail.
+                {t("auth.forgotPasswordSubtitle")}
               </Text>
             </View>
 
             <View style={styles.form}>
               <Input
-                label="E-mail"
-                placeholder="voce@exemplo.com"
+                label={t("auth.email")}
+                placeholder={t("auth.emailPlaceholder")}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoComplete="email"
@@ -73,12 +79,12 @@ export default function ForgotPasswordScreen() {
               {!!error && <Text variant="error">{error}</Text>}
               {!!message && <Text variant="muted">{message}</Text>}
               <Button onPress={handleRequestReset} loading={loading}>
-                Enviar link
+                {t("auth.sendLink")}
               </Button>
             </View>
 
             <Link href="/(auth)/login" style={styles.link}>
-              Voltar pro login
+              {t("auth.backToLogin")}
             </Link>
           </View>
         </ScrollView>

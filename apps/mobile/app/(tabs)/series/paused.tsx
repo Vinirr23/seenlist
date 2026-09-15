@@ -4,8 +4,8 @@ export default function PausedScreen() {
   return (
     <FilteredSeriesListScreen
       status="paused"
-      title="Interrompidas"
-      emptyMessage="Nenhuma série interrompida por aqui."
+      titleKey="seriesHome.pausedTitle"
+      emptyMessageKey="seriesHome.pausedEmpty"
     />
   );
 }

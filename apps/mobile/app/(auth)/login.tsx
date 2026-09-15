@@ -5,10 +5,21 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { Screen, Text, Input, Button } from "@/components/ui";
 import { AuthBrand } from "@/components/auth/AuthBrand";
 import { colors, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
+/**
+ * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
+ * pendência de design", 2026-09-16) — esta tela nunca teve NENHUM
+ * `t()` — todo texto era fixo em português (título, placeholders,
+ * botões, links), mesmo com as chaves `auth.*` já existindo em
+ * `translations.ts` prontas pra uso (achado real: infraestrutura de
+ * tradução pronta, só nunca foi ligada aqui). Mesma correção em
+ * `register.tsx`/`forgot-password.tsx` (mesmo grupo de rotas).
+ */
 export default function LoginScreen() {
   const router = useRouter();
   const { signInWithEmail, signInWithGoogle } = useAuth();
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,26 +62,26 @@ export default function LoginScreen() {
             <AuthBrand />
 
             <View>
-              <Text variant="title">Entrar</Text>
+              <Text variant="title">{t("auth.signIn")}</Text>
               <Text variant="muted" style={styles.subtitle}>
-                Acesse sua conta do SeenList.
+                {t("auth.signInSubtitle")}
               </Text>
             </View>
 
             <Button variant="outline" onPress={handleGoogleLogin} loading={googleLoading} disabled={busy && !googleLoading}>
-              Continuar com Google
+              {t("auth.continueWithGoogle")}
             </Button>
 
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text variant="muted">ou</Text>
+              <Text variant="muted">{t("auth.or")}</Text>
               <View style={styles.dividerLine} />
             </View>
 
             <View style={styles.form}>
               <Input
-                label="E-mail"
-                placeholder="voce@exemplo.com"
+                label={t("auth.email")}
+                placeholder={t("auth.emailPlaceholder")}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoComplete="email"
@@ -79,7 +90,7 @@ export default function LoginScreen() {
                 editable={!busy}
               />
               <Input
-                label="Senha"
+                label={t("auth.password")}
                 placeholder="••••••••"
                 secureTextEntry
                 autoComplete="current-password"
@@ -89,16 +100,16 @@ export default function LoginScreen() {
               />
               {!!error && <Text variant="error">{error}</Text>}
               <Button onPress={handleEmailLogin} loading={loading} disabled={busy && !loading}>
-                Entrar
+                {t("auth.signIn")}
               </Button>
             </View>
 
             <View style={styles.footerRow}>
               <Link href="/(auth)/forgot-password" style={styles.mutedLink}>
-                Esqueceu a senha?
+                {t("auth.forgotPassword")}
               </Link>
               <Link href="/(auth)/register" style={styles.primaryLink}>
-                Criar conta
+                {t("auth.createAccount")}
               </Link>
             </View>
           </View>

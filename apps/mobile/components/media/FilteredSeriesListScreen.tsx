@@ -11,6 +11,7 @@ import { LibraryGridSkeleton } from "./LibraryGridSkeleton";
 import { EmptyShelf } from "./EmptyShelf";
 import { PageError } from "./PageError";
 import { colors, spacing } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-116/176 — telas "Assistir depois"/"Concluídas"/"Interrompidas"
@@ -30,20 +31,40 @@ import { colors, spacing } from "@/lib/theme";
  * trocado `ScrollView`+`PosterGrid` (desenha tudo de uma vez, sem
  * limite) por `FlatList` virtualizada — série "Concluídas" pode
  * crescer bastante ao longo do tempo de uso.
+ *
+ * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
+ * pendência de design", 2026-09-16) — `title`/`emptyMessage` eram
+ * strings já traduzidas passadas pelos 3 chamadores
+ * (`completed.tsx`/`paused.tsx`/`watchlist.tsx`), mas cada um passava
+ * TEXTO FIXO em português na hora de chamar, em vez de `t(...)` — a
+ * infraestrutura de tradução (`seriesHome.completedTitle`, etc.) já
+ * existia em `translations.ts`, só nunca foi usada aqui. Virou
+ * `titleKey`/`emptyMessageKey` (chave, não texto pronto) — a
+ * tradução agora acontece DENTRO deste componente, que é o único
+ * lugar com acesso a `t()` de qualquer forma. Também traduzido:
+ * "Voltar" (rótulo de acessibilidade), a mensagem de erro e "Explorar
+ * séries", que eram fixos direto aqui dentro.
+ *
+ * Comparado com o equivalente do web (`CompletedSeriesView.tsx`/
+ * `PausedView.tsx`/`WatchlistView.tsx`) — nenhum dos três usa vidro
+ * (sem `backdrop-blur`/gradiente nenhum, confirmado lendo o código
+ * real) — então esta tela ficar sem `GlassTargetProvider`/
+ * `AmbientGlow` está CORRETO, não é uma pendência.
  */
 export function FilteredSeriesListScreen({
   status,
-  title,
-  emptyMessage,
+  titleKey,
+  emptyMessageKey,
 }: {
   status: LibraryStatus;
-  title: string;
-  emptyMessage: string;
+  titleKey: string;
+  emptyMessageKey: string;
 }) {
   const router = useRouter();
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
   const cardWidth = usePosterCardWidth();
   const tabBarClearance = useTabBarClearance();
+  const { t } = useTranslation();
 
   const filtered = useMemo(
     () => (items ?? []).filter((item) => item.mediaType === "series" && item.status === status),
@@ -57,15 +78,15 @@ export function FilteredSeriesListScreen({
   return (
     <Screen padded={false}>
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Voltar" hitSlop={12} onPress={() => router.back()} style={styles.backButton}>
+        <Pressable accessibilityLabel={t("common.back")} hitSlop={12} onPress={() => router.back()} style={styles.backButton}>
           <Feather name="arrow-left" size={20} color={colors.muted} />
         </Pressable>
-        <Text variant="subtitle">{title}</Text>
+        <Text variant="subtitle">{t(titleKey)}</Text>
       </View>
 
       {isError ? (
         <View style={styles.content}>
-          <PageError message="Não foi possível carregar sua lista agora. Tente de novo em instantes." onRetry={() => refetch()} />
+          <PageError message={t("seriesHome.errorLoadList")} onRetry={() => refetch()} />
         </View>
       ) : isLoading ? (
         <View style={styles.content}>
@@ -73,7 +94,7 @@ export function FilteredSeriesListScreen({
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.content}>
-          <EmptyShelf message={emptyMessage} actionLabel="Explorar séries" actionHref="/(tabs)/explore" />
+          <EmptyShelf message={t(emptyMessageKey)} actionLabel={t("seriesHome.exploreSeries")} actionHref="/(tabs)/explore" />
         </View>
       ) : (
         <FlatList

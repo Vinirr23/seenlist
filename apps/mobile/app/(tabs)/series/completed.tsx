@@ -4,8 +4,8 @@ export default function CompletedScreen() {
   return (
     <FilteredSeriesListScreen
       status="completed"
-      title="Concluídas"
-      emptyMessage="Nenhuma série concluída por aqui."
+      titleKey="seriesHome.completedTitle"
+      emptyMessageKey="seriesHome.completedEmpty"
     />
   );
 }

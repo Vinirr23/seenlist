@@ -5,10 +5,17 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { Screen, Text, Input, Button } from "@/components/ui";
 import { AuthBrand } from "@/components/auth/AuthBrand";
 import { colors, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
+/**
+ * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
+ * pendência de design", 2026-09-16) — ver comentário completo em
+ * `login.tsx` (mesmo grupo de rotas, mesma causa raiz).
+ */
 export default function RegisterScreen() {
   const router = useRouter();
   const { signUpWithEmail, signInWithGoogle } = useAuth();
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,26 +65,26 @@ export default function RegisterScreen() {
             <AuthBrand compact />
 
             <View>
-              <Text variant="title">Criar conta</Text>
+              <Text variant="title">{t("auth.createAccount")}</Text>
               <Text variant="muted" style={styles.subtitle}>
-                Leva menos de um minuto.
+                {t("auth.registerSubtitle")}
               </Text>
             </View>
 
             <Button variant="outline" onPress={handleGoogleSignUp} loading={googleLoading} disabled={busy && !googleLoading}>
-              Continuar com Google
+              {t("auth.continueWithGoogle")}
             </Button>
 
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text variant="muted">ou</Text>
+              <Text variant="muted">{t("auth.or")}</Text>
               <View style={styles.dividerLine} />
             </View>
 
             <View style={styles.form}>
               <Input
-                label="E-mail"
-                placeholder="voce@exemplo.com"
+                label={t("auth.email")}
+                placeholder={t("auth.emailPlaceholder")}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoComplete="email"
@@ -86,8 +93,8 @@ export default function RegisterScreen() {
                 editable={!busy}
               />
               <Input
-                label="Senha"
-                placeholder="Mínimo 8 caracteres"
+                label={t("auth.password")}
+                placeholder={t("auth.passwordMinChars")}
                 secureTextEntry
                 autoComplete="new-password"
                 value={password}
@@ -95,8 +102,8 @@ export default function RegisterScreen() {
                 editable={!busy}
               />
               <Input
-                label="Confirmar senha"
-                placeholder="Repita a senha"
+                label={t("auth.confirmPassword")}
+                placeholder={t("auth.repeatPassword")}
                 secureTextEntry
                 autoComplete="new-password"
                 value={confirmPassword}
@@ -106,14 +113,14 @@ export default function RegisterScreen() {
               {!!error && <Text variant="error">{error}</Text>}
               {!!message && <Text variant="muted">{message}</Text>}
               <Button onPress={handleSignUp} loading={loading} disabled={busy && !loading}>
-                Criar conta
+                {t("auth.createAccount")}
               </Button>
             </View>
 
             <View style={styles.footerRowCenter}>
-              <Text variant="muted">Já tem conta? </Text>
+              <Text variant="muted">{t("auth.alreadyHaveAccount")}</Text>
               <Link href="/(auth)/login" style={styles.primaryLink}>
-                Entrar
+                {t("auth.signIn")}
               </Link>
             </View>
           </View>
