@@ -740,9 +740,13 @@ const styles = StyleSheet.create({
    * continua em 16px, `mt-4`, sem pedido de mudança lá): 16 × 0,85 =
    * 13,6, arredondado pra 14. Só este valor mudou — `paddingHorizontal`/
    * `fontSize`/`lineHeight`/cor continuam os mesmos de antes.
+   *
+   * AJUSTE #2 (a pedido, "sobe mais uns 30%", mesma sessão) — mais
+   * 30% em cima do valor JÁ reduzido (14, não do 16 original): 14 ×
+   * 0,7 = 9,8, arredondado pra 10.
    */
   bio: {
-    marginTop: 14,
+    marginTop: 10,
     paddingHorizontal: spacing.md,
     fontSize: fontSize.sm,
     lineHeight: 20,
