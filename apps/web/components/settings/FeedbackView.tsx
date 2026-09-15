@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, Check, Bug, Lightbulb, MessageSquare } from "lucide-react";
 import { cn } from "@seenlist/utils";
-import { useSendFeedback, type FeedbackType } from "@/lib/queries/feedback";
+import { useSendFeedback, useMyFeedback, type FeedbackType } from "@/lib/queries/feedback";
 import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -26,6 +26,7 @@ export function FeedbackView() {
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
   const sendFeedback = useSendFeedback();
+  const { data: myFeedback } = useMyFeedback();
   const { t } = useTranslation();
 
   const TYPE_LABEL_KEYS: Record<FeedbackType, string> = {
@@ -142,6 +143,35 @@ export function FeedbackView() {
             {sendFeedback.isPending ? t("settings.feedback.sending") : t("settings.sendFeedback")}
           </button>
         </form>
+      )}
+
+      {/*
+        * A PEDIDO (2026-09-16 — "onde eu recebo o feedback, e posso
+        * responder ele?") — até aqui `user_feedback` só tinha INSERT,
+        * nem o próprio usuário conseguia ler de volta o que mandou.
+        * Agora que existe SELECT (a própria migration que criou
+        * `admin_reply`/`admin_replied_at`), mostra o histórico de
+        * envios aqui embaixo, com a resposta em destaque quando já
+        * tiver uma — respondida direto pelo Supabase (Table Editor/SQL
+        * Editor), o gatilho novo dispara a notificação sozinho.
+        */}
+      {myFeedback && myFeedback.length > 0 && (
+        <div className="mt-8">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t("settings.feedback.myMessages")}</p>
+          <div className="space-y-2">
+            {myFeedback.map((item) => (
+              <div key={item.id} className="rounded-lg border border-border bg-surface p-3 text-sm text-text">
+                <p>{item.message}</p>
+                {item.adminReply && (
+                  <div className="mt-2 rounded-md bg-primary/10 p-2 text-xs">
+                    <p className="mb-1 font-semibold text-primary">{t("settings.feedback.teamReply")}</p>
+                    <p className="text-text">{item.adminReply}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

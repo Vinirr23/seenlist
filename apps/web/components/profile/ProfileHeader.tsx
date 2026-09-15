@@ -1,14 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Settings, Pencil } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import type { CurrentUser } from "@/lib/queries/current-user";
 import { useMyProfile } from "@/lib/queries/my-profile";
 import { useFollowCounts } from "@/lib/queries/public-profile";
 import { useSocialCounts } from "@/lib/queries/social-counts";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { ShareProfileButton } from "@/components/social/ShareProfileButton";
 import { Avatar } from "@/components/common/Avatar";
+import { NotificationBell } from "./NotificationBell";
+import { ProfileMoreSheet } from "./ProfileMoreSheet";
 
 /**
  * "Vidro iluminado" (mockup-perfil-atual-vidro, 2026-08-21) — em vez
@@ -62,6 +64,7 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
   const { data: counts } = useFollowCounts(user.id);
   const { data: socialCounts } = useSocialCounts();
   const { t } = useTranslation();
+  const [showMore, setShowMore] = useState(false);
 
   const statPills = [
     { href: "/profile/following", value: counts?.following ?? 0, label: t("profile.following") },
@@ -127,15 +130,10 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent" aria-hidden="true" />
 
             <div className="absolute inset-x-3 top-3 flex items-center justify-between">
-              <Link href="/profile/edit" aria-label={t("profile.edit")} className={GLASS_ICON_BTN} style={GLASS_ICON_BTN_STYLE}>
-                <Pencil className="h-4 w-4" strokeWidth={2} />
-              </Link>
-              <div className="flex gap-2">
-                {profile?.username && <ShareProfileButton username={profile.username} iconOnly />}
-                <Link href="/profile/settings" aria-label={t("settings.title")} className={GLASS_ICON_BTN} style={GLASS_ICON_BTN_STYLE}>
-                  <Settings className="h-4 w-4" strokeWidth={2} />
-                </Link>
-              </div>
+              <NotificationBell />
+              <button type="button" onClick={() => setShowMore(true)} aria-label={t("profile.moreOptions")} className={GLASS_ICON_BTN} style={GLASS_ICON_BTN_STYLE}>
+                <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+              </button>
             </div>
           </div>
           {/*
@@ -183,15 +181,16 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
       )}
 
       {!profile?.bannerUrl && (
-        <div className="flex justify-end gap-2 pb-2">
-          {profile?.username && <ShareProfileButton username={profile.username} iconOnly />}
-          <Link
-            href="/profile/settings"
-            aria-label={t("settings.title")}
+        <div className="flex items-center justify-between pb-2">
+          <NotificationBell />
+          <button
+            type="button"
+            onClick={() => setShowMore(true)}
+            aria-label={t("profile.moreOptions")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-muted transition-colors hover:text-text"
           >
-            <Settings className="h-4 w-4" strokeWidth={2} />
-          </Link>
+            <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+          </button>
         </div>
       )}
 
@@ -260,28 +259,7 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         ))}
       </div>
 
-      {!profile?.bannerUrl && (
-        <div className="mt-3 flex gap-2">
-          {/*
-           * Correção (a pedido — "deixe todos os botões padrão, igual
-           * 'ver detalhes'") — era contorno âmbar simples (`border-primary
-           * bg-transparent text-primary`); virou a mesma pílula "gel"
-           * (borda clara + blur/saturação + gradiente radial âmbar +
-           * texto preto maiúsculo) do "Ver detalhes" (StatisticsCard.tsx).
-           */}
-          <Link
-            href="/profile/edit"
-            className="inline-flex items-center justify-center rounded-full border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-wide text-background backdrop-blur-[10px] backdrop-saturate-[160%] transition-transform active:scale-[0.96]"
-            style={{
-              background:
-                "radial-gradient(130% 170% at 28% 18%, rgba(240,169,79,0.88) 0%, rgba(232,163,61,0.85) 42%, rgba(176,95,27,0.9) 100%)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -4px 7px rgba(120,66,10,0.4)",
-            }}
-          >
-            {t("profile.edit")}
-          </Link>
-        </div>
-      )}
+      {showMore && <ProfileMoreSheet username={profile?.username} onClose={() => setShowMore(false)} />}
     </div>
   );
 }

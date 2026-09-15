@@ -23,6 +23,7 @@ export function EpisodeWatchedButton({
   onPress,
   disabled,
   size = "md",
+  color,
   confirmColor,
 }: {
   watched: boolean;
@@ -30,14 +31,26 @@ export function EpisodeWatchedButton({
   disabled?: boolean;
   size?: "sm" | "md" | "lg";
   /**
+   * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-15 — "no web, ao colocar
+   * uma série em 'assistir depois' fica da cor certa do status, no
+   * mobile não está") — porte fiel do `colorClass` do
+   * `EpisodeWatchedButton.tsx` do web (TASK-060, "quando assistido,
+   * volta a usar a cor da categoria da série"): cor de fundo do estado
+   * `watched`, vinda da categoria atual (`getSeriesCategoryColorByStatus`,
+   * `lib/seriesCategories.ts`). Opcional e com o mesmo padrão de
+   * antes (`colors.primary`, âmbar) como resultado quando quem chama
+   * não informa — nenhum uso existente quebra.
+   */
+  color?: string;
+  /**
    * A PEDIDO (2026-09-04, fidelidade ao web — mesma decisão documentada
    * em `EpisodeWatchedButton.tsx`/`ContinueWatchingCard.tsx` do web:
    * "verde na confirmação, só ali e só transitório; não muda a cor 'de
    * categoria' padrão do botão em nenhum outro lugar do app") — troca a
-   * cor de fundo do estado `watched` só enquanto informado. Usado hoje
-   * só por `ContinueWatchingListRow.tsx`, durante a animação de
-   * confirmação. Sem isso, `watched` sempre usa `colors.primary`
-   * (âmbar) — nenhum outro uso deste botão no app muda de comportamento.
+   * cor de fundo do estado `watched` só enquanto informado, por cima
+   * até da cor de categoria (`color`) — sempre vence as duas. Usado
+   * hoje só por `ContinueWatchingListRow.tsx`, durante a animação de
+   * confirmação.
    */
   confirmColor?: string;
 }) {
@@ -55,7 +68,7 @@ export function EpisodeWatchedButton({
           width: dimensions.button,
           height: dimensions.button,
           borderRadius: dimensions.button / 2,
-          backgroundColor: watched ? (confirmColor ?? colors.primary) : "#FFFFFF",
+          backgroundColor: watched ? (confirmColor ?? color ?? colors.primary) : "#FFFFFF",
         },
         disabled && styles.disabled,
       ]}

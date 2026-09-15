@@ -102,3 +102,41 @@ export async function sendFeedback(type: FeedbackType, message: string): Promise
   const { error } = await supabase.from("user_feedback").insert({ user_id: user.id, type, message });
   if (error) throw error;
 }
+
+export interface MyFeedbackItem {
+  id: string;
+  type: FeedbackType;
+  message: string;
+  createdAt: string;
+  adminReply: string | null;
+  adminRepliedAt: string | null;
+}
+
+/**
+ * A PEDIDO (2026-09-16 — "quero poder responder o feedback, e o
+ * usuário receber a resposta") — idêntico a useMyFeedback do web,
+ * mesma tabela/colunas novas (ver `20260916000000_feedback_replies.sql`).
+ */
+export async function fetchMyFeedback(): Promise<MyFeedbackItem[]> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from("user_feedback")
+    .select("id, type, message, created_at, admin_reply, admin_replied_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    type: row.type as FeedbackType,
+    message: row.message,
+    createdAt: row.created_at,
+    adminReply: row.admin_reply,
+    adminRepliedAt: row.admin_replied_at,
+  }));
+}

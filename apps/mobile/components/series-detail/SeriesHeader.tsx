@@ -28,11 +28,24 @@ export function SeriesHeader({
   watchedCount,
   totalEpisodes,
   onMorePress,
+  categoryColor,
 }: {
   series: SeriesDetails;
   watchedCount: number;
   totalEpisodes: number;
   onMorePress: () => void;
+  /**
+   * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-15 — "no web, ao colocar
+   * uma série em 'assistir depois' fica da cor certa do status, no
+   * mobile não está") — porte fiel do `colorClass` do `SeriesHeader.tsx`
+   * do web: a barra de progresso do topo usa a cor da CATEGORIA atual
+   * da série, não uma cor fixa. `getSeriesCategoryColorByStatus`
+   * (`lib/seriesCategories.ts`), calculado uma vez em
+   * `app/series/[id].tsx` e repassado pra cá. Opcional, cai em
+   * `colors.primary` (âmbar) quando não informado — mesmo valor de
+   * antes.
+   */
+  categoryColor?: string;
 }) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -149,7 +162,7 @@ export function SeriesHeader({
       {showProgress && (
         <View style={styles.progressRow}>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${percentage}%` }]} />
+            <View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: categoryColor ?? colors.primary }]} />
           </View>
           <Text style={styles.progressText}>{percentage}%</Text>
         </View>
@@ -270,10 +283,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     overflow: "hidden",
   },
+  /* `backgroundColor` sai por fora (inline) — usa a cor da categoria da série, ver `categoryColor` acima. */
   progressFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: colors.primary,
   },
   progressText: {
     fontSize: 12,

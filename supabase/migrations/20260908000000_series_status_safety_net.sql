@@ -50,6 +50,7 @@ alter table series_status_history enable row level security;
 -- função `set_series_status_with_history` abaixo. Usuário comum pode
 -- LER o próprio histórico (útil se algum dia quisermos mostrar isso
 -- na tela, ex.: "histórico desta série"), mas nunca grava direto.
+drop policy if exists "usuário lê apenas o próprio histórico de status" on series_status_history;
 create policy "usuário lê apenas o próprio histórico de status"
   on series_status_history for select
   using (auth.uid() = user_id);

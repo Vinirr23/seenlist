@@ -35,6 +35,7 @@ export function SeasonAccordion({
   onUnmarkSeason,
   onRewatch,
   defaultOpen = false,
+  categoryColor,
 }: {
   seriesId: number;
   season: SeasonWithEpisodes;
@@ -48,6 +49,20 @@ export function SeasonAccordion({
   onUnmarkSeason: (seasonNumber: number) => void;
   onRewatch: (seasonNumber: number, episodeNumber: number) => void;
   defaultOpen?: boolean;
+  /**
+   * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-15 — "no web, ao colocar
+   * uma série em 'assistir depois' fica da cor certa do status, no
+   * mobile não está") — antes a categoria "não chegava neste
+   * componente" (ver comentário antigo do `progressPercent`, removido).
+   * Porte fiel do `colorClass` do `SeasonAccordion.tsx`/
+   * `SeasonProgress.tsx` do web: porcentagem, barra de progresso da
+   * temporada, selo de "temporada inteira assistida" e os botões de
+   * cada episódio usam a cor da categoria ATUAL da série, vinda de
+   * `getSeriesCategoryColorByStatus` (`lib/seriesCategories.ts`),
+   * calculada uma vez em `app/series/[id].tsx` e repassada pra cá.
+   * Opcional, cai em `colors.primary` (âmbar) quando não informado.
+   */
+  categoryColor?: string;
 }) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -152,10 +167,10 @@ export function SeasonAccordion({
                 <Text variant="muted" style={styles.progressLabel}>
                   {t("seriesHome.episodeProgress", { watched: watchedCount, total: season.episodes.length })}
                 </Text>
-                <Text style={styles.progressPercent}>{percentage}%</Text>
+                <Text style={[styles.progressPercent, { color: categoryColor ?? colors.primary }]}>{percentage}%</Text>
               </View>
               <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${percentage}%` }]} />
+                <View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: categoryColor ?? colors.primary }]} />
               </View>
             </View>
           </View>
@@ -187,7 +202,7 @@ export function SeasonAccordion({
             <MaterialCommunityIcons
               name={allWatched ? "check-circle-outline" : "circle-outline"}
               size={24}
-              color={allWatched ? colors.primary : colors.muted}
+              color={allWatched ? (categoryColor ?? colors.primary) : colors.muted}
             />
           </Pressable>
         )}
@@ -244,7 +259,7 @@ export function SeasonAccordion({
                     </Text>
                   </View>
                 </Pressable>
-                <EpisodeWatchedButton watched={isWatched} onPress={() => handleEpisodePress(episode.episodeNumber, isWatched)} />
+                <EpisodeWatchedButton watched={isWatched} onPress={() => handleEpisodePress(episode.episodeNumber, isWatched)} color={categoryColor} />
               </Glass>
             );
           })}
@@ -400,10 +415,9 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: fontSize.xs,
   },
-  /** No web a porcentagem sai na cor da categoria da série (`barColorClassToTextColorClass`); aqui a categoria não chega neste componente, então usa a cor padrão dela, que é a primária — o mesmo `bg-primary` que o web assume por omissão. */
+  /** Cor vem por fora (inline) — usa a cor da categoria da série, ver `categoryColor` acima (antes fixo em `colors.primary`, bug real corrigido 2026-09-15). */
   progressPercent: {
     fontSize: fontSize.xs,
-    color: colors.primary,
   },
   /** `h-1.5 w-full overflow-hidden rounded-full bg-border` (`ProgressBar.tsx`). */
   progressTrack: {
@@ -413,10 +427,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     overflow: "hidden",
   },
+  /* `backgroundColor` sai por fora (inline) — usa a cor da categoria da série. */
   progressFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: colors.primary,
   },
   /** `space-y-2 border-t border-border p-3` = 8 entre os cards, 12 de recheio (não tinha recheio nenhum). */
   episodeList: {

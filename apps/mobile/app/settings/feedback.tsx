@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { sendFeedback, type FeedbackType } from "@/lib/settings";
+import { sendFeedback, fetchMyFeedback, type FeedbackType, type MyFeedbackItem } from "@/lib/settings";
 import { Screen, Text, Button, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
+import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
@@ -28,6 +29,18 @@ export default function FeedbackScreen() {
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [myFeedback, setMyFeedback] = useState<MyFeedbackItem[]>([]);
+
+  /**
+   * A PEDIDO (2026-09-16 — "onde eu recebo o feedback, e posso
+   * responder ele?") — histórico do que o usuário já mandou, com a
+   * resposta em destaque quando já tiver uma. Idêntico ao `useMyFeedback`
+   * do web, só que como função simples (mobile não usa react-query).
+   */
+  const reloadMyFeedback = useCallback(() => {
+    fetchMyFeedback().then(setMyFeedback);
+  }, []);
+  useFocusEffect(reloadMyFeedback);
 
   async function handleSubmit() {
     const trimmed = message.trim();
@@ -37,6 +50,7 @@ export default function FeedbackScreen() {
       await sendFeedback(type, trimmed);
       setMessage("");
       setSent(true);
+      reloadMyFeedback();
     } catch (error) {
       console.error("[FeedbackScreen] Falha ao enviar feedback", error);
     } finally {
@@ -61,11 +75,20 @@ export default function FeedbackScreen() {
         * enviar ficavam cobertos, sem como rolar até eles.
         */}
       {/*
-        * PORTE DO WEB (2026-09-04, "vidro que falta") —
-        * `FeedbackView.tsx` não tem campo de manchas próprio (mesma
-        * situação de `notifications.tsx`) — `AmbientGlow` padrão.
+        * CORREÇÃO (a pedido, 2026-09-15/16 — "as cores de fundo da
+        * tela devem ser as mesmas do restante do app, que é azul")
+        * — esta tela usava o `AmbientGlow` SEM `blobs`, caindo na
+        * paleta genérica âmbar/teal do componente (`BLOBS`, em
+        * `components/ui/Glass.tsx`) — a única do app que não é azul.
+        * TODAS as outras telas (abas E sub-telas) passam um `blobs`
+        * próprio, sempre nos mesmos 3 tons de azul
+        * (`rgba(27,75,122,...)`/`rgba(42,127,184,...)`/
+        * `rgba(13,59,92,...)`, só o `top`/opacidade muda) — ver
+        * `lib/glowBlobs.ts`. Esta é uma sub-tela "voltar + título"
+        * como Comentários/Minhas listas, então usa o mesmo
+        * `SUBPAGE_GLOW_BLOBS` delas, em vez de inventar um array novo.
         */}
-      <GlassTargetProvider style={styles.flex} background={<AmbientGlow />}>
+      <GlassTargetProvider style={styles.flex} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]} keyboardShouldPersistTaps="handled">
         {sent ? (
@@ -136,6 +159,27 @@ export default function FeedbackScreen() {
             <Button onPress={handleSubmit} loading={sending} disabled={!message.trim()}>
               {t("settings.sendFeedback")}
             </Button>
+          </View>
+        )}
+
+        {myFeedback.length > 0 && (
+          <View style={styles.historySection}>
+            <Text variant="muted" style={styles.label}>
+              {t("feedback.myMessages")}
+            </Text>
+            <View style={styles.historyList}>
+              {myFeedback.map((item) => (
+                <View key={item.id} style={styles.historyCard}>
+                  <Text style={styles.historyMessage}>{item.message}</Text>
+                  {!!item.adminReply && (
+                    <View style={styles.historyReply}>
+                      <Text style={styles.historyReplyLabel}>{t("feedback.teamReply")}</Text>
+                      <Text style={styles.historyReplyText}>{item.adminReply}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
           </View>
         )}
         </ScrollView>
@@ -243,5 +287,38 @@ const styles = StyleSheet.create({
   },
   sentText: {
     textAlign: "center",
+  },
+  historySection: {
+    marginTop: spacing.xl,
+  },
+  historyList: {
+    gap: spacing.sm,
+  },
+  historyCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+  },
+  historyMessage: {
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  historyReply: {
+    marginTop: spacing.sm,
+    borderRadius: radius.sm,
+    backgroundColor: tint.subtle,
+    padding: spacing.sm,
+  },
+  historyReplyLabel: {
+    fontSize: fontSize.xxs,
+    fontWeight: "700",
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  historyReplyText: {
+    fontSize: fontSize.sm,
+    color: colors.text,
   },
 });

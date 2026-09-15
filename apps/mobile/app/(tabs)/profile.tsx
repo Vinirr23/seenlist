@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect } from "react";
  * `Image` do react-native porque usa `tintColor`, que é onde ele
  * funciona — o mesmo padrão do `AmbientGlow`/`Glass`.
  */
-import { ScrollView, View, Pressable, Share, StyleSheet, Image as RNImage } from "react-native";
+import { ScrollView, View, Pressable, StyleSheet, Image as RNImage } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -17,13 +17,16 @@ import { useFollowCounts } from "@/lib/usePublicProfile";
 import { fetchEditableProfile } from "@/lib/editProfile";
 import { useSeriesActivityIds, useMovieActivityIds, useFavoriteIds } from "@/lib/profileMediaCarousel";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
-import { Screen, Text, GlassTargetProvider, Glass, GelSurface, AmbientGlow, type GlowBlob } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow, type GlowBlob } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
 import { ProfileRecommendationsPreview } from "@/components/profile/ProfileRecommendationsPreview";
 import { ProfileListsPreview } from "@/components/profile/ProfileListsPreview";
 import { ProfileMediaCarousel } from "@/components/profile/ProfileMediaCarousel";
+import { NotificationBell } from "@/components/profile/NotificationBell";
+import { ProfileMoreSheet } from "@/components/profile/ProfileMoreSheet";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
@@ -88,11 +91,13 @@ interface CachedEditableFields {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useCurrentUser();
+  const { t } = useTranslation();
   const counts = useFollowCounts(user?.id ?? null);
   const socialCounts = useSocialCounts(user?.id ?? null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [bio, setBio] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [showMore, setShowMore] = useState(false);
   const tabBarClearance = useTabBarClearance();
 
   /**
@@ -172,15 +177,6 @@ export default function ProfileScreen() {
     }, [cacheUserId])
   );
 
-  async function handleShare() {
-    if (!username) return;
-    try {
-      await Share.share({ message: `https://seenlist.app/u/${username}` });
-    } catch (error) {
-      console.error("[ProfileScreen] Falha ao compartilhar", error);
-    }
-  }
-
   if (!user) {
     return (
       <Screen>
@@ -246,26 +242,20 @@ export default function ProfileScreen() {
                 </>
               }
             >
-              <Pressable hitSlop={8} style={styles.bannerIconLeft} onPress={() => router.push("/settings/edit-profile")}>
-                <Glass variant="icon" style={styles.bannerIconGlass}>
-                  <Feather name="edit-2" size={16} color={colors.text} />
+              <View style={styles.bannerIconLeft}>
+                <NotificationBell />
+              </View>
+
+              <Pressable
+                hitSlop={8}
+                style={styles.bannerIconsRight}
+                accessibilityLabel={t("profile.moreOptions")}
+                onPress={() => setShowMore(true)}
+              >
+                <Glass variant="icon" style={styles.bannerIconButton}>
+                  <Feather name="more-horizontal" size={16} color={colors.text} />
                 </Glass>
               </Pressable>
-
-              <View style={styles.bannerIconsRight}>
-                {!!username && (
-                  <Pressable hitSlop={8} onPress={handleShare}>
-                    <Glass variant="icon" style={styles.bannerIconButton}>
-                      <Feather name="share-2" size={16} color={colors.text} />
-                    </Glass>
-                  </Pressable>
-                )}
-                <Pressable hitSlop={8} onPress={() => router.push("/settings")}>
-                  <Glass variant="icon" style={styles.bannerIconButton}>
-                    <Feather name="settings" size={16} color={colors.text} />
-                  </Glass>
-                </Pressable>
-              </View>
             </GlassTargetProvider>
 
             {/*
@@ -303,16 +293,10 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <View style={styles.topIconsRowNoBanner}>
-            {!!username && (
-              <Pressable hitSlop={8} onPress={handleShare}>
-                <Glass style={styles.bannerIconButtonFlat}>
-                  <Feather name="share-2" size={16} color={colors.text} />
-                </Glass>
-              </Pressable>
-            )}
-            <Pressable hitSlop={8} onPress={() => router.push("/settings")}>
+            <NotificationBell flat />
+            <Pressable hitSlop={8} accessibilityLabel={t("profile.moreOptions")} onPress={() => setShowMore(true)}>
               <Glass style={styles.bannerIconButtonFlat}>
-                <Feather name="settings" size={16} color={colors.muted} />
+                <Feather name="more-horizontal" size={16} color={colors.muted} />
               </Glass>
             </Pressable>
           </View>
@@ -410,16 +394,6 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        {!bannerUrl && (
-          <View style={styles.actionsRow}>
-            <Pressable onPress={() => router.push("/settings/edit-profile")}>
-              <GelSurface style={styles.editButton}>
-                <Text style={styles.editButtonText}>Editar</Text>
-              </GelSurface>
-            </Pressable>
-          </View>
-        )}
-
         <View style={styles.section}>
           <StatisticsCard />
         </View>
@@ -475,6 +449,7 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
       </GlassTargetProvider>
+      {showMore && <ProfileMoreSheet username={username} onClose={() => setShowMore(false)} />}
     </Screen>
   );
 }
@@ -556,13 +531,6 @@ const styles = StyleSheet.create({
     left: 12,
     top: 12,
   },
-  bannerIconGlass: {
-    height: 36,
-    width: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   /** CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.xs` (4); o web usa `gap-2` (`ProfileHeader.tsx`, ícones da direita) = 8px. */
   bannerIconsRight: {
     position: "absolute",
@@ -587,10 +555,11 @@ const styles = StyleSheet.create({
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.xs` (4); o web usa `gap-2` (`ProfileHeader.tsx`, "flex justify-end gap-2 pb-2") = 8px. */
   /** CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web usa `px-4` (`spacing.md`=16) como borda de tela. */
+  /** A PEDIDO (2026-09-15) — antes só tinha ícones do lado direito (`justify-end`); agora o sino fica à esquerda e o "..." à direita, então virou `space-between`. */
   topIconsRowNoBanner: {
     flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: spacing.sm,
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
@@ -769,39 +738,6 @@ const styles = StyleSheet.create({
   /** CORREÇÃO (2026-09-03, comparado com o web) — era 11; o web usa `text-xs` (`ProfileHeader.tsx`, legenda da pílula) = 12px. */
   countLabel: {
     fontSize: fontSize.xs,
-  },
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  actionsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    /** CORREÇÃO (2026-09-04) — era `spacing.sm` (8); web usa `mt-3` = 12. */
-    marginTop: 12,
-  },
-  // `paddingHorizontal: spacing.lg` aqui NÃO foi tocado — é padding
-  // interno do botão (respiro do texto dentro do pill), não borda de
-  // tela; fora do escopo da padronização de 2026-09-03.
-  /**
-   * CORREÇÃO (2026-09-04, auditoria mobile × web) — o web
-   * (`ProfileHeader.tsx`) usa `rounded-full px-4 py-2`: pílula
-   * totalmente redonda com 16px de respiro lateral. Aqui era
-   * `radius.md` (10 — canto quase reto) com 24px de respiro, o que
-   * deixava o botão mais largo E menos arredondado que o do web.
-   */
-  editButton: {
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  editButtonText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.background,
-    textTransform: "uppercase",
-    /** `tracking-wide` do web = +0.025em; a 12px dá +0.3px. */
-    letterSpacing: 0.3,
   },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web

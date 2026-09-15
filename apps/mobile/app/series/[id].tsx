@@ -26,6 +26,7 @@ import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { SeasonAccordion } from "@/components/series-detail/SeasonAccordion";
 import { EpisodeCarousel } from "@/components/series-detail/EpisodeCarousel";
 import { SeriesWatchProviders } from "@/components/series-detail/SeriesWatchProviders";
+import { getSeriesCategoryColorByStatus } from "@/lib/seriesCategories";
 import { colors, spacing, radius, fontSize, fontFamily } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -66,6 +67,14 @@ export default function SeriesDetailScreen() {
   const { isFavorite, toggle: toggleFavorite } = useIsFavorite(numericId);
 
   const watchedCount = watched.size;
+  /**
+   * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-15 — "no web, ao colocar
+   * uma série em 'assistir depois' fica da cor certa do status, no
+   * mobile não está") — calculado uma vez aqui e repassado pra baixo
+   * (`SeriesHeader`, `EpisodeCarousel`, `SeasonAccordion`), mesmo
+   * padrão do `categoryColorClass` de `SeriesDetailsView.tsx` do web.
+   */
+  const categoryColor = getSeriesCategoryColorByStatus(status);
 
   // TASK-170 — precisa ficar ANTES dos `return` condicionais abaixo
   // (regra dos hooks). Mesma lógica de "linha de base" do web —
@@ -177,6 +186,7 @@ export default function SeriesDetailScreen() {
           watchedCount={watchedCount}
           totalEpisodes={series.numberOfEpisodes}
           onMorePress={() => setShowActions(true)}
+          categoryColor={categoryColor}
         />
 
         <View style={styles.body}>
@@ -305,6 +315,7 @@ export default function SeriesDetailScreen() {
                 watchedEpisodeIds={watchedEpisodeIds}
                 onToggleEpisode={toggle}
                 caughtUpBadge={caughtUpBadge}
+                categoryColor={categoryColor}
               />
 
               {series.seasons.length === 0 ? (
@@ -325,6 +336,7 @@ export default function SeriesDetailScreen() {
                     onUnmarkSeason={unmarkSeason}
                     onRewatch={rewatch}
                     defaultOpen={index === 0}
+                    categoryColor={categoryColor}
                   />
                 ))}
                 </View>

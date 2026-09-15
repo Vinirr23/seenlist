@@ -9,6 +9,8 @@ import { EPISODE_DETAILS_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { Screen, Text, GlassTargetProvider, AmbientGlow, Glass, GelSurface } from "@/components/ui";
 import { fetchEpisodePage, type EpisodePageData } from "@/lib/episodeDetails";
 import { fetchEpisodeSeriesContext, isEpisodeWatched, toggleEpisodeWatched, type EpisodeSeriesContext, type EpisodeContextSeason } from "@/lib/seriesDetails";
+import { useSeriesStatus } from "@/lib/useSeriesDetails";
+import { getSeriesCategoryColorByStatus } from "@/lib/seriesCategories";
 import { fetchMyReview, fetchReviewAggregate, upsertReview, type Review, type ReviewAggregate } from "@/lib/social/reviews";
 import { useEpisodeCommentCount } from "@/lib/social/useEpisodeComments";
 import { getAnimeCharacters } from "@/lib/animeCharacters";
@@ -84,6 +86,16 @@ export default function EpisodeDetailScreen() {
   const seriesIdNum = Number(seriesId);
   const seasonNumber = Number(season);
   const episodeNumber = Number(episode);
+  /**
+   * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-15 — "no web, ao colocar
+   * uma série em 'assistir depois' fica da cor certa do status, no
+   * mobile não está") — porte fiel do `categoryColorClass` do
+   * `EpisodeDetailView.tsx` do web: o botão grande de "assistido"
+   * desta tela também usa a cor da categoria ATUAL da série, não uma
+   * cor fixa. Esta tela nunca buscava o status da série antes.
+   */
+  const { status: seriesStatus } = useSeriesStatus(seriesIdNum);
+  const categoryColor = getSeriesCategoryColorByStatus(seriesStatus);
 
   const [data, setData] = useState<EpisodePageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -434,7 +446,7 @@ export default function EpisodeDetailScreen() {
                 </Text>
               </View>
             </View>
-            <EpisodeWatchedButton watched={watched} onPress={handleToggleWatched} disabled={watchedLoading} size="lg" />
+            <EpisodeWatchedButton watched={watched} onPress={handleToggleWatched} disabled={watchedLoading} size="lg" color={categoryColor} />
           </View>
 
           {/* "Onde assistir" — o web mostra os provedores quando o episódio NÃO foi assistido (`WhereToWatchSection`); no mobile a seção não existia nesta tela. */}

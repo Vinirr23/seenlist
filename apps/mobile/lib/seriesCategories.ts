@@ -37,3 +37,25 @@ export const SERIES_CATEGORIES: SeriesCategory[] = [
   { slug: "concluidas", labelKey: "seriesCategory.completed", barColor: "#22c55e", filter: (i) => i.status === "completed" },
   { slug: "pausadas", labelKey: "seriesCategory.paused", barColor: "#ef4444", filter: (i) => i.status === "paused" },
 ];
+
+/**
+ * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-15, reportado — "no web, ao
+ * colocar uma série em 'assistir depois' fica da cor certa do status,
+ * no mobile não está") — item pendente desde 2026-09-10. `SERIES_CATEGORIES`
+ * em si sempre esteve correto (cores batendo com o web); o problema é
+ * que NENHUM lugar do mobile que desenha a cor de status (barra de
+ * progresso do topo em `SeriesHeader.tsx`, porcentagem/barra/selo de
+ * temporada em `SeasonAccordion.tsx`, botões redondos de "assistido"
+ * em `EpisodeWatchedButton.tsx` via `EpisodeCarousel.tsx`/
+ * `SeasonAccordion.tsx`) nunca recebia a categoria da série — todos
+ * usavam `colors.primary` (âmbar) direto, sempre, em vez da cor da
+ * categoria atual. O web resolve isso com `getSeriesCategoryByStatus`
+ * + `colorClass`, calculado uma vez em `SeriesDetailsView.tsx` e
+ * repassado pra baixo — este helper é o equivalente mobile (retorna o
+ * HEX de `barColor` em vez de uma classe Tailwind, já que o mobile não
+ * usa Tailwind).
+ */
+export function getSeriesCategoryColorByStatus(status: string | null | undefined): string | undefined {
+  if (!status) return undefined;
+  return SERIES_CATEGORIES.find((category) => category.filter({ status } as never))?.barColor;
+}

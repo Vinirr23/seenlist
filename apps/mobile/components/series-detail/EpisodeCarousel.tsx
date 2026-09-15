@@ -24,6 +24,7 @@ export function EpisodeCarousel({
   watchedEpisodeIds,
   onToggleEpisode,
   caughtUpBadge,
+  categoryColor,
 }: {
   seriesId: number;
   category: LibraryStatus | null | undefined;
@@ -35,6 +36,17 @@ export function EpisodeCarousel({
   onToggleEpisode: (seasonNumber: number, episodeNumber: number, episodeId?: number) => void;
   /** TASK-170 (ajuste — a pedido) — o card "mais episódios a caminho"/"série encerrada" mora aqui, não depois das temporadas (diferente do web, decisão explícita pro mobile). */
   caughtUpBadge?: SeriesCaughtUpBadge;
+  /**
+   * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-15 — "no web, ao colocar
+   * uma série em 'assistir depois' fica da cor certa do status, no
+   * mobile não está") — os botões redondos de "assistido" deste
+   * carrossel sempre usavam `colors.primary` fixo. Cor da categoria
+   * ATUAL da série (`getSeriesCategoryColorByStatus`,
+   * `lib/seriesCategories.ts`), calculada uma vez em
+   * `app/series/[id].tsx` e repassada pra cá — mesmo padrão do
+   * `colorClass` no `EpisodeCarousel.tsx` do web.
+   */
+  categoryColor?: string;
 }) {
   const { t } = useTranslation();
   const episodeItems = resolveCarouselEpisodes(category, seasons, watched);
@@ -161,6 +173,7 @@ export function EpisodeCarousel({
               episode={item.episode}
               isWatched={isEpisodeWatchedSync(watched, item.seasonNumber, item.episode.episodeNumber, item.episode.id, watchedEpisodeIds)}
               onToggle={() => onToggleEpisode(item.seasonNumber, item.episode.episodeNumber, item.episode.id)}
+              categoryColor={categoryColor}
             />
           ) : (
             <CaughtUpMiniCard badge={item.badge} />
@@ -177,12 +190,14 @@ function EpisodeCarouselCard({
   episode,
   isWatched,
   onToggle,
+  categoryColor,
 }: {
   seriesId: number;
   seasonNumber: number;
   episode: EpisodeRef["episode"];
   isWatched: boolean;
   onToggle: () => void;
+  categoryColor?: string;
 }) {
   const router = useRouter();
   const stillUrl = tmdbImageUrl(episode.stillPath, "w300"); // `w300` como no web — `w185` ficava borrado num card de 144dp (378px reais)
@@ -214,7 +229,7 @@ function EpisodeCarouselCard({
       </Pressable>
 
       <View style={styles.watchedButtonRow}>
-        <EpisodeWatchedButton watched={isWatched} onPress={onToggle} size="sm" />
+        <EpisodeWatchedButton watched={isWatched} onPress={onToggle} size="sm" color={categoryColor} />
       </View>
     </View>
   );
