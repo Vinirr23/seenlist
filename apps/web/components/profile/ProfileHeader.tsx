@@ -96,113 +96,73 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
       }
     >
       {profile?.bannerUrl && (
-        // ENTREGA 8 (a pedido, 2026-08-26 — comparação com o web
-        // publicado, ver comentário completo em `PublicProfileView.tsx`
-        // pra o porquê de cada medida/técnica) — capa de 176px (h-44)
-        // virou 224px (h-56, medido no print real do publicado); o
-        // avatar (antes só no `flex` abaixo, sem sobrepor nada) ganhou
-        // de volta uma sobreposição na borda de baixo da capa — mas
-        // como IRMÃO da capa (não filho dela), pra não ser cortado pelo
-        // `overflow-hidden` que ela precisa ter pros cantos
-        // arredondados. Botões editar/compartilhar/config continuam
-        // dentro da capa (não fazem parte do que overflow corta, ficam
-        // na área visível).
-        //
-        // BUG REAL CORRIGIDO (2026-09-03, a pedido — "a bio ficou
-        // bugada, ela deve continuar onde estava, com um espaço abaixo
-        // da foto de perfil") — causa raiz: quando a fileira
-        // avatar+nome (logo abaixo) virou UM bloco só (`-bottom-8`,
-        // ver comentário nela), ela passou a se estender 32px pra BAIXO
-        // da borda da capa (a mesma distância que sempre existiu, só
-        // que antes só o avatar sozinho — 64px — ocupava esse espaço,
-        // com o nome numa fileira própria mais abaixo, empurrada por um
-        // `pt-10`). O `mb-4` (16px) daqui nunca dava conta de reservar
-        // esse espaço — a bio (element seguinte, fora deste `<div>`)
-        // sempre começou a 16px da capa, cedo demais agora que o texto
-        // também mora dentro da fileira dos 32px de sobreposição.
-        // `mb-14` (56px) reserva o suficiente pra fileira INTEIRA
-        // (avatar + nome) terminar de aparecer antes da bio começar —
-        // mesmo respiro total que o `pt-10` antigo dava (16 + 40 = 56).
-        <div className="relative mb-14">
-          {/*
-            * REVERTIDO (a pedido, 2026-09-15 — "volta pra a versão do
-            * banner do tamanho que está no web", nos dois: principal e
-            * público) — chegou a ser reduzido pra `h-28` (112px) nesta
-            * mesma sessão ("CORREÇÃO" anterior, igual a
-            * `EditProfileView.tsx`), mas o usuário pediu de volta o
-            * tamanho grande original (`h-56`, 224px — o que ainda está
-            * publicado em seenlist.app). O anel escuro do avatar
-            * (`border-4 border-background`, mais abaixo) NÃO foi
-            * revertido — só o tamanho da capa.
-            */}
-          <div className="relative -mx-4 h-56 w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-surface shadow-lg shadow-black/30">
-            {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
-            <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent" aria-hidden="true" />
-
-            <div className="absolute inset-x-3 top-3 flex items-center justify-between">
-              <NotificationBell />
-              <button type="button" onClick={() => setShowMore(true)} aria-label={t("profile.moreOptions")} className={GLASS_ICON_BTN} style={GLASS_ICON_BTN_STYLE}>
-                <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
-              </button>
-            </div>
-          </div>
-          {/*
-            * REVERTIDO (2026-09-03 — ver comentário completo no topo do
-            * arquivo) — a "ENTREGA 10" original tirava o nome de perto
-            * do avatar (virava um bloco `pt-10` separado, mais abaixo,
-            * na IIFE). Voltou a ser UMA fileira só (avatar + nome),
-            * `position: absolute` ancorada na borda de baixo da capa
-            * (mesmo `-bottom-8 left-0` de antes) — `right-0` a mais pra
-            * fileira ter largura definida (sem isso o `truncate` do
-            * nome não tem limite nenhum pra truncar contra).
-            */}
-          {/*
-            * AJUSTE (2026-09-03, a pedido — "aumentou o tamanho da foto
-            * de perfil no mobile, faz a mesma coisa no web, e junta mais
-            * o 'seenlist + @seenlistapp' da foto") —
-            * `h-16 w-16` (64px) → `h-[74px] w-[74px]`: mesmo +15% já
-            * aplicado no mobile (`AVATAR_SIZE`, `profile.tsx`:
-            * 64 × 1.15 = 73.6, arredondado pra 74). `gap-4` (16px) →
-            * `gap-2` (8px): "junta mais" o nome/@ da foto — usei o
-            * mesmo valor que o mobile já tinha PRA ESSA fileira
-            * (`avatarHeaderRow`, `profile.tsx`: `gap: spacing.sm` = 8),
-            * não um número novo inventado — mantém web e mobile iguais,
-            * igual pedido em "preciso que o app web e o mobile tenham o
-            * mesmo design".
-            */}
-          <div className="absolute -bottom-8 left-0 right-0 flex items-center gap-2">
-            {/*
-              * Chegou a virar um anel sólido ("meia lua preta",
-              * 2026-09-15 — mesmo valor de `EditProfileView.tsx`),
-              * revertido de volta pro anel de vidro em seguida — ver
-              * comentário completo no `<div>` de dentro, logo abaixo.
-              */}
-            <div className="relative h-[74px] w-[74px] shrink-0">
+        /*
+         * REDESENHO "CAPA CURTA E MINIMALISTA" (a pedido — "implementa
+         * essa mudança no web", 2026-09-16, portando pro web o
+         * redesenho feito primeiro no mobile — `profile.tsx`, versão F
+         * do mockup de 6 variações mandado antes, "F- Capa curta e
+         * minimalista" — com os dois ajustes que vieram depois lá:
+         * avatar/nome subidos 30% do tamanho do próprio avatar, e a
+         * correção de uma "sombra estranha" trocando véu+degradê
+         * separados por UM gradiente contínuo só).
+         *
+         * Troca a capa de 224px (`h-56`) + avatar sobreposto 32px PRA
+         * FORA da borda de baixo (`-bottom-8`, histórico da "ENTREGA 8"
+         * mantido só nesta nota) por: capa bem mais baixa (190px, MESMO
+         * valor do mobile), com um véu escuro que vira gradualmente a
+         * cor de fundo da tela ANTES do fim da capa — a foto só ocupa
+         * os 164px de cima (190 − 26); os 26px finais já são fundo
+         * LISO, sem foto nenhuma atrás, e é nessa faixa que avatar+nome
+         * ficam apoiados. Como agora tudo fica DENTRO da capa (nada
+         * sobra por baixo dela), não precisa mais reservar espaço extra
+         * (`mb-14`) pra fileira — só o respiro padrão (`mb-6`, mesmo
+         * `spacing.lg` do mobile) antes da bio.
+         */
+        <div className="relative mb-6">
+          <div className="relative -mx-4 h-[190px] w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-background">
+            {/* Só os 164px de cima têm foto — o resto (26px) já é o `bg-background` do `<div>` pai, aparecendo por baixo. */}
+            <div className="absolute inset-x-0 top-0 h-[164px] overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
+              <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
               {/*
-                * REVERTIDO (a pedido, 2026-09-16 — comparação lado a
-                * lado com o web publicado em seenlist.app: "faltou
-                * reverter esse círculo preto ao redor do avatar, pra
-                * igual como está no web" — o mobile já tinha sido
-                * revertido, agora o web também, já que nenhum dos dois
-                * chegou a ser publicado com o anel escuro de verdade)
-                * — mesmo anel de vidro translúcido usado no resto do
-                * app, de volta no lugar do anel sólido
-                * `border-4 border-background` ("meia lua preta").
+                * CAUSA RAIZ da "sombra estranha" (achada primeiro no
+                * mobile, comparando print pixel a pixel) — DUAS camadas
+                * empilhadas (véu chapado cobrindo a foto inteira + um
+                * degradê separado só embaixo) liam como um degrau/sombra
+                * dura, não uma transição suave. Aqui já nasce como UM
+                * `bg-gradient-to-b` só, do véu (`rgba(11,14,20,0.38)`)
+                * no topo até `bg-background` (mesma cor da faixa lisa
+                * logo abaixo) embaixo — uma rampa contínua.
                 */}
-              <div
-                className="absolute -inset-0.5 rounded-full border border-white/40 shadow-[0_4px_18px_rgba(0,0,0,0.35)] backdrop-blur-md backdrop-saturate-150"
-                style={{
-                  background: "radial-gradient(65% 65% at 28% 22%, rgba(255,255,255,0.3), transparent 60%), rgba(255,255,255,0.10)",
-                }}
-                aria-hidden="true"
-              />
-              {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
-              <Avatar src={user.avatarUrl} name={user.name} className="relative h-full w-full bg-surface" textClassName="text-lg" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[rgba(11,14,20,0.38)] to-background" aria-hidden="true" />
+
+              <div className="absolute inset-x-3 top-3 flex items-center justify-between">
+                <NotificationBell />
+                <button type="button" onClick={() => setShowMore(true)} aria-label={t("profile.moreOptions")} className={GLASS_ICON_BTN} style={GLASS_ICON_BTN_STYLE}>
+                  <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+                </button>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-lg font-bold text-text">{user.name}</p>
-              {profile?.username && <p className="truncate text-sm text-primary">@{profile.username}</p>}
+
+            {/*
+              * Avatar 66px (menor que os 74px do caso SEM capa, mesma
+              * proporção do mobile `SHORT_HEADER_AVATAR_SIZE`) + nome/@
+              * apoiados na faixa lisa de baixo, subidos 20px (30% do
+              * tamanho do avatar: 66 × 0,3 = 19,8 ≈ 20) da borda —
+              * `inset-x-4` reaproveita a borda de tela padrão de 16px
+              * (a capa em si é edge-to-edge via `-mx-4`, o conteúdo por
+              * cima dela respeita a borda normal).
+              */}
+            <div className="absolute inset-x-4 bottom-5 flex items-center gap-2">
+              {/* Anel fino translúcido (1px, sem sombra/brilho ao redor) — mais discreto que o anel de vidro do caso SEM capa, combinando com a proposta minimalista da versão F. */}
+              <div className="relative h-[66px] w-[66px] shrink-0 rounded-full border border-[rgba(255,255,255,0.5)]">
+                {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
+                <Avatar src={user.avatarUrl} name={user.name} className="h-full w-full bg-surface" textClassName="text-lg" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-lg font-bold text-text">{user.name}</p>
+                {profile?.username && <p className="truncate text-sm text-primary">@{profile.username}</p>}
+              </div>
             </div>
           </div>
         </div>

@@ -7,6 +7,15 @@ import { useState, useCallback, useEffect } from "react";
  */
 import { ScrollView, View, Pressable, StyleSheet, Image as RNImage } from "react-native";
 import { Image } from "expo-image";
+/**
+ * REDESENHO "CAPA CURTA E MINIMALISTA" (a pedido — "não gostei,
+ * implementa a versão F- Capa curta e minimalista", 2026-09-16, depois
+ * de já ter implementado e depois abandonado a versão D "cartão de
+ * vidro flutuante") — o véu escuro por cima da capa é uma cor sólida
+ * (`bannerDarken`, sem gradiente), mas a transição pro fundo da tela lá
+ * embaixo (`bannerFade`) precisa ser gradual — daí o `LinearGradient`
+ * de volta (tinha saído junto com a versão D, que não precisava dele).
+ */
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -202,92 +211,120 @@ export default function ProfileScreen() {
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={PROFILE_GLOW_BLOBS} />}>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
         {!!bannerUrl ? (
-          <View style={styles.bannerOuter}>
+          /*
+            * REDESENHO "CAPA CURTA E MINIMALISTA" (a pedido — "não
+            * gostei, implementa a versão F- Capa curta e minimalista",
+            * 2026-09-16, substituindo o "cartão de vidro flutuante"
+            * (versão D) implementado momentos antes nesta mesma sessão
+            * — histórico completo dessa tentativa fica só neste
+            * comentário pra não duplicar: capa arredondada com margem +
+            * cartão de vidro escuro sobrepondo a borda de baixo).
+            *
+            * Volta a ser EDGE-TO-EDGE (sem `paddingHorizontal`/margem
+            * lateral nem cantos arredondados nos 4 lados — só embaixo),
+            * bem mais baixa, com um véu escuro (`bannerDarken`) por
+            * cima da foto INTEIRA (não só um gradiente embaixo, como na
+            * versão A original) — a foto vira "clima de fundo" em vez
+            * de protagonista, e nome/@ ficam sempre legíveis não
+            * importa quão clara seja a foto. `bannerFade` (gradiente pro
+            * `colors.background`) cuida só da transição suave pro resto
+            * da tela, na faixa final de baixo.
+            *
+            * Avatar (`avatarShort`, 66px — menor que os 74px do avatar
+            * solto da versão A) + nome/@ (`shortRow`) ficam ancorados na
+            * borda de baixo da capa, igual à versão A original — a
+            * diferença é a capa mais baixa e o véu escuro por trás,
+            * garantindo contraste mesmo sem cartão nenhum por baixo.
+            */
+          <View style={styles.bannerSection}>
             {/*
-              * CAUSA RAIZ (2026-09-04, print real — "os botões do header
-              * ficam azuis; no web eles pegam o marrom da foto").
+              * CORREÇÃO (a pedido — "você fez a mudança no header, mas
+              * não está igual a opção F", com print comparando lado a
+              * lado, 2026-09-16) — CAUSA RAIZ achada comparando pixel a
+              * pixel os dois prints: no mockup da versão F a FOTO
+              * termina ANTES do fim do bloco (`f-banner` tinha
+              * `inset: 0 0 26px 0` dentro do `f-wrap` de 190px — ou
+              * seja, a foto só ocupa os 164px de cima; os 26px de baixo
+              * já são o FUNDO LISO da tela, sem foto nenhuma), e é
+              * NESSA faixa lisa que o nome/@ ficam apoiados. Na minha
+              * primeira implementação a imagem preenchia o bloco INTEIRO
+              * (190px) e só o degradê (`bannerFade`) disfarçava — dava
+              * pra ver pedaço de personagem atrás do nome/@ no
+              * emulador, o que não acontece no mockup.
               *
-              * Estes três botões usam `Glass`, mas eram IRMÃOS da capa —
-              * então o `GlassTargetProvider` mais próximo era o da tela
-              * inteira, cujo alvo de blur é o `AmbientGlow`. Eles estavam
-              * desfocando o campo azul do fundo, não a fotografia que
-              * está fisicamente atrás deles. Nenhum ajuste de cor
-              * resolveria isso: é o ALVO que estava errado.
-              *
-              * No web não existe essa distinção — `backdrop-filter`
-              * sempre amostra o que está atrás, e atrás ali é a capa.
-              *
-              * Fix: a capa passa a ser o `background` de um
-              * `GlassTargetProvider` PRÓPRIO (ou seja, vai pra dentro da
-              * `BlurTargetView`, continuando visível normalmente), e os
-              * botões viram FILHOS dele — irmãos da `BlurTargetView`,
-              * nunca dentro dela, que é a regra que evita o crash
-              * documentado em `Glass.tsx`. Como o contexto mais próximo
-              * passa a ser este, o `Glass` de cada botão amostra a foto.
-              *
-              * `base="transparent"` porque quem pinta o fundo aqui é a
-              * própria imagem — a base escura padrão a cobriria.
+              * Fix: `bannerPhoto` agora é um bloco `position: absolute`
+              * de 164px (190-26) dentro de `bannerShort` — só ele tem a
+              * foto/véu escuro/degradê/ícones; os 26px finais de
+              * `bannerShort` ficam com o `backgroundColor` liso
+              * (`colors.background`, o mesmo do resto da tela) que
+              * definia antes só no `Glass`/gradiente. `shortRow`
+              * continua `bottom: 0` do `bannerShort` (não mudou) — como
+              * o avatar (66px) é mais alto que a faixa lisa (26px), ele
+              * segue subindo e sobrepondo um pouco a foto por cima,
+              * igual ao mockup.
               */}
-            <GlassTargetProvider
-              style={styles.bannerInner}
-              base="transparent"
-              background={
-                <>
-                  <Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />
-                  <LinearGradient
-                    colors={["transparent", colors.background]}
-                    style={styles.fadeOverlay}
-                    pointerEvents="none"
-                  />
-                </>
-              }
-            >
-              <View style={styles.bannerIconLeft}>
-                <NotificationBell />
-              </View>
+            <View style={styles.bannerShort}>
+              {/*
+                * CAUSA RAIZ (2026-09-04, print real — "os botões do
+                * header ficam azuis; no web eles pegam o marrom da
+                * foto") — ainda vale igual: os botões precisam
+                * continuar FILHOS do `GlassTargetProvider` da própria
+                * foto (não irmãos dela), senão voltam a amostrar o
+                * campo azul do `AmbientGlow` da tela em vez da
+                * fotografia atrás deles. `base="transparent"` porque
+                * quem pinta o fundo aqui é a própria imagem — a base
+                * escura padrão a cobriria.
+                */}
+              <GlassTargetProvider style={styles.bannerPhoto} base="transparent" background={<Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />}>
+                {/*
+                  * CORREÇÃO (a pedido — "essa sombra dentro do banner
+                  * está estranha, deixa mais natural", com print
+                  * mostrando uma faixa escura com borda dura em vez de
+                  * transição suave, 2026-09-16) — CAUSA RAIZ: eram DUAS
+                  * camadas empilhadas (`bannerDarken`, véu CHAPADO de
+                  * 38% cobrindo a foto INTEIRA, mais um `bannerFade`
+                  * separado só nos últimos 70px) — duas transições
+                  * bruscas (uma onde o degradê começa por cima do véu já
+                  * aplicado, outra onde ele termina e vira a faixa lisa
+                  * de baixo), lidas como "degrau"/sombra artificial em
+                  * vez de gradual. Substituídas por UM `LinearGradient`
+                  * só, cobrindo a foto INTEIRA (mesmo `pointerEvents`,
+                  * mesma posição) — começa no mesmo tom do véu
+                  * (`rgba(11,14,20,0.38)`) no topo e termina em
+                  * `colors.background` 100% opaco embaixo (a mesma cor
+                  * da faixa lisa logo abaixo dela) — uma ÚNICA rampa
+                  * contínua, sem degrau nenhum no meio do caminho.
+                  */}
+                <LinearGradient
+                  colors={["rgba(11,14,20,0.38)", colors.background]}
+                  style={styles.bannerDarken}
+                  pointerEvents="none"
+                />
 
-              <Pressable
-                hitSlop={8}
-                style={styles.bannerIconsRight}
-                accessibilityLabel={t("profile.moreOptions")}
-                onPress={() => setShowMore(true)}
-              >
-                <Glass variant="icon" style={styles.bannerIconButton}>
-                  <Feather name="more-horizontal" size={16} color={colors.text} />
-                </Glass>
-              </Pressable>
-            </GlassTargetProvider>
+                <View style={styles.bannerIconLeft}>
+                  <NotificationBell />
+                </View>
 
-            {/*
-              * TASK-176 (a pedido — "gap enorme", "sobe o nome pro lado
-              * da foto") — quando tem capa, nome/usuário ficam ao lado
-              * do avatar, sobrepondo a capa também, em vez de numa
-              * fileira própria abaixo dela (que sobrava um vão vazio).
-              *
-              * CORREÇÃO (2026-09-03, a pedido — "retira o 'membro
-              * desde' do perfil, e alinha os outros dados com a foto
-              * de perfil") — avatar e texto eram dois `View` com
-              * `position: absolute` INDEPENDENTES, cada um com seu
-              * próprio offset (`bottom: 0` pro avatar, `bottom: 6` pro
-              * texto) — um jeito frágil de "alinhar" que só por
-              * coincidência ficava perto de centralizado quando o
-              * texto tinha 3 linhas (nome/@/"membro desde"); tirando a
-              * linha "Membro desde {joinDate}" o bloco de texto fica
-              * mais baixo (2 linhas), e um offset fixo em pixel não
-              * re-centraliza sozinho. Virou UMA `View` só, com
-              * `flexDirection: "row"` + `alignItems: "center"`
-              * (`avatarHeaderRow`) posicionada como antes (mesmo
-              * `bottom: 0` que o avatar já usava) — agora o texto fica
-              * sempre centralizado verticalmente contra o avatar,
-              * não importa quantas linhas tiver.
-              */}
-            <View style={styles.avatarHeaderRow}>
-              <Avatar uri={user.avatarUrl} name={user.name} style={styles.avatarOverlap} textStyle={styles.avatarInitials} />
-              <View style={styles.headerText}>
-                <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
-                  {user.name}
-                </Text>
-                {!!username && <Text style={styles.username}>@{username}</Text>}
+                <Pressable
+                  hitSlop={8}
+                  style={styles.bannerIconsRight}
+                  accessibilityLabel={t("profile.moreOptions")}
+                  onPress={() => setShowMore(true)}
+                >
+                  <Glass variant="icon" style={styles.bannerIconButton}>
+                    <Feather name="more-horizontal" size={16} color={colors.text} />
+                  </Glass>
+                </Pressable>
+              </GlassTargetProvider>
+
+              <View style={styles.shortRow}>
+                <Avatar uri={user.avatarUrl} name={user.name} style={styles.avatarShort} textStyle={styles.avatarInitials} />
+                <View style={styles.headerText}>
+                  <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
+                    {user.name}
+                  </Text>
+                  {!!username && <Text style={styles.username}>@{username}</Text>}
+                </View>
               </View>
             </View>
           </View>
@@ -474,6 +511,16 @@ export default function ProfileScreen() {
 // AJUSTE (2026-09-03, a pedido — "aumenta uns 15% o tamanho da foto de perfil no mobile") — era 64, 64 × 1.15 = 73.6, arredondado pra 74.
 const AVATAR_SIZE = 74;
 
+/**
+ * SÓ pro caso COM capa, redesenho "capa curta e minimalista" (versão
+ * F, a pedido, 2026-09-16) — a versão F do mockup usa um avatar um
+ * pouco menor que o solto original (66px vs. os 74px do
+ * `AVATAR_SIZE`), porque a capa também ficou mais baixa. O caso SEM
+ * capa (`avatar`, mais abaixo) e o Perfil público continuam com 74px,
+ * sem mudança.
+ */
+const SHORT_HEADER_AVATAR_SIZE = 66;
+
 const styles = StyleSheet.create({
   /** Ver o comentário na 3ª pílula — a caixa é o raio visível do `radial-gradient` do web. */
   countCardBlueGlow: {
@@ -526,29 +573,100 @@ const styles = StyleSheet.create({
    * do avatar (`avatarOverlap`, mais abaixo) NÃO foi revertido — só o
    * tamanho da capa.
    */
-  bannerOuter: {
-    height: 256,
+  /**
+   * REDESENHO "CAPA CURTA E MINIMALISTA" (versão F, a pedido,
+   * 2026-09-16 — ver comentário completo no JSX) — volta a ser
+   * edge-to-edge (era com `paddingHorizontal`/margem lateral na
+   * tentativa anterior, versão D "cartão de vidro flutuante", já
+   * abandonada) — sem padding nem margem lateral nenhuma, só o
+   * respiro de baixo antes do resto do conteúdo.
+   */
+  bannerSection: {
     marginBottom: spacing.lg,
   },
-  bannerInner: {
-    height: 224,
-    backgroundColor: colors.surface,
+  /**
+   * Bem mais baixa que a versão A original (era 224px antes da versão
+   * D já ter reduzido pra 190 — mantido em 190 aqui, a versão F do
+   * mockup usa a mesma altura). Cantos arredondados só EMBAIXO (era
+   * nos 4 lados na versão D, que tinha margem lateral) — `radius.md`
+   * (10px) é o token mais próximo dos 8px usados no mockup.
+   *
+   * CORREÇÃO (a pedido — "não está igual a opção F", 2026-09-16) —
+   * `backgroundColor` era `colors.surface` (cinza neutro, só visível
+   * numa fresta de 1px de borda arredondada); agora é
+   * `colors.background` de propósito — é o que sobra visível nos
+   * últimos `BANNER_BOTTOM_GAP` (26px) de baixo, onde `bannerPhoto`
+   * (abaixo) não cobre. Ver comentário completo no JSX pra causa raiz.
+   */
+  bannerShort: {
+    height: 190,
+    backgroundColor: colors.background,
     overflow: "hidden",
-    /** `rounded-b-lg` do web (`ProfileHeader.tsx`, capa) = 8px só embaixo. */
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
+    borderBottomLeftRadius: radius.md,
+    borderBottomRightRadius: radius.md,
+  },
+  /**
+   * NOVO (2026-09-16, correção "não está igual a opção F") — a foto (+
+   * véu escuro + degradê + ícones) só ocupa os `190 - 26 = 164px` de
+   * cima do `bannerShort` (mesma proporção do `f-banner` do mockup,
+   * `inset: 0 0 26px 0` dentro de um `f-wrap` de 190px) — os 26px
+   * finais ficam com o `backgroundColor` LISO do `bannerShort` (ver
+   * comentário lá), sem foto nenhuma atrás. Antes esse bloco preenchia
+   * o `bannerShort` INTEIRO (190px) e só o `bannerFade` disfarçava — o
+   * nome/@ (`shortRow`, mais abaixo, ainda ancorado no `bottom: 0` do
+   * `bannerShort`) ficavam por cima de pedaço de foto ainda visível
+   * atrás do degradê, o que não acontece no mockup (lá o nome/@ fica
+   * apoiado num fundo totalmente liso).
+   */
+  bannerPhoto: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 164,
   },
   banner: {
     width: "100%",
     height: "100%",
   },
-  /** CORREÇÃO (2026-09-03, comparado com o web) — era 56; o web usa `h-16` (`ProfileHeader.tsx`: "bottom-0 h-16 bg-gradient-to-t...") = 64px. */
-  fadeOverlay: {
+  /**
+   * CORREÇÃO (a pedido — "essa sombra dentro do banner está estranha,
+   * deixa mais natural", 2026-09-16 — ver comentário completo no JSX
+   * pra causa raiz) — era um `View` com véu CHAPADO (cor sólida, sem
+   * gradiente nenhum) mais um `bannerFade` separado só nos últimos
+   * 70px; virou o alvo de um único `LinearGradient` cobrindo a foto
+   * INTEIRA (`bannerPhoto`, 164px) — do véu `rgba(11,14,20,0.38)` no
+   * topo até `colors.background` 100% opaco embaixo, UMA rampa só, sem
+   * degrau no meio. `bannerFade` (que fazia só a metade de baixo dessa
+   * transição, em separado) saiu de vez — este gradiente já cobre o
+   * papel dele também.
+   */
+  bannerDarken: {
     position: "absolute",
+    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    height: 64,
+  },
+  /**
+   * Avatar + nome/@ ancorados perto da borda de baixo da capa (igual à
+   * versão A original) — `left`/`right: spacing.md` reaproveita a
+   * mesma borda de tela de 16px do resto do app (a capa em si é
+   * edge-to-edge, mas o conteúdo por cima dela respeita a borda).
+   *
+   * AJUSTE (a pedido, "sobe uns 30% o avatar+'seenlist e o @'",
+   * 2026-09-16) — `bottom` era `0` (colado na borda de baixo da capa).
+   * 30% do tamanho do próprio avatar (`SHORT_HEADER_AVATAR_SIZE`, 66px):
+   * 66 × 0,3 = 19,8, arredondado pra 20.
+   */
+  shortRow: {
+    position: "absolute",
+    left: spacing.md,
+    right: spacing.md,
+    bottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   /** Posição (fica no `Pressable` de fora) separada da aparência (fica no `Glass` de dentro) — `position: absolute` num filho de um `Pressable` sem tamanho próprio faz a área de toque colapsar pra 0×0. */
   bannerIconLeft: {
@@ -589,74 +707,24 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   /**
-   * TASK-172 (redesign — achado real, bug já corrigido antes no web
-   * de um jeito parecido) — o avatar sobreposto usa posição absoluta
-   * ancorada na borda de baixo da capa (`bannerOuter`), não fica na
-   * mesma fileira flex do nome — mesmo raciocínio do web
-   * (`ProfileHeader.tsx`): manter os dois na mesma fileira faz o
-   * bloco de texto (mais alto que o avatar) ser espremido junto.
-   *
-   * CORREÇÃO (2026-09-03, a pedido — "alinha os outros dados com a
-   * foto de perfil", ver comentário completo no JSX) — quem fica
-   * `position: absolute` ancorado na capa agora é a FILEIRA inteira
-   * (`avatarHeaderRow`, abaixo), não mais o avatar sozinho — dentro
-   * dela avatar e texto são filhos flex normais, com
-   * `alignItems: "center"` centralizando os dois de verdade.
+   * "CAPA CURTA E MINIMALISTA" (versão F, 2026-09-16) — o avatar volta
+   * a ficar solto sobre a capa (não mais dentro de um cartão, como na
+   * versão D já abandonada) — `position: "absolute"` fica no
+   * `shortRow` (pai), aqui só a aparência. Anel fino translúcido
+   * branco (1px, sem sombra/brilho ao redor) — mais discreto que o
+   * anel da versão A original, combinando com a proposta "minimalista"
+   * da versão F.
    */
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `left`/`right` eram `spacing.lg` (24); web usa
-  // `px-4` (`spacing.md`=16) como borda de tela.
-  avatarHeaderRow: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    bottom: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  avatarOverlap: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
+  avatarShort: {
+    width: SHORT_HEADER_AVATAR_SIZE,
+    height: SHORT_HEADER_AVATAR_SIZE,
+    borderRadius: SHORT_HEADER_AVATAR_SIZE / 2,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    /**
-     * CORREÇÃO #3 (a pedido, 2026-09-02 — comparação lado a lado com
-     * print real do web) — era `colors.primary` (âmbar sólido). O
-     * anel do avatar no web (`ProfileHeader.tsx`) é um anel de VIDRO
-     * translúcido (`border border-white/40`, com um brilho radial por
-     * trás) — nada de âmbar ali. Trocado pro mesmo tom branco
-     * translúcido; a "vidro-ice" completa (blur/gradiente por trás do
-     * anel) foi deixada de fora de propósito — o efeito real, no web,
-     * fica quase todo COBERTO pela própria foto do avatar por cima
-     * (só uns 2px de anel aparecem), então a cor certa da borda já
-     * resolve a maior parte da diferença visível, sem precisar de
-     * camada de blur nova nenhuma aqui.
-     */
-    /**
-     * CORREÇÃO (2026-09-04) — era 2px. O web usa `border` = 1px, e o
-     * anel fica POR FORA do avatar (`-inset-0.5`), não por dentro —
-     * com 2px por dentro, a foto perdia 4px de diâmetro (74 → 70).
-     *
-     * REVERTIDO (a pedido, 2026-09-16 — comparação lado a lado com o
-     * web publicado em seenlist.app: "faltou reverter esse círculo
-     * preto ao redor do avatar, pra igual como está no web") — chegou
-     * a virar um anel SÓLIDO na cor de fundo do app (`borderWidth: 4,
-     * borderColor: colors.background`, "meia lua preta", mesma leva
-     * que reduziu a capa pra 112px) mas isso nunca foi publicado no
-     * web (só existe local, não commitado/deployado) — o usuário
-     * comparou o app mobile já buildado com o que está DE VERDADE no
-     * ar em seenlist.app, viu a diferença e pediu de volta o anel
-     * branco translúcido de 1px original. Escopo confirmado via
-     * AskUserQuestion: só mobile (esta tela + Perfil público em
-     * `app/u/[username]/index.tsx`) — o código do web (ainda não
-     * publicado) fica como está.
-     */
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.4)",
+    borderColor: "rgba(255,255,255,0.5)",
   },
   /**
    * CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.md`
