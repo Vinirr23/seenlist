@@ -748,9 +748,13 @@ const styles = StyleSheet.create({
    * AJUSTE #3 (a pedido, "sobe mais 20%", mesma sessão) — mais 20% em
    * cima do valor JÁ reduzido (10, não do 14/16 originais): 10 × 0,8
    * = 8.
+   *
+   * AJUSTE #4 (a pedido, "sobe mais 35%", mesma sessão) — mais 35% em
+   * cima do valor JÁ reduzido (8, não dos originais): 8 × 0,65 = 5,2,
+   * arredondado pra 5.
    */
   bio: {
-    marginTop: 8,
+    marginTop: 5,
     paddingHorizontal: spacing.md,
     fontSize: fontSize.sm,
     lineHeight: 20,
