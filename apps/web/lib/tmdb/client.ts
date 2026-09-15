@@ -325,6 +325,25 @@ export async function getSeriesDetails(
     tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, {
       append_to_response: "credits,recommendations,similar,alternative_titles,videos,images",
       language,
+      /**
+       * BUG REAL CORRIGIDO (a pedido, 2026-09-16 — "todos que
+       * selecionei pra teste, tinha apenas 1 capa pra selecionar" no
+       * `LibraryImagePickerSheet`/`Modal`, quando o esperado, pela
+       * referência mandada, era várias). Causa raiz: o TMDB filtra o
+       * sub-recurso `images` (vindo junto via `append_to_response`)
+       * pelo MESMO `language` passado na chamada — sem
+       * `include_image_language`, ele só devolve imagens marcadas
+       * exatamente com esse idioma (aqui, "pt-BR"), o que pra maioria
+       * dos títulos é NENHUMA ou UMA imagem só (quase toda imagem no
+       * TMDB não tem idioma nenhum marcado — "null" — ou está em
+       * inglês). `include_image_language` amplia esse filtro:
+       * "null" garante as imagens sem idioma (a maioria, cenas puras
+       * sem texto/logo), "pt-BR"/"en" garantem as que têm texto nesses
+       * dois idiomas — resultado passa a bater com `gallery`
+       * (até 8, mais abaixo) de verdade, igual à galeria que
+       * `data.images.backdrops` deveria ter desde sempre.
+       */
+      include_image_language: "null,pt-BR,en",
     }),
     // TASK-168 (correção 2) — depender só de `alternative_titles` não
     // bastava: muita série/anime não tem uma entrada "US" cadastrada

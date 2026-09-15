@@ -174,8 +174,16 @@ export function LibraryImagePickerModal({ onSelect, onClose }: { onSelect: (url:
 
         {selectedTitle && loadingOptions && <p className="mt-8 text-center text-sm text-muted">{t("common.loading")}</p>}
 
+        {/*
+          * CORREÇÃO (a pedido, 2026-09-16, com print de referência —
+          * "o sheet de selecionar banner deve ficar assim como nesses
+          * prints") — era uma grade de 2 colunas; a referência mostra
+          * uma LISTA de 1 coluna só, cada cena ocupando a largura
+          * inteira, rolando verticalmente. Mesmo ajuste já feito em
+          * `LibraryImagePickerSheet.tsx` (mobile).
+          */}
         {selectedTitle && !loadingOptions && options && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-3">
             {options.map((option) => (
               <button
                 key={option.key}
@@ -183,7 +191,7 @@ export function LibraryImagePickerModal({ onSelect, onClose }: { onSelect: (url:
                 onClick={() => onSelect(option.url)}
                 className="relative aspect-video w-full overflow-hidden rounded-lg bg-surface"
               >
-                <Image src={option.url} alt="" fill sizes="300px" className="object-cover" />
+                <Image src={option.url} alt="" fill sizes="430px" className="object-cover" />
               </button>
             ))}
           </div>

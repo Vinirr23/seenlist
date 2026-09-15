@@ -173,22 +173,32 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
             */}
           <div className="absolute -bottom-8 left-0 right-0 flex items-center gap-2">
             {/*
-              * CORREÇÃO (a pedido, 2026-09-15 — "coloca um círculo
-              * meia lua preto na parte que pega o banner, deixa
-              * parecido como mostra na tela de editar"). Este anel de
-              * vidro (branco translúcido + blur) era o mesmo usado no
-              * resto do app — mas é o oposto do que
-              * `EditProfileView.tsx` usa no MESMO lugar (avatar sobre
-              * capa): lá é `border-4 border-background`, sólido na
-              * cor de fundo do app, que separa visualmente o avatar
-              * da foto atrás dele — a "meia lua preta" que o usuário
-              * pediu (metade do avatar cobre a capa, metade já está
-              * sobre o fundo escuro do app). Trocado pro mesmo valor
-              * exato do arquivo de referência.
+              * Chegou a virar um anel sólido ("meia lua preta",
+              * 2026-09-15 — mesmo valor de `EditProfileView.tsx`),
+              * revertido de volta pro anel de vidro em seguida — ver
+              * comentário completo no `<div>` de dentro, logo abaixo.
               */}
             <div className="relative h-[74px] w-[74px] shrink-0">
+              {/*
+                * REVERTIDO (a pedido, 2026-09-16 — comparação lado a
+                * lado com o web publicado em seenlist.app: "faltou
+                * reverter esse círculo preto ao redor do avatar, pra
+                * igual como está no web" — o mobile já tinha sido
+                * revertido, agora o web também, já que nenhum dos dois
+                * chegou a ser publicado com o anel escuro de verdade)
+                * — mesmo anel de vidro translúcido usado no resto do
+                * app, de volta no lugar do anel sólido
+                * `border-4 border-background` ("meia lua preta").
+                */}
+              <div
+                className="absolute -inset-0.5 rounded-full border border-white/40 shadow-[0_4px_18px_rgba(0,0,0,0.35)] backdrop-blur-md backdrop-saturate-150"
+                style={{
+                  background: "radial-gradient(65% 65% at 28% 22%, rgba(255,255,255,0.3), transparent 60%), rgba(255,255,255,0.10)",
+                }}
+                aria-hidden="true"
+              />
               {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
-              <Avatar src={user.avatarUrl} name={user.name} className="relative h-full w-full border-4 border-background bg-surface" textClassName="text-lg" />
+              <Avatar src={user.avatarUrl} name={user.name} className="relative h-full w-full bg-surface" textClassName="text-lg" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-lg font-bold text-text">{user.name}</p>

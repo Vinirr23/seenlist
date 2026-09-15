@@ -263,18 +263,17 @@ export function PublicProfileView({ username }: { username: string }) {
             );
 
             /*
-             * CORREÇÃO (a pedido, 2026-09-15 — "coloca um círculo
-             * meia lua preto na parte que pega o banner, deixa
-             * parecido como mostra na tela de editar"). Variante só
-             * pro caso COM capa (avatar sobrepõe a foto) — mesmo anel
-             * sólido de `EditProfileView.tsx`/`ProfileHeader.tsx`
-             * (`border-4 border-background`) em vez do anel de vidro
-             * translúcido acima, que continua valendo pro caso SEM
-             * capa (nada atrás do avatar pra "cortar" ali).
+             * REVERTIDO (a pedido, 2026-09-16 — comparação lado a lado
+             * com o web publicado em seenlist.app: "faltou reverter
+             * esse círculo preto ao redor do avatar, pra igual como
+             * está no web") — chegou a existir uma variante só pro
+             * caso COM capa, com o mesmo anel sólido
+             * (`border-4 border-background`, "meia lua preta") de
+             * `EditProfileView.tsx`/`ProfileHeader.tsx`
+             * (2026-09-15), mas nunca foi publicada de verdade —
+             * removida: o caso COM capa volta a usar `avatarGlass`
+             * (mesma variável de cima), igual ao caso SEM capa.
              */
-            const avatarDarkRing = (
-              <Avatar src={avatarUrl} name={displayName} className="relative h-full w-full border-4 border-background bg-surface" textClassName="text-lg" />
-            );
 
             const nameBlockContent = (
               <>
@@ -325,9 +324,9 @@ export function PublicProfileView({ username }: { username: string }) {
                     * dois: principal e público) — chegou a ser
                     * reduzido pra `h-28` (112px) nesta mesma sessão,
                     * mas o usuário pediu de volta o tamanho grande
-                    * original (`h-56`, 224px). O anel escuro do avatar
-                    * (`avatarDarkRing`, acima) NÃO foi revertido — só
-                    * o tamanho da capa.
+                    * original (`h-56`, 224px). (O anel do avatar
+                    * também acabou revertido, só que um dia depois —
+                    * ver comentário de `avatarGlass`, acima.)
                     */}
                   <div className="relative mb-4">
                     <div className="relative -mx-4 h-56 w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-surface shadow-lg shadow-black/30">
@@ -338,7 +337,7 @@ export function PublicProfileView({ username }: { username: string }) {
                         aria-hidden="true"
                       />
                     </div>
-                    <div className="absolute -bottom-8 left-0 h-16 w-16">{avatarDarkRing}</div>
+                    <div className="absolute -bottom-8 left-0 h-16 w-16">{avatarGlass}</div>
                   </div>
                   <div className="min-w-0 pt-10">{nameBlockContent}</div>
                 </>

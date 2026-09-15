@@ -186,13 +186,19 @@ export function LibraryImagePickerSheet({ onSelect, onClose }: { onSelect: (url:
 
         {selectedTitle && loadingOptions && <ActivityIndicator style={styles.loading} color={colors.primary} />}
 
+        {/*
+          * CORREÇÃO (a pedido, 2026-09-16, com print de referência —
+          * "o sheet de selecionar banner deve ficar assim como nesses
+          * prints") — era uma grade de 2 colunas; a referência mostra
+          * uma LISTA de 1 coluna só, cada cena ocupando a largura
+          * inteira, rolando verticalmente. Trocado pra bater com a
+          * referência.
+          */}
         {selectedTitle && !loadingOptions && options && (
           <FlatList
             data={options}
             keyExtractor={(option) => option.key}
-            numColumns={2}
-            contentContainerStyle={styles.grid}
-            columnWrapperStyle={styles.gridRow}
+            contentContainerStyle={styles.optionList}
             renderItem={({ item: option }) => (
               <Pressable style={styles.bannerCell} onPress={() => onSelect(option.url)}>
                 <Image source={{ uri: option.url }} style={styles.bannerImage} contentFit="cover" />
@@ -298,15 +304,12 @@ const styles = StyleSheet.create({
   rowSubtitleText: {
     fontSize: fontSize.xxs,
   },
-  grid: {
+  optionList: {
     padding: spacing.md,
-    gap: spacing.md,
-  },
-  gridRow: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   bannerCell: {
-    flex: 1,
+    width: "100%",
     aspectRatio: 16 / 9,
     borderRadius: radius.md,
     overflow: "hidden",
