@@ -500,6 +500,14 @@ const styles = StyleSheet.create({
    * abaixo da capa, então a caixa é 224+32 = 256. E o respiro depois
    * da fileira é `mb-14` (56) menos os 32 que o avatar já desceu = 24
    * (`spacing.lg`), não 12 — a bio estava colada.
+   *
+   * REVERTIDO (a pedido, 2026-09-15 — "volta pra a versão do banner
+   * do tamanho que está no web", comparado com o que ainda está
+   * publicado em seenlist.app) — chegou a ser reduzido pra 112px
+   * (mesmo valor de `edit-profile.tsx`) nesta mesma sessão, mas o
+   * usuário pediu de volta o tamanho grande original. O anel escuro
+   * do avatar (`avatarOverlap`, mais abaixo) NÃO foi revertido — só o
+   * tamanho da capa.
    */
   bannerOuter: {
     height: 256,
@@ -615,9 +623,22 @@ const styles = StyleSheet.create({
      * CORREÇÃO (2026-09-04) — era 2px. O web usa `border` = 1px, e o
      * anel fica POR FORA do avatar (`-inset-0.5`), não por dentro —
      * com 2px por dentro, a foto perdia 4px de diâmetro (74 → 70).
+     *
+     * CORREÇÃO (a pedido, 2026-09-15 — "coloca um círculo meia lua
+     * preto na parte que pega o banner, deixa parecido como mostra na
+     * tela de editar"). Este anel branco translúcido de 1px era o
+     * mesmo "vidro-ice" do resto do app — mas é exatamente o oposto
+     * do que `edit-profile.tsx` usa no MESMO lugar (avatar sobre
+     * capa): lá é um anel SÓLIDO na cor de fundo do app
+     * (`borderWidth: 4, borderColor: colors.background`), que separa
+     * visualmente o avatar da foto atrás dele com um contorno escuro
+     * — a "meia lua preta" que o usuário pediu (só aparece como
+     * meia-lua porque metade do avatar cobre a capa e a outra metade
+     * já está sobre o fundo escuro do app). Trocado pro mesmo valor
+     * exato do arquivo de referência, sem inventar um número novo.
      */
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.4)",
+    borderWidth: 4,
+    borderColor: colors.background,
   },
   /**
    * CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.md`

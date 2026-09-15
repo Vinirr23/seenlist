@@ -124,6 +124,17 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         // (avatar + nome) terminar de aparecer antes da bio começar —
         // mesmo respiro total que o `pt-10` antigo dava (16 + 40 = 56).
         <div className="relative mb-14">
+          {/*
+            * REVERTIDO (a pedido, 2026-09-15 — "volta pra a versão do
+            * banner do tamanho que está no web", nos dois: principal e
+            * público) — chegou a ser reduzido pra `h-28` (112px) nesta
+            * mesma sessão ("CORREÇÃO" anterior, igual a
+            * `EditProfileView.tsx`), mas o usuário pediu de volta o
+            * tamanho grande original (`h-56`, 224px — o que ainda está
+            * publicado em seenlist.app). O anel escuro do avatar
+            * (`border-4 border-background`, mais abaixo) NÃO foi
+            * revertido — só o tamanho da capa.
+            */}
           <div className="relative -mx-4 h-56 w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-surface shadow-lg shadow-black/30">
             {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
             <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
@@ -161,16 +172,23 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
             * mesmo design".
             */}
           <div className="absolute -bottom-8 left-0 right-0 flex items-center gap-2">
+            {/*
+              * CORREÇÃO (a pedido, 2026-09-15 — "coloca um círculo
+              * meia lua preto na parte que pega o banner, deixa
+              * parecido como mostra na tela de editar"). Este anel de
+              * vidro (branco translúcido + blur) era o mesmo usado no
+              * resto do app — mas é o oposto do que
+              * `EditProfileView.tsx` usa no MESMO lugar (avatar sobre
+              * capa): lá é `border-4 border-background`, sólido na
+              * cor de fundo do app, que separa visualmente o avatar
+              * da foto atrás dele — a "meia lua preta" que o usuário
+              * pediu (metade do avatar cobre a capa, metade já está
+              * sobre o fundo escuro do app). Trocado pro mesmo valor
+              * exato do arquivo de referência.
+              */}
             <div className="relative h-[74px] w-[74px] shrink-0">
-              <div
-                className="absolute -inset-0.5 rounded-full border border-white/40 shadow-[0_4px_18px_rgba(0,0,0,0.35)] backdrop-blur-md backdrop-saturate-150"
-                style={{
-                  background: "radial-gradient(65% 65% at 28% 22%, rgba(255,255,255,0.3), transparent 60%), rgba(255,255,255,0.10)",
-                }}
-                aria-hidden="true"
-              />
               {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
-              <Avatar src={user.avatarUrl} name={user.name} className="relative h-full w-full bg-surface" textClassName="text-lg" />
+              <Avatar src={user.avatarUrl} name={user.name} className="relative h-full w-full border-4 border-background bg-surface" textClassName="text-lg" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-lg font-bold text-text">{user.name}</p>

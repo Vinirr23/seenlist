@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { View, Modal, Pressable, FlatList, ActivityIndicator, StyleSheet } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { View, Modal, TextInput, Pressable, FlatList, ActivityIndicator, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
@@ -10,40 +10,49 @@ import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
-type Mode = "banner" | "avatar";
 interface PickOption {
   key: string;
   url: string;
-  label?: string;
 }
 
 /**
  * A PEDIDO (2026-09-15 — "em alterar banner, quero que apareça
- * opções de banner de séries e filmes que o usuário já marcou. em
- * alterar foto também quero que apareça opções de selecionar
- * personagens de filmes e séries que o usuário já marcou").
+ * opções de banner de séries e filmes que o usuário já marcou").
  *
- * Dois passos, sempre: 1) grade da biblioteca INTEIRA do usuário
- * (`fetchLibraryItems`, sem filtro de status — confirmado com o
- * usuário: "toda a biblioteca") pra escolher um título; 2) busca os
+ * Dois passos: 1) lista com busca — CORREÇÃO (a pedido, com print de
+ * referência, "quero que apareça um sheet igual esse aí, com opção
+ * pra procurar por nome, e em lista") — mesmo padrão visual do
+ * seletor nativo de foto de capa que o usuário mandou de exemplo:
+ * pôster pequeno + título + tipo (ícone + "Série"/"Filme") + seta, um
+ * por linha, com campo de busca fixo no topo (mesmo padrão de
+ * `CountryPicker.tsx` — filtra local, sem chamada nova nenhuma, já
+ * que `fetchLibraryItems` busca tudo de uma vez). 2) busca os
  * detalhes DESSE título só (`fetchSeriesDetails`/`fetchMovieDetails`,
  * já usados pela tela do título — nenhuma rota nova precisou ser
- * criada) e mostra as opções de verdade:
- *   - `mode="banner"`: a galeria de cenas do título (`gallery`, até 8
- *     — só séries têm; filme só tem UM backdrop, então pula direto
- *     pra ele sem grade nenhuma, não tem escolha real ali).
- *   - `mode="avatar"`: o elenco do título (`cast`, até 15), mesmo
- *     dado que já alimenta `EpisodeFavoriteCharacterPicker.tsx`
- *     (web) — só que agregado por TÍTULO escolhido, não por episódio.
+ * criada) e mostra a galeria de cenas do título (`gallery`, até 8 —
+ * só séries têm; filme só tem UM backdrop, então pula direto pra ele
+ * sem grade nenhuma, não tem escolha real ali), em GRADE (faz sentido
+ * visual — são imagens pra comparar lado a lado, não uma lista de
+ * nomes).
+ *
+ * SIMPLIFICADO (a pedido, 2026-09-15, mesma leva — "na escolha de
+ * avatar deixa pra a pessoa selecionar do celular como estava antes.
+ * ... a mudança do sheet com opções, fica só no banner") — este
+ * componente chegou a suportar `mode="avatar"` (elenco do título)
+ * também, mas o usuário reverteu o avatar pro seletor de galeria do
+ * aparelho puro e simples — esse modo nunca chegou a ser usado de
+ * verdade fora desta tela, removido daqui (fica só banner). Se um dia
+ * precisar de novo, `git log` desta leva tem o código.
  *
  * Não faz upload nenhum: a URL do TMDB (CDN pública, já é assim que
  * pôster/backdrop aparecem em todo o resto do app) vai direto pra
- * `profiles.avatar_url`/`banner_url` — ver `setBannerFromTmdb`/
- * `setAvatarFromTmdb` em `lib/imageUpload.ts`.
+ * `profiles.banner_url` — ver `setBannerFromTmdb` em
+ * `lib/imageUpload.ts`.
  */
-export function LibraryImagePickerSheet({ mode, onSelect, onClose }: { mode: Mode; onSelect: (url: string) => void; onClose: () => void }) {
+export function LibraryImagePickerSheet({ onSelect, onClose }: { onSelect: (url: string) => void; onClose: () => void }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<LibraryItem[] | null>(null);
+  const [search, setSearch] = useState("");
   const [selectedTitle, setSelectedTitle] = useState<LibraryItem | null>(null);
   const [options, setOptions] = useState<PickOption[] | null>(null);
   const [loadingOptions, setLoadingOptions] = useState(false);
@@ -55,46 +64,36 @@ export function LibraryImagePickerSheet({ mode, onSelect, onClose }: { mode: Mod
       .catch(() => setItems([]));
   }, []);
 
+  const filteredItems = useMemo(() => {
+    if (!items) return items;
+    const query = search.trim().toLowerCase();
+    if (!query) return items;
+    return items.filter((item) => item.title.toLowerCase().includes(query));
+  }, [items, search]);
+
   async function handlePickTitle(item: LibraryItem) {
     setError(null);
     setOptions(null);
     setSelectedTitle(item);
     setLoadingOptions(true);
     try {
-      if (mode === "banner") {
-        if (item.mediaType === "movie") {
-          // Filme só tem UM backdrop no TMDB — não existe "escolher entre vários" aqui, aplica direto.
-          const details = await fetchMovieDetails(String(item.id));
-          if (details.backdropPath) {
-            onSelect(tmdbImageUrl(details.backdropPath, "w780") as string);
-            return;
-          }
+      if (item.mediaType === "movie") {
+        // Filme só tem UM backdrop no TMDB — não existe "escolher entre vários" aqui, aplica direto.
+        const details = await fetchMovieDetails(String(item.id));
+        if (details.backdropPath) {
+          onSelect(tmdbImageUrl(details.backdropPath, "w780") as string);
+          return;
+        }
+        setError(t("profile.libraryPickerNoImages"));
+        setSelectedTitle(null);
+      } else {
+        const details = await fetchSeriesDetails(String(item.id));
+        const paths = details.gallery.length > 0 ? details.gallery : details.backdropPath ? [details.backdropPath] : [];
+        if (paths.length === 0) {
           setError(t("profile.libraryPickerNoImages"));
           setSelectedTitle(null);
         } else {
-          const details = await fetchSeriesDetails(String(item.id));
-          const paths = details.gallery.length > 0 ? details.gallery : details.backdropPath ? [details.backdropPath] : [];
-          if (paths.length === 0) {
-            setError(t("profile.libraryPickerNoImages"));
-            setSelectedTitle(null);
-          } else {
-            setOptions(paths.map((path, index) => ({ key: `${path}-${index}`, url: tmdbImageUrl(path, "w780") as string })));
-          }
-        }
-      } else {
-        const details = item.mediaType === "movie" ? await fetchMovieDetails(String(item.id)) : await fetchSeriesDetails(String(item.id));
-        const withPhoto = details.cast.filter((member) => member.profilePath);
-        if (withPhoto.length === 0) {
-          setError(t("profile.libraryPickerNoCharacters"));
-          setSelectedTitle(null);
-        } else {
-          setOptions(
-            withPhoto.map((member) => ({
-              key: String(member.id),
-              url: tmdbImageUrl(member.profilePath, "w342") as string,
-              label: member.character || member.name,
-            }))
-          );
+          setOptions(paths.map((path, index) => ({ key: `${path}-${index}`, url: tmdbImageUrl(path, "w780") as string })));
         }
       }
     } catch (err) {
@@ -112,13 +111,7 @@ export function LibraryImagePickerSheet({ mode, onSelect, onClose }: { mode: Mod
     setError(null);
   }
 
-  const title = selectedTitle
-    ? mode === "banner"
-      ? t("profile.libraryPickerChooseImage")
-      : t("profile.libraryPickerChooseCharacter")
-    : mode === "banner"
-      ? t("profile.libraryPickerTitleBanner")
-      : t("profile.libraryPickerTitleAvatar");
+  const title = selectedTitle ? t("profile.libraryPickerChooseImage") : t("profile.libraryPickerTitleBanner");
 
   return (
     <Modal visible animationType="slide" onRequestClose={selectedTitle ? handleBack : onClose}>
@@ -133,6 +126,20 @@ export function LibraryImagePickerSheet({ mode, onSelect, onClose }: { mode: Mod
           <View style={styles.headerButton} />
         </View>
 
+        {!selectedTitle && (
+          <View style={styles.searchRow}>
+            <Feather name="search" size={16} color={colors.muted} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t("profile.libraryPickerSearchPlaceholder")}
+              placeholderTextColor={colors.muted}
+              autoCapitalize="none"
+              style={styles.searchInput}
+            />
+          </View>
+        )}
+
         {!!error && <Text variant="error" style={styles.errorText}>{error}</Text>}
 
         {!selectedTitle &&
@@ -140,30 +147,38 @@ export function LibraryImagePickerSheet({ mode, onSelect, onClose }: { mode: Mod
             <ActivityIndicator style={styles.loading} color={colors.primary} />
           ) : (
             <FlatList
-              data={items}
+              data={filteredItems}
               keyExtractor={(item) => `${item.mediaType}-${item.id}`}
-              numColumns={3}
-              contentContainerStyle={styles.grid}
-              columnWrapperStyle={styles.gridRow}
+              contentContainerStyle={styles.list}
+              keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 <Text variant="muted" style={styles.emptyText}>
-                  {t("profile.libraryPickerEmpty")}
+                  {search.trim() ? t("profile.libraryPickerNoResults") : t("profile.libraryPickerEmpty")}
                 </Text>
               }
               renderItem={({ item }) => (
-                <Pressable style={styles.posterCell} onPress={() => handlePickTitle(item)}>
+                <Pressable style={styles.row} onPress={() => handlePickTitle(item)}>
                   <View style={styles.posterWrapper}>
                     {item.posterPath ? (
                       <Image source={{ uri: tmdbImageUrl(item.posterPath, "w185") ?? undefined }} style={styles.poster} contentFit="cover" />
                     ) : (
                       <View style={[styles.poster, styles.posterFallback]}>
-                        <Feather name={item.mediaType === "movie" ? "film" : "tv"} size={20} color={colors.muted} />
+                        <Feather name={item.mediaType === "movie" ? "film" : "tv"} size={16} color={colors.muted} />
                       </View>
                     )}
                   </View>
-                  <Text numberOfLines={1} variant="muted" style={styles.posterTitle}>
-                    {item.title}
-                  </Text>
+                  <View style={styles.rowText}>
+                    <Text numberOfLines={1} style={styles.rowTitle}>
+                      {item.title}
+                    </Text>
+                    <View style={styles.rowSubtitle}>
+                      <Feather name={item.mediaType === "movie" ? "film" : "tv"} size={12} color={colors.muted} />
+                      <Text variant="muted" style={styles.rowSubtitleText}>
+                        {item.mediaType === "movie" ? t("media.movie") : t("media.series")}
+                      </Text>
+                    </View>
+                  </View>
+                  <Feather name="chevron-right" size={18} color={colors.muted} />
                 </Pressable>
               )}
             />
@@ -171,27 +186,7 @@ export function LibraryImagePickerSheet({ mode, onSelect, onClose }: { mode: Mod
 
         {selectedTitle && loadingOptions && <ActivityIndicator style={styles.loading} color={colors.primary} />}
 
-        {selectedTitle && !loadingOptions && options && mode === "avatar" && (
-          <FlatList
-            data={options}
-            keyExtractor={(option) => option.key}
-            numColumns={3}
-            contentContainerStyle={styles.grid}
-            columnWrapperStyle={styles.gridRow}
-            renderItem={({ item: option }) => (
-              <Pressable style={styles.posterCell} onPress={() => onSelect(option.url)}>
-                <Image source={{ uri: option.url }} style={styles.characterAvatar} contentFit="cover" />
-                {!!option.label && (
-                  <Text numberOfLines={1} variant="muted" style={styles.posterTitle}>
-                    {option.label}
-                  </Text>
-                )}
-              </Pressable>
-            )}
-          />
-        )}
-
-        {selectedTitle && !loadingOptions && options && mode === "banner" && (
+        {selectedTitle && !loadingOptions && options && (
           <FlatList
             data={options}
             keyExtractor={(option) => option.key}
@@ -222,8 +217,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   headerButton: {
     width: 20,
@@ -231,6 +224,22 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     textAlign: "center",
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: colors.text,
   },
   errorText: {
     textAlign: "center",
@@ -245,21 +254,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     paddingHorizontal: spacing.md,
   },
-  grid: {
-    padding: spacing.md,
-    gap: spacing.md,
+  list: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
   },
-  gridRow: {
-    gap: spacing.md,
-  },
-  posterCell: {
-    flex: 1,
+  row: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   posterWrapper: {
-    width: "100%",
-    aspectRatio: 2 / 3,
+    width: 44,
+    height: 64,
     borderRadius: radius.sm,
     overflow: "hidden",
     backgroundColor: colors.surface,
@@ -272,15 +281,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  posterTitle: {
-    fontSize: fontSize.xxs,
-    textAlign: "center",
+  rowText: {
+    flex: 1,
+    gap: 2,
   },
-  characterAvatar: {
-    width: "100%",
-    aspectRatio: 1,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
+  rowTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  rowSubtitle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  rowSubtitleText: {
+    fontSize: fontSize.xxs,
+  },
+  grid: {
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  gridRow: {
+    gap: spacing.md,
   },
   bannerCell: {
     flex: 1,

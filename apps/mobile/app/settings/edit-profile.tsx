@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchEditableProfile, saveEditableProfile } from "@/lib/editProfile";
-import { pickImageFromLibrary, uploadAvatar, uploadBanner, setAvatarFromTmdb, setBannerFromTmdb } from "@/lib/imageUpload";
+import { pickImageFromLibrary, uploadAvatar, uploadBanner, setBannerFromTmdb } from "@/lib/imageUpload";
 import { COUNTRIES } from "@/lib/countries";
 import { Screen, Text, Button, Skeleton, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
@@ -62,7 +62,7 @@ export default function EditProfileScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [libraryPicker, setLibraryPicker] = useState<"banner" | "avatar" | null>(null);
+  const [libraryPicker, setLibraryPicker] = useState<"banner" | null>(null);
 
   useEffect(() => {
     fetchEditableProfile()
@@ -99,46 +99,39 @@ export default function EditProfileScreen() {
   }
 
   /**
-   * NOVO (a pedido, 2026-09-15) — antes ia direto pra galeria do
-   * aparelho; agora pergunta a origem primeiro. `Alert.alert` (mesmo
-   * componente já usado em `recommendations.tsx`/`comments.tsx` pra
-   * confirmações simples de 2-3 opções) em vez de mais um `Modal`
-   * customizado — é só uma escolha binária, sem precisar de grade,
-   * busca ou rolagem.
+   * REVERTIDO (a pedido, 2026-09-15 — "na escolha de avatar deixa pra
+   * a pessoa selecionar do celular como estava antes") — chegou a
+   * ganhar a mesma escolha origem-do-aparelho×biblioteca do banner
+   * nesta mesma leva ("NOVO" abaixo, mantido só pro banner), mas o
+   * usuário pediu de volta o comportamento original: toca e já abre
+   * direto a galeria do aparelho, sem pergunta nenhuma.
    */
   function handleChangeAvatar() {
-    Alert.alert(t("profile.changePhoto"), t("profile.changeImageSourcePrompt"), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("profile.libraryPickerFromDevice"), onPress: handlePickFromDeviceAvatar },
-      { text: t("profile.libraryPickerFromLibrary"), onPress: () => setLibraryPicker("avatar") },
-    ]);
+    handlePickFromDeviceAvatar();
   }
 
+  /**
+   * NOVO (a pedido, 2026-09-15) — REVERTIDO EM PARTE logo em seguida
+   * (mesma leva, "a mudança do sheet com opções, fica só no banner" +
+   * a mensagem com print pedindo pra "tira a opção de selecionar capa
+   * pela galeria de aparelho e abre direto esse sheet"): não pergunta
+   * mais a origem (sem `Alert.alert`) — o botão "Alterar banner" abre
+   * direto o sheet de busca da biblioteca. Only o avatar voltou a ser
+   * 100% aparelho (ver `handleChangeAvatar` acima); o banner é o único
+   * campo que mantém a escolha por biblioteca, e agora sem passar pela
+   * galeria do aparelho de jeito nenhum.
+   */
   function handleChangeBanner() {
-    Alert.alert(t("profile.changeBanner"), t("profile.changeImageSourcePrompt"), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("profile.libraryPickerFromDevice"), onPress: handlePickFromDeviceBanner },
-      { text: t("profile.libraryPickerFromLibrary"), onPress: () => setLibraryPicker("banner") },
-    ]);
+    setLibraryPicker("banner");
   }
 
   async function handleLibraryImageSelected(url: string) {
-    const mode = libraryPicker;
     setLibraryPicker(null);
-    if (!mode) return;
-    if (mode === "avatar") {
-      setUploadingAvatar(true);
-      const result = await setAvatarFromTmdb(url);
-      setUploadingAvatar(false);
-      if (result.url) setAvatarUrl(result.url);
-      else if (result.error) setError(result.error);
-    } else {
-      setUploadingBanner(true);
-      const result = await setBannerFromTmdb(url);
-      setUploadingBanner(false);
-      if (result.url) setBannerUrl(result.url);
-      else if (result.error) setError(result.error);
-    }
+    setUploadingBanner(true);
+    const result = await setBannerFromTmdb(url);
+    setUploadingBanner(false);
+    if (result.url) setBannerUrl(result.url);
+    else if (result.error) setError(result.error);
   }
 
   async function handleSave() {
@@ -248,9 +241,7 @@ export default function EditProfileScreen() {
       </GlassTargetProvider>
 
       <CountryPicker value={country} onChange={setCountry} visible={showCountryPicker} onClose={() => setShowCountryPicker(false)} />
-      {!!libraryPicker && (
-        <LibraryImagePickerSheet mode={libraryPicker} onSelect={handleLibraryImageSelected} onClose={() => setLibraryPicker(null)} />
-      )}
+      {!!libraryPicker && <LibraryImagePickerSheet onSelect={handleLibraryImageSelected} onClose={() => setLibraryPicker(null)} />}
     </Screen>
   );
 }

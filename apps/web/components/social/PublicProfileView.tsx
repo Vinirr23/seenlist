@@ -262,6 +262,20 @@ export function PublicProfileView({ username }: { username: string }) {
               </>
             );
 
+            /*
+             * CORREÇÃO (a pedido, 2026-09-15 — "coloca um círculo
+             * meia lua preto na parte que pega o banner, deixa
+             * parecido como mostra na tela de editar"). Variante só
+             * pro caso COM capa (avatar sobrepõe a foto) — mesmo anel
+             * sólido de `EditProfileView.tsx`/`ProfileHeader.tsx`
+             * (`border-4 border-background`) em vez do anel de vidro
+             * translúcido acima, que continua valendo pro caso SEM
+             * capa (nada atrás do avatar pra "cortar" ali).
+             */
+            const avatarDarkRing = (
+              <Avatar src={avatarUrl} name={displayName} className="relative h-full w-full border-4 border-background bg-surface" textClassName="text-lg" />
+            );
+
             const nameBlockContent = (
               <>
                 <p className="truncate text-lg font-bold text-text">{displayName}</p>
@@ -305,6 +319,16 @@ export function PublicProfileView({ username }: { username: string }) {
                    * visualmente antes de aplicar (Playwright): dá um respiro
                    * claro entre o avatar e o texto, igual à referência.
                    */}
+                  {/*
+                    * REVERTIDO (a pedido, 2026-09-15 — "volta pra a
+                    * versão do banner do tamanho que está no web", nos
+                    * dois: principal e público) — chegou a ser
+                    * reduzido pra `h-28` (112px) nesta mesma sessão,
+                    * mas o usuário pediu de volta o tamanho grande
+                    * original (`h-56`, 224px). O anel escuro do avatar
+                    * (`avatarDarkRing`, acima) NÃO foi revertido — só
+                    * o tamanho da capa.
+                    */}
                   <div className="relative mb-4">
                     <div className="relative -mx-4 h-56 w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-surface shadow-lg shadow-black/30">
                       {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
@@ -314,7 +338,7 @@ export function PublicProfileView({ username }: { username: string }) {
                         aria-hidden="true"
                       />
                     </div>
-                    <div className="absolute -bottom-8 left-0 h-16 w-16">{avatarGlass}</div>
+                    <div className="absolute -bottom-8 left-0 h-16 w-16">{avatarDarkRing}</div>
                   </div>
                   <div className="min-w-0 pt-10">{nameBlockContent}</div>
                 </>

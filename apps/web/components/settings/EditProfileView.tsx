@@ -7,8 +7,8 @@ import { ArrowLeft } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { useMyProfile, useUpdateMyProfile } from "@/lib/queries/my-profile";
-import { useAvatarUpload, useSetAvatarFromLibrary } from "@/lib/queries/avatar-upload";
-import { useBannerUpload, useSetBannerFromLibrary } from "@/lib/queries/banner-upload";
+import { useAvatarUpload } from "@/lib/queries/avatar-upload";
+import { useSetBannerFromLibrary } from "@/lib/queries/banner-upload";
 import { updateName } from "@/lib/actions/account";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -31,10 +31,8 @@ export function EditProfileView() {
   const { data: user } = useCurrentUser();
   const { data: profile } = useMyProfile();
   const { upload: uploadAvatar, pending: uploadingAvatar } = useAvatarUpload();
-  const { upload: uploadBanner, pending: uploadingBanner } = useBannerUpload();
-  const { setFromUrl: setAvatarFromLibrary, pending: settingAvatarFromLibrary } = useSetAvatarFromLibrary();
   const { setFromUrl: setBannerFromLibrary, pending: settingBannerFromLibrary } = useSetBannerFromLibrary();
-  const [libraryPicker, setLibraryPicker] = useState<"banner" | "avatar" | null>(null);
+  const [libraryPicker, setLibraryPicker] = useState<"banner" | null>(null);
   const updateProfile = useUpdateMyProfile();
 
   const [name, setName] = useState("");
@@ -46,7 +44,6 @@ export function EditProfileView() {
   const [error, setError] = useState<string | null>(null);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -71,18 +68,9 @@ export function EditProfileView() {
     event.target.value = "";
   }
 
-  async function handleBannerChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (file) await uploadBanner(file);
-    event.target.value = "";
-  }
-
   async function handleLibraryImageSelected(url: string) {
-    const mode = libraryPicker;
     setLibraryPicker(null);
-    if (!mode) return;
-    if (mode === "avatar") await setAvatarFromLibrary(url);
-    else await setBannerFromLibrary(url);
+    await setBannerFromLibrary(url);
   }
 
   async function handleSave() {
@@ -147,25 +135,15 @@ export function EditProfileView() {
           <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
         )}
         {/*
-          * NOVO (a pedido, 2026-09-15 — "em alterar banner, quero que
-          * apareça opções de banner de séries e filmes que o usuário
-          * já marcou"). Segundo botão, mesmo padrão de vidro do
-          * primeiro (pílula flutuando sobre a foto), abrindo
-          * `LibraryImagePickerModal` em vez do seletor de arquivo do
-          * navegador.
+          * REVERTIDO (a pedido, 2026-09-15 — mensagem com print de
+          * referência: "tira a opção de selecionar capa pela galeria
+          * de aparelho e abre direto esse sheet") — chegou a ganhar
+          * dois botões (aparelho × biblioteca, "NOVO" nesta mesma
+          * leva), mas o usuário pediu pra tirar de vez a opção de
+          * aparelho pro banner: só resta o botão que abre
+          * `LibraryImagePickerModal` direto.
           */}
         <div className="absolute right-3 top-3 flex gap-2">
-          <button
-            type="button"
-            onClick={() => bannerInputRef.current?.click()}
-            disabled={uploadingBanner}
-            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-[0.96] disabled:opacity-50"
-            style={{
-              background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
-            }}
-          >
-            {uploadingBanner ? t("settings.uploading") : t("settings.changeBanner")}
-          </button>
           <button
             type="button"
             onClick={() => setLibraryPicker("banner")}
@@ -175,10 +153,9 @@ export function EditProfileView() {
               background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
             }}
           >
-            {settingBannerFromLibrary ? t("settings.uploading") : t("settings.libraryPickerFromLibrary")}
+            {settingBannerFromLibrary ? t("settings.uploading") : t("settings.changeBanner")}
           </button>
         </div>
-        <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
 
         {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
         <Avatar
@@ -191,11 +168,12 @@ export function EditProfileView() {
 
       <div className="relative px-4">
         {/*
-          * NOVO (a pedido, 2026-09-15 — "em alterar foto, quero que
-          * apareça opções de selecionar personagens de filmes e
-          * séries que o usuário já marcou"). Segundo botão, mesmo
-          * padrão de vidro do primeiro — abre `LibraryImagePickerModal`
-          * em vez do seletor de arquivo do navegador.
+          * REVERTIDO (a pedido, 2026-09-15 — "na escolha de avatar
+          * deixa pra a pessoa selecionar do celular como estava
+          * antes") — chegou a ganhar um segundo botão (biblioteca,
+          * "NOVO" nesta mesma leva), mas o usuário pediu de volta o
+          * comportamento original: um botão só, seletor de arquivo do
+          * navegador.
           */}
         <div className="mb-6 flex flex-wrap gap-2">
           <button
@@ -208,17 +186,6 @@ export function EditProfileView() {
             }}
           >
             {uploadingAvatar ? t("settings.uploading") : t("settings.changePhoto")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setLibraryPicker("avatar")}
-            disabled={settingAvatarFromLibrary}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-text backdrop-blur-[10px] backdrop-saturate-[160%] transition-transform active:scale-[0.96] disabled:opacity-50"
-            style={{
-              background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
-            }}
-          >
-            {settingAvatarFromLibrary ? t("settings.uploading") : t("settings.libraryPickerFromLibrary")}
           </button>
         </div>
         <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
@@ -315,9 +282,7 @@ export function EditProfileView() {
         </button>
       </div>
 
-      {libraryPicker && (
-        <LibraryImagePickerModal mode={libraryPicker} onSelect={handleLibraryImageSelected} onClose={() => setLibraryPicker(null)} />
-      )}
+      {libraryPicker && <LibraryImagePickerModal onSelect={handleLibraryImageSelected} onClose={() => setLibraryPicker(null)} />}
     </div>
   );
 }

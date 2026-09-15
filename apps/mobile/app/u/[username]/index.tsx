@@ -231,7 +231,7 @@ export default function PublicProfileScreen() {
               </View>
 
               <View style={styles.headerRow}>
-                <Avatar uri={profile.avatarUrl} name={displayName} style={styles.avatarOverlap} textStyle={styles.avatarInitials} />
+                <Avatar uri={profile.avatarUrl} name={displayName} style={styles.avatarNoBanner} textStyle={styles.avatarInitials} />
                 {nameBlock}
               </View>
             </>
@@ -334,7 +334,17 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
-  /** Mesmas medidas do perfil próprio: capa 224 (`h-56` do web) + 40px de folga reservados pra `avatarHeaderRow`. */
+  /**
+   * Mesmas medidas do perfil próprio: capa + 40px de folga reservados
+   * pra `avatarHeaderRow`.
+   *
+   * REVERTIDO (a pedido, 2026-09-15 — "volta pra a versão do banner
+   * do tamanho que está no web", nos dois: principal e público) —
+   * chegou a ser reduzido pra 112px nesta mesma sessão, mas o usuário
+   * pediu de volta o tamanho grande original. O anel escuro do avatar
+   * (`avatarOverlap`, mais abaixo) NÃO foi revertido — só o tamanho
+   * da capa.
+   */
   bannerOuter: {
     height: 264,
     marginBottom: 12,
@@ -409,6 +419,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
   },
+  /**
+   * CORREÇÃO (a pedido, 2026-09-15 — "coloca um círculo meia lua
+   * preto na parte que pega o banner"). Este era o mesmo anel de
+   * vidro translúcido usado quando NÃO tem capa — mas com capa, o
+   * avatar sobrepõe a foto, e `edit-profile.tsx` (referência
+   * aprovada) usa aí um anel SÓLIDO na cor de fundo do app
+   * (`borderWidth: 4, borderColor: colors.background`) — é isso que
+   * lê como "meia lua preta" (metade do avatar sobre a capa, metade
+   * já sobre o fundo escuro do app, com um contorno escuro dos dois
+   * lados). `avatarOverlap` (usado só no caso COM capa, mais acima)
+   * virou esse anel; `avatarNoBanner` (novo, abaixo) preserva o anel
+   * de vidro de antes pro caso sem capa, que não tem esse problema.
+   */
   avatarOverlap: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
@@ -417,7 +440,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    /** Anel de vidro (branco translúcido), igual ao perfil próprio — não é âmbar. */
+    borderWidth: 4,
+    borderColor: colors.background,
+  },
+  /** Anel de vidro (branco translúcido) — mesmo valor de antes, preservado só pro caso SEM capa (`headerRow`, acima). */
+  avatarNoBanner: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
     borderWidth: 3,
     borderColor: "rgba(255,255,255,0.4)",
   },
