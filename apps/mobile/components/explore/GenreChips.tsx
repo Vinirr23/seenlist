@@ -50,7 +50,16 @@ export function GenreChips({
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
           {genres.map((genre) => (
             <Pressable key={genre.genreId} onPress={() => router.push(`/explore/genre/${mediaType}/${genre.genreId}` as never)}>
-              <Glass style={styles.chip}>
+              {/*
+                * BUG REAL CORRIGIDO (a pedido, "verifique se tem mais
+                * botões âmbar e padronize todos", 2026-09-16) — faltava
+                * `variant="light"`; sem ele, o `Glass` cai no padrão
+                * `variant="card"` (mais forte/azulado). O próprio
+                * comentário no topo deste arquivo já dizia "mesmo
+                * tratamento de vidro neutro da aba inativa
+                * (ExploreTabs.tsx)" — só nunca foi ligado de verdade.
+                */}
+              <Glass style={styles.chip} variant="light">
                 <Text style={styles.chipLabel}>{genre.name}</Text>
               </Glass>
             </Pressable>

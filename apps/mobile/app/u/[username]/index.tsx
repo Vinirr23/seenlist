@@ -286,8 +286,22 @@ export default function PublicProfileScreen() {
           <View style={styles.actionsRow}>
             {isOwnProfile ? (
               <Pressable onPress={() => router.push("/settings/edit-profile")}>
-                <GelSurface style={styles.editButton}>
-                  <Text style={styles.editButtonText}>Editar</Text>
+                {/*
+                  * BUG REAL CORRIGIDO (a pedido, "verifique se tem mais
+                  * botões âmbar e padronize todos", 2026-09-16) —
+                  * faltava `webCalibrated`; todo outro botão "gel" do
+                  * app (`StatisticsCard`, `EmptyLibraryHero`,
+                  * `EmptyShelf`, `lists/index.tsx`, `ExploreTabs.tsx`
+                  * corrigido junto) já usa essa calibração (degradê
+                  * vertical puro, sem a lavagem branca por cima —
+                  * medida pixel a pixel contra o web, ver `GelSurface()`
+                  * em `Glass.tsx`). Também traduzido: "Editar" era texto
+                  * fixo, apesar do componente já ter `t()` disponível
+                  * (usado em outros pontos desta mesma tela) — chave
+                  * `common.edit` já existia, traduzida nas 3 línguas.
+                  */}
+                <GelSurface style={styles.editButton} webCalibrated>
+                  <Text style={styles.editButtonText}>{t("common.edit")}</Text>
                 </GelSurface>
               </Pressable>
             ) : (
