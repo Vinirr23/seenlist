@@ -624,21 +624,22 @@ const styles = StyleSheet.create({
      * anel fica POR FORA do avatar (`-inset-0.5`), não por dentro —
      * com 2px por dentro, a foto perdia 4px de diâmetro (74 → 70).
      *
-     * CORREÇÃO (a pedido, 2026-09-15 — "coloca um círculo meia lua
-     * preto na parte que pega o banner, deixa parecido como mostra na
-     * tela de editar"). Este anel branco translúcido de 1px era o
-     * mesmo "vidro-ice" do resto do app — mas é exatamente o oposto
-     * do que `edit-profile.tsx` usa no MESMO lugar (avatar sobre
-     * capa): lá é um anel SÓLIDO na cor de fundo do app
-     * (`borderWidth: 4, borderColor: colors.background`), que separa
-     * visualmente o avatar da foto atrás dele com um contorno escuro
-     * — a "meia lua preta" que o usuário pediu (só aparece como
-     * meia-lua porque metade do avatar cobre a capa e a outra metade
-     * já está sobre o fundo escuro do app). Trocado pro mesmo valor
-     * exato do arquivo de referência, sem inventar um número novo.
+     * REVERTIDO (a pedido, 2026-09-16 — comparação lado a lado com o
+     * web publicado em seenlist.app: "faltou reverter esse círculo
+     * preto ao redor do avatar, pra igual como está no web") — chegou
+     * a virar um anel SÓLIDO na cor de fundo do app (`borderWidth: 4,
+     * borderColor: colors.background`, "meia lua preta", mesma leva
+     * que reduziu a capa pra 112px) mas isso nunca foi publicado no
+     * web (só existe local, não commitado/deployado) — o usuário
+     * comparou o app mobile já buildado com o que está DE VERDADE no
+     * ar em seenlist.app, viu a diferença e pediu de volta o anel
+     * branco translúcido de 1px original. Escopo confirmado via
+     * AskUserQuestion: só mobile (esta tela + Perfil público em
+     * `app/u/[username]/index.tsx`) — o código do web (ainda não
+     * publicado) fica como está.
      */
-    borderWidth: 4,
-    borderColor: colors.background,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.4)",
   },
   /**
    * CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.md`

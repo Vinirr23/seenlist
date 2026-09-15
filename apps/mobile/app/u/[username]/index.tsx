@@ -341,9 +341,10 @@ const styles = StyleSheet.create({
    * REVERTIDO (a pedido, 2026-09-15 — "volta pra a versão do banner
    * do tamanho que está no web", nos dois: principal e público) —
    * chegou a ser reduzido pra 112px nesta mesma sessão, mas o usuário
-   * pediu de volta o tamanho grande original. O anel escuro do avatar
-   * (`avatarOverlap`, mais abaixo) NÃO foi revertido — só o tamanho
-   * da capa.
+   * pediu de volta o tamanho grande original. (O anel do avatar
+   * `avatarOverlap`, mais abaixo, também acabou revertido — só que um
+   * dia depois, 2026-09-16, ver comentário dele — não fazia parte
+   * deste pedido de banner.)
    */
   bannerOuter: {
     height: 264,
@@ -420,17 +421,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   /**
-   * CORREÇÃO (a pedido, 2026-09-15 — "coloca um círculo meia lua
-   * preto na parte que pega o banner"). Este era o mesmo anel de
-   * vidro translúcido usado quando NÃO tem capa — mas com capa, o
-   * avatar sobrepõe a foto, e `edit-profile.tsx` (referência
-   * aprovada) usa aí um anel SÓLIDO na cor de fundo do app
-   * (`borderWidth: 4, borderColor: colors.background`) — é isso que
-   * lê como "meia lua preta" (metade do avatar sobre a capa, metade
-   * já sobre o fundo escuro do app, com um contorno escuro dos dois
-   * lados). `avatarOverlap` (usado só no caso COM capa, mais acima)
-   * virou esse anel; `avatarNoBanner` (novo, abaixo) preserva o anel
-   * de vidro de antes pro caso sem capa, que não tem esse problema.
+   * REVERTIDO (a pedido, 2026-09-16 — comparação lado a lado com o
+   * web publicado em seenlist.app: "faltou reverter esse círculo
+   * preto ao redor do avatar, pra igual como está no web") — chegou a
+   * virar um anel SÓLIDO na cor de fundo do app (`borderWidth: 4,
+   * borderColor: colors.background`, "meia lua preta") nesta mesma
+   * leva, mas isso nunca foi publicado no web (só existe local) — o
+   * usuário comparou o mobile buildado com o que está no ar e pediu
+   * de volta o anel de vidro translúcido original. `avatarOverlap`
+   * (caso COM capa) volta a usar os MESMOS valores de `avatarNoBanner`
+   * logo abaixo — não tem mais diferença entre os dois casos, mas os
+   * dois estilos continuam separados (só por clareza/histórico, não
+   * por necessidade). Escopo confirmado via AskUserQuestion: só
+   * mobile (esta tela + Perfil principal em `app/(tabs)/profile.tsx`)
+   * — o código do web (ainda não publicado) fica como está.
    */
   avatarOverlap: {
     width: AVATAR_SIZE,
@@ -440,8 +444,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    borderWidth: 4,
-    borderColor: colors.background,
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.4)",
   },
   /** Anel de vidro (branco translúcido) — mesmo valor de antes, preservado só pro caso SEM capa (`headerRow`, acima). */
   avatarNoBanner: {
