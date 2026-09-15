@@ -734,9 +734,15 @@ const styles = StyleSheet.create({
    * CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); o web usa `mt-4` (`ProfileHeader.tsx`, bio) = 16px.
    * CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web usa `px-4` (`spacing.md`=16) como borda de tela.
    * CORREÇÃO (2026-09-10) — `lineHeight: 20` (mesma causa raiz do `displayName`/`username`, ver comentário lá): sem isso a PRÓPRIA bio também flutua mais alto que o web dentro da sua caixa, o que empurrava as pílulas de contagem (`countsRow`, logo abaixo) proporcionalmente mais longe da bio do que no web.
+   *
+   * AJUSTE (a pedido, "sobe uns 15% a bio no mobile, pra perto da foto
+   * do avatar", 2026-09-16) — DIVERGÊNCIA INTENCIONAL do web (que
+   * continua em 16px, `mt-4`, sem pedido de mudança lá): 16 × 0,85 =
+   * 13,6, arredondado pra 14. Só este valor mudou — `paddingHorizontal`/
+   * `fontSize`/`lineHeight`/cor continuam os mesmos de antes.
    */
   bio: {
-    marginTop: spacing.md,
+    marginTop: 14,
     paddingHorizontal: spacing.md,
     fontSize: fontSize.sm,
     lineHeight: 20,
