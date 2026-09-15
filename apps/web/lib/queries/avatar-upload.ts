@@ -62,3 +62,51 @@ export function useAvatarUpload() {
 
   return { upload, pending };
 }
+
+/**
+ * A PEDIDO (2026-09-15 — "em alterar foto, quero que apareça opções
+ * de selecionar personagens de filmes e séries que o usuário já
+ * marcou" — ver `LibraryImagePickerModal.tsx`). Mesmo destino final
+ * de `useAvatarUpload` acima (`user_metadata.avatar_url` +
+ * `profiles.avatar_url`), mas SEM upload nenhum: a imagem escolhida
+ * já é uma URL pública do TMDB (mesma CDN que pôster/backdrop usam em
+ * toda tela de título), então só grava a URL — não baixa e reenvia um
+ * arquivo que já está público.
+ */
+export function useSetAvatarFromLibrary() {
+  const [pending, setPending] = useState(false);
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  async function setFromUrl(url: string) {
+    setPending(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await getCurrentAuthUser(supabase);
+      if (!user) throw new Error("not authenticated");
+
+      const { error: updateError } = await supabase.auth.updateUser({ data: { avatar_url: url } });
+      if (updateError) throw updateError;
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: url, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+      if (profileError) {
+        console.error("[account] Avatar (biblioteca) salvo em user_metadata, mas falhou ao sincronizar em profiles", profileError);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["current-user"] });
+      toast.success("Foto alterada");
+    } catch (error) {
+      console.error("[account] Falha ao salvar avatar escolhido da biblioteca", error);
+      toast.error("Erro de conexão");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return { setFromUrl, pending };
+}

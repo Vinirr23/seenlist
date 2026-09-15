@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchEditableProfile, saveEditableProfile } from "@/lib/editProfile";
-import { pickImageFromLibrary, uploadAvatar, uploadBanner } from "@/lib/imageUpload";
+import { pickImageFromLibrary, uploadAvatar, uploadBanner, setAvatarFromTmdb, setBannerFromTmdb } from "@/lib/imageUpload";
 import { COUNTRIES } from "@/lib/countries";
-import { Screen, Text, Button, Skeleton } from "@/components/ui";
+import { Screen, Text, Button, Skeleton, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { CountryPicker } from "@/components/settings/CountryPicker";
+import { LibraryImagePickerSheet } from "@/components/settings/LibraryImagePickerSheet";
+import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
@@ -17,6 +19,25 @@ import { useTabBarClearance } from "@/lib/useTabBarClearance";
  * TASK-105/111 — porta completa de `EditProfileView.tsx` agora,
  * incluindo troca de foto/banner (que tinha ficado de fora por
  * depender do seletor de imagem, adicionado nesta mesma leva).
+ *
+ * CORREÇÃO (a pedido, 2026-09-15 — "a tela de editar perfil não
+ * ganhou o design novo"). Causa raiz: mesma categoria de bug já
+ * corrigida em `feedback.tsx`/`notifications.tsx` nesta mesma leva —
+ * esta tela nunca teve `GlassTargetProvider`/`AmbientGlow` nenhum
+ * (fundo chapado, sem o campo de manchas azul que o resto do app
+ * tem). Mesmo `SUBPAGE_GLOW_BLOBS` de Comentários/Minhas listas/
+ * Feedback — é o mesmo formato de sub-tela "voltar + título". Os
+ * campos de texto em si continuam com o mesmo fundo sólido
+ * (`colors.surface`) de sempre — o web (`EditProfileView.tsx`) também
+ * usa `bg-surface` liso nos inputs, não vidro; o que faltava era só a
+ * camada de fundo.
+ *
+ * NOVO (mesma leva, a pedido — "em alterar banner/foto, quero que
+ * apareça opções de séries e filmes/personagens que o usuário já
+ * marcou") — os botões "Alterar banner"/"Alterar foto" agora
+ * perguntam a origem (galeria do aparelho × biblioteca) antes de
+ * abrir o seletor — ver `handleChangeAvatar`/`handleChangeBanner` e
+ * `LibraryImagePickerSheet.tsx`.
  */
 export default function EditProfileScreen() {
   /*
@@ -41,6 +62,7 @@ export default function EditProfileScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [libraryPicker, setLibraryPicker] = useState<"banner" | "avatar" | null>(null);
 
   useEffect(() => {
     fetchEditableProfile()
@@ -56,7 +78,7 @@ export default function EditProfileScreen() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  async function handleChangeAvatar() {
+  async function handlePickFromDeviceAvatar() {
     const picked = await pickImageFromLibrary();
     if (!picked) return;
     setUploadingAvatar(true);
@@ -66,7 +88,7 @@ export default function EditProfileScreen() {
     else if (result.error) setError(result.error);
   }
 
-  async function handleChangeBanner() {
+  async function handlePickFromDeviceBanner() {
     const picked = await pickImageFromLibrary();
     if (!picked) return;
     setUploadingBanner(true);
@@ -74,6 +96,49 @@ export default function EditProfileScreen() {
     setUploadingBanner(false);
     if (result.url) setBannerUrl(result.url);
     else if (result.error) setError(result.error);
+  }
+
+  /**
+   * NOVO (a pedido, 2026-09-15) — antes ia direto pra galeria do
+   * aparelho; agora pergunta a origem primeiro. `Alert.alert` (mesmo
+   * componente já usado em `recommendations.tsx`/`comments.tsx` pra
+   * confirmações simples de 2-3 opções) em vez de mais um `Modal`
+   * customizado — é só uma escolha binária, sem precisar de grade,
+   * busca ou rolagem.
+   */
+  function handleChangeAvatar() {
+    Alert.alert(t("profile.changePhoto"), t("profile.changeImageSourcePrompt"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("profile.libraryPickerFromDevice"), onPress: handlePickFromDeviceAvatar },
+      { text: t("profile.libraryPickerFromLibrary"), onPress: () => setLibraryPicker("avatar") },
+    ]);
+  }
+
+  function handleChangeBanner() {
+    Alert.alert(t("profile.changeBanner"), t("profile.changeImageSourcePrompt"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("profile.libraryPickerFromDevice"), onPress: handlePickFromDeviceBanner },
+      { text: t("profile.libraryPickerFromLibrary"), onPress: () => setLibraryPicker("banner") },
+    ]);
+  }
+
+  async function handleLibraryImageSelected(url: string) {
+    const mode = libraryPicker;
+    setLibraryPicker(null);
+    if (!mode) return;
+    if (mode === "avatar") {
+      setUploadingAvatar(true);
+      const result = await setAvatarFromTmdb(url);
+      setUploadingAvatar(false);
+      if (result.url) setAvatarUrl(result.url);
+      else if (result.error) setError(result.error);
+    } else {
+      setUploadingBanner(true);
+      const result = await setBannerFromTmdb(url);
+      setUploadingBanner(false);
+      if (result.url) setBannerUrl(result.url);
+      else if (result.error) setError(result.error);
+    }
   }
 
   async function handleSave() {
@@ -116,6 +181,7 @@ export default function EditProfileScreen() {
         * "carregando → carregado" parecer instantânea, sem o layout
         * pular.
         */}
+      <GlassTargetProvider style={styles.flex} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       {isLoading && (
         <View style={styles.content}>
           <Skeleton width="100%" height={112} />
@@ -179,8 +245,12 @@ export default function EditProfileScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       )}
+      </GlassTargetProvider>
 
       <CountryPicker value={country} onChange={setCountry} visible={showCountryPicker} onClose={() => setShowCountryPicker(false)} />
+      {!!libraryPicker && (
+        <LibraryImagePickerSheet mode={libraryPicker} onSelect={handleLibraryImageSelected} onClose={() => setLibraryPicker(null)} />
+      )}
     </Screen>
   );
 }

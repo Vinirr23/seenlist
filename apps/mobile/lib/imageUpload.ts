@@ -126,6 +126,50 @@ export async function uploadBanner(uri: string, mimeType: string): Promise<{ url
   }
 }
 
+/**
+ * A PEDIDO (2026-09-15 — "em alterar banner/foto, quero que apareça
+ * opções de séries e filmes/personagens que o usuário já marcou" —
+ * ver `LibraryImagePickerSheet.tsx`). Diferente de `uploadAvatar`/
+ * `uploadBanner` acima, NÃO faz upload nenhum pro bucket "avatars" —
+ * a imagem escolhida já é uma URL pública do TMDB (mesma CDN que
+ * pôster/backdrop usam em toda a tela de título), então só grava a
+ * URL direto nas colunas — mesma coluna, mesmo destino final, só sem
+ * o passo de baixar+reenviar um arquivo que já está público.
+ */
+export async function setAvatarFromTmdb(url: string): Promise<{ url: string | null; error: string | null }> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
+
+  const { error: authError } = await supabase.auth.updateUser({ data: { avatar_url: url } });
+  if (authError) {
+    console.error("[imageUpload] Falha ao sincronizar avatar (biblioteca) em user_metadata", authError);
+  }
+
+  const { error: profileError } = await supabase.from("profiles").update({ avatar_url: url, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+  if (profileError) {
+    console.error("[imageUpload] Falha ao salvar avatar (biblioteca)", profileError);
+    return { url: null, error: "Não foi possível salvar a foto agora." };
+  }
+  return { url, error: null };
+}
+
+/** Ver comentário de `setAvatarFromTmdb`, acima — mesma ideia, pro banner. */
+export async function setBannerFromTmdb(url: string): Promise<{ url: string | null; error: string | null }> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
+
+  const { error: profileError } = await supabase.from("profiles").update({ banner_url: url, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+  if (profileError) {
+    console.error("[imageUpload] Falha ao salvar banner (biblioteca)", profileError);
+    return { url: null, error: "Não foi possível salvar o banner agora." };
+  }
+  return { url, error: null };
+}
+
 /** Idêntico a usePostImageUpload do web (bucket "post-images" dedicado). Só faz upload — quem chama decide o que fazer com a URL (post de imagem). */
 export async function uploadPostImage(uri: string, mimeType: string): Promise<{ url: string | null; error: string | null }> {
   if (!mimeType.startsWith("image/")) {

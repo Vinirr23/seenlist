@@ -49,3 +49,31 @@ export function useBannerUpload() {
 
   return { upload, pending };
 }
+
+/**
+ * Ver o comentário equivalente em `avatar-upload.ts`
+ * (`useSetAvatarFromLibrary`) — mesma ideia, pro banner: grava a URL
+ * do TMDB direto em `profiles.banner_url`, sem baixar/reenviar
+ * arquivo nenhum.
+ */
+export function useSetBannerFromLibrary() {
+  const [pending, setPending] = useState(false);
+  const toast = useToast();
+  const updateProfile = useUpdateMyProfile();
+
+  async function setFromUrl(url: string) {
+    setPending(true);
+    try {
+      const result = await updateProfile.mutate({ bannerUrl: url });
+      if (result.error) throw new Error(result.error);
+      toast.success("Banner alterado");
+    } catch (error) {
+      console.error("[profile] Falha ao salvar banner escolhido da biblioteca", error);
+      toast.error("Erro de conexão");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return { setFromUrl, pending };
+}

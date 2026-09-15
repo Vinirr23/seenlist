@@ -7,13 +7,14 @@ import { ArrowLeft } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { useMyProfile, useUpdateMyProfile } from "@/lib/queries/my-profile";
-import { useAvatarUpload } from "@/lib/queries/avatar-upload";
-import { useBannerUpload } from "@/lib/queries/banner-upload";
+import { useAvatarUpload, useSetAvatarFromLibrary } from "@/lib/queries/avatar-upload";
+import { useBannerUpload, useSetBannerFromLibrary } from "@/lib/queries/banner-upload";
 import { updateName } from "@/lib/actions/account";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { COUNTRIES } from "@/lib/countries";
 import { Avatar } from "@/components/common/Avatar";
+import { LibraryImagePickerModal } from "./LibraryImagePickerModal";
 
 /**
  * TASK-026A + TASK-028, item 9: "centralizar todas as edições numa
@@ -31,6 +32,9 @@ export function EditProfileView() {
   const { data: profile } = useMyProfile();
   const { upload: uploadAvatar, pending: uploadingAvatar } = useAvatarUpload();
   const { upload: uploadBanner, pending: uploadingBanner } = useBannerUpload();
+  const { setFromUrl: setAvatarFromLibrary, pending: settingAvatarFromLibrary } = useSetAvatarFromLibrary();
+  const { setFromUrl: setBannerFromLibrary, pending: settingBannerFromLibrary } = useSetBannerFromLibrary();
+  const [libraryPicker, setLibraryPicker] = useState<"banner" | "avatar" | null>(null);
   const updateProfile = useUpdateMyProfile();
 
   const [name, setName] = useState("");
@@ -73,6 +77,14 @@ export function EditProfileView() {
     event.target.value = "";
   }
 
+  async function handleLibraryImageSelected(url: string) {
+    const mode = libraryPicker;
+    setLibraryPicker(null);
+    if (!mode) return;
+    if (mode === "avatar") await setAvatarFromLibrary(url);
+    else await setBannerFromLibrary(url);
+  }
+
   async function handleSave() {
     setSaving(true);
     setError(null);
@@ -103,8 +115,22 @@ export function EditProfileView() {
   if (!user || !profile) return null;
 
   return (
-    <div className="w-full pb-24 md:mx-auto md:max-w-[430px]">
-      <div className="mb-6 flex items-center gap-2 px-4 pt-4">
+    <div className="relative w-full pb-24 md:mx-auto md:max-w-[430px]">
+      {/*
+        * CORREÇÃO (a pedido, 2026-09-15 — "a tela de editar perfil não
+        * ganhou o design novo"). Mesma categoria de bug já corrigida
+        * em `FeedbackView.tsx`/`NotificationsView.tsx` nesta mesma
+        * leva — esta tela nunca teve campo de manchas nenhum (fundo
+        * chapado). Mesmo campo de `MyCommentsPageView.tsx` (sub-telas
+        * "voltar + título" iguais a esta).
+        */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute h-64 w-64 rounded-full opacity-45 blur-[60px]" style={{ top: "40px", left: "-22%", background: "#1B4B7A" }} />
+        <div className="absolute h-60 w-60 rounded-full opacity-40 blur-[60px]" style={{ top: "320px", right: "-20%", background: "#2A7FB8" }} />
+        <div className="absolute h-56 w-56 rounded-full opacity-35 blur-[60px]" style={{ top: "620px", left: "-18%", background: "#0D3B5C" }} />
+      </div>
+
+      <div className="relative mb-6 flex items-center gap-2 px-4 pt-4">
         <Link
           href="/profile"
           aria-label={t("common.back")}
@@ -120,18 +146,38 @@ export function EditProfileView() {
           // eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image
           <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
         )}
-        {/* "Vidro" (mesmo padrão dos ícones de editar/configurações do Perfil, ProfileHeader.tsx — pílula flutuando sobre foto, em vez de círculo) */}
-        <button
-          type="button"
-          onClick={() => bannerInputRef.current?.click()}
-          disabled={uploadingBanner}
-          className="absolute right-3 top-3 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-[0.96] disabled:opacity-50"
-          style={{
-            background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
-          }}
-        >
-          {uploadingBanner ? t("settings.uploading") : t("settings.changeBanner")}
-        </button>
+        {/*
+          * NOVO (a pedido, 2026-09-15 — "em alterar banner, quero que
+          * apareça opções de banner de séries e filmes que o usuário
+          * já marcou"). Segundo botão, mesmo padrão de vidro do
+          * primeiro (pílula flutuando sobre a foto), abrindo
+          * `LibraryImagePickerModal` em vez do seletor de arquivo do
+          * navegador.
+          */}
+        <div className="absolute right-3 top-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => bannerInputRef.current?.click()}
+            disabled={uploadingBanner}
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-[0.96] disabled:opacity-50"
+            style={{
+              background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+            }}
+          >
+            {uploadingBanner ? t("settings.uploading") : t("settings.changeBanner")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setLibraryPicker("banner")}
+            disabled={settingBannerFromLibrary}
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-text shadow-lg shadow-black/25 backdrop-blur-md backdrop-saturate-150 transition-transform active:scale-[0.96] disabled:opacity-50"
+            style={{
+              background: "radial-gradient(70% 75% at 25% 20%, rgba(255,255,255,0.26), transparent 65%), rgba(255,255,255,0.10)",
+            }}
+          >
+            {settingBannerFromLibrary ? t("settings.uploading") : t("settings.libraryPickerFromLibrary")}
+          </button>
+        </div>
         <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
 
         {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
@@ -143,19 +189,38 @@ export function EditProfileView() {
         />
       </div>
 
-      <div className="px-4">
-        {/* "Vidro" (mesmo padrão dos chips neutros do Explorar) */}
-        <button
-          type="button"
-          onClick={() => avatarInputRef.current?.click()}
-          disabled={uploadingAvatar}
-          className="mb-6 rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-text backdrop-blur-[10px] backdrop-saturate-[160%] transition-transform active:scale-[0.96] disabled:opacity-50"
-          style={{
-            background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
-          }}
-        >
-          {uploadingAvatar ? t("settings.uploading") : t("settings.changePhoto")}
-        </button>
+      <div className="relative px-4">
+        {/*
+          * NOVO (a pedido, 2026-09-15 — "em alterar foto, quero que
+          * apareça opções de selecionar personagens de filmes e
+          * séries que o usuário já marcou"). Segundo botão, mesmo
+          * padrão de vidro do primeiro — abre `LibraryImagePickerModal`
+          * em vez do seletor de arquivo do navegador.
+          */}
+        <div className="mb-6 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={uploadingAvatar}
+            className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-text backdrop-blur-[10px] backdrop-saturate-[160%] transition-transform active:scale-[0.96] disabled:opacity-50"
+            style={{
+              background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+            }}
+          >
+            {uploadingAvatar ? t("settings.uploading") : t("settings.changePhoto")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setLibraryPicker("avatar")}
+            disabled={settingAvatarFromLibrary}
+            className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-text backdrop-blur-[10px] backdrop-saturate-[160%] transition-transform active:scale-[0.96] disabled:opacity-50"
+            style={{
+              background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.13), transparent 60%), rgba(255,255,255,0.06)",
+            }}
+          >
+            {settingAvatarFromLibrary ? t("settings.uploading") : t("settings.libraryPickerFromLibrary")}
+          </button>
+        </div>
         <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
 
         <div className="space-y-4">
@@ -249,6 +314,10 @@ export function EditProfileView() {
           {saving ? t("common.saving") : t("common.save")}
         </button>
       </div>
+
+      {libraryPicker && (
+        <LibraryImagePickerModal mode={libraryPicker} onSelect={handleLibraryImageSelected} onClose={() => setLibraryPicker(null)} />
+      )}
     </div>
   );
 }
