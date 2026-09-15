@@ -14,10 +14,10 @@ import {
   type BlockedUser,
 } from "@/lib/recommendations";
 import { Screen, Text, Skeleton } from "@/components/ui";
-import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { colors, radius, spacing, tint } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /**
  * TASK-169 — porta de `RecommendationsPageView.tsx` do web. Marca
@@ -35,6 +35,14 @@ import { INTL_LOCALES } from "@/lib/i18n/translations";
  * `ListFooterComponent`, não precisa de lista própria.
  */
 export default function RecommendationsScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" }), [locale]);
@@ -99,8 +107,8 @@ export default function RecommendationsScreen() {
         <FlatList
           data={recommendations}
           keyExtractor={(rec) => rec.id}
-          contentContainerStyle={styles.content}
-          ListEmptyComponent={<EmptyShelf icon="send" message={t("profile.noRecommendationsYet")} />}
+          contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
+          ListEmptyComponent={<EmptyState message={t("profile.noRecommendationsYet")} />}
           renderItem={({ item: rec }) => (
             <View style={[styles.card, !rec.readAt && styles.cardUnread]}>
               <Pressable style={styles.cardMain} onPress={() => handleOpen(rec)}>
@@ -164,6 +172,35 @@ export default function RecommendationsScreen() {
         />
       )}
     </Screen>
+  );
+}
+
+/**
+ * CORREÇÃO (2026-09-15, bug real, reportado com print — "deixa o
+ * mobile igual ao web") — o estado vazio desta tela usava
+ * `<EmptyShelf icon="send" .../>` (o card com borda tracejada +
+ * vidro + círculo de ícone, mesmo componente usado no Perfil, nas
+ * prateleiras de Séries/Filmes etc.). Conferido o
+ * `RecommendationsPageView.tsx` do web: aqui ele usa um componente
+ * DIFERENTE — `EmptyState` (`components/search/EmptyState.tsx`,
+ * `py-16` + texto centralizado, SEM card nenhum, SEM ícone, SEM
+ * borda) — não é o mesmo padrão de estado vazio das prateleiras.
+ * Print comparando os dois confirmou: no web esta tela específica
+ * mostra só o texto solto no meio, nada mais.
+ *
+ * Componente local (mesmo padrão já usado em
+ * `components/explore/SearchResults.tsx` pra este caso — texto
+ * solto, sem wrapper de card) em vez de reusar `EmptyShelf`, que
+ * continua certo pras prateleiras que de fato usam esse visual no
+ * web.
+ */
+function EmptyState({ message }: { message: string }) {
+  return (
+    <View style={styles.emptyState}>
+      <Text variant="muted" style={styles.emptyStateText}>
+        {message}
+      </Text>
+    </View>
   );
 }
 
@@ -247,4 +284,15 @@ const styles = StyleSheet.create({
   },
   blockedName: { fontSize: 14, color: colors.text },
   unblockText: { fontSize: 12, fontWeight: "600", color: colors.primary },
+  /** Web (`EmptyState.tsx`): `flex flex-col items-center justify-center gap-1 py-16 text-center` — py-16=64, gap-1=4. */
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 64,
+  },
+  /** Web: `text-sm text-muted` = 14/`colors.muted` — mesmo par já usado no resto do app (`variant="muted"` do `Text` já dá a cor; só falta o fontSize.sm=14, que já é o padrão do variant). */
+  emptyStateText: {
+    textAlign: "center",
+  },
 });

@@ -3,11 +3,13 @@ import { ScrollView, View, TextInput, Pressable, KeyboardAvoidingView, Platform,
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useMyLists } from "@/lib/useMyLists";
-import { Screen, Text } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, GelSurface, AmbientGlow } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
+import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /**
  * TASK-106 (Listas) — porta de `ListsPageView.tsx` + `ListsView.tsx`
@@ -16,7 +18,66 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * o nome não estava ligado a rota nenhuma (mesma lacuna existia no
  * web).
  */
+/**
+ * TESTE A (2026-09-09) — RESULTADO REGISTRADO, código já removido.
+ *
+ * Esta tela virou temporariamente um diagnóstico: fundo escuro + UMA
+ * mancha do `AmbientGlow`, sem `Screen`, sem `GlassTargetProvider`,
+ * sem `BlurTargetView`, sem `BlurView`, sem `Glass`, sem nada por cima.
+ *
+ * RESULTADO: os anéis concêntricos CONTINUARAM aparecendo. Medido no
+ * print do aparelho — 32 valores distintos em 290px de raio, uma faixa
+ * a cada 9.1px — e, na borda, `#0B0E14` saiu como `rgb(0,0,20)`, ou
+ * seja o canal vermelho tem 2 níveis disponíveis na faixa escura, o
+ * verde ~10 e o azul ~23.
+ *
+ * Ou seja: o banding NÃO vem do `expo-blur`/`BlurTargetView` (hipótese
+ * anterior, derrubada por este teste e revertida em `Glass.tsx`), nem
+ * do formato das manchas. É a quantização de saída da tela numa rampa
+ * escura e larga.
+ *
+ * A correção ficou onde nasce o problema: dither ordenado (Bayer 8×8,
+ * amplitude ±0.04) embutido no alpha das próprias texturas do glow —
+ * ver `GLOW_DISCS` em `components/ui/Glass.tsx`.
+ */
+/**
+ * DIAGNÓSTICOS DOS ANÉIS DE FUNDO (2026-09-09) — resultados registrados,
+ * código já removido. Esta tela foi usada como bancada porque a área
+ * vazia dela não deixa esconder nada.
+ *
+ * 1. Fundo escuro + UMA mancha, sem `Screen`, sem `GlassTargetProvider`,
+ *    sem `BlurTargetView`, sem `BlurView`, sem `Glass`: os anéis
+ *    APARECERAM. → não é o `expo-blur`.
+ * 2. Textura marcada (quadrante zerado + xadrez) no mesmo `require` do
+ *    `AmbientGlow`: a marca apareceu. → o asset novo carrega. E a
+ *    leitura em runtime deu o número que faltava: PNG de 616px
+ *    desenhado a 616dp numa tela de PixelRatio 2.625 = 1617px físicos,
+ *    ou seja UPSCALE de 2.625× — que apagava qualquer padrão de 1px
+ *    embutido na textura.
+ * 3. Três faixas comparadas na mesma tela:
+ *      - alpha 0..255 + asset @3x  → PIOROU (47 níveis de azul contra
+ *        117; patamares de 9px contra 3px). O upscale do 1x estava
+ *        interpolando e criando valores intermediários, funcionando
+ *        como um dither tosco.
+ *      - dither de tela cheia com `resizeMode="repeat"` → desvio local
+ *        medido em 0.00: o Android NÃO replicou o tile, esticou. O
+ *        quadrado de controle (64dp = um tile exato, amplitude
+ *        exagerada) deu desvio 5.6, provando que a camada renderiza.
+ *
+ * CONCLUSÃO E CORREÇÃO: o `@3x` preserva detalhe fino (foi por isso que
+ * preservou até os degraus duros), então o dither ordenado voltou pra
+ * dentro das próprias texturas, agora em `@3x` — ver `GLOW_DISCS` em
+ * `components/ui/Glass.tsx`. Sem camada nova, sem `repeat`.
+ */
 export default function ListsScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
   const { lists, isLoading, isError, creating, create, refetch } = useMyLists();
@@ -34,6 +95,22 @@ export default function ListsScreen() {
 
   return (
     <Screen padded={false}>
+      {/*
+        * CORREÇÃO (2026-09-09, medido ponto a ponto contra o print do
+        * web): o campo de manchas estava ~70dp mais BAIXO que o do web —
+        * o pico do web fica 340-410dp abaixo do botão, o do mobile
+        * ficava em 410-480.
+        *
+        * Causa: no web (`ListsPageView.tsx`) o campo é `absolute
+        * inset-0` da PÁGINA INTEIRA, e o cabeçalho fica DENTRO dele —
+        * `top: 40px` conta do topo da página. Aqui o
+        * `GlassTargetProvider` começava DEPOIS do cabeçalho, então
+        * todas as manchas desciam a altura dele.
+        *
+        * Fix: o provider passa a envolver o cabeçalho também, como no
+        * web. Nenhuma mancha mudou de valor.
+        */}
+      <GlassTargetProvider style={styles.flex} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
@@ -41,11 +118,34 @@ export default function ListsScreen() {
         <Text variant="subtitle">{t("profile.myLists")}</Text>
       </View>
 
+      {/* PORTE DO WEB (2026-09-04, "vidro que falta") — campo de manchas de `ListsPageView.tsx` (ver `lib/glowBlobs.ts`). */}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <Pressable style={styles.createButton} onPress={() => setShowForm((v) => !v)}>
-            <Feather name="plus" size={16} color={colors.background} />
-            <Text style={styles.createButtonText}>{t("profile.createNewList")}</Text>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
+          {/*
+            * PORTE DO WEB (2026-09-04) — "Criar nova lista" virou a
+            * pílula "gel" âmbar do CTA primário (web, `ListsView.tsx`:
+            * "em vez do `bg-primary` chapado"), com o mesmo
+            * `rounded-full` de lá.
+            */}
+          <Pressable onPress={() => setShowForm((v) => !v)}>
+            {/*
+              * CORREÇÃO (2026-09-09, a pedido — "ajuste o botão de criar
+              * nova lista igual ao ver detalhes"). Conferido no web: os
+              * DOIS botões usam a mesma receita, literalmente a mesma
+              * string — `radial-gradient(130% 170% at 28% 18%,
+              * rgba(240,169,79,0.88) 0%, rgba(232,163,61,0.85) 42%,
+              * rgba(176,95,27,0.9) 100%)` mais `inset 0 1px 0
+              * rgba(255,255,255,0.35), inset 0 -4px 7px rgba(120,66,10,0.4)`
+              * e `border-white/15` (`ListsView.tsx` e `StatisticsCard.tsx`).
+              *
+              * Só faltava a flag: o "Ver detalhes" já usava
+              * `webCalibrated` (a reprodução do radial do web em degradê
+              * vertical, calibrada no aparelho e aprovada), este aqui
+              * ainda estava na versão antiga. */}
+            <GelSurface style={styles.createButton} webCalibrated>
+              <Feather name="plus" size={16} color={colors.background} />
+              <Text style={styles.createButtonText}>{t("profile.createNewList")}</Text>
+            </GelSurface>
           </Pressable>
 
           {showForm && (
@@ -76,16 +176,24 @@ export default function ListsScreen() {
           ) : (
             <View style={styles.list}>
               {lists.map((list) => (
-                <Pressable key={list.id} style={styles.listRow} onPress={() => router.push(`/lists/${list.id}`)}>
-                  <Feather name="check-square" size={18} color={colors.primary} />
-                  <Text style={styles.listName}>{list.name}</Text>
-                  <Feather name="chevron-right" size={18} color={colors.muted} style={{ marginLeft: "auto" }} />
+                // PORTE DO WEB (2026-09-04) — linha virou "glass-row"
+                // (`ListsView.tsx`), com o ícone dentro de um círculo
+                // âmbar translúcido (`bg-primary/12`), como no web.
+                <Pressable key={list.id} onPress={() => router.push(`/lists/${list.id}`)}>
+                  <Glass style={styles.listRow}>
+                    <View style={styles.listIconCircle}>
+                      <Feather name="check-square" size={16} color={colors.primary} />
+                    </View>
+                    <Text style={styles.listName}>{list.name}</Text>
+                    <Feather name="chevron-right" size={18} color={colors.muted} style={{ marginLeft: "auto" }} />
+                  </Glass>
                 </Pressable>
               ))}
             </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      </GlassTargetProvider>
     </Screen>
   );
 }
@@ -109,13 +217,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — `backgroundColor` sólido
+  // saiu (vira `<GelSurface>`, que já pinta o degradê âmbar + brilho) e
+  // o raio virou pílula (`rounded-full` do web = `radius.full`).
   createButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     paddingVertical: spacing.sm + 4,
     marginBottom: spacing.md,
   },
@@ -158,16 +268,25 @@ const styles = StyleSheet.create({
   list: {
     gap: spacing.sm,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — fundo/borda sólidos
+  // removidos (vira `<Glass>`); raio `radius.md` (10) → `radius.lg`
+  // (16), que é o `rounded-2xl` da glass-row do web.
   listRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    gap: spacing.sm + 4,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4,
+    paddingVertical: spacing.sm + 6,
+  },
+  /** Círculo âmbar translúcido atrás do ícone — `bg-primary/12` do web. */
+  listIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: tint.subtle,
+    alignItems: "center",
+    justifyContent: "center",
   },
   listName: {
     fontSize: fontSize.sm,

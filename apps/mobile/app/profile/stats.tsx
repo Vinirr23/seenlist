@@ -6,6 +6,7 @@ import { StatsSeriesTab } from "@/components/profile/StatsSeriesTab";
 import { StatsMoviesTab } from "@/components/profile/StatsMoviesTab";
 import { Screen, Text } from "@/components/ui";
 import { colors, spacing } from "@/lib/theme";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 type StatsTab = "series" | "movies";
 
@@ -17,11 +18,20 @@ type StatsTab = "series" | "movies";
  * (gráfico semanal, maior maratona, ritmo estimado, etc.).
  */
 export default function ProfileStatsScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const [tab, setTab] = useState<StatsTab>("series");
 
   return (
-    <Screen padded={false} bottomInset>
+    <Screen padded={false}>
+      {/* `bottomInset` saiu: a barra de navegação agora flutua sobre esta tela (ver `app/_layout.tsx`) e a folga do fim do conteúdo já soma a área segura, via `useTabBarClearance()`. Manter os dois empurrava o conteúdo pra cima duas vezes e ainda tirava o fundo de trás da barra, que é o que dá o efeito de vidro. */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={20} color={colors.text} />
@@ -38,7 +48,7 @@ export default function ProfileStatsScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>{tab === "series" ? <StatsSeriesTab /> : <StatsMoviesTab />}</ScrollView>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>{tab === "series" ? <StatsSeriesTab /> : <StatsMoviesTab />}</ScrollView>
     </Screen>
   );
 }

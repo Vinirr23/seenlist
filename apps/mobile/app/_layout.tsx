@@ -1,8 +1,9 @@
-import { useEffect } from "react";
-import { Stack, useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { BlurTargetView } from "expo-blur";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
@@ -18,6 +19,7 @@ import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
+import { DockNavegacao } from "@/components/layout/DockNavegacao";
 import { colors } from "@/lib/theme";
 import { markFontsReady } from "@/lib/appReady";
 
@@ -128,9 +130,47 @@ function useFontsReady() {
  * uma, seu próprio navegador aninhado (Stack/Tabs) — essa troca não
  * muda nada dentro delas.
  */
+/**
+ * A BARRA DE NAVEGAÇÃO MORA AQUI (2026-09-09, decisão do usuário — "a
+ * barra de navegação não está aparecendo em várias telas").
+ *
+ * Ela vivia em `app/(tabs)/_layout.tsx`, então só existia dentro das 4
+ * abas — e `series/[id]`, `movies/[id]`, `episodes/...`,
+ * `profile/...`, `settings`, `lists`, `posts` e `u/...` são rotas de
+ * primeiro nível DESTA Stack, fora de `(tabs)`. No web
+ * (`app/(main)/layout.tsx`) a `<BottomNavigation />` fica no layout que
+ * envolve TODAS as telas de produto, então aparece em todas elas.
+ *
+ * ESCONDIDA em duas situações, iguais às do web:
+ *   - `(auth)` (login/cadastro/recuperar senha) — lá o
+ *     `app/(auth)/layout.tsx` do web também não renderiza a barra;
+ *   - `app/index.tsx`, que é só o `<Redirect>` de entrada e não chega a
+ *     ser uma tela (segmentos vazios).
+ *
+ * Como o componente só é MONTADO quando visível, o polling de
+ * recomendações não lidas que ele faz (a cada 30s) não roda na tela de
+ * login — o que aconteceria se ele montasse sempre e só retornasse
+ * `null` no fim.
+ */
+function ChromeDeNavegacao({ alvoDaTela }: { alvoDaTela: React.RefObject<View | null> }) {
+  const segmentos = useSegments();
+  const primeiro = segmentos[0];
+  if (primeiro === undefined || primeiro === "(auth)") return null;
+  return <DockNavegacao alvoDaTela={alvoDaTela} />;
+}
+
 export default function RootLayout() {
   useNotificationDeepLinks();
   useFontsReady();
+  /**
+   * O ALVO DE DESFOQUE DA BARRA subiu junto com ela (estava em
+   * `app/(tabs)/_layout.tsx`). Os dois precisam andar juntos: o
+   * `BlurView` da barra tem que ficar FORA da `BlurTargetView` que ele
+   * desfoca — aninhar é o ciclo que causa o SIGSEGV documentado em
+   * `components/ui/Glass.tsx`. Por isso a `Stack` inteira fica dentro
+   * do alvo e a barra é IRMÃ dele, não filha.
+   */
+  const alvoDaTela = useRef<View>(null);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -141,7 +181,10 @@ export default function RootLayout() {
               <StatusBar style="light" />
               <OfflineBanner />
               <ErrorBoundary>
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+                <BlurTargetView ref={alvoDaTela} style={styles.conteudo}>
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+                </BlurTargetView>
+                <ChromeDeNavegacao alvoDaTela={alvoDaTela} />
               </ErrorBoundary>
             </View>
           </AuthProvider>
@@ -150,3 +193,9 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  conteudo: {
+    flex: 1,
+  },
+});

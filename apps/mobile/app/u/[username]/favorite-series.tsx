@@ -13,6 +13,7 @@ import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /**
  * PORTE DO WEB (2026-09-03, mesma auditoria — ver comentário completo
@@ -23,13 +24,21 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * PRÓPRIO) — só lendo os favoritos de OUTRO usuário.
  */
 export default function PublicFavoriteSeriesScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
   const { username: rawUsername } = useLocalSearchParams<{ username: string }>();
   const username = String(rawUsername);
   const { profile, isLoading: isLoadingProfile, isError: isProfileError, refetch: refetchProfile } = usePublicProfile(username);
   const { items, isLoading: isLoadingItems, isError, refetch } = usePublicFavorites(profile?.userId);
-  const { viewMode, setViewMode } = useViewModePreference("public-favorite-series");
+  const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("public-favorite-series");
   const cardWidth = usePosterCardWidth();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -51,7 +60,11 @@ export default function PublicFavoriteSeriesScreen() {
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </View>
 
-      {isLoadingProfile || isLoadingItems ? (
+      {!viewModeReady ? (
+        // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
+        // instante" — ver `useViewModePreference.ts`).
+        null
+      ) : isLoadingProfile || isLoadingItems ? (
         <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
       ) : isProfileError ? (
         <View style={styles.content}>
@@ -73,7 +86,7 @@ export default function PublicFavoriteSeriesScreen() {
           data={series}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
           numColumns={3}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           columnWrapperStyle={styles.gridRow}
           renderItem={({ item }) => <PosterGridItem item={item} onPress={handlePress} cardWidth={cardWidth} />}
         />
@@ -82,7 +95,7 @@ export default function PublicFavoriteSeriesScreen() {
           key="list"
           data={series}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
-          contentContainerStyle={[styles.content, styles.listRows]}
+          contentContainerStyle={[styles.content, styles.listRows, { paddingBottom: espacoDoDock }]}
           renderItem={({ item }) => (
             <MediaListRow item={item} onPress={handlePress} secondaryText={item.year ? String(item.year) : ""} />
           )}

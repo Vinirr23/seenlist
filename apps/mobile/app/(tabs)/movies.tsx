@@ -7,17 +7,20 @@ import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { useDiscoverList } from "@/lib/useDiscoverList";
 import { todayLocalKey } from "@/lib/localDate";
-import { Screen, Text } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
+import { SectionTitle } from "@/components/media/SectionTitle";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
+import { EmptyLibraryHero } from "@/components/media/EmptyLibraryHero";
 import { DiscoverCarousel } from "@/components/explore/DiscoverCarousel";
 import { PageError } from "@/components/media/PageError";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
+import { HOME_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, spacing } from "@/lib/theme";
@@ -61,7 +64,7 @@ export default function MoviesScreen() {
   const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
-  const { viewMode, setViewMode } = useViewModePreference("movies-library");
+  const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("movies-library");
   const { t, locale } = useTranslation();
   /**
    * PORTE DO WEB (2026-09-03, mesma auditoria — `movies-home/
@@ -96,12 +99,31 @@ export default function MoviesScreen() {
     [allWantToWatch, todayKey]
   );
 
+  /*
+   * CORREÇÃO (2026-09-10, mesmo achado do `series/index.tsx` —
+   * "continue assistindo/switch de grid e lista aparecendo na
+   * emptystate") — no web (`movies-home/MinhaListaSection.tsx`), o
+   * cabeçalho (título "Assistir depois" + alternância grade/lista)
+   * fica dentro de `{!isEmptyState && (...)}`, some quando a lista
+   * está vazia porque o `EmptyLibraryHero` já tem título próprio.
+   */
+  const isEmptyState = viewModeReady && !isLoading && wantToWatch.length === 0;
+
   function handlePressItem(item: LibraryItem) {
     router.push(`/movies/${item.id}`);
   }
 
   return (
     <Screen padded={false}>
+      {/*
+        PORTE DO WEB (2026-09-09) — esta tela não tinha campo de manchas
+        nenhum, e o `SeriesHome.tsx`/`MoviesHome.tsx` do web tem (cinco
+        manchas, ver `HOME_GLOW_BLOBS`). Mesmo padrão já usado em
+        Explorar/Perfil: o `GlassTargetProvider` envolve a tela inteira
+        e é também o alvo de desfoque de qualquer `Glass` que venha a
+        existir aqui.
+      */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={HOME_GLOW_BLOBS} />}>
       <View style={styles.tabsRow}>
         <HomeTabs active={tab} onChange={setTab} />
       </View>
@@ -111,18 +133,39 @@ export default function MoviesScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
-          <View style={styles.sectionHeader}>
-            <Text variant="subtitle">{t("moviesHome.watchlist")}</Text>
-            <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-          </View>
+          {!isError && !isEmptyState && (
+            <View style={styles.sectionHeader}>
+              <SectionTitle>{t("moviesHome.watchlist")}</SectionTitle>
+              <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+            </View>
+          )}
 
           {isError ? (
             <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
+          ) : !viewModeReady ? (
+            // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
+            // instante" — ver `useViewModePreference.ts`).
+            null
           ) : isLoading ? (
             viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
           ) : wantToWatch.length === 0 ? (
+            /*
+              PORTE DO WEB (2026-09-10, auditoria — "Assistir depois"
+              vazio) — o `EmptyShelf` (card com borda tracejada) saiu
+              daqui: o web usa o `EmptyLibraryHero` (ilustração + título
+              + subtítulo + botão + divisor "OU"), solto direto em cima
+              do fundo, sem card nenhum em volta. Ver o componente novo
+              (`EmptyLibraryHero.tsx`) pro porte completo.
+            */
             <>
-              <EmptyShelf message={t("moviesHome.emptyWatchlist")} actionLabel={t("moviesHome.exploreMovies")} actionHref="/(tabs)/explore" />
+              <EmptyLibraryHero
+                title={t("moviesHome.emptyWatchlistTitle")}
+                subtitle={t("moviesHome.emptyWatchlistSubtitle")}
+                actionLabel={t("moviesHome.exploreMovies")}
+                actionHref="/(tabs)/explore"
+                dividerLabel={t("seriesHome.or")}
+              />
+              {/** `mt-2` do web entre o divisor e a fileira "Populares". */}
               <View style={styles.popularSection}>
                 <DiscoverCarousel
                   title={
@@ -154,13 +197,23 @@ export default function MoviesScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
-          <View style={styles.sectionHeader}>
-            <Text variant="subtitle">{t("seriesHome.tab.upcoming")}</Text>
+          {/*
+            CORREÇÃO (2026-09-10, auditoria web — `EmBreveSection.tsx`)
+            — o web NÃO mostra título nenhum nesta aba, só o alternador
+            grade/lista alinhado à direita (`mb-2 flex items-center
+            justify-end`). Tinha um `SectionTitle` aqui que o web não
+            tem.
+          */}
+          <View style={styles.upcomingHeader}>
             <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
           </View>
 
           {isError ? (
             <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
+          ) : !viewModeReady ? (
+            // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
+            // instante" — ver `useViewModePreference.ts`).
+            null
           ) : isLoading ? (
             viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
           ) : upcoming.length === 0 ? (
@@ -181,11 +234,16 @@ export default function MoviesScreen() {
           )}
         </ScrollView>
       )}
+      </GlassTargetProvider>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  /** O provedor precisa ocupar a tela toda pras manchas cobrirem tudo — mesmo estilo de `explore.tsx`/`profile.tsx`. */
+  glassFill: {
+    flex: 1,
+  },
   tabsRow: {
     paddingTop: spacing.sm,
   },
@@ -196,10 +254,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
+  /** `mb-3` = 12 no web (`MinhaListaSection.tsx`); estava `spacing.sm` = 8 (mesma correção já feita em `series/index.tsx`). */
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  /** `mb-2 flex items-center justify-end` do `EmBreveSection.tsx` — sem título, só o alternador à direita. */
+  upcomingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
     marginBottom: spacing.sm,
   },
   listRows: {
@@ -213,8 +279,14 @@ const styles = StyleSheet.create({
   // como o `content` virou `spacing.md`, esta margem precisa
   // acompanhar — senão o carrossel ficaria com 8px de respiro extra
   // (ou faltando) na borda em relação ao resto da tela.
+  /**
+   * CORREÇÃO (2026-09-10, agora que o vazio usa `EmptyLibraryHero`) —
+   * `marginTop` era `spacing.lg` (24, distância do CARD antigo do
+   * `EmptyShelf`); o web usa `mt-2` (8) entre o divisor "OU" e a
+   * fileira "Populares", medido a partir do `EmptyLibraryHero.tsx`.
+   */
   popularSection: {
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     marginHorizontal: -spacing.md,
   },
   flameTitleRow: {

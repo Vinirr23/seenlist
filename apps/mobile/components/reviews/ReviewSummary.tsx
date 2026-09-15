@@ -1,7 +1,7 @@
 import { View, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { ReviewAggregate } from "@/lib/social/reviews";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { colors, radius, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -10,6 +10,9 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * `ReviewSummary.tsx` do web: nota média grande + barra de
  * distribuição por estrela (5→1), tipo Letterboxd. Some sozinho
  * quando ninguém avaliou ainda.
+ *
+ * PORTE DO WEB (2026-09-04, "vidro que falta") — vira `<Glass>` (web:
+ * "mesma textura de card neutro já usada em MetaRow.tsx").
  */
 export function ReviewSummary({ aggregate }: { aggregate: ReviewAggregate }) {
   const { t } = useTranslation();
@@ -18,7 +21,7 @@ export function ReviewSummary({ aggregate }: { aggregate: ReviewAggregate }) {
   const maxCount = Math.max(1, ...aggregate.distribution.map((d) => d.count));
 
   return (
-    <View style={styles.card}>
+    <Glass style={styles.card}>
       <View style={styles.left}>
         <Text style={styles.average}>{aggregate.average.toFixed(1)}</Text>
         <Text variant="muted" style={styles.count}>
@@ -40,19 +43,19 @@ export function ReviewSummary({ aggregate }: { aggregate: ReviewAggregate }) {
           </View>
         ))}
       </View>
-    </View>
+    </Glass>
   );
 }
 
 const styles = StyleSheet.create({
+  // `Glass` não define raio nenhum — quem usa é que diz. Web usa
+  // `rounded-2xl` (16px) nos cartões de Comentários/Avaliações, que é o
+  // `radius.lg` daqui (era `radius.md`=10 antes do porte).
   card: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.md,
   },
   left: {

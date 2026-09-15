@@ -3,7 +3,7 @@
     "name": "SeenList",
     "slug": "seenlist",
     "scheme": "seenlist",
-    "version": "1.2.0",
+    "version": "1.2.2",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0E14",
@@ -34,7 +34,8 @@
         }
       ],
       "expo-localization",
-      "expo-image"
+      "expo-image",
+      "expo-font"
     ],
     "ios": {
       "bundleIdentifier": "com.seenlist.app"

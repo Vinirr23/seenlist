@@ -3,6 +3,7 @@ import { View, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { WebView } from "react-native-webview";
 import { Feather } from "@expo/vector-icons";
+import { Glass } from "@/components/ui";
 import { colors, radius, elevation } from "@/lib/theme";
 
 /**
@@ -44,23 +45,35 @@ export function TrailerCard({ videoKey }: { videoKey: string }) {
   }
 
   return (
-    <Pressable style={styles.thumbnailWrapper} onPress={() => setPlaying(true)}>
-      <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} contentFit="cover" />
-      <View style={styles.overlay} />
-      <View style={styles.playButton}>
-        <Feather name="play" size={22} color={colors.background} style={styles.playIcon} />
-      </View>
+    <Pressable onPress={() => setPlaying(true)}>
+      <Glass style={styles.thumbnailWrapper} variant="medium">
+        <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} contentFit="cover" />
+        <View style={styles.overlay} />
+        <View style={styles.playButton}>
+          <Feather name="play" size={22} color={colors.background} style={styles.playIcon} />
+        </View>
+      </Glass>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  /**
+   * PORTE DO WEB (2026-09-09) — era um retângulo SÓLIDO
+   * (`colors.surface`). No `TrailerCard.tsx` do web esta caixa é vidro:
+   * `border border-white/10 backdrop-blur-[14px] backdrop-saturate-[180%]`
+   * — a receita `medium` do `Glass` (`glassVariants` em `lib/theme.ts`:
+   * desfoque 14px, brilho 0.16, base 0.09).
+   *
+   * O vidro fica na CAIXA DA IMAGEM mesmo, não num contêiner em volta:
+   * é ela que aparece enquanto o pôster/logo carrega, ou quando não
+   * existe. `backgroundColor` saiu porque quem pinta agora é o `Glass`.
+   */
   thumbnailWrapper: {
     width: "100%",
     aspectRatio: 16 / 9,
     borderRadius: radius.lg,
     overflow: "hidden",
-    backgroundColor: colors.surface,
   },
   thumbnail: {
     width: "100%",

@@ -4,8 +4,8 @@ import { Feather } from "@expo/vector-icons";
 import { setSeriesStatus } from "@/lib/seriesDetails";
 import { setMovieStatus } from "@/lib/movieDetails";
 import { hapticTick } from "@/lib/haptics";
-import { PressableScale } from "@/components/ui";
-import { colors, radius, scrim } from "@/lib/theme";
+import { PressableScale, Glass } from "@/components/ui";
+import { colors, radius } from "@/lib/theme";
 
 /**
  * TASK-142/152 (Explorar, a pedido) — porta de `AddToLibraryButton.tsx`.
@@ -54,25 +54,39 @@ export function AddToLibraryButton({
   }
 
   return (
-    <PressableScale style={styles.button} onPress={handlePress} disabled={isPending} hitSlop={6}>
-      <View pointerEvents="none">
-        <Feather name={isAdded ? "check" : "plus"} size={16} color={colors.primary} />
-      </View>
+    <PressableScale style={styles.buttonWrap} onPress={handlePress} disabled={isPending} hitSlop={6}>
+      {/*
+        * PORTE DO WEB (2026-09-04, "vidro que falta") — o web
+        * (`AddToLibraryButton.tsx`) deixou o CONTORNO e o ÍCONE âmbar
+        * como estavam ("nada de âmbar no fundo aqui") e trocou só o
+        * FUNDO por vidro de verdade. Aqui: `<Glass>` (blur + brilho
+        * branco no canto) com a borda âmbar de 2px por cima e a base
+        * escura do web (`rgba(11,14,20,0.55)`) como `backgroundColor`
+        * — no `Glass`, o `backgroundColor` fica ABAIXO do gradiente
+        * branco, mesma ordem de camadas do CSS de lá.
+        */}
+      <Glass style={styles.button}>
+        <View pointerEvents="none">
+          <Feather name={isAdded ? "check" : "plus"} size={16} color={colors.primary} />
+        </View>
+      </Glass>
     </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
-  button: {
+  buttonWrap: {
     position: "absolute",
     top: 6,
     right: 6,
+  },
+  button: {
     width: 26,
     height: 26,
     borderRadius: radius.sm,
     borderWidth: 2,
     borderColor: colors.primary,
-    backgroundColor: scrim.control,
+    backgroundColor: "rgba(11,14,20,0.55)",
     alignItems: "center",
     justifyContent: "center",
   },

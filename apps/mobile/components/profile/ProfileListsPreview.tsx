@@ -72,13 +72,13 @@ export function ProfileListsPreview() {
       {isLoading ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} width={CARD_SIZE} height={CARD_SIZE} />
+            <Skeleton key={i} width={CARD_SIZE} height={128} />
           ))}
         </ScrollView>
       ) : !lists || lists.length === 0 ? (
         <Pressable onPress={() => router.push("/lists")}>
           <Glass style={styles.emptyCard}>
-            <Feather name="plus" size={22} color={colors.muted} />
+            <Feather name="plus" size={24} color={colors.muted} />
             <Text style={styles.emptyText}>Criar sua primeira lista</Text>
           </Glass>
         </Pressable>
@@ -89,7 +89,7 @@ export function ProfileListsPreview() {
               <View style={styles.deck}>
                 {list.previewPosters.length === 0 ? (
                   <View style={styles.deckEmpty}>
-                    <Feather name="check-square" size={22} color={colors.muted} style={{ opacity: 0.4 }} />
+                    <Feather name="check-square" size={24} color={colors.muted} style={{ opacity: 0.4 }} />
                   </View>
                 ) : (
                   list.previewPosters.slice(0, 4).map((posterPath, index, arr) => {
@@ -130,15 +130,25 @@ const styles = StyleSheet.create({
   // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
   // usa `px-4` (`spacing.md`=16) como borda de tela. `marginBottom`
   // (ritmo vertical entre seções) NÃO foi tocado — fora do escopo.
+  /**
+   * CORREÇÃO (2026-09-04, auditoria mobile × web) — o
+   * `paddingHorizontal` saiu daqui: o web usa `-mx-4 … px-4` na trilha
+   * de rolagem, ou seja ela SANGRA até a borda da tela e só o conteúdo
+   * começa a 16px. Com o padding na seção, a `ScrollView` era
+   * recortada e o último card parava 16px antes da borda. O respiro
+   * foi pro conteúdo da lista (`row`) e pros elementos que não sangram
+   * (cabeçalho e card vazio).
+   */
   section: {
     marginBottom: spacing.lg,
-    paddingHorizontal: spacing.md,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: spacing.sm,
+    /** 16 de borda de tela (a `section` não pada mais) + `px-1` (4) do web. */
+    paddingHorizontal: spacing.md + spacing.xs,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.xs` (4); o web usa `gap-2` (`ProfileListsPreview.tsx`, ícone+título) = 8px. */
   sectionTitle: {
@@ -155,6 +165,8 @@ const styles = StyleSheet.create({
   /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); o web usa `gap-3` (`ProfileListsPreview.tsx`, fileira de listas) = 12px — sem token exato, valor literal. */
   row: {
     gap: 12,
+    /** Equivale ao `px-4` do web na trilha que sangra. */
+    paddingHorizontal: spacing.md,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.xs` (4); o web usa `gap-2` (`ProfileListsPreview.tsx`, card de convite vazio) = 8px. */
   emptyCard: {
@@ -162,8 +174,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
     borderStyle: "dashed",
-    borderRadius: radius.md,
+    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web usa `rounded-lg` = 8 (aqui, diferente do carrossel de pôster, que usa `rounded-2xl`). Ganhou também o `px-4` do web e a borda de tela. */
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xl,
+    marginHorizontal: spacing.md,
   },
   emptyText: {
     fontSize: fontSize.sm,
@@ -182,7 +197,8 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.md,
+    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-lg` = 8. */
+    borderRadius: 8,
     backgroundColor: colors.surface,
   },
   deckPoster: {
@@ -192,7 +208,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     overflow: "hidden",
-    borderRadius: radius.md,
+    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-lg` = 8. */
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.background,

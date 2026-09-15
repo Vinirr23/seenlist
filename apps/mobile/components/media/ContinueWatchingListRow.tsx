@@ -7,6 +7,7 @@ import Animated, {
   withSequence,
   interpolate,
   Easing,
+  LinearTransition,
   type SharedValue,
 } from "react-native-reanimated";
 // CORREÇÃO (2026-09-04, achado lendo a documentação oficial do
@@ -29,9 +30,10 @@ import { toggleEpisodeWatched } from "@/lib/seriesDetails";
 import { hapticTick } from "@/lib/haptics";
 import { tmdbImageUrl } from "@/lib/library";
 import { EpisodeWatchedButton } from "@/components/series-detail/EpisodeWatchedButton";
-import { Text } from "@/components/ui";
+import { LinearGradient } from "expo-linear-gradient";
+import { Text, Glass } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, fontFamily } from "@/lib/theme";
 
 const BADGE_LABEL_KEY: Record<"premiere" | "novo" | "mais-recente" | "em-breve", string> = {
   premiere: "seriesHome.badge.premiere",
@@ -64,6 +66,30 @@ const BADGE_COLORS: Record<"premiere" | "novo" | "mais-recente" | "em-breve", { 
  */
 const CONFIRM_HOLD_MS = 650;
 const EXIT_DURATION_MS = 550;
+/**
+ * CORREÇÃO (2026-09-04, reportado — "marcou, fez a animação de
+ * assistido, mas não fez a animação deslizando sutil pra cima") — o
+ * card em si (colapso de altura/opacidade, acima) sempre funcionou;
+ * faltava o que o web faz com `motion.div layout` em
+ * `ContinueWatchingCard.tsx`: quando ESTE card colapsa, os IRMÃOS
+ * (outras séries da mesma lista) reposicionam suavemente pra cima
+ * sozinhos, preenchendo o espaço — RN não tem isso de graça, precisa
+ * do `layout` do próprio Reanimated (`LinearTransition`, ver o prop
+ * `layout` no `Animated.View` raiz, abaixo). Duração ligeiramente menor
+ * que o colapso (520ms vs. 550ms) — mesma proporção (~94%) que o web já
+ * tinha calibrado, pra o reposicionamento dos irmãos terminar júnior
+ * ao colapso do card que está saindo, não depois.
+ */
+const LAYOUT_TRANSITION_DURATION_MS = 520;
+
+/**
+ * `mb-3` do web. Fica NO CARD, não como `gap` da lista, porque a
+ * altura dele anima junto no colapso — com `gap` o espaço não
+ * encolheria e sobraria um buraco durante a saída. É por isso que o
+ * web também põe no card (`className="mb-3 overflow-hidden last:mb-0"`)
+ * em vez de espaçar pelo contêiner.
+ */
+export const ESPACO_ENTRE_CARDS = 12;
 const RING_MAX_SCALE = 1.8;
 /** Web usa 16px com o botão em tamanho "lg" (40px); este card usa "md" (32px) — reduzido na mesma proporção. */
 const PARTICLE_DISTANCE = 13;
@@ -102,14 +128,57 @@ function BurstParticle({ angle, progress }: { angle: number; progress: SharedVal
  * nada pendente E a animação de confirmação/saída já terminou — assim
  * a animação nunca é cortada no meio por um refetch do pai.
  */
+/**
+ * DESTAQUE DE PRIORIDADE (2026-09-09, comparado no print — o card do
+ * web tem uma faixa âmbar na lateral esquerda e o do mobile não tinha
+ * nada).
+ *
+ * Portado de `ContinueWatchingCard.tsx` (web), que desenha DOIS
+ * elementos, os dois com a mesma curva de opacidade por posição:
+ *
+ *   1. uma barrinha de 4px colada na borda esquerda (`w-1`), com
+ *      acabamento "gel": um capuz branco no topo se fundindo com um
+ *      degradê âmbar por baixo;
+ *   2. um brilho horizontal de 128px (`w-32`) entrando no card, numa
+ *      fração da mesma opacidade (`PRIORITY_GLOW_OPACITY_FACTOR`) — é
+ *      fração de propósito, pra os dois caírem sempre juntos.
+ *
+ * A curva é a do web, literal: 1º card cheio, 2º metade, 3º um quarto,
+ * 4º quase nada, 5º quase inexistente, 6º em diante zero.
+ */
+const OPACIDADE_DESTAQUE = [1, 0.5, 0.25, 0.08, 0.02] as const;
+const FATOR_BRILHO_DESTAQUE = 0.35;
+const LARGURA_BARRA_DESTAQUE = 4;
+const LARGURA_BRILHO_DESTAQUE = 128;
+
+function opacidadeDoDestaque(indice: number | undefined): number {
+  if (indice === undefined || indice < 0) return 0;
+  return OPACIDADE_DESTAQUE[indice] ?? 0;
+}
+
 export function ContinueWatchingListRow({
   item,
   nextEpisode,
   onMarkedWatched,
+  layoutActive = false,
+  onTransitionActiveChange,
+  priorityIndex,
 }: {
   item: LibraryItem;
   nextEpisode: NextEpisodeToWatch | null;
   onMarkedWatched: () => void;
+  /**
+   * Espelha `layoutActive`/`onTransitionActiveChange` de
+   * `ContinueWatchingCard.tsx` (web) — ver comentário grande em
+   * `LAYOUT_TRANSITION_DURATION_MS`, acima. O pai (`series/index.tsx`)
+   * agrega isso entre TODAS as linhas da lista (contador, não booleano
+   * simples — mesmo raciocínio do web: mais de uma linha pode estar
+   * animando ao mesmo tempo).
+   */
+  layoutActive?: boolean;
+  onTransitionActiveChange?: (active: boolean) => void;
+  /** Posição na lista (0 = primeiro). Decide a força do destaque âmbar — ver `OPACIDADE_DESTAQUE`. */
+  priorityIndex?: number;
 }) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -131,6 +200,7 @@ export function ContinueWatchingListRow({
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     return () => {
+      if (layoutOffTimeoutRef.current) clearTimeout(layoutOffTimeoutRef.current);
       if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
     };
   }, []);
@@ -145,8 +215,42 @@ export function ContinueWatchingListRow({
   const collapseProgress = useSharedValue(1);
   const measuredHeight = useSharedValue(0);
 
+  /**
+   * CAUSA RAIZ DO "não tem a animação de slide pra cima, a tela
+   * atualiza" (2026-09-09, a pedido).
+   *
+   * A ORDEM estava invertida. Aqui se desligava `layoutActive` e SÓ
+   * DEPOIS se avisava o pai. Só que é o pai que tira o card da lista
+   * (`refetchSilently`), e é o `layout={LinearTransition}` das linhas
+   * IRMÃS que faz elas subirem suavemente quando isso acontece — e ele
+   * só existe enquanto `layoutActive` estiver ligado. Resultado: no
+   * instante em que a lista encolhia, a animação de layout já não
+   * estava mais montada, e os cards de baixo davam um salto. Não era
+   * animação faltando, era animação desligada cedo demais.
+   *
+   * O web não tem esse problema porque lá não há refetch nenhum: a
+   * mutação atualiza o cache e o React re-renderiza sozinho, com o
+   * `layoutActive` ainda ligado por mais `EXIT_DURATION_S`
+   * (comentário literal de `ContinueWatchingCard.tsx`: "é esse colapso
+   * que faz os cards de baixo deslizarem, então `layoutActive` precisa
+   * continuar ligado até ele acabar").
+   *
+   * Agora avisa o pai PRIMEIRO e desliga depois de uma transição
+   * inteira — tempo de o `LinearTransition` das irmãs rodar sobre a
+   * lista já atualizada.
+   */
   function handleExitComplete() {
     onMarkedWatched();
+    desligarLayoutDepoisDaTransicao();
+  }
+
+  const layoutOffTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function desligarLayoutDepoisDaTransicao() {
+    if (layoutOffTimeoutRef.current) clearTimeout(layoutOffTimeoutRef.current);
+    layoutOffTimeoutRef.current = setTimeout(() => {
+      layoutOffTimeoutRef.current = null;
+      onTransitionActiveChange?.(false);
+    }, LAYOUT_TRANSITION_DURATION_MS);
   }
 
   function handleMarkWatched() {
@@ -159,6 +263,8 @@ export function ContinueWatchingListRow({
     hapticTick();
     setPhase("confirming");
     setPulseKey((k) => k + 1);
+    // Ver comentário de `onTransitionActiveChange` na assinatura do componente, acima — avisa o pai assim que a animação começa, pra ele ligar `layoutActive` em todas as linhas da lista.
+    onTransitionActiveChange?.(true);
 
     pulseScale.value = withSequence(
       withTiming(1.18, { duration: 130, easing: Easing.out(Easing.quad) }),
@@ -187,6 +293,7 @@ export function ContinueWatchingListRow({
           holdTimeoutRef.current = null;
           tintOpacity.value = withTiming(0, { duration: 150 });
           setPhase("idle");
+          onTransitionActiveChange?.(false);
         }
       }
     );
@@ -205,7 +312,13 @@ export function ContinueWatchingListRow({
         // Só agora avisa o pai (a escrita já foi disparada acima, em
         // paralelo) — isto só pede pro pai buscar o próximo estado
         // real pra tela, depois que a coreografia visual já terminou.
+        //
+        // MESMA ORDEM do `handleExitComplete` (ver o comentário lá): o
+        // refetch pode mudar a altura deste card (episódio com nome
+        // mais longo, selo que aparece ou some) e mexer nos de baixo.
+        // Desligar o layout antes disso fazia esse ajuste ser um salto.
         onMarkedWatched();
+        desligarLayoutDepoisDaTransicao();
       }
     }, CONFIRM_HOLD_MS);
   }
@@ -228,26 +341,90 @@ export function ContinueWatchingListRow({
     return {
       opacity: interpolate(collapseProgress.value, [0, 1], [0, 1]),
       height: measuredHeight.value > 0 ? measuredHeight.value * collapseProgress.value : undefined,
-      marginBottom: collapsing ? spacing.sm * collapseProgress.value : spacing.sm,
+      /* `mb-3` = 12 no web (`ContinueWatchingCard.tsx`); era `spacing.sm` = 8. */
+      marginBottom: collapsing ? ESPACO_ENTRE_CARDS * collapseProgress.value : ESPACO_ENTRE_CARDS,
       overflow: collapsing ? "hidden" : "visible",
     };
   });
 
+  const destaque = opacidadeDoDestaque(priorityIndex);
+
   if (!display) return null;
 
-  const code = `T${display.seasonNumber} | E${String(display.episodeNumber).padStart(2, "0")}`;
+  /*
+   * CORREÇÃO (2026-09-09, comparado no print): a TEMPORADA não estava
+   * sendo preenchida com zero — saía "T1 | E24" contra "T01 | E24" do
+   * web. O `ContinueWatchingCard.tsx` de lá monta
+   * `T${String(seasonNumber).padStart(2,"0")} | E${...padStart(2,"0")}`,
+   * ou seja os DOIS números com dois dígitos.
+   */
+  const code = `T${String(display.seasonNumber).padStart(2, "0")} | E${String(display.episodeNumber).padStart(2, "0")}`;
   const badge = display.badge ? { label: t(BADGE_LABEL_KEY[display.badge]), ...BADGE_COLORS[display.badge] } : null;
 
   return (
     <Animated.View
       style={collapseStyle}
+      layout={layoutActive ? LinearTransition.duration(LAYOUT_TRANSITION_DURATION_MS).easing(Easing.inOut(Easing.ease)) : undefined}
       onLayout={(e) => {
         if (phase === "idle") measuredHeight.value = e.nativeEvent.layout.height;
       }}
     >
-      <View style={styles.row}>
+      <Glass style={styles.row} variant="card">
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.tint, tintStyle]} />
+        {destaque > 0 && (
+          <>
+            {/* O brilho lateral entrando no card (o `w-32` do web). */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={[`rgba(240,169,79,${destaque * FATOR_BRILHO_DESTAQUE})`, "rgba(240,169,79,0)"]}
+              locations={[0, 0.6]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.destaqueBrilho}
+            />
+            {/* A barrinha âmbar (o `w-1` do web) — degradê de baixo. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={[
+                `rgba(240,169,79,${destaque * 0.75})`,
+                `rgba(240,169,79,${destaque})`,
+                `rgba(240,169,79,${destaque})`,
+                `rgba(240,169,79,${destaque * 0.75})`,
+              ]}
+              locations={[0, 0.12, 0.88, 1]}
+              style={styles.destaqueBarra}
+            />
+            {/* O capuz branco do acabamento "gel" — camada de cima da barrinha. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={[`rgba(255,255,255,${destaque * 0.55})`, "rgba(255,255,255,0)"]}
+              locations={[0, 0.2]}
+              style={styles.destaqueBarra}
+            />
+          </>
+        )}
 
+        {/*
+          O CARD INTEIRO leva ao EPISÓDIO (2026-09-09, a pedido — "nos
+          cards o título tem link que vai pra a série direto, diferente
+          de clicar no card vai pra o episódio").
+        
+          No web o card é um `<Link>` pro episódio e o título é um link
+          ANINHADO pra série (`ContinueWatchingCard.tsx`). Aqui só o
+          pôster, o título e o código do episódio respondiam ao toque —
+          o resto do card não fazia nada.
+        
+          Em vez de embrulhar o conteúdo (o que mudaria o layout do
+          `Glass`, que é quem tem o `flexDirection`/`gap`/`padding`), o
+          alvo é uma camada absoluta ATRÁS de tudo: os `Pressable` de
+          dentro ficam por cima e continuam levando à série; onde não há
+          nada interativo, o toque cai nesta. `zIndex` não entra na
+          conta — é a ordem de renderização que decide.
+        */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => router.push(`/episodes/${item.id}/${display.seasonNumber}/${display.episodeNumber}`)}
+        />
         <Pressable style={styles.posterWrapper} onPress={() => router.push(`/series/${item.id}`)}>
           {posterUrl ? (
             <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
@@ -267,7 +444,12 @@ export function ContinueWatchingListRow({
           <Pressable onPress={() => router.push(`/episodes/${item.id}/${display.seasonNumber}/${display.episodeNumber}`)}>
             <View style={styles.codeRow}>
               <Text style={styles.code}>{code}</Text>
-              {display.additionalPendingCount > 0 && <Text style={styles.plusBadge}>+{display.additionalPendingCount}</Text>}
+              {display.additionalPendingCount > 0 && (
+                /* No web o `+N` tem fundo: `rounded bg-primary/15 px-1 text-[10px] font-bold text-primary`. Aqui era texto solto. */
+                <View style={styles.plusBadgeBox}>
+                  <Text style={styles.plusBadge}>+{display.additionalPendingCount}</Text>
+                </View>
+              )}
             </View>
             <Text numberOfLines={1} variant="muted" style={styles.episodeName}>
               {display.name}
@@ -315,20 +497,28 @@ export function ContinueWatchingListRow({
             </>
           )}
         </Animated.View>
-      </View>
+      </Glass>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  /**
+   * PORTE DO WEB (2026-09-09, "implementar em todas as telas") — era um
+   * cartão SÓLIDO (`colors.surface` + `colors.border`). O
+   * `ContinueWatchingCard.tsx` do web usa vidro: `backdrop-blur-[18px]` com
+   * `radial-gradient(... rgba(255,255,255,0.17) ...), rgba(255,255,255,0.10)`
+   * — exatamente a receita `card` do `Glass` (`glassVariants`, em
+   * `lib/theme.ts`). `borderWidth`/`borderColor`/`backgroundColor`
+   * saíram daqui porque quem passa a desenhá-los é o `Glass`; o que fica
+   * é só layout: direção, respiro, raio e padding.
+   */
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    /* `rounded-2xl` = 16 no web (`ContinueWatchingCard.tsx`); estava `radius.md` = 10. */
+    borderRadius: radius.lg,
     padding: spacing.sm,
   },
   tint: {
@@ -360,21 +550,41 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 4,
   },
+  /**
+   * CORREÇÃO (2026-09-09, a pedido — "ao redor dos nomes das séries tem
+   * um anel; no mobile você colocou um anel escuro, deixe igual ao
+   * web").
+   *
+   * O anel era `colors.border`, um cinza ESCURO. No web
+   * (`ContinueWatchingCard.tsx`) esta pílula é
+   *
+   *     inline-flex items-center gap-1 rounded-full border border-white/15
+   *     px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-text
+   *
+   * ou seja borda BRANCA a 15%. Conferindo o resto da classe junto,
+   * mais quatro valores estavam fora: respiro 8/3 contra 10/4, corpo 10
+   * contra 11, e faltava o `tracking-wide`.
+   */
   seriesPill: {
     flexDirection: "row",
     alignItems: "center",
+    /* `gap-1` = 4. */
     gap: 4,
     alignSelf: "flex-start",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "rgba(255,255,255,0.15)",
     borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    /* `px-2.5` = 10, `py-1` = 4. */
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     maxWidth: "100%",
   },
   seriesPillText: {
-    fontSize: 10,
+    /* `text-[11px] font-bold`; `tracking-wide` = 0.025em ≈ 0.275 em 11px. */
+    fontSize: 11,
     fontWeight: "700",
+    fontFamily: fontFamily[700],
+    letterSpacing: 0.275,
     color: colors.text,
     flexShrink: 1,
   },
@@ -389,26 +599,69 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
+  /** Ver `OPACIDADE_DESTAQUE` — a barrinha de 4px colada na esquerda; o raio do card já a recorta (`overflow: hidden` do `Glass`). */
+  destaqueBarra: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: LARGURA_BARRA_DESTAQUE,
+  },
+  /** O brilho de 128px entrando no card — nunca ilumina o card inteiro, por isso largura fixa. */
+  destaqueBrilho: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: LARGURA_BRILHO_DESTAQUE,
+  },
+  /** `bg-primary/15 rounded px-1` do web — `rounded` do Tailwind = 4px. */
+  plusBadgeBox: {
+    backgroundColor: "rgba(232,163,61,0.15)",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+  },
   plusBadge: {
-    fontSize: 11,
+    /* `text-[10px]` no web; estava 11. */
+    fontSize: 10,
     fontWeight: "700",
+    fontFamily: fontFamily[700],
     color: colors.primary,
   },
   episodeName: {
     fontSize: 12,
     marginTop: 1,
   },
+  /**
+   * CORREÇÃO (2026-09-09, a pedido — "o badge NOVO/MAIS RECENTE no web
+   * é redondo"). Era `borderRadius: 4`, um retângulo de canto suave. No
+   * web (`ContinueWatchingCard.tsx`) o selo é
+   *
+   *     inline-block rounded-full px-2 py-0.5 text-[9px]
+   *     font-semibold tracking-wide
+   *
+   * ou seja CÁPSULA. Junto com o raio vieram os outros quatro valores,
+   * que também estavam fora: 7/3 de respiro contra 8/2, corpo 10
+   * contra 9, peso 800 contra 600.
+   *
+   * NÃO vale pro selo do card de "Em breve"
+   * (`UpcomingEpisodeCard.tsx`): lá o web usa `rounded px-1 py-px`
+   * mesmo — canto de 4px —, e aquele já bate.
+   */
   statusBadge: {
     alignSelf: "flex-start",
-    borderRadius: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    /* `rounded-full`: raio grande o bastante pra virar cápsula em qualquer altura. */
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     marginTop: 3,
   },
   statusBadgeText: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.4,
+    fontSize: 9,
+    fontWeight: "600",
+    fontFamily: fontFamily[600],
+    /* `tracking-wide` = 0.025em, que em 9px dá ~0.23. */
+    letterSpacing: 0.23,
   },
   buttonSlot: {
     alignItems: "center",

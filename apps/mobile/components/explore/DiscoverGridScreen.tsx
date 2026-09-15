@@ -10,6 +10,7 @@ import { AddToLibraryButton } from "./AddToLibraryButton";
 import { Screen, Text, Glass, PressableScale } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 const NUM_COLUMNS = 3;
 // "gap-3" (12px) no web — não é um dos degraus de `spacing.ts`
@@ -85,6 +86,14 @@ export function DiscoverGridScreen({
    */
   showItemTitles?: boolean;
 }) {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
   const { items: libraryItems } = useLibraryItems();
@@ -127,7 +136,7 @@ export function DiscoverGridScreen({
           numColumns={NUM_COLUMNS}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
           columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.grid}
+          contentContainerStyle={[styles.grid, { paddingBottom: espacoDoDock }]}
           onEndReached={hasNextPage ? fetchNextPage : undefined}
           onEndReachedThreshold={0.5}
           renderItem={({ item }) => <GridCard item={item} showTitle={showItemTitles} />}

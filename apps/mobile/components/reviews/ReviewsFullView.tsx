@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import type { ReviewTarget } from "@/lib/social/reviews";
 import { useReviews } from "@/lib/social/useReviews";
 import { createReviewPost } from "@/lib/posts";
@@ -13,7 +13,6 @@ import { RecommendPromptSheet } from "@/components/social/RecommendPromptSheet";
 import { RecommendSheet } from "@/components/social/RecommendSheet";
 import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { Text } from "@/components/ui";
-import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { ReviewComposer } from "./ReviewComposer";
 import { ReviewCard } from "./ReviewCard";
@@ -138,6 +137,9 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
         hasExistingReview={!!myReview}
         isPending={saving}
         onSubmit={handleSubmit}
+        /* PORTE DO WEB (2026-09-09) — "Remover minha avaliação" passou pra DENTRO do card, na mesma linha do botão de salvar, como no `ReviewFullComposer.tsx`. */
+        onDelete={remove}
+        isDeleting={saving}
       />
       {!!postError && (
         <Text variant="error" style={styles.postError}>
@@ -145,18 +147,22 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
         </Text>
       )}
 
-      {!!myReview && (
-        <Pressable onPress={remove} disabled={saving}>
-          <Text variant="error" style={styles.removeLink}>
-            {t("review.removeMyReview")}
-          </Text>
-        </Pressable>
-      )}
-
       {isLoading ? (
         <AvatarRowSkeleton count={3} />
       ) : othersReviews.length === 0 ? (
-        <EmptyShelf icon="star" message={t("review.noOtherReviewsYet")} />
+        /*
+          PORTE DO WEB (2026-09-09, comparado no print) — aqui havia um
+          `EmptyShelf`: card de vidro com borda tracejada e uma estrela
+          dentro de um círculo. O web usa o `EmptyState`
+          (`components/search/EmptyState.tsx`), que não tem card nem
+          ícone nenhum — só o texto em `text-sm text-muted`,
+          centralizado, com `py-16` (64) de respiro.
+        */
+        <View style={styles.emptyState}>
+          <Text variant="muted" style={styles.emptyStateText}>
+            {t("review.noOtherReviewsYet")}
+          </Text>
+        </View>
       ) : (
         <View style={styles.list}>
           {othersReviews.map((review) => (
@@ -175,15 +181,18 @@ const styles = StyleSheet.create({
   postError: {
     marginTop: -spacing.xs,
   },
-  removeLink: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
+  /** `space-y-3` = 12 entre as avaliações no web (era `spacing.sm` = 8). */
   list: {
-    gap: spacing.sm,
+    gap: 12,
   },
-  centerText: {
+  /** `flex flex-col items-center justify-center gap-1 py-16 text-center`. */
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 64,
+  },
+  emptyStateText: {
     textAlign: "center",
-    paddingVertical: spacing.md,
   },
 });

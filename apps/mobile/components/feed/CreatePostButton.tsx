@@ -136,7 +136,7 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Pressable hitSlop={8} style={[styles.fab, { bottom: 84 + insets.bottom }]} onPress={handleOpen}>
+      <Pressable hitSlop={8} style={[styles.fab, { bottom: 88 + insets.bottom }]} onPress={handleOpen}>
         <Feather name="plus" size={24} color={colors.background} />
       </Pressable>
 
@@ -275,12 +275,34 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 const styles = StyleSheet.create({
   fab: {
     position: "absolute",
-    right: spacing.lg,
-    // TASK-172/176 — 92px = 12 (margem da barra) + 64 (altura da
-    // barra) + 16 (respiro) acima dela; o `insets.bottom` (área do
-    // sistema — gestos/botões, varia por aparelho) é somado no
-    // lugar onde o componente usa esse estilo, não aqui (Style
-    // estático não tem acesso ao hook de área segura).
+    /**
+     * CORREÇÃO (2026-09-15, item deixado de fora de propósito em
+     * 2026-09-03, retomado agora — "posição do FAB '+' do feed") —
+     * era `spacing.lg` (24); o web usa `right-4` (`CreatePostButton.tsx`
+     * do web, `components/explore/`) = 16px (`spacing.md`), não 24.
+     * A posição vertical (`bottom`, ver `88 + insets.bottom` abaixo)
+     * NÃO muda — ela já é intencionalmente própria do mobile: usa a
+     * MESMA conta do "Floating Glass Dock" deste app
+     * (`useTabBarClearance.ts`, que cita este componente
+     * explicitamente como usando "o mesmo cálculo"), não o número do
+     * web (`FLOATING_BUTTON_BOTTOM_OFFSET`=6.5rem+safe-area), porque o
+     * dock do mobile foi redesenhado com altura própria — os dois
+     * offsets existem pelo mesmo motivo (não deixar a barra flutuante
+     * tampar o botão), só que cada plataforma calcula a partir da
+     * altura real da SUA barra.
+     */
+    right: spacing.md,
+    // TASK-172/176, atualizado em 2026-09-04 (porte do "Floating
+    // Glass Dock" — ver `app/(tabs)/_layout.tsx`/
+    // `useTabBarClearance.ts`) — 88px = 12 (margem flutuante do dock)
+    // + 60 (altura de verdade do dock novo) + 16 (respiro) acima
+    // dele; o `insets.bottom` (área do sistema — gestos/botões, varia
+    // por aparelho) é somado no lugar onde o componente usa esse
+    // estilo, não aqui (style estático não tem acesso ao hook de área
+    // segura). Mesma conta de `useTabBarClearance.ts` — só não usa o
+    // hook porque esse retorna a distância TOTAL de clearance de
+    // conteúdo (inclui o respiro), enquanto aqui a posição do botão já
+    // soma esse respiro sozinha via `bottom`, não via `paddingBottom`.
     width: 56,
     height: 56,
     borderRadius: radius.full,

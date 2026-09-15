@@ -68,7 +68,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
               <Text style={styles.cancelButtonText}>{t("common.cancel")}</Text>
             </Pressable>
             <View style={styles.saveButton}>
-              <Button onPress={handleSubmit} loading={saving}>
+              <Button onPress={handleSubmit} loading={saving} style={styles.saveButtonInner}>
                 {t("common.save")}
               </Button>
             </View>
@@ -172,5 +172,29 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 1,
+  },
+  /**
+   * CORREÇÃO (2026-09-15, item deixado de fora de propósito em
+   * 2026-09-03, retomado agora — "padding do botão 'Salvar' do modal
+   * de senha") — causa raiz: no web (`TextPromptDialog.tsx`) os
+   * botões "Cancelar"/"Salvar" deste diálogo NÃO usam o componente
+   * `Button` genérico do site — os dois são `<button>` cru, com o
+   * MESMO `py-2.5`=10 (`flex-1 rounded-lg ... py-2.5`). Aqui o
+   * "Cancelar" já seguia esse padrão (`cancelButton.paddingVertical:
+   * 10`, acima), mas "Salvar" usava o `<Button>` compartilhado
+   * (`components/ui/Button.tsx`) puro, que tem `minHeight: 48` fixo —
+   * o padrão certo pro app inteiro (por isso NÃO foi mexido lá,
+   * mudaria todo botão do app), mas maior que os 10px de padding do
+   * "Cancelar" ao lado — os dois botões deste diálogo específico
+   * ficavam de altura diferente, um ao lado do outro.
+   *
+   * Sobrescrito só AQUI (via prop `style`, que o `Button` já aceita e
+   * aplica por cima do próprio) pra igualar ao "Cancelar" — mesma
+   * solução que o próprio web escolheu (hand-styled só neste
+   * diálogo, sem tocar no componente de botão genérico).
+   */
+  saveButtonInner: {
+    minHeight: 0,
+    paddingVertical: 10,
   },
 });

@@ -3,11 +3,20 @@ import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform,
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { sendFeedback, type FeedbackType } from "@/lib/settings";
-import { Screen, Text, Button } from "@/components/ui";
+import { Screen, Text, Button, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
 import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 export default function FeedbackScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
   const TYPES: { value: FeedbackType; label: string; icon: keyof typeof Feather.glyphMap }[] = [
@@ -51,10 +60,16 @@ export default function FeedbackScreen() {
         * embaixo — com o teclado aberto, ele mesmo e o botão de
         * enviar ficavam cobertos, sem como rolar até eles.
         */}
+      {/*
+        * PORTE DO WEB (2026-09-04, "vidro que falta") —
+        * `FeedbackView.tsx` não tem campo de manchas próprio (mesma
+        * situação de `notifications.tsx`) — `AmbientGlow` padrão.
+        */}
+      <GlassTargetProvider style={styles.flex} background={<AmbientGlow />}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]} keyboardShouldPersistTaps="handled">
         {sent ? (
-          <View style={styles.sentBox}>
+          <Glass style={styles.sentBox}>
             <View style={styles.sentIcon}>
               <Feather name="check" size={24} color={colors.primary} />
             </View>
@@ -65,7 +80,7 @@ export default function FeedbackScreen() {
             <Pressable onPress={() => setSent(false)}>
               <Text variant="link">{t("feedback.sendAnother")}</Text>
             </Pressable>
-          </View>
+          </Glass>
         ) : (
           <View style={styles.form}>
             <View>
@@ -75,14 +90,25 @@ export default function FeedbackScreen() {
               <View style={styles.typeList}>
                 {TYPES.map((option) => {
                   const selected = type === option.value;
-                  return (
-                    <Pressable
-                      key={option.value}
-                      style={[styles.typeButton, selected && styles.typeButtonActive]}
-                      onPress={() => setType(option.value)}
-                    >
-                      <Feather name={option.icon} size={16} color={selected ? colors.primary : colors.text} />
-                      <Text style={selected ? styles.typeLabelActive : styles.typeLabel}>{option.label}</Text>
+                  // CORREÇÃO (2026-09-04, "vidro que falta") — web só
+                  // aplica vidro no estado NÃO selecionado (o
+                  // selecionado é sólido `bg-primary/10`, sem blur) —
+                  // por isso vira dois JSX diferentes, não um `style`
+                  // condicional em cima de `Glass` (que sempre desenha
+                  // blur, mesmo "desligado" não faria sentido visual).
+                  return selected ? (
+                    <Pressable key={option.value} onPress={() => setType(option.value)}>
+                      <View style={[styles.typeButton, styles.typeButtonActive]}>
+                        <Feather name={option.icon} size={16} color={colors.primary} />
+                        <Text style={styles.typeLabelActive}>{option.label}</Text>
+                      </View>
+                    </Pressable>
+                  ) : (
+                    <Pressable key={option.value} onPress={() => setType(option.value)}>
+                      <Glass style={styles.typeButton}>
+                        <Feather name={option.icon} size={16} color={colors.text} />
+                        <Text style={styles.typeLabel}>{option.label}</Text>
+                      </Glass>
                     </Pressable>
                   );
                 })}
@@ -114,6 +140,7 @@ export default function FeedbackScreen() {
         )}
         </ScrollView>
       </KeyboardAvoidingView>
+      </GlassTargetProvider>
     </Screen>
   );
 }
@@ -151,18 +178,21 @@ const styles = StyleSheet.create({
   typeList: {
     gap: spacing.sm,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — fundo/borda sólidos
+  // removidos daqui (o estado NÃO selecionado agora é `<Glass>`, que
+  // já desenha sua própria borda `border-white/10`); o estado
+  // selecionado (`typeButtonActive`, sólido) declara a própria borda/
+  // fundo, sem depender destes.
   typeButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm + 2,
   },
   typeButtonActive: {
+    borderWidth: 1,
     borderColor: colors.primary,
     backgroundColor: tint.subtle,
   },
@@ -191,10 +221,16 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xxs,
     marginTop: 2,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — vira `<Glass>` (web:
+  // `rounded-xl border border-white/10 backdrop-blur` no painel de
+  // confirmação de envio); ganhou `borderRadius`/`paddingHorizontal`
+  // próprios (antes vinham só do `content` do pai).
   sentBox: {
     alignItems: "center",
     gap: spacing.sm,
     paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
   },
   sentIcon: {
     width: 56,

@@ -11,9 +11,10 @@ import { pickImageFromLibrary, uploadCommentImage } from "@/lib/imageUpload";
 import { EpisodeCommentItem } from "@/components/episode/EpisodeCommentItem";
 import { LikeButton } from "@/components/feed/LikeButton";
 import { SpoilerGate } from "@/components/reviews/SpoilerGate";
-import { Screen, Text, Button } from "@/components/ui";
+import { Screen, Text, Button, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
+import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -180,6 +181,12 @@ export default function EpisodeCommentDetailScreen() {
         <Text variant="subtitle">{t("social.commentSingularTitle")}</Text>
       </View>
 
+      {/*
+        * PORTE DO WEB (2026-09-04, "vidro que falta") — campo de manchas
+        * das sub-telas (ver `lib/glowBlobs.ts`), o mesmo da tela de
+        * comentários do episódio de onde se chega aqui.
+        */}
+      <GlassTargetProvider style={styles.flex} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content}>
         {isLoading ? (
@@ -190,7 +197,8 @@ export default function EpisodeCommentDetailScreen() {
           </Text>
         ) : (
           <>
-            <View style={styles.commentCard}>
+            {/* PORTE DO WEB (2026-09-04) — o comentário em destaque vira cartão de vidro, igual ao comentário-raiz de `EpisodeCommentItem`. */}
+            <Glass style={styles.commentCard}>
               {editingTop ? (
                 <View>
                   <TextInput value={editTopBody} onChangeText={setEditTopBody} multiline autoFocus style={styles.editInput} />
@@ -250,7 +258,7 @@ export default function EpisodeCommentDetailScreen() {
                   </View>
                 </>
               )}
-            </View>
+            </Glass>
 
             <View style={styles.repliesArea}>
               {comment.children.length === 0 ? (
@@ -271,7 +279,8 @@ export default function EpisodeCommentDetailScreen() {
               )}
             </View>
 
-            <View style={styles.composerArea}>
+            {/* PORTE DO WEB (2026-09-04) — composer vira cartão de vidro (mesmo de `EpisodeCommentsSection`); o `TextInput` por dentro segue sem vidro. */}
+            <Glass style={styles.composerArea}>
               <TextInput
                 value={body}
                 onChangeText={setBody}
@@ -316,11 +325,12 @@ export default function EpisodeCommentDetailScreen() {
                   <Text style={styles.sendButtonText}>{uploadingImage ? t("common.uploading") : t("common.send")}</Text>
                 </Pressable>
               </View>
-            </View>
+            </Glass>
           </>
         )}
       </ScrollView>
       </KeyboardAvoidingView>
+      </GlassTargetProvider>
     </Screen>
   );
 }
@@ -331,27 +341,36 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  /**
+   * CORREÇÃO (2026-09-04, decisão do usuário de 2026-09-03: padronizar
+   * borda de tela em 16px app-wide) — era `spacing.lg` (24) aqui e no
+   * `content`; o web usa `px-4` (`spacing.md`=16). Esta tela tinha
+   * ficado de fora daquela rodada por limite de ferramenta (mora 9
+   * pastas abaixo da pasta conectada, e a ponte alcança 7), não por
+   * decisão — ver `comments.tsx`, irmã, mesma situação.
+   */
   header: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   content: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
   centerText: {
     textAlign: "center",
     paddingVertical: spacing.md,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — fundo/borda sólidos
+  // removidos (vira `<Glass>`); raio `radius.md` → `radius.lg`, que é o
+  // `rounded-2xl` dos cartões de comentário no web. `Glass` NÃO define
+  // raio sozinho — ele precisa ficar declarado aqui.
   commentCard: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.sm,
   },
   commentHeader: {
@@ -440,12 +459,11 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — mesma conversão do
+  // composer de `EpisodeCommentsSection.tsx`.
   composerArea: {
     marginTop: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.sm,
     gap: spacing.xs,
   },

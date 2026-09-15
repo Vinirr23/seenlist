@@ -5,13 +5,15 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyComments, deleteMyComment, type MyComment } from "@/lib/myComments";
 import { tmdbImageUrl } from "@/lib/library";
-import { Screen, Text } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
+import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /**
  * TASK-116 (correção — Perfil) — porta de `MyCommentsPageView.tsx` +
@@ -28,6 +30,14 @@ import { INTL_LOCALES } from "@/lib/i18n/translations";
  * bastante, trava a rolagem. Trocado por `FlatList`.
  */
 export default function MyCommentsScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const dateFormatter = useMemo(
@@ -86,7 +96,12 @@ export default function MyCommentsScreen() {
         comment.seasonNumber != null && comment.episodeNumber != null ? `T${comment.seasonNumber} · E${comment.episodeNumber}` : null;
 
       return (
-        <View style={styles.row}>
+        // PORTE DO WEB (2026-09-04, "vidro que falta") — cada linha vira
+        // "glass-row" (web, `MyCommentRow.tsx`: "virou glass-row, mesmo
+        // padrão de ExploreActivityTab.tsx/ProfileSectionRow.tsx, em vez
+        // de linha lisa com `border-b`") — por isso a borda de baixo
+        // saiu daqui: agora cada linha é um cartão com borda própria.
+        <Glass style={styles.row}>
           <Pressable style={styles.rowContent} onPress={() => handleOpen(comment)}>
             <View style={styles.posterWrapper}>
               {posterUrl ? (
@@ -111,7 +126,7 @@ export default function MyCommentsScreen() {
           <Pressable hitSlop={8} onPress={() => handleDelete(comment)}>
             <Feather name="trash-2" size={16} color={colors.danger} />
           </Pressable>
-        </View>
+        </Glass>
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handleOpen/handleDelete são recriadas a cada render mas são estáveis o bastante (mesmo padrão de antes); t/dateFormatter SÃO dependências reais agora, precisam entrar na lista pra não travar num idioma antigo.
@@ -127,31 +142,37 @@ export default function MyCommentsScreen() {
         <Text variant="subtitle">{t("profile.commentsTitle")}</Text>
       </View>
 
-      {isLoading ? (
-        <View style={styles.content}>
-          <AvatarRowSkeleton />
-        </View>
-      ) : isError ? (
-        <View style={styles.content}>
-          <PageError message={t("error.loadCommentsFailed")} onRetry={load} />
-        </View>
-      ) : !comments || comments.length === 0 ? (
-        <View style={styles.content}>
-          <EmptyShelf icon="message-circle" message={t("profile.noCommentsYet")} />
-        </View>
-      ) : (
-        <FlatList
-          data={comments}
-          keyExtractor={(comment) => comment.id}
-          renderItem={renderItem}
-          contentContainerStyle={[styles.content, styles.list]}
-        />
-      )}
+      {/* PORTE DO WEB (2026-09-04, "vidro que falta") — mesmo campo de manchas de `MyCommentsPageView.tsx` do web (ver `lib/glowBlobs.ts`). */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
+        {isLoading ? (
+          <View style={styles.content}>
+            <AvatarRowSkeleton />
+          </View>
+        ) : isError ? (
+          <View style={styles.content}>
+            <PageError message={t("error.loadCommentsFailed")} onRetry={load} />
+          </View>
+        ) : !comments || comments.length === 0 ? (
+          <View style={styles.content}>
+            <EmptyShelf icon="message-circle" message={t("profile.noCommentsYet")} />
+          </View>
+        ) : (
+          <FlatList
+            data={comments}
+            keyExtractor={(comment) => comment.id}
+            renderItem={renderItem}
+            contentContainerStyle={[styles.content, styles.list, { paddingBottom: espacoDoDock }]}
+          />
+        )}
+      </GlassTargetProvider>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  glassFill: {
+    flex: 1,
+  },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
   // usa `px-4` (`spacing.md`=16) como borda de tela.
@@ -170,13 +191,17 @@ const styles = StyleSheet.create({
   list: {
     gap: spacing.sm,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — a borda de baixo saiu
+  // (era o separador da lista lisa); agora cada linha é um `<Glass>`
+  // com borda/blur próprios, e o respiro entre elas vem do `list.gap`.
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    // Web usa `rounded-2xl` (16px) na glass-row = `radius.lg`.
+    borderRadius: radius.lg,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   rowContent: {
     flex: 1,

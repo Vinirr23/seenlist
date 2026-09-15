@@ -3,7 +3,8 @@ import { ScrollView, View, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMovieDetails, useMovieStatus } from "@/lib/useMovieDetails";
 import { dismissRecommendation } from "@/lib/recommendations";
-import { Screen, Text } from "@/components/ui";
+import { MOVIE_DETAILS_GLOW_BLOBS } from "@/lib/glowBlobs";
+import { Screen, Text, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { MovieHeader } from "@/components/movie-detail/MovieHeader";
@@ -19,6 +20,7 @@ import { MetaRow } from "@/components/media/MetaRow";
 import { colors, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /** Mesmo mapa do web (`MovieInfo.tsx`) — código de idioma do TMDB pra chave de tradução, não texto fixo. */
 const LANGUAGE_KEYS: Record<string, string> = {
@@ -44,6 +46,14 @@ const LANGUAGE_KEYS: Record<string, string> = {
  * comentários, "reassistir" — mesmos motivos da tela de série.
  */
 export default function MovieDetailScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const currencyFormatter = useMemo(
@@ -76,8 +86,16 @@ export default function MovieDetailScreen() {
   }
 
   return (
-    <Screen padded={false} bottomInset>
-      <ScrollView>
+    <Screen padded={false}>
+      {/* `bottomInset` saiu: a barra de navegação agora flutua sobre esta tela (ver `app/_layout.tsx`) e a folga do fim do conteúdo já soma a área segura, via `useTabBarClearance()`. Manter os dois empurrava o conteúdo pra cima duas vezes e ainda tirava o fundo de trás da barra, que é o que dá o efeito de vidro. */}
+      {/*
+        PORTE DO WEB (2026-09-09) — esta tela não tinha campo de manchas
+        nenhum, e o `MovieDetailsView.tsx` do web tem (ver `MOVIE_DETAILS_GLOW_BLOBS`).
+        As manchas dele começam mais embaixo que as das telas de lista,
+        porque o topo aqui é ocupado pelo herói/capa.
+      */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={MOVIE_DETAILS_GLOW_BLOBS} />}>
+      <ScrollView contentContainerStyle={{ paddingBottom: espacoDoDock }}>
         <MovieHeader movie={movie} watched={status === "watched"} onMorePress={() => setShowMoreOptions(true)} />
 
         <View style={styles.body}>
@@ -165,11 +183,16 @@ export default function MovieDetailScreen() {
           onClose={() => setShowMoreOptions(false)}
         />
       )}
+      </GlassTargetProvider>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  /** O provedor ocupa a tela toda pras manchas cobrirem tudo — mesmo estilo das outras telas com vidro. */
+  glassFill: {
+    flex: 1,
+  },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — `padding` (esquerda/direita) era `spacing.lg`
   // (24); web usa `px-4` (`spacing.md`=16) como borda de tela.

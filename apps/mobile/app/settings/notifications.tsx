@@ -3,10 +3,11 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useNotificationPreferences } from "@/lib/useNotificationPreferences";
 import type { NotificationPreferences } from "@/lib/notificationPreferences";
-import { Screen, Text, Skeleton } from "@/components/ui";
+import { Screen, Text, Skeleton, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
 import { ToggleRow } from "@/components/settings/ToggleRow";
 import { colors, radius, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /**
  * TASK-114 — porta de `NotificationPreferencesView.tsx`. Só
@@ -16,6 +17,14 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * consultam antes de mandar.
  */
 export default function NotificationSettingsScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
   const ITEMS: { field: keyof NotificationPreferences; label: string }[] = [
@@ -36,18 +45,27 @@ export default function NotificationSettingsScreen() {
         <Text variant="subtitle">{t("settings.notifications")}</Text>
       </View>
 
-      <View style={styles.content}>
+      {/*
+        * PORTE DO WEB (2026-09-04, "vidro que falta") —
+        * `NotificationPreferencesView.tsx` não tem campo de manchas
+        * próprio (nenhuma tela sozinha tem uma paleta dedicada aqui,
+        * diferente de Configurações/Perfil) — usa o `AmbientGlow`
+        * padrão do app (âmbar/teal), igual a qualquer outra tela sem
+        * paleta própria.
+        */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow />}>
+      <View style={[styles.content, { paddingBottom: espacoDoDock }]}>
         {isLoading ? (
-          <View style={styles.card}>
+          <Glass style={styles.card}>
             {[0, 1, 2, 3].map((index) => (
               <View key={index} style={styles.skeletonRow}>
                 <Skeleton width="55%" height={14} />
                 <Skeleton width={40} height={22} borderRadius={11} />
               </View>
             ))}
-          </View>
+          </Glass>
         ) : (
-          <View style={styles.card}>
+          <Glass style={styles.card}>
             {ITEMS.map((item, index) => (
               <ToggleRow
                 key={item.field}
@@ -58,9 +76,10 @@ export default function NotificationSettingsScreen() {
                 last={index === ITEMS.length - 1}
               />
             ))}
-          </View>
+          </Glass>
         )}
       </View>
+      </GlassTargetProvider>
     </Screen>
   );
 }
@@ -77,15 +96,16 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
+  glassFill: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: spacing.md,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — fundo/borda sólidos
+  // removidos (vira `<Glass>`, mesma borda `border-white/10` de antes).
   card: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
-    overflow: "hidden",
   },
   skeletonRow: {
     flexDirection: "row",

@@ -7,7 +7,8 @@ import { dismissRecommendation } from "@/lib/recommendations";
 import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { episodeKey, isEpisodeWatchedSync } from "@/lib/seriesDetails";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { Screen, Text } from "@/components/ui";
+import { SERIES_DETAILS_GLOW_BLOBS } from "@/lib/glowBlobs";
+import { Screen, Text, GlassTargetProvider, AmbientGlow, Glass } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { SeriesHeader } from "@/components/series-detail/SeriesHeader";
@@ -25,7 +26,8 @@ import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { SeasonAccordion } from "@/components/series-detail/SeasonAccordion";
 import { EpisodeCarousel } from "@/components/series-detail/EpisodeCarousel";
 import { SeriesWatchProviders } from "@/components/series-detail/SeriesWatchProviders";
-import { colors, spacing, radius } from "@/lib/theme";
+import { colors, spacing, radius, fontSize, fontFamily } from "@/lib/theme";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 type DetailTab = "sobre" | "episodios";
 
@@ -40,12 +42,21 @@ type DetailTab = "sobre" | "episodios";
  * `EpisodeCarousel` (topo da aba Episódios) que tinha ficado de fora.
  */
 export default function SeriesDetailScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
   const { id, recId } = useLocalSearchParams<{ id: string; recId?: string }>();
   const seriesId = String(id);
   const numericId = Number(seriesId);
   const [tab, setTab] = useState<DetailTab>("episodios");
+  const [sinopseAberta, setSinopseAberta] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showRecommendationActions, setShowRecommendationActions] = useState(Boolean(recId));
 
@@ -151,8 +162,16 @@ export default function SeriesDetailScreen() {
   }
 
   return (
-    <Screen padded={false} bottomInset>
-      <ScrollView>
+    <Screen padded={false}>
+      {/* `bottomInset` saiu: a barra de navegação agora flutua sobre esta tela (ver `app/_layout.tsx`) e a folga do fim do conteúdo já soma a área segura, via `useTabBarClearance()`. Manter os dois empurrava o conteúdo pra cima duas vezes e ainda tirava o fundo de trás da barra, que é o que dá o efeito de vidro. */}
+      {/*
+        PORTE DO WEB (2026-09-09) — esta tela não tinha campo de manchas
+        nenhum, e o `SeriesDetailsView.tsx` do web tem (ver `SERIES_DETAILS_GLOW_BLOBS`).
+        As manchas dele começam mais embaixo que as das telas de lista,
+        porque o topo aqui é ocupado pelo herói/capa.
+      */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SERIES_DETAILS_GLOW_BLOBS} />}>
+      <ScrollView contentContainerStyle={{ paddingBottom: espacoDoDock }}>
         <SeriesHeader
           series={series}
           watchedCount={watchedCount}
@@ -173,22 +192,44 @@ export default function SeriesDetailScreen() {
                   SeriesDetailsView.tsx/SeriesWatchProviders.tsx). */}
               <SeriesWatchProviders providers={series.watchProviders} />
 
-              <Text style={styles.overview}>{series.overview || t("media.noSynopsisAvailable")}</Text>
+              {/*
+                PORTE DO WEB (2026-09-09) — a sinopse era texto solto.
+                No web ela tem TÍTULO ("Sinopse", `text-sm font-semibold`)
+                e um "Ler mais/Ler menos": o texto fica limitado a 5
+                linhas (`line-clamp-5`) e o botão só aparece quando é
+                longo o bastante pra transbordar (o web usa 220
+                caracteres como corte). Nada disso existia aqui.
+              */}
+              <View>
+                <Text style={styles.overviewTitle}>{t("series.overviewTitle")}</Text>
+                <Text numberOfLines={sinopseAberta ? undefined : 5} style={styles.overview}>
+                  {series.overview || t("media.noSynopsisAvailable")}
+                </Text>
+                {(series.overview ?? "").length > 220 && (
+                  <Pressable onPress={() => setSinopseAberta((v) => !v)}>
+                    <Text style={styles.readMore}>
+                      {sinopseAberta ? t("series.readLess") : t("series.readMore")}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
 
               {series.genres.length > 0 && (
                 <View style={styles.genreRow}>
                   {series.genres.map((genre) => (
-                    <View key={genre} style={styles.genreChip}>
+                    /* No web o chip é vidro (`light`), não `colors.surface` com borda escura. */
+                    <Glass key={genre} style={styles.genreChip} variant="light">
                       <Text style={styles.genreChipText}>{genre}</Text>
-                    </View>
+                    </Glass>
                   ))}
                 </View>
               )}
 
               <View style={styles.metaGrid}>
                 <MetaRow label={t("media.status")} value={series.status} icon={<Feather name="layers" size={14} color={colors.muted} style={styles.metaIcon} />} />
+                {/* O web usa a chave `series.releaseDate` ("Lançamento"); aqui era `media.premiere` ("Estreia"). */}
                 <MetaRow
-                  label={t("media.premiere")}
+                  label={t("series.releaseDate")}
                   value={series.firstAirDate?.slice(0, 4) ?? "—"}
                   icon={<Feather name="calendar" size={14} color={colors.muted} style={styles.metaIcon} />}
                 />
@@ -202,22 +243,26 @@ export default function SeriesDetailScreen() {
                   value={String(series.numberOfEpisodes)}
                   icon={<Feather name="film" size={14} color={colors.muted} style={styles.metaIcon} />}
                 />
-                <MetaRow label={t("media.network")} value={series.networks.join(", ") || "—"} />
+                {/*
+                  A "Rede" SAIU (2026-09-09, comparado no print): a
+                  grade do web (`SeriesDetailsView.tsx`) tem exatamente
+                  QUATRO itens — Status, Lançamento, Temporadas e
+                  Episódios. O quinto era invenção do mobile, e como o
+                  valor é uma lista longa de emissoras ele quebrava em
+                  três linhas e desalinhava a grade de duas colunas.
+                */}
               </View>
 
               {!!series.trailerKey && (
                 <View>
-                  <Text variant="subtitle" style={styles.sectionTitle}>
-                    Trailer
-                  </Text>
+                  <Text style={styles.sectionTitle}>{t("media.trailer")}</Text>
                   <TrailerCard videoKey={series.trailerKey} />
                 </View>
               )}
 
               <View>
-                <Text variant="subtitle" style={styles.sectionTitle}>
-                  Elenco principal
-                </Text>
+                {/* Estava escrito à mão em português ("Elenco principal"), sem tradução — o web usa `series.mainCast`. */}
+                <Text style={styles.sectionTitle}>{t("media.mainCast")}</Text>
                 <CastCarousel
                   cast={series.cast}
                   title={series.matchTitle}
@@ -227,22 +272,20 @@ export default function SeriesDetailScreen() {
 
               {series.gallery.length > 0 && (
                 <View>
-                  <Text variant="subtitle" style={styles.sectionTitle}>
-                    Galeria
-                  </Text>
+                  <Text style={styles.sectionTitle}>{t("media.gallery")}</Text>
                   <BackdropGallery paths={series.gallery} />
                 </View>
               )}
 
               <View>
-                <Text variant="subtitle" style={styles.sectionTitle}>
+                <Text style={styles.sectionTitle}>
                   {t("media.similarSeries")}
                 </Text>
                 <SimilarTitlesCarousel items={series.similar} />
               </View>
 
               <View>
-                <Text variant="subtitle" style={styles.sectionTitle}>
+                <Text style={styles.sectionTitle}>
                   {t("social.reviews")}
                 </Text>
                 <ReviewsSection
@@ -252,7 +295,8 @@ export default function SeriesDetailScreen() {
               </View>
             </View>
           ) : (
-            <View style={styles.section}>
+            /* O web usa `space-y-4` (16) aqui, não os 24 da aba Sobre (`space-y-6`). */
+            <View style={styles.episodesSection}>
               <EpisodeCarousel
                 seriesId={numericId}
                 category={status}
@@ -266,7 +310,9 @@ export default function SeriesDetailScreen() {
               {series.seasons.length === 0 ? (
                 <Text variant="muted">{t("media.noSeasonsFound")}</Text>
               ) : (
-                series.seasons.map((season, index) => (
+                /* `space-y-3` = 12 entre as temporadas no web. */
+                <View style={styles.seasonList}>
+                {series.seasons.map((season, index) => (
                   <SeasonAccordion
                     key={season.seasonNumber}
                     seriesId={numericId}
@@ -280,7 +326,8 @@ export default function SeriesDetailScreen() {
                     onRewatch={rewatch}
                     defaultOpen={index === 0}
                   />
-                ))
+                ))}
+                </View>
               )}
             </View>
           )}
@@ -294,8 +341,26 @@ export default function SeriesDetailScreen() {
           currentStatus={status}
           isFavorite={isFavorite}
           onToggleFavorite={toggleFavorite}
-          onSetStatus={(newStatus) => {
-            changeStatus(newStatus);
+          /*
+            CORREÇÃO DE CAUSA RAIZ (2026-09-10, reproduzido pelo usuário —
+            "entrei em detalhes da série, abri o sheet e selecionei
+            'assistir depois'", mas a Home não atualizou sozinha) —
+            `changeStatus(newStatus)` não era esperado (`await`): a
+            gravação no Supabase roda em segundo plano enquanto a folha
+            já fecha na mesma hora. Como a Home busca a biblioteca de
+            novo ASSIM QUE a tela volta a ficar em foco
+            (`useLibraryItems`, `useFocusEffect`), e o toque no "voltar"
+            costuma vir muito rápido depois de escolher a opção, a busca
+            da Home podia vencer a corrida contra a própria gravação —
+            lia o status ANTIGO do banco porque a escrita ainda não
+            tinha terminado. Agora `onSetStatus` espera a gravação
+            terminar antes de fechar a folha — como é um `Modal`, ele
+            trava o toque na tela de trás enquanto isso (inclusive o
+            botão "voltar" do cabeçalho), então não dá mais pra sair da
+            tela antes da escrita confirmar.
+          */
+          onSetStatus={async (newStatus) => {
+            await changeStatus(newStatus);
             setShowActions(false);
           }}
           onRemove={handleRemove}
@@ -303,15 +368,16 @@ export default function SeriesDetailScreen() {
         />
       )}
 
+      {/* Mesma correção de corrida do "..." acima — espera a gravação terminar antes de fechar a folha. */}
       {showRecommendationActions && (
         <RecommendationQuickActionsSheet
           mediaType="series"
-          onWantToWatch={() => {
-            changeStatus("want_to_watch");
+          onWantToWatch={async () => {
+            await changeStatus("want_to_watch");
             setShowRecommendationActions(false);
           }}
-          onStartWatching={() => {
-            changeStatus("watching");
+          onStartWatching={async () => {
+            await changeStatus("watching");
             setShowRecommendationActions(false);
           }}
           onIgnore={() => {
@@ -322,21 +388,38 @@ export default function SeriesDetailScreen() {
       )}
 
       {showConfetti && <ConfettiBurst onDone={() => setShowConfetti(false)} />}
+      </GlassTargetProvider>
     </Screen>
   );
 }
 
+/**
+ * PORTE DO WEB (2026-09-09) — as abas Sobre/Episódios eram PÍLULAS
+ * (cápsula arredondada, âmbar chapado quando ativa). No
+ * `SeriesTabs.tsx` do web elas são uma barra SUBLINHADA:
+ *
+ *     trilha:  flex gap-1 border-b border-border px-4
+ *     aba:     border-b-2 px-3 py-2.5 text-sm font-medium
+ *     ativa:   border-primary text-text
+ *     inativa: border-transparent text-muted
+ *
+ * Ou seja: sem fundo nenhum, o que marca a aba ativa é um traço de 2px
+ * embaixo dela, na cor primária, sobre uma linha de 1px que atravessa
+ * a largura toda. É um desenho diferente, não uma variação de cor.
+ */
 function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable style={[styles.tabButton, active && styles.tabButtonActive]} onPress={onPress}>
-      <Text variant="label" style={active ? styles.tabLabelActive : styles.tabLabel}>
-        {label}
-      </Text>
+      <Text style={active ? styles.tabLabelActive : styles.tabLabel}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  /** O provedor ocupa a tela toda pras manchas cobrirem tudo — mesmo estilo das outras telas com vidro. */
+  glassFill: {
+    flex: 1,
+  },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — `padding` (esquerda/direita) era `spacing.lg`
   // (24); web usa `px-4` (`spacing.md`=16) como borda de tela.
@@ -347,49 +430,85 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     gap: spacing.lg,
   },
+  /** `flex gap-1 border-b border-border` — o `px-4` já vem do `body`. */
   tabs: {
     flexDirection: "row",
-    gap: spacing.sm,
+    gap: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
+  /** `border-b-2 px-3 py-2.5` = traço de 2px, 12 de lado, 10 de altura. */
   tabButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+    /* Puxa o traço 1px pra baixo pra ele cobrir a linha da trilha, como no CSS. */
+    marginBottom: -1,
   },
   tabButtonActive: {
-    backgroundColor: colors.primary,
+    borderBottomColor: colors.primary,
   },
+  /** `text-sm font-medium` nas duas; só a COR muda. */
   tabLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: "500",
+    fontFamily: fontFamily[500],
     color: colors.muted,
   },
   tabLabelActive: {
-    color: colors.background,
+    fontSize: fontSize.sm,
+    fontWeight: "500",
+    fontFamily: fontFamily[500],
+    color: colors.text,
   },
   section: {
     gap: spacing.lg,
   },
+  episodesSection: {
+    gap: spacing.md,
+  },
+  seasonList: {
+    gap: 12,
+  },
+  /** `mb-2 text-sm font-semibold` do web — este é o único título de seção `semibold` da tela; os outros são `medium`. */
+  overviewTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    fontFamily: fontFamily[600],
+    color: colors.text,
+    marginBottom: 8,
+  },
+  /** `text-sm leading-relaxed` = 14 com entrelinha 1.625 ≈ 23 (era 20). */
   overview: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 23,
     color: colors.text,
   },
+  /** `mt-1 text-xs font-semibold text-primary`. */
+  readMore: {
+    marginTop: 4,
+    fontSize: fontSize.xs,
+    fontWeight: "600",
+    fontFamily: fontFamily[600],
+    color: colors.primary,
+  },
+  /** `grid grid-cols-2 gap-2` do web = duas colunas com 8 de espaço; aqui o espaço era `spacing.md` = 16 (o dobro). A largura de cada card mora no próprio `MetaRow`. */
   metaGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: 8,
   },
+  /** `gap-2` = 8 no web; era `spacing.xs` = 4. */
   genreRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.xs,
+    gap: 8,
   },
+  /** `rounded-full px-3 py-1` do web = 12/4; era `spacing.sm` = 8 na horizontal. Borda e fundo vêm do `Glass`. */
   genreChip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 12,
     paddingVertical: 4,
   },
   genreChipText: {
@@ -400,7 +519,17 @@ const styles = StyleSheet.create({
   metaIcon: {
     marginBottom: 4,
   },
+  /**
+   * `mb-2 text-sm font-medium text-text` do web. Aqui era
+   * `variant="subtitle"`, que é 18px/600 — quatro pontos maior e um
+   * peso acima do que o web usa nos títulos de "Trailer", "Elenco",
+   * "Galeria", "Séries similares" e "Avaliações".
+   */
   sectionTitle: {
-    marginBottom: spacing.sm,
+    fontSize: fontSize.sm,
+    fontWeight: "500",
+    fontFamily: fontFamily[500],
+    color: colors.text,
+    marginBottom: 8,
   },
 });

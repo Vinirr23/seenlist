@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View, StyleSheet } from "react-native";
 import { Image } from "expo-image";
-import { Feather } from "@expo/vector-icons";
 import type { CastMember } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { getAnimeCharacters, type AnimeCharacter } from "@/lib/animeCharacters";
-import { Text } from "@/components/ui";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { Text, Glass } from "@/components/ui";
+import { colors, fontSize } from "@/lib/theme";
 
 /** Idêntico a `normalizeCharacterName` do web — minúsculas, sem acento, sem "(voice)"/pontuação, só pra COMPARAR, nunca pra exibir. */
 function normalizeCharacterName(name: string): string {
@@ -50,6 +50,7 @@ function findCharacterImage(imageByCharacterName: Map<string, string | null>, ch
  *    parecido com um pôster do que com avatar de rede social.
  */
 export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?: string; year?: number | null }) {
+  const { t } = useTranslation();
   const [characters, setCharacters] = useState<AnimeCharacter[]>([]);
 
   useEffect(() => {
@@ -69,7 +70,14 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-      {cast.slice(0, 15).map((member) => {
+      {/*
+        PORTE DO WEB (2026-09-09) — o corte em 15 saiu: o
+        `CastCarousel.tsx` do web percorre `cast` inteiro
+        (`cast.map`), sem limite nenhum. Como a fileira rola na
+        horizontal, o corte não economizava espaço — só escondia
+        parte do elenco que existe no web.
+      */}
+      {cast.map((member) => {
         const characterImage = findCharacterImage(imageByCharacterName, member.character);
         /*
          * CORREÇÃO (bug real, reportado com print) — quando a série É
@@ -89,13 +97,24 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
         const photoUrl = isAnime ? characterImage : tmdbImageUrl(member.profilePath, "w185");
         return (
           <View key={member.id} style={styles.card}>
-            <View style={styles.photo}>
+            {/*
+              PORTE DO WEB (2026-09-09) — a caixa da foto era um
+              retângulo SÓLIDO (`colors.surface`). No web ela é vidro:
+              `border border-white/10 backdrop-blur-[14px]
+              backdrop-saturate-[180%]` + brilho 0.16 / base 0.09 —
+              exatamente a receita `medium` do `Glass`. E o vazio não é
+              ícone: o web escreve "Sem foto" (`episode.noPhoto`) em
+              10px, centralizado.
+            */}
+            <Glass style={styles.photo} variant="medium">
               {photoUrl ? (
                 <Image source={{ uri: photoUrl }} style={styles.photoImage} contentFit="cover" />
               ) : (
-                <Feather name="user" size={20} color={colors.muted} />
+                <Text numberOfLines={2} variant="muted" style={styles.noPhoto}>
+                  {t("episode.noPhoto")}
+                </Text>
               )}
-            </View>
+            </Glass>
             <Text numberOfLines={1} style={styles.character}>
               {member.character}
             </Text>
@@ -110,18 +129,25 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
 }
 
 const styles = StyleSheet.create({
+  /** `flex gap-3 ... pb-1` = 12 entre os cards, 4 de folga embaixo (era `spacing.sm` = 8, sem folga). */
   row: {
     flexDirection: "row",
-    gap: spacing.sm,
+    gap: 12,
+    paddingBottom: 4,
   },
+  /** `w-28` = 112 (era 96). */
   card: {
-    width: 96,
+    width: 112,
   },
+  /**
+   * `aspect-[2/3] w-full ... rounded-xl` = 112 × 168, canto 12.
+   * Aqui era 96 × 128 (proporção 3/4) com canto 10 — card menor e
+   * com formato diferente do pôster do web.
+   */
   photo: {
-    width: 96,
-    height: 128,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    width: 112,
+    aspectRatio: 2 / 3,
+    borderRadius: 12, // `rounded-xl`
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -130,8 +156,14 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  /** `text-[10px] text-muted` centralizado. */
+  noPhoto: {
+    fontSize: 10,
+    textAlign: "center",
+  },
+  /** `mt-1.5 text-xs font-semibold` = 6 de topo (era 4). */
   character: {
-    marginTop: spacing.xs,
+    marginTop: 6,
     fontSize: fontSize.xs,
     fontWeight: "600",
     color: colors.text,

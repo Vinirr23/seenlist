@@ -1,63 +1,55 @@
 import { View, Pressable, StyleSheet } from "react-native";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import type { FollowListUser } from "@/lib/followList";
-import { Text } from "@/components/ui";
-import { colors, spacing, fontSize } from "@/lib/theme";
+import { Text, Glass } from "@/components/ui";
+import { Avatar } from "@/components/common/Avatar";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((word) => word.length > 1)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
-}
-
+/**
+ * PORTE DO WEB (2026-09-04, "vidro que falta") — a linha virou
+ * "glass-row" (web, `UserListRow.tsx`: `rounded-2xl border
+ * border-white/10 px-3.5 py-3 backdrop-blur`), no lugar da linha crua
+ * sem card nenhum. A borda de tela (`paddingHorizontal`) que morava
+ * AQUI passou pro `contentContainerStyle` da lista em
+ * `app/follow-list/[userId]/[direction].tsx` — agora que cada linha é
+ * um cartão, ela precisa do respiro por fora, não por dentro.
+ */
 export function FollowListRow({ user }: { user: FollowListUser }) {
   const router = useRouter();
   const displayName = user.displayName || user.username;
 
   return (
-    <Pressable style={styles.row} onPress={() => router.push(`/u/${user.username}`)}>
-      <View style={styles.avatar}>
-        {user.avatarUrl ? (
-          <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
-        ) : (
-          <Text style={styles.avatarInitials}>{initials(displayName)}</Text>
-        )}
-      </View>
-      <View style={styles.info}>
-        <Text numberOfLines={1} style={styles.name}>
-          {displayName}
-        </Text>
-        <Text numberOfLines={1} variant="muted" style={styles.username}>
-          @{user.username}
-        </Text>
-        {user.followsViewer && (
-          <Text style={styles.followsYou} numberOfLines={1}>
-            Segue você
+    <Pressable onPress={() => router.push(`/u/${user.username}`)}>
+      <Glass style={styles.row}>
+        <Avatar uri={user.avatarUrl} name={displayName} style={styles.avatar} textStyle={styles.avatarInitials} />
+        <View style={styles.info}>
+          <Text numberOfLines={1} style={styles.name}>
+            {displayName}
           </Text>
-        )}
-      </View>
+          <Text numberOfLines={1} variant="muted" style={styles.username}>
+            @{user.username}
+          </Text>
+          {user.followsViewer && (
+            <Text style={styles.followsYou} numberOfLines={1}>
+              Segue você
+            </Text>
+          )}
+        </View>
+      </Glass>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela. Esta linha é
-  // renderizada "crua" (sem container com padding, `Screen padded=
-  // {false}`) na tela de seguindo/seguidores — este `paddingHorizontal`
-  // É a borda de tela.
+  // Padding INTERNO do cartão — web usa `px-3.5 py-3` (14px/12px). A
+  // borda de tela saiu daqui (ver docstring do componente).
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4,
+    gap: spacing.sm + 4,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   avatar: {
     width: 44,

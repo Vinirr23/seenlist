@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { ShimmerBlock } from "./ShimmerBlock";
 
 export interface HomeSkeletonProps {
   /**
@@ -36,58 +37,75 @@ export interface HomeSkeletonProps {
    * `variant` deixa quem chama dizer qual formato o conteúdo real vai
    * ter: "grid" (padrão — grade `grid-cols-3`, igual a
    * `PosterGrid.tsx`) ou "list" (linhas horizontais empilhadas, pôster
-   * 80×56 + duas barras de texto, mesmo "cartão de vidro" de
+   * 56×80 + duas barras de texto, mesmo "cartão de vidro" de
    * `MediaListRow.tsx`/`ContinueWatchingCard.tsx`).
    */
   variant?: "grid" | "list";
   /**
-   * A PEDIDO (2026-09-03 — "além dos pontinhos, uma frase tipo
-   * 'estamos carregando sua biblioteca'", depois restrito a "apenas
-   * na Home, que é a primeira tela ao abrir") — opcional, de
-   * propósito: só `series-home/MinhaListaSection.tsx` (a Home de
-   * verdade, aba "Séries" > "Minha Lista") passa isso. Os outros 3
-   * lugares que usam este componente (Filmes > "Minha Lista"/"Em
-   * breve", "Ver tudo" de Continue assistindo) continuam só com os
-   * pontinhos, sem frase — não são a tela de abertura do app.
+   * SUPERSEDIDO (2026-09-15, a pedido — "implementa o esqueleton 3
+   * Shimmer") — existia só pra acompanhar os "pontinhos" (legenda
+   * abaixo deles). O formato shimmer mostra a FORMA de verdade do
+   * conteúdo (pôster+texto/grade) — não precisa de legenda pra dizer
+   * "isso é um carregamento", o próprio formato já deixa claro. O
+   * parâmetro continua aceito (só `series-home/MinhaListaSection.tsx`
+   * passa) pra não precisar editar quem chama, mas não é mais lido.
    */
   message?: string;
+  /** Quantos itens fantasmas desenhar — 6 no modo grade (2 linhas de 3), 4 no modo lista, por padrão. */
+  count?: number;
 }
 
 /**
  * CORREÇÃO (2026-09-03, a pedido — "ao invés de uma tela sem nada,
  * algo interessante enquanto carrega os cards na Home") — as
  * caixinhas cinzas piscando ("grade de pôsteres falsos"/"linhas
- * falsas") viraram 3 pontinhos pulsando, cor de destaque da marca
- * (`bg-primary`, mesma usada na barra de navegação inferior). Escolha
- * do usuário entre 6 opções mostradas (brilho deslizante, cascata,
- * respiração, baralho de pôsteres, spinner, pontinhos) — "pontinhos"
- * venceu por ser o mais minimalista dos seis.
+ * falsas") viraram 3 pontinhos pulsando, cor de destaque da marca.
  *
- * `variant` continua existindo só pra decidir a ALTURA reservada
- * (evita a página "pular" quando o conteúdo de verdade chega — grade
- * costuma ocupar mais espaço vertical que lista) — a animação em si é
- * a mesma nos dois casos, não depende mais do formato do conteúdo
- * real que vem depois.
+ * SUPERSEDIDO (2026-09-15, bug real reportado no PORTE mobile deste
+ * mesmo conceito — "o esqueleton está errado", print mostrando os
+ * cartões fantasmas do `LibraryListSkeleton.tsx` invisíveis por um bug
+ * de contraste; ver causa raiz completa em `Skeleton.tsx` do mobile) —
+ * ao corrigir aquele bug, o usuário viu 4 formatos possíveis numa
+ * prévia comparativa (pontinhos = o que já existia aqui; fantasma
+ * corrigido; shimmer; respiração do cartão inteiro) e escolheu
+ * shimmer — pra ser aplicado nos dois lados (mobile E web), não só no
+ * mobile. Voltou a desenhar a FORMA de verdade do conteúdo (pôster +
+ * texto/grade), só que com contraste correto e brilho varrendo em vez
+ * de pulsar opacidade (ver `ShimmerBlock.tsx`) — mais parecido com o
+ * conteúdo que vai substituir o esqueleto (reserva a altura certa
+ * automaticamente, sem precisar do `min-h` fixo que os pontinhos
+ * usavam pra não deixar a página "pular").
  */
-export function HomeSkeleton({ variant = "grid", message }: HomeSkeletonProps) {
+export function HomeSkeleton({ variant = "grid", count }: HomeSkeletonProps) {
   const { t } = useTranslation();
+  const itemCount = count ?? (variant === "grid" ? 6 : 4);
 
-  return (
-    <div
-      className={`flex flex-col items-center justify-center gap-3 ${variant === "grid" ? "min-h-[220px]" : "min-h-[180px]"}`}
-      aria-busy="true"
-      aria-label={message ?? t("media.loadingLibrary")}
-    >
-      <div className="flex items-center gap-2">
-        {[0, 1, 2].map((index) => (
-          <span
-            key={index}
-            className="h-2.5 w-2.5 animate-home-skeleton-dot rounded-full bg-primary"
-            style={{ animationDelay: `${index * 0.15}s` }}
-          />
+  if (variant === "grid") {
+    return (
+      <div className="grid grid-cols-3 gap-2" aria-busy="true" aria-label={t("common.loading")}>
+        {Array.from({ length: itemCount }).map((_, index) => (
+          <div key={index}>
+            <ShimmerBlock className="aspect-[2/3] w-full rounded-2xl" />
+            <ShimmerBlock className="mt-2 h-3 w-4/5" />
+            <ShimmerBlock className="mt-1 h-2.5 w-2/5" />
+          </div>
         ))}
       </div>
-      {message && <p className="text-sm text-muted">{message}</p>}
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2" aria-busy="true" aria-label={t("common.loading")}>
+      {Array.from({ length: itemCount }).map((_, index) => (
+        <div key={index} className="flex gap-3 rounded-2xl border border-white/10 p-2.5">
+          <ShimmerBlock className="h-20 w-14 shrink-0 rounded-md" />
+          <div className="flex flex-1 flex-col justify-center gap-2">
+            <ShimmerBlock className="h-3.5 w-3/4" />
+            <ShimmerBlock className="h-3 w-1/2" />
+            <ShimmerBlock className="h-2.5 w-1/3" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

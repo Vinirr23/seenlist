@@ -27,9 +27,27 @@ const config: Config = {
           "100%": { transform: "translateY(90dvh) rotate(360deg)", opacity: "0" },
         },
         // A PEDIDO (2026-09-03) — indicador de carregamento "pontinhos" da Home (ver HomeSkeleton.tsx).
+        //
+        // SUPERSEDIDO (2026-09-15, a pedido — "implementa o esqueleton 3
+        // Shimmer, tanto no mobile quanto no web") — `HomeSkeleton.tsx`
+        // não usa mais pontinhos, usa este keyframe (`shimmer-sweep`,
+        // abaixo). Mantido aqui, sem uso, por segurança — não é lido em
+        // nenhum lugar do código no momento desta mudança, mas remover
+        // uma classe do Tailwind que porventura ainda esteja em cache de
+        // build de alguma tela não conferida é mais arriscado que só
+        // deixar uma classe não usada.
         "home-skeleton-dot": {
           "0%, 80%, 100%": { opacity: "0.35", transform: "scale(0.6)" },
           "40%": { opacity: "1", transform: "scale(1)" },
+        },
+        // A PEDIDO (2026-09-15 — "implementa o esqueleton 3 Shimmer") —
+        // brilho varrendo da esquerda pra direita, usado por
+        // `ShimmerBlock.tsx` (`HomeSkeleton.tsx`/`EmBreveSkeleton` em
+        // `series-home/EmBreveSection.tsx`) — mesmo conceito visual do
+        // `Skeleton.tsx` do mobile (ver comentário lá).
+        "shimmer-sweep": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
         },
       },
       animation: {
@@ -37,6 +55,7 @@ const config: Config = {
         "press": "press 120ms ease-out",
         "confetti-fall": "confetti-fall 2400ms ease-in forwards",
         "home-skeleton-dot": "home-skeleton-dot 1.2s ease-in-out infinite",
+        "shimmer-sweep": "shimmer-sweep 1.6s ease-in-out infinite",
       },
     },
   },

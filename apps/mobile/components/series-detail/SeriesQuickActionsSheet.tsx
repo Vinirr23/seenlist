@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { View, Modal, Pressable, TextInput, Share, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { LibraryStatus } from "@seenlist/types";
 import { useMyLists } from "@/lib/useMyLists";
 import { addToList as addSeriesToList } from "@/lib/lists";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
-import { Text, Skeleton } from "@/components/ui";
+import { Text, Skeleton, Glass } from "@/components/ui";
 import { colors, radius, spacing, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { RecommendSheet } from "../social/RecommendSheet";
@@ -81,7 +81,8 @@ export function SeriesQuickActionsSheet({
       {/* TASK-176 (achado real, comparado com CreatePostButton.tsx que já funcionava) — o `KeyboardAvoidingView` precisa ser filho DIRETO do `Modal`, sem nenhum `Pressable`/View extra o envolvendo, ou o cálculo de altura no Android não funciona direito. O "tocar fora fecha" virou um `Pressable` de fundo separado (posição absoluta, atrás da folha), não mais um wrapper por cima do KeyboardAvoidingView. */}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
+        {/* Vidro `dark` + `border-t border-white/10`, como no web — ver o comentário em `styles.sheet`. */}
+        <Glass style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]} variant="dark">
           {confirmingRemove ? (
             <View style={styles.confirm}>
               <Text style={styles.confirmTitle}>{t("series.removeThisSeries")}</Text>
@@ -127,9 +128,19 @@ export function SeriesQuickActionsSheet({
                 </Text>
               )}
 
+              {/*
+                CORREÇÃO (2026-09-10, auditoria — ícone de "adicionar a
+                lista" era `Feather "list"` — lista lisa, sem "+". O web
+                usa `ListPlus` do lucide; `MaterialCommunityIcons
+                "playlist-plus"` é o mais parecido disso disponível.
+              */}
               {lists?.map((list) => (
                 <Pressable key={list.id} style={styles.actionRow} onPress={() => handleAddToList(list.id)}>
-                  <Feather name={addedListId === list.id ? "check" : "list"} size={16} color={addedListId === list.id ? colors.primary : colors.text} />
+                  {addedListId === list.id ? (
+                    <Feather name="check" size={16} color={colors.primary} />
+                  ) : (
+                    <MaterialCommunityIcons name="playlist-plus" size={18} color={colors.text} />
+                  )}
                   <Text style={[styles.actionLabel, addedListId === list.id && { color: colors.primary }]}>{list.name}</Text>
                 </Pressable>
               ))}
@@ -168,7 +179,10 @@ export function SeriesQuickActionsSheet({
                 active={isFavorite}
                 onPress={onToggleFavorite}
               />
-              <ActionRow icon="list" label={t("movie.addToList")} onPress={() => setView("pick-list")} />
+              <Pressable style={styles.actionRow} onPress={() => setView("pick-list")}>
+                <MaterialCommunityIcons name="playlist-plus" size={18} color={colors.text} />
+                <Text style={styles.actionLabel}>{t("movie.addToList")}</Text>
+              </Pressable>
               <ActionRow icon="clock" label={t("seriesCategory.wantToWatch")} onPress={() => onSetStatus("want_to_watch")} />
               <ActionRow icon="send" label={t("social.recommendToSomeone")} onPress={() => setShowRecommend(true)} />
               <ActionRow icon="pause-circle" label={t("series.stopWatching")} onPress={() => onSetStatus("paused")} />
@@ -181,7 +195,7 @@ export function SeriesQuickActionsSheet({
               </Pressable>
             </View>
           )}
-        </View>
+        </Glass>
       </KeyboardAvoidingView>
 
       {showRecommend && (
@@ -224,16 +238,25 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: scrim.modal,
   },
+  /**
+   * PORTE DO WEB (2026-09-09, comparado no print) — a folha era
+   * `colors.surface` chapado. No `SeriesQuickActionsSheet.tsx` do web
+   * ela é vidro: `border-t border-white/10 backdrop-blur-[18px]
+   * backdrop-saturate-[180%]` sobre
+   * `radial(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%),
+   * rgba(20,22,30,0.85)` — que é a receita `dark` do `Glass`, valor por
+   * valor. `rounded-t-2xl` = 16 e `p-4` = 16 já batiam.
+   */
   sheet: {
-    backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     padding: spacing.md,
     paddingBottom: spacing.lg,
   },
+  /** `mb-2 px-2 text-xs font-medium` do web — o respiro lateral é 8 e o de baixo 8. */
   sheetTitle: {
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
+    paddingHorizontal: 8,
+    marginBottom: 8,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -278,27 +301,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  /**
+   * `flex items-center gap-3 rounded-lg px-3 py-3 text-sm` do web. As
+   * quatro medidas estavam menores — respiro 8 (contra 12), raio 10
+   * (contra 8) e padding 8/10 (contra 12/12) —, e era isso que fazia as
+   * linhas ficarem visivelmente mais apertadas que as do web no print.
+   */
   actionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm + 2,
+    gap: 12,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   actionLabel: {
     fontSize: 14,
   },
+  /** `mt-2` = 8 (era `spacing.xs` = 4), `gap-2` = 8, `rounded-lg` = 8, `py-3` = 12. */
   cancelButton: {
-    marginTop: spacing.xs,
+    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xs,
+    gap: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm + 2,
+    borderRadius: 8,
+    paddingVertical: 12,
   },
   confirm: {
     alignItems: "center",

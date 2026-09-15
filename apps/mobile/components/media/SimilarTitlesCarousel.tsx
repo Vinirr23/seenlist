@@ -1,11 +1,12 @@
 import { ScrollView, View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { MediaSearchResult } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text, PressableScale } from "@/components/ui";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { Text, PressableScale, Glass } from "@/components/ui";
+import { colors, fontSize } from "@/lib/theme";
 
 /**
  * TASK-100 — porta de `SimilarTitlesCarousel.tsx` do web
@@ -21,6 +22,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  * Sobre.
  */
 export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] }) {
+  const { t } = useTranslation();
   const router = useRouter();
   if (items.length === 0) return null;
 
@@ -32,15 +34,18 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
         const hasRating = item.voteAverage != null && item.voteAverage > 0;
         return (
           <PressableScale key={`${item.mediaType}-${item.id}`} style={styles.card} onPress={() => router.push(href)}>
-            <View style={styles.posterWrapper}>
+            <Glass style={styles.posterWrapper} variant="medium">
               {posterUrl ? (
                 <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
               ) : (
                 <View style={styles.posterFallback}>
-                  <Feather name="film" size={18} color={colors.muted} />
+                  {/* PORTE DO WEB (2026-09-09) — o vazio no web não é ícone: é o texto "Sem pôster" (`media.noPoster`) em 10px, centralizado. */}
+                  <Text numberOfLines={2} variant="muted" style={styles.noPoster}>
+                    {t("media.noPoster")}
+                  </Text>
                 </View>
               )}
-            </View>
+            </Glass>
             <Text numberOfLines={1} style={styles.title}>
               {item.title}
             </Text>
@@ -48,7 +53,7 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
               <View style={styles.metaRow}>
                 {hasRating && (
                   <View style={styles.ratingRow}>
-                    <MaterialCommunityIcons name="star" size={11} color={colors.primary} />
+                    <MaterialCommunityIcons name="star" size={10} color={colors.primary} />
                     <Text style={styles.rating}>{item.voteAverage!.toFixed(1)}</Text>
                   </View>
                 )}
@@ -67,21 +72,34 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
   );
 }
 
-const CARD_WIDTH = 104;
+const CARD_WIDTH = 128; // `w-32` (era 104)
 
 const styles = StyleSheet.create({
+  /** `flex gap-3 ... pb-1` = 12 entre os cards, 4 de folga embaixo (era `spacing.sm` = 8, sem folga). */
   row: {
     flexDirection: "row",
-    gap: spacing.sm,
+    gap: 12,
+    paddingBottom: 4,
   },
   card: {
     width: CARD_WIDTH,
   },
+  /**
+   * PORTE DO WEB (2026-09-09) — era um retângulo SÓLIDO
+   * (`colors.surface`). No `SimilarTitlesCarousel.tsx` do web esta caixa é vidro:
+   * `border border-white/10 backdrop-blur-[14px] backdrop-saturate-[180%]`
+   * — a receita `medium` do `Glass` (`glassVariants` em `lib/theme.ts`:
+   * desfoque 14px, brilho 0.16, base 0.09).
+   *
+   * O vidro fica na CAIXA DA IMAGEM mesmo, não num contêiner em volta:
+   * é ela que aparece enquanto o pôster/logo carrega, ou quando não
+   * existe. `backgroundColor` saiu porque quem pinta agora é o `Glass`.
+   */
   posterWrapper: {
     width: CARD_WIDTH,
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    /* `rounded-lg` = 8 no web; aqui era `radius.md` = 10. */
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -90,15 +108,20 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  noPoster: {
+    fontSize: 10,
+    textAlign: "center",
+  },
   posterFallback: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
+  /** `mt-1.5 text-xs font-medium` = 6 de topo e peso 500 (era 4 e peso 600). */
   title: {
-    marginTop: spacing.xs,
+    marginTop: 6,
     fontSize: fontSize.xs,
-    fontWeight: "600",
+    fontWeight: "500",
     color: colors.text,
   },
   metaRow: {

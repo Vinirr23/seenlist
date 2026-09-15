@@ -9,6 +9,7 @@ import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { translateDayLabel } from "@/lib/i18n/dayLabels";
 import { EmptyShelf } from "../media/EmptyShelf";
+import { ShimmerBlock } from "../media/ShimmerBlock";
 
 /** TASK-054 — TMDB devolve literalmente "Episódio N"/"Episode N" quando ainda não existe título específico pro episódio — mostrar isso duplica o código T/E que já aparece acima, sem informação nova nenhuma. */
 function isGenericEpisodeName(name: string, episodeNumber: number): boolean {
@@ -31,20 +32,42 @@ function isGenericEpisodeName(name: string, episodeNumber: number): boolean {
  * princípio de `HomeSkeleton.tsx` (variant "list"), só que com a
  * trilha lateral que só esta tela tem.
  */
+/**
+ * SUPERSEDIDO (2026-09-15, a pedido — "implementa o esqueleton 3
+ * Shimmer, tanto no mobile quanto no web") — os blocos fantasmas
+ * (`bg-surface`/`bg-border`) não tinham NENHUMA animação própria; só o
+ * `animate-pulse` do `<div>` mais de fora fazia a seção INTEIRA
+ * (cartão de vidro + blocos) "respirar" como um bloco só. Trocados
+ * pelo `ShimmerBlock` compartilhado (mesmo conceito escolhido pelo
+ * usuário numa prévia comparativa — ver `HomeSkeleton.tsx`, que usa o
+ * mesmo componente), com o brilho passando por CADA forma (pôster,
+ * cada linha de texto) e não mais no cartão inteiro.
+ *
+ * CORREÇÃO DE RAIZ (2026-09-15, mesmo bug real reportado com print no
+ * mobile — "a bolinha... deixa ela mais no centro do card" — ver
+ * comentário grande na trilha de VERDADE, mais abaixo neste arquivo,
+ * pra causa raiz completa e o histórico da 1ª tentativa que quebrou a
+ * linha) — mesma correção final aplicada aqui: dois espaçadores
+ * `flex-1` iguais, um antes e um depois do ponto, cada um virando
+ * linha visível só do lado que tem o que conectar (`index > 0` pro de
+ * cima, `index < arr.length - 1` pro de baixo).
+ */
 function EmBreveSkeleton() {
   return (
-    <div className="animate-pulse space-y-6" aria-busy="true">
+    <div className="space-y-6" aria-busy="true">
       {Array.from({ length: 2 }).map((_, groupIndex) => (
         <section key={groupIndex}>
           <div className="mb-3 flex justify-center">
-            <div className="h-6 w-24 rounded-full bg-border" />
+            <ShimmerBlock className="h-6 w-24 rounded-full" />
           </div>
           <div className="flex flex-col">
             {Array.from({ length: groupIndex === 0 ? 2 : 1 }).map((_, index, arr) => (
               <div key={index} className="flex gap-3">
                 <div className="flex w-3 shrink-0 flex-col items-center" aria-hidden="true">
+                  <div className={cn("w-px flex-1", index > 0 && "bg-white/[0.13]")} />
                   <span className="h-2 w-2 shrink-0 rounded-full bg-white/[0.22]" />
-                  {index < arr.length - 1 && <span className="w-px flex-1 bg-white/[0.13]" />}
+                  <div className={cn("w-px flex-1", index < arr.length - 1 && "bg-white/[0.13]")} />
+                  {index < arr.length - 1 && <span className="h-2.5 w-px shrink-0 bg-white/[0.13]" />}
                 </div>
                 <div className="flex flex-1 flex-col">
                   <div
@@ -53,11 +76,11 @@ function EmBreveSkeleton() {
                       background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.10), transparent 60%), rgba(255,255,255,0.06)",
                     }}
                   >
-                    <div className="h-20 w-[70px] shrink-0 rounded bg-surface" />
+                    <ShimmerBlock className="h-20 w-[70px] shrink-0" />
                     <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
-                      <div className="h-3.5 w-3/4 rounded bg-border" />
-                      <div className="h-3 w-1/2 rounded bg-border" />
-                      <div className="h-2.5 w-1/3 rounded bg-border" />
+                      <ShimmerBlock className="h-3.5 w-3/4" />
+                      <ShimmerBlock className="h-3 w-1/2" />
+                      <ShimmerBlock className="h-2.5 w-1/3" />
                     </div>
                   </div>
                   {index < arr.length - 1 && <div className="h-2.5" aria-hidden="true" />}
@@ -205,10 +228,51 @@ export function EmBreveSection() {
                    * erro da entrega anterior (`bg-white/18` sem colchetes,
                    * que silenciosamente não gerava classe nenhuma).
                    */}
-                  {/* Trilha: ponto + linha de conexão até o próximo card do mesmo grupo. */}
+                  {/*
+                   * Trilha: ponto + linha de conexão até o próximo card do
+                   * mesmo grupo.
+                   *
+                   * CORREÇÃO DE RAIZ (2026-09-15, bug real reportado com
+                   * print — "a bolinha ao lado dos cards, deixa ela mas no
+                   * centro do card, atualmente ela é mais pra cima", nos
+                   * dois lados, mobile incluso — ver mesma correção em
+                   * `app/(tabs)/series/index.tsx` do mobile) — esta coluna
+                   * (`w-3 ... flex-col`) estica pra cobrir a altura do card
+                   * INTEIRO mais o spacer até o próximo (`items-stretch`,
+                   * padrão do `flex` desta linha, necessário pra linha
+                   * conectora chegar até o próximo ponto). O ponto, sem
+                   * nenhum `justify-content`, sentava direto no TOPO dessa
+                   * coluna esticada — ou seja, no topo do card + spacer
+                   * juntos, não no centro do card.
+                   *
+                   * TENTATIVA 1 (revertida, bug real reportado com print —
+                   * "a linha que liga um ponto ao outro ficou bugada") —
+                   * isolar o ponto num wrapper `flex-1` só, com a linha de
+                   * conexão numa altura fixa (`h-2.5`, igual ao spacer):
+                   * centralizava certo, mas "cortava" a linha — ela passou
+                   * a cobrir só o spacer (10px), faltando o trecho entre o
+                   * ponto (no meio do card) e o FIM do card, deixando um
+                   * vão visível entre um ponto e o próximo.
+                   *
+                   * SOLUÇÃO DE VERDADE — dois espaçadores `flex-1` iguais,
+                   * um ANTES e um DEPOIS do ponto, cada um cobrindo METADE
+                   * da altura livre da coluna (altura do card menos os 8px
+                   * do ponto) — como os dois são iguais, o ponto cai
+                   * exatamente no centro do card, não importa a altura
+                   * dele. Cada metade vira linha visível (some só a COR,
+                   * o espaço continua reservado) só do lado que tem algo
+                   * pra conectar (`!isFirstInGroup` pro de cima,
+                   * `hasNextInGroup` pro de baixo) — a linha fica contínua
+                   * do centro de um ponto ao centro do próximo: metade de
+                   * baixo deste ponto + o trecho fixo do spacer (`h-2.5`,
+                   * mais abaixo) + metade de cima do próximo ponto, sem
+                   * nenhum vão.
+                   */}
                   <div className="flex w-3 shrink-0 flex-col items-center" aria-hidden="true">
+                    <div className={cn("w-px flex-1", !isFirstInGroup && "bg-white/[0.13]")} />
                     <span className={cn("h-2 w-2 shrink-0 rounded-full", isFirstInGroup ? "bg-primary" : "bg-white/[0.22]")} />
-                    {hasNextInGroup && <span className="w-px flex-1 bg-white/[0.13]" />}
+                    <div className={cn("w-px flex-1", hasNextInGroup && "bg-white/[0.13]")} />
+                    {hasNextInGroup && <span className="h-2.5 w-px shrink-0 bg-white/[0.13]" />}
                   </div>
 
                   {/* Coluna de conteúdo: o card + um "spacer" que reserva o

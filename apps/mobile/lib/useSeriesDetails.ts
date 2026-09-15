@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import type { SeriesDetails, LibraryStatus } from "@seenlist/types";
 import {
   episodeKey,
@@ -93,6 +94,30 @@ export function useWatchedEpisodes(seriesId: number) {
     };
   }, [seriesId]);
 
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-04 — "marcar/desmarcar episódio
+   * dentro de detalhes de série não atualiza", bug real reportado no
+   * mobile) — este hook guarda `watched`/`watchedEpisodeIds` em
+   * `useState` LOCAL a cada chamada, sem cache compartilhado (o web
+   * usa react-query com uma única entrada de cache por
+   * `watchedEpisodesQueryKey(seriesId)`, vista por QUALQUER componente
+   * que a consulte). A tela de Episódio (`episodes/[seriesId]/
+   * [season]/[episode].tsx`) marca/desmarca direto (`toggleEpisodeWatched`,
+   * sem passar por este hook) e nunca avisa esta instância aqui — ao
+   * voltar pra Detalhes de Série, a pilha de navegação só REVELA a
+   * tela de novo (não remonta), então o `useEffect` de busca inicial
+   * acima (que só roda uma vez, na montagem) nunca dispara de novo, e
+   * o Set de assistidos fica desatualizado até a pessoa sair e voltar
+   * pra tela pelo caminho todo de novo.
+   *
+   * Mesmo padrão já usado em outros lugares do app pra exatamente esse
+   * tipo de bug (`useLibraryItems.ts`, `useCurrentUser.ts`,
+   * `usePublicProfile.ts`, `lists/[id].tsx`) — `useFocusEffect` busca
+   * de novo toda vez que a tela ganha foco, inclusive ao voltar de uma
+   * tela empilhada por cima.
+   */
+  useFocusEffect(reload);
+
   const toggle = useCallback(
     // CORREÇÃO (2026-08-26 — "motor resistente", ver seriesDetails.ts) — episodeId opcional, repassado direto pra gravação.
     async (seasonNumber: number, episodeNumber: number, episodeId?: number) => {
@@ -178,13 +203,17 @@ export function useWatchedEpisodes(seriesId: number) {
     [seriesId]
   );
 
-  return { watched, watchedEpisodeIds, isLoading, busy, toggle, markMany, unmarkSeason, rewatch };
+  return { watched, watchedEpisodeIds, isLoading, busy, toggle, markMany, unmarkSeason, rewatch, reload };
 }
 
 export function useSeriesStatus(seriesId: number) {
   const [status, setStatus] = useState<LibraryStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+
+  const reload = useCallback(() => {
+    fetchSeriesStatus(seriesId).then((data) => setStatus(data));
+  }, [seriesId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,6 +227,18 @@ export function useSeriesStatus(seriesId: number) {
       cancelled = true;
     };
   }, [seriesId]);
+
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-04) — mesmo raciocínio de
+   * `useWatchedEpisodes` acima: marcar/desmarcar um episódio na tela
+   * de Episódio dispara `recalculateSeriesCategoryAfterEpisodeChange`
+   * no servidor (pode promover/rebaixar a categoria da série —
+   * "Assistindo" → "Em dia"/"Concluída" e vice-versa), mas essa tela
+   * não sabe nada sobre este hook. Sem isso, o status mostrado aqui
+   * (usado, por exemplo, por `EpisodeCarousel`) ficava desatualizado
+   * ao voltar pra Detalhes de Série.
+   */
+  useFocusEffect(reload);
 
   const changeStatus = useCallback(
     async (newStatus: LibraryStatus) => {

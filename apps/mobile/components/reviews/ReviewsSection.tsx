@@ -3,7 +3,8 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { ReviewTarget } from "@/lib/social/reviews";
 import { useReviewAggregate } from "@/lib/social/useReviewAggregate";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ReviewSummary } from "./ReviewSummary";
 import { colors, radius, spacing } from "@/lib/theme";
 
@@ -23,6 +24,7 @@ export interface ReviewsSectionProps {
  * acessada pelo link "Ver todas as avaliações" abaixo.
  */
 export function ReviewsSection({ target, media }: ReviewsSectionProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const aggregate = useReviewAggregate(target);
 
@@ -36,30 +38,47 @@ export function ReviewsSection({ target, media }: ReviewsSectionProps) {
     <View style={styles.wrapper}>
       {aggregate && <ReviewSummary aggregate={aggregate} />}
 
-      <Pressable style={styles.link} onPress={() => router.push(href)}>
-        <View style={styles.linkLeft}>
-          <Feather name="star" size={16} color={colors.muted} />
-          <Text style={styles.linkText}>Ver todas as avaliações</Text>
-        </View>
-        <Feather name="chevron-right" size={18} color={colors.muted} />
-      </Pressable>
+      {/*
+        PORTE DO WEB (2026-09-09) — esta linha era SÓLIDA
+        (`colors.surface` com borda escura), canto 10, recheio 8/16 e
+        texto em peso 600. No `SeriesDetailsView.tsx` do web ela é a
+        "glass-row": `rounded-2xl border border-white/10 px-4 py-3
+        text-sm font-medium backdrop-blur-[18px]
+        backdrop-saturate-[180%]` + brilho 0.17 / base 0.10 — ou seja, a
+        receita `card` do `Glass`, canto 16, recheio 12/16, peso 500.
+        O texto também estava escrito à mão, sem tradução.
+      */}
+      <Glass style={styles.link}>
+        <Pressable style={styles.linkHit} onPress={() => router.push(href)}>
+          <View style={styles.linkLeft}>
+            <Feather name="star" size={16} color={colors.muted} />
+            <Text style={styles.linkText}>{t("review.seeAll")}</Text>
+          </View>
+          <Feather name="chevron-right" size={16} color={colors.muted} />
+        </Pressable>
+      </Glass>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  /**
+   * No web o resumo e a linha "Ver todas" não são vizinhos coladinhos:
+   * o resumo fecha a `<section>` de Avaliações e a linha é o item
+   * SEGUINTE da pilha `space-y-6` da aba Sobre — 24 de distância, não 8.
+   */
   wrapper: {
-    gap: spacing.sm,
+    gap: spacing.lg,
   },
+  /** `rounded-2xl px-4 py-3` — a borda e o fundo vêm do `Glass`. */
   link: {
+    borderRadius: radius.lg,
+  },
+  linkHit: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: 12, // `py-3` (era 8)
     paddingHorizontal: spacing.md,
   },
   linkLeft: {
@@ -67,8 +86,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
+  /** `text-sm font-medium` = 14/500 (era 600). */
   linkText: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
   },
 });

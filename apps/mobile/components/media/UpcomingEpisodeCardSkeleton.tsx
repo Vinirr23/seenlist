@@ -28,11 +28,14 @@ export function UpcomingEpisodeCardSkeleton() {
             </View>
             <View>
               {Array.from({ length: rowCount }, (_, index) => {
+                const isFirstInGroup = index === 0;
                 const hasNext = index < rowCount - 1;
                 return (
                   <View key={index} style={styles.timelineRow}>
                     <View style={styles.track}>
+                      <View style={[styles.trackLineHalf, !isFirstInGroup && styles.trackLineHalfVisible]} />
                       <View style={styles.trackDot} />
+                      <View style={[styles.trackLineHalf, hasNext && styles.trackLineHalfVisible]} />
                       {hasNext && <View style={styles.trackLine} />}
                     </View>
                     <View style={styles.timelineContent}>
@@ -73,15 +76,24 @@ const styles = StyleSheet.create({
     width: 12,
     alignItems: "center",
   },
+  /** Mesma correção de raiz de `app/(tabs)/series/index.tsx` (`trackLineHalf`/`trackLineHalfVisible`) — dois espaçadores iguais antes/depois do ponto centralizam ele na altura do card fantasma, e cada um vira linha visível só do lado que tem o que conectar (evita o vão que uma 1ª tentativa mais simples deixou — "a linha que liga um ponto ao outro ficou bugada"). */
+  trackLineHalf: {
+    width: 1,
+    flex: 1,
+  },
+  trackLineHalfVisible: {
+    backgroundColor: "rgba(255,255,255,0.13)",
+  },
   trackDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: "rgba(255,255,255,0.22)",
   },
+  /** Trecho fixo entre o fim de um card e o começo do próximo — mesma altura do `spacer` (10). */
   trackLine: {
     width: 1,
-    flex: 1,
+    height: 10,
     backgroundColor: "rgba(255,255,255,0.13)",
   },
   timelineContent: {

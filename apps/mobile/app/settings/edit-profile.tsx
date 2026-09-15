@@ -7,19 +7,11 @@ import { fetchEditableProfile, saveEditableProfile } from "@/lib/editProfile";
 import { pickImageFromLibrary, uploadAvatar, uploadBanner } from "@/lib/imageUpload";
 import { COUNTRIES } from "@/lib/countries";
 import { Screen, Text, Button, Skeleton } from "@/components/ui";
+import { Avatar } from "@/components/common/Avatar";
 import { CountryPicker } from "@/components/settings/CountryPicker";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((w) => w.length > 1)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /**
  * TASK-105/111 — porta completa de `EditProfileView.tsx` agora,
@@ -27,6 +19,14 @@ function initials(name: string): string {
  * depender do seletor de imagem, adicionado nesta mesma leva).
  */
 export default function EditProfileScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
   const [name, setName] = useState("");
@@ -131,7 +131,7 @@ export default function EditProfileScreen() {
 
       {!isLoading && (
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]} keyboardShouldPersistTaps="handled">
           <View style={styles.bannerWrapper}>
             {bannerUrl ? (
               <Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />
@@ -142,13 +142,7 @@ export default function EditProfileScreen() {
               <Text style={styles.bannerButtonText}>{uploadingBanner ? t("common.uploading") : t("profile.changeBanner")}</Text>
             </Pressable>
 
-            <View style={styles.avatarWrapper}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" />
-              ) : (
-                <Text style={styles.avatarInitials}>{initials(name || "?")}</Text>
-              )}
-            </View>
+            <Avatar uri={avatarUrl} name={name || "?"} style={styles.avatarWrapper} textStyle={styles.avatarInitials} />
           </View>
 
           <Pressable style={styles.avatarButton} onPress={handleChangeAvatar} disabled={uploadingAvatar}>

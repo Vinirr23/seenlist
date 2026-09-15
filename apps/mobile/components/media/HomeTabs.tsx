@@ -26,6 +26,14 @@ export function HomeTabs({ active, onChange }: { active: HomeTab; onChange: (tab
       <SlidingTabs
         active={active}
         onChange={onChange}
+        /*
+         * A cápsula fica AZUL em "Em breve" — é o que o web faz
+         * (`HomeTabs.tsx`, TASK-063: "diferenciar visualmente 'Em
+         * breve'"). Como o rótulo é genérico, isso vale pras duas telas
+         * que usam este componente (Séries e Filmes) de uma vez, sem
+         * prop nova em nenhuma delas.
+         */
+        tone={active === "em-breve" ? "blue" : "amber"}
         options={[
           { value: "minha-lista", label: t("seriesHome.tab.myList") },
           { value: "em-breve", label: t("seriesHome.tab.upcoming") },

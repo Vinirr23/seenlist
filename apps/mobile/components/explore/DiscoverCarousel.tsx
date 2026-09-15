@@ -8,7 +8,7 @@ import { fetchLibraryStatusesFor } from "@/lib/discover";
 import { tmdbImageUrl } from "@/lib/library";
 import { AddToLibraryButton } from "./AddToLibraryButton";
 import { PressableScale, Glass } from "@/components/ui";
-import { colors, radius, spacing, elevation } from "@/lib/theme";
+import { colors, spacing, elevation } from "@/lib/theme";
 
 /**
  * PADRONIZADO COM O WEB (2026-09-02, a pedido — "o tamanho dos cards
@@ -170,7 +170,8 @@ function DiscoverCard({ item, status }: { item: DiscoverItem; status: string | n
      * (`GenreChips`/`ExploreTabs`, já em vidro) e com o web.
      */
     <PressableScale style={styles.card} onPress={handlePress}>
-      <Glass style={styles.posterWrapper}>
+      {/* `medium`: o web usa `blur-[14px]` + brilho 0.16 sobre base 0.09 aqui, não a receita de cartão (18px / 0.17 / 0.10) — estava caindo no padrão `card` por omissão. */}
+      <Glass style={styles.posterWrapper} variant="medium">
         {posterUrl ? (
           <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
         ) : (
@@ -185,8 +186,9 @@ function DiscoverCard({ item, status }: { item: DiscoverItem; status: string | n
 }
 
 const styles = StyleSheet.create({
+  /** `mb-8` = 32 no web; era `spacing.lg` = 24. */
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: 32,
   },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24) em
@@ -201,7 +203,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.xs,
-    marginBottom: spacing.sm,
+    /* `mb-3` = 12 no web; era `spacing.sm` = 8. */
+    marginBottom: 12,
     paddingHorizontal: spacing.md,
   },
   titleGrow: {
@@ -220,13 +223,25 @@ const styles = StyleSheet.create({
     // hidden`, que cortaria a sombra).
     ...elevation.low,
     width: CARD_WIDTH,
-    borderRadius: radius.md,
+    /* `rounded-lg` = 8 no web; era `radius.md` = 10. */
+    borderRadius: 8,
   },
+  /**
+   * PORTE DO WEB (2026-09-09) — a caixa do pôster não tinha borda nem
+   * fundo. No `DiscoverCard.tsx` do web ela é vidro:
+   * `rounded-lg border border-white/10 backdrop-blur-[14px]
+   * backdrop-saturate-[180%]` sobre `radial-gradient(70% 80% at 20%
+   * 15%, rgba(255,255,255,0.16), transparent 60%),
+   * rgba(255,255,255,0.09)` — a MESMA receita `medium` do
+   * `PosterGrid`, e o comentário do web confirma ("mesmo padrão de
+   * DiscoverCard.tsx").
+   */
   posterWrapper: {
     position: "relative",
     width: CARD_WIDTH,
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    borderRadius: 8,
+    overflow: "hidden",
   },
   poster: {
     width: "100%",
@@ -240,7 +255,8 @@ const styles = StyleSheet.create({
   skeletonCard: {
     width: CARD_WIDTH,
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    /* `rounded-lg` = 8, igual ao card de verdade. */
+    borderRadius: 8,
     backgroundColor: colors.surface,
   },
 });

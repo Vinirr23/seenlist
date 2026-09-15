@@ -1,19 +1,23 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import type { Review } from "@/lib/social/reviews";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
-import { colors, radius, spacing, elevation } from "@/lib/theme";
+import { colors, radius, spacing } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
+/**
+ * PORTE DO WEB (2026-09-04, "vidro que falta") — vira `<Glass>` (web:
+ * "mesma textura de card neutro do resto do app").
+ */
 export function ReviewCard({ review, initial }: { review: Review; initial?: { count: number; hasLiked: boolean } }) {
   const router = useRouter();
 
   return (
-    <View style={styles.card}>
+    <Glass style={styles.card}>
       <View style={styles.header}>
         <Pressable style={styles.authorRow} onPress={() => router.push(`/u/${review.author.username}`)}>
           <Text style={styles.authorName}>{review.author.displayName ?? review.author.username}</Text>
@@ -31,18 +35,15 @@ export function ReviewCard({ review, initial }: { review: Review; initial?: { co
       )}
 
       <LikeButton targetType="review" targetId={review.id} initial={initial} />
-    </View>
+    </Glass>
   );
 }
 
 const styles = StyleSheet.create({
+  // `Glass` não define raio — web usa `rounded-2xl` (16px) = `radius.lg`.
   card: {
-    ...elevation.low,
     gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.sm + 2,
   },
   header: {

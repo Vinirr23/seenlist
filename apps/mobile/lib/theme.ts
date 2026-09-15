@@ -174,20 +174,473 @@ export const fontSize = {
  * apagando pro canto oposto) como aproximação do "brilho concentrado"
  * do radial do web. Mesma ideia, sem a curvatura exata.
  */
+/**
+ * AUDITORIA DO SISTEMA DE VIDRO (2026-09-04, a pedido — "identifique o
+ * sistema de glass que já existe no web e reutilize os mesmos valores,
+ * não crie um novo").
+ *
+ * O web NÃO tem classe nem token central de vidro: `globals.css` só
+ * define as cores. O que existe é um sistema DE FATO — as mesmas
+ * receitas repetidas literalmente dezenas de vezes nos componentes.
+ * Levantadas por contagem em `apps/web/components` (frequência real):
+ *
+ *  27×  0.13 / 0.06  `radial-gradient(75% 100% at 14% 15%, …, transparent 60%)`  blur 10px  → chip, linha
+ *  23×  0.17 / 0.10  idem                                                        blur 18px  → cartão
+ *  23×  0.16 / 0.09  `radial-gradient(70% 80% at 20% 15%, …, transparent 60%)`   blur 14px  → intermediário
+ *  15×  0.26 / 0.10  `radial-gradient(70% 75% at 25% 20%, …, transparent 65%)`   blur 10px  → botão-círculo sobre imagem
+ *   8×  0.17 / rgba(20,22,30,0.85)                                               blur 18px  → painel escuro (dropdown/sheet)
+ *
+ * São essas cinco abaixo, com os números do web, sem arredondar.
+ *
+ * DUAS DIFERENÇAS ESTRUTURAIS que o mobile tinha e o web não (as duas
+ * corrigidas junto com este token — ver `components/ui/Glass.tsx`):
+ *
+ * 1. O mobile usava UMA receita só — a mais leve (0.13/0.06, que no
+ *    web é de chip) — em TUDO, inclusive em cartão, que no web é
+ *    0.17/0.10. Todo cartão do app estava mais apagado que o do web.
+ * 2. O mobile desenhava um `LinearGradient` atravessando a superfície
+ *    inteira; o web é BASE CHAPADA + brilho radial de CANTO que morre
+ *    aos 60%. Estruturas diferentes: o web tem corpo uniforme com um
+ *    glint no canto, o mobile tinha lavagem de ponta a ponta.
+ *
+ * CALIBRAÇÃO APROVADA (2026-09-04, validada no aparelho pelo usuário
+ * usando o card de Estatísticas como corpo de prova) — o `base` de cada
+ * receita NÃO é mais o branco literal do web. Motivo medido, não
+ * estético: o `BlurView` do Android soma um véu claro próprio que o CSS
+ * não tem, então o mesmo branco chega ~7% mais claro aqui e lava o card
+ * pra cinza. Resolvendo a composição contra os pixels do web em duas
+ * zonas (uma sem glow, outra com), a cor de véu que reproduz o
+ * resultado dele é `rgb(80,115,180)` — azul, não branca.
+ *
+ * O ALFA de cada receita continua sendo o do web (0.06 / 0.10 / 0.09 /
+ * 0.10): a transparência não mudou, o glow segue passando. Só a COR do
+ * véu mudou. Na prática é o `backdrop-saturate-[180%]` reaparecendo —
+ * no web ele satura o azul do fundo no composite; como o `expo-blur`
+ * não sabe saturar, o mesmo efeito vem de tingir o véu de azul.
+ *
+ * A receita `dark` (painel de dropdown) não muda: ela já é escura.
+ *
+ * `blurIntensity` é o único valor que não dá pra copiar: o web mede em
+ * px de `backdrop-filter`, o `expo-blur` usa escala própria 0-100 sem
+ * equivalência documentada. Mantida a proporção já calibrada no
+ * aparelho (18px ↔ 45) e estendida por regra de três — aproximação
+ * assumida, não medida.
+ */
+export type GlassVariantName = "light" | "card" | "medium" | "icon" | "dark" | "dock" | "pill" | "subtle";
+
+export interface GlassVariant {
+  /** Cor de base chapada (no web, o valor depois da vírgula no `background`). */
+  base: string;
+  /** Cor no centro do brilho radial de canto. */
+  highlight: string;
+  /** Geometria do `radial-gradient` do web: raios (% da largura/altura) e centro (%). */
+  highlightRadiusX: number;
+  highlightRadiusY: number;
+  highlightCenterX: number;
+  highlightCenterY: number;
+  /** Parada `transparent N%` — onde o brilho já sumiu de vez. */
+  highlightStop: number;
+  /** Escala 0-100 do `expo-blur` (ver nota sobre conversão acima). */
+  blurIntensity: number;
+  /**
+   * `backdrop-saturate` do web, quando a superfície tem. NEM TODA tem:
+   * cartões e a barra de navegação usam `backdrop-saturate-[180%]`, mas
+   * as pílulas de contagem do Perfil (`ProfileHeader.tsx`) têm só
+   * `backdrop-blur-md` — sem saturação nenhuma. Ausente aqui = não
+   * aplica filtro, igual ao web.
+   */
+  saturate?: number;
+  border: string;
+}
+
+/**
+ * DE VOLTA A `45 / 18` (2026-09-09, 2ª medição — a 1ª estava errada e
+ * fica registrada porque o erro é instrutivo).
+ *
+ * A 1ª medição foi INDIRETA: vi que o card amplificava o fundo 1.03×
+ * contra 1.73× do web, e que o lado escuro do card estava acima do web
+ * e o iluminado abaixo. Chamei isso de "achatamento = desfoque demais",
+ * calculei σb = 45 e, como o `blurIntensity` do card era 45, concluí
+ * que a escala do `expo-blur` era o raio em dp. Troquei o fator 2.5
+ * por 1.
+ *
+ * A 2ª medição é DIRETA, e desmente aquilo. Na barra de navegação, que
+ * agora desfoca conteúdo de verdade, dá pra medir o desfoque pelo que
+ * ele faz: quanto ele ALARGA as feições do que está atrás (largura de
+ * correlação a meia altura, numa faixa sem ícone nem texto):
+ *
+ *                    atrás    dentro da barra    alargamento
+ *     web              9            39              4.33×
+ *     mobile          11            11              1.00×
+ *
+ * Com `intensity = 18` a barra não alarga NADA — não há desfoque. Dá
+ * pra ver a olho: o texto "JACKSON" do pôster continua legível através
+ * da barra do mobile, e no web nenhum texto sobrevive. Os 4.33× do web
+ * correspondem a σ ≈ 16-18, ou seja o `blur(18px)` do CSS confere.
+ *
+ * Portanto 18 na escala do `expo-blur` é quase zero, e o `45 / 18`
+ * original — que o comentário antigo dizia ter sido "validado no
+ * aparelho" — estava certo. A conta de σb = 45 do card media outra
+ * coisa; o que falta de amplificação lá é o `saturate` não entregando
+ * os 1.8 pedidos, não desfoque a mais.
+ */
+const PX_TO_BLUR_INTENSITY = 45 / 18;
+
+export const glassVariants: Record<GlassVariantName, GlassVariant> = {
+  light: {
+    base: "rgba(80,115,180,0.06)",
+    highlight: "rgba(255,255,255,0.13)",
+    highlightRadiusX: 75,
+    highlightRadiusY: 100,
+    highlightCenterX: 14,
+    highlightCenterY: 15,
+    highlightStop: 60,
+    blurIntensity: Math.round(10 * PX_TO_BLUR_INTENSITY),
+    /*
+     * 1.6, não 1.8: os usos desta receita no web (`SectionTitle.tsx`,
+     * `HomeTabs.tsx`, `GenreChips.tsx`, `ExploreTabs.tsx`) pedem
+     * `backdrop-saturate-[160%]`. O 180% é dos CARTÕES.
+     */
+    saturate: 1.6,
+    border: "rgba(255,255,255,0.1)",
+  },
+  card: {
+    base: "rgba(80,115,180,0.10)",
+    highlight: "rgba(255,255,255,0.17)",
+    highlightRadiusX: 75,
+    highlightRadiusY: 100,
+    highlightCenterX: 14,
+    highlightCenterY: 15,
+    highlightStop: 60,
+    blurIntensity: Math.round(18 * PX_TO_BLUR_INTENSITY),
+    saturate: 1.8,
+    border: "rgba(255,255,255,0.1)",
+  },
+  medium: {
+    base: "rgba(80,115,180,0.09)",
+    highlight: "rgba(255,255,255,0.16)",
+    highlightRadiusX: 70,
+    highlightRadiusY: 80,
+    highlightCenterX: 20,
+    highlightCenterY: 15,
+    highlightStop: 60,
+    blurIntensity: Math.round(14 * PX_TO_BLUR_INTENSITY),
+    saturate: 1.8,
+    border: "rgba(255,255,255,0.1)",
+  },
+  /**
+   * EXCEÇÃO DELIBERADA À CALIBRAÇÃO AZUL (2026-09-04) — esta receita é a
+   * dos botões redondos que ficam SOBRE A FOTO de capa
+   * (`GLASS_ICON_BTN` no `ProfileHeader.tsx` do web), não sobre o fundo
+   * navy do app. O véu azul das outras receitas existe pra compensar a
+   * composição contra um fundo escuro conhecido; aqui o que tem atrás é
+   * uma fotografia qualquer, e o vidro precisa ser NEUTRO pra deixar a
+   * cor dela mandar. Por isso volta o branco literal do web — se a capa
+   * for marrom, o botão fica marrom; se for azul, fica azul.
+   *
+   * `blurIntensity` vem do `backdrop-blur-md` (12px) que o
+   * `ProfileHeader.tsx` usa nesses botões — não dos 10px das outras
+   * ocorrências da receita.
+   */
+  icon: {
+    base: "rgba(255,255,255,0.10)",
+    highlight: "rgba(255,255,255,0.26)",
+    highlightRadiusX: 70,
+    highlightRadiusY: 75,
+    highlightCenterX: 25,
+    highlightCenterY: 20,
+    highlightStop: 65,
+    blurIntensity: Math.round(12 * PX_TO_BLUR_INTENSITY),
+    saturate: 1.8,
+    border: "rgba(255,255,255,0.15)",
+  },
+  /**
+   * BARRA DE NAVEGAÇÃO (2026-09-09, medida no print do web) — mesma
+   * geometria da receita `card` (o web usa a MESMA string de
+   * `background` e o mesmo `backdrop-blur-[18px]` nas duas), com UMA
+   * diferença deliberada: a base é BRANCA literal, não o azul
+   * compensado.
+   *
+   * O porquê é o mesmo já documentado na receita `icon`: o véu azul das
+   * outras receitas existe pra compensar a composição contra o fundo
+   * navy CONHECIDO do app. A barra flutua sobre o que estiver rolando
+   * embaixo — pôster, capa, lista — e um véu azul tingiria tudo isso de
+   * azul. O web ali é `rgba(255,255,255,0.10)` puro.
+   *
+   * Conferência numérica no print do web (barra sobre o fundo escuro,
+   * "Minhas listas"): fundo (11,16,24) → `saturate(180%)` → (7,16,31)
+   * → + branco 0.10 → (32,40,53). Medido na barra: (33,39,51). A
+   * receita bate.
+   */
+  dock: {
+    /*
+     * O branco literal do web. Uma rodada baixou isto pra 0.065, com
+     * base numa medida de "quanto a barra clareia o que está atrás"
+     * (web +18, mobile +27). Aquela medida foi feita quando a barra
+     * ainda não desfocava nada — o +27 vinha do conteúdo nítido
+     * aparecendo por baixo, não de véu a mais. Medida inválida,
+     * revertida. Recalibrar só depois de ver a barra com o desfoque
+     * funcionando.
+     */
+    base: "rgba(255,255,255,0.10)",
+    highlight: "rgba(255,255,255,0.17)",
+    highlightRadiusX: 75,
+    highlightRadiusY: 100,
+    highlightCenterX: 14,
+    highlightCenterY: 15,
+    highlightStop: 60,
+    blurIntensity: Math.round(18 * PX_TO_BLUR_INTENSITY),
+    saturate: 1.8,
+    border: "rgba(255,255,255,0.06)",
+  },
+  /**
+   * PÍLULAS DE CONTAGEM DO PERFIL (Seguindo/Seguidores/Comentários).
+   * Elas NÃO usam a receita `card`: o `ProfileHeader.tsx` do web dá a
+   * elas um `background` próprio —
+   *
+   *     radial-gradient(75% 90% at 22% 12%, rgba(255,255,255,0.18),
+   *                     transparent 60%),
+   *     rgba(255,255,255,0.10)
+   *
+   * com `backdrop-blur-md` (12px) e `border-white/10`. Centro,raios e
+   * opacidade do brilho são todos diferentes dos da receita `card`
+   * (0.17 em 75%/100% at 14%/15%).
+   *
+   * BASE BRANCA, não o azul compensado das outras receitas — e isto é
+   * medição, não cópia do CSS. No print do web, a pílula do meio (a que
+   * fica sobre fundo neutro) clareia o que está atrás em
+   * (+33.4, +32.2, +32.2): igual nos três canais, ou seja véu BRANCO.
+   * O azul das outras receitas existe pra compensar composição contra o
+   * navy do app; aqui o web não compensa nada.
+   *
+   * A opacidade do brilho é 0.208 e não os 0.18 do web porque o PNG
+   * pré-desfocado que faz o papel do `radial-gradient` (`glow-soft.png`,
+   * ver `Glass.tsx`) tem alpha 0.867 no próprio centro, não 1.0 —
+   * 0.18 / 0.867 = 0.208 devolve o pico do web. O resto do perfil dele
+   * cai mais rápido que a rampa linear do CSS (0.31 contra 0.50 na
+   * metade do raio), o que deixa o brilho mais concentrado no canto —
+   * que é justamente o que o web mostra.
+   */
+  pill: {
+    /**
+     * 0.08, e não os 0.10 do web — medido (2026-09-09, 3ª rodada).
+     *
+     * O brilho do canto já bate: o excesso dele sobre a base da pílula
+     * ficou (+39,+41,+42) contra (+38,+40,+43) do web, e a queda descendo
+     * a borda esquerda também (+42,+33,+19,+9,+9 no web contra
+     * +42,+30,+12,+9,+9 aqui). O que ainda lia como "brilho forte" era a
+     * pílula INTEIRA mais clara, levantando o canto junto:
+     *
+     *     base da pílula do meio   web (36,39,44)   mobile (41,48,59)
+     *
+     * Parte disso é o fundo do app, que aqui está um degrau da escada
+     * acima (28 de azul contra 20) e não tem conserto — está documentado
+     * no `DITHER_COMPENSATED_BASE` do `Glass.tsx`. O resto, ~5 níveis
+     * iguais nos três canais, é véu a mais: `0.10 − 5/255 = 0.08`.
+     */
+    base: "rgba(255,255,255,0.08)",
+    highlight: "rgba(255,255,255,0.208)",
+    highlightRadiusX: 75,
+    highlightRadiusY: 90,
+    highlightCenterX: 22,
+    highlightCenterY: 12,
+    highlightStop: 60,
+    blurIntensity: Math.round(12 * PX_TO_BLUR_INTENSITY),
+    border: "rgba(255,255,255,0.1)",
+  },
+  /**
+   * PRATELEIRA VAZIA (`EmptyShelf.tsx`). É a receita mais FRACA do web
+   * e não coincide com nenhuma outra:
+   *
+   *     radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.10),
+   *                     transparent 60%),
+   *     rgba(255,255,255,0.04)
+   *     border border-dashed border-white/15
+   *     backdrop-blur-[10px] backdrop-saturate-[160%]
+   *
+   * A `light`, que é a mais próxima, usa 0.13/0.06 e borda 0.10 — mais
+   * forte nos três. O comentário do web chama esta de "toque leve", e
+   * faz sentido: é um espaço VAZIO, não deve competir com conteúdo.
+   *
+   * Base branca, não o azul compensado: a caixa aparece em telas
+   * diferentes, sobre fundos diferentes.
+   */
+  subtle: {
+    base: "rgba(255,255,255,0.04)",
+    highlight: "rgba(255,255,255,0.10)",
+    highlightRadiusX: 75,
+    highlightRadiusY: 100,
+    highlightCenterX: 14,
+    highlightCenterY: 15,
+    highlightStop: 60,
+    blurIntensity: Math.round(10 * PX_TO_BLUR_INTENSITY),
+    saturate: 1.6,
+    border: "rgba(255,255,255,0.15)",
+  },
+  dark: {
+    base: "rgba(20,22,30,0.85)",
+    highlight: "rgba(255,255,255,0.17)",
+    highlightRadiusX: 75,
+    highlightRadiusY: 100,
+    highlightCenterX: 14,
+    highlightCenterY: 15,
+    highlightStop: 60,
+    blurIntensity: Math.round(18 * PX_TO_BLUR_INTENSITY),
+    saturate: 1.8,
+    border: "rgba(255,255,255,0.1)",
+  },
+};
+
 export const glass = {
-  /** Intensidade do blur (escala 0-100 do BlurView) — mesma sensação do `backdrop-blur-[10-18px]` do web. */
-  blurIntensity: 45,
+  /** Blur da receita "cartão" — mantido pra quem já lia daqui. */
+  blurIntensity: glassVariants.card.blurIntensity,
   /** Borda clara sutil — mesmo papel do `border-white/10` do web. */
-  borderNeutral: "rgba(255,255,255,0.1)",
-  /** Camada de gradiente translúcido por cima do blur — mesmo papel do `radial-gradient` sutil do web. */
+  borderNeutral: glassVariants.card.border,
+  /**
+   * MANTIDO SÓ POR COMPATIBILIDADE — não usar em código novo. O brilho
+   * virou radial de canto (`glassVariants`), não mais um degradê linear
+   * de ponta a ponta; ver a nota estrutural acima.
+   */
   gradientNeutral: ["rgba(255,255,255,0.13)", "rgba(255,255,255,0.06)"] as const,
 } as const;
 
 /** "Gel" âmbar — versão OPACA (não translúcida, sem blur) do vidro, pra CTA primário/pílula em destaque. Mesma receita do botão amber do web. */
 export const gel = {
-  gradient: ["rgba(240,169,79,0.95)", "rgba(232,163,61,0.92)", "rgba(176,95,27,0.95)"] as const,
+  /**
+   * CORREÇÃO (2026-09-04, medição do botão mobile × web — "está mais
+   * laranja") — as opacidades estavam MAIS ALTAS que as do web
+   * (0.95/0.92/0.95 contra 0.88/0.85/0.9). Mais opaco sobre o mesmo
+   * âmbar = mais saturado, e era isso que dava o laranja vivo em vez do
+   * dourado sóbrio. Agora são os valores literais do
+   * `radial-gradient` de `StatisticsCard.tsx` do web.
+   */
+  gradient: ["rgba(240,169,79,0.88)", "rgba(232,163,61,0.85)", "rgba(176,95,27,0.9)"] as const,
+  /**
+   * Onde cada parada do gradiente cai — o web usa `0% / 42% / 100%`. Sem
+   * isso o `LinearGradient` distribui em 0/50/100, e o tom médio ficava
+   * baixo demais, achatando a descida até o âmbar escuro da base.
+   */
+  gradientLocations: [0, 0.42, 1] as const,
+  /**
+   * PERFIL CALIBRADO (2026-09-04) — só pro caso `webCalibrated` do
+   * `GelSurface`. As 3 paradas do CSS descrevem um RADIAL; convertidas
+   * pra uma linear vertical elas descem em linha reta, e o botão ficava
+   * marrom já na metade. O perfil real do web, medido linha a linha no
+   * canal R (0 = topo do botão, 1 = base):
+   *
+   *     altura   web   mobile-antes
+   *      10%     211       210
+   *      30%     211       205
+   *      50%     201       195
+   *      70%     204       184     <- 20 de diferença
+   *      90%     179       170
+   *
+   * Ou seja o web fica PLANO no dourado até ~35%, tem um platô longo no
+   * meio e só desaba nos últimos ~15%. Motivo: o radial do web nunca
+   * chega na 3ª parada dentro da caixa do botão — ele cobre só parte da
+   * rampa. Uma linear de 3 paradas percorre a rampa inteira, e por isso
+   * escurecia cedo.
+   *
+   * Estas 4 paradas são a curva do web lida de volta: cada cor foi
+   * obtida invertendo a composição (`Rg = (medido - 3.9) / 0.87`) e
+   * reinterpolando sobre a própria rampa do CSS — nenhuma cor nova foi
+   * inventada, são pontos DE DENTRO do gradiente original.
+   */
+  gradientCalibrated: [
+    "rgba(240,169,79,0.88)",
+    "rgba(238,168,75,0.87)",
+    "rgba(224,153,56,0.86)",
+    "rgba(191,113,36,0.89)",
+  ] as const,
+  gradientCalibratedLocations: [0, 0.35, 0.7, 1] as const,
   /** Reflexo claro no topo — aproximação do inset box-shadow do web (RN não tem sombra interna). */
   highlight: ["rgba(255,255,255,0.35)", "rgba(255,255,255,0)"] as const,
+  /**
+   * A sombra interna de baixo do "gel" (`inset 0 -4px 7px
+   * rgba(120,66,10,0.4)` no web) — estava literal dentro do
+   * `GelSurface`; virou valor nomeado porque a versão AZUL precisa da
+   * mesma coisa com outra cor.
+   */
+  insetBottom: "rgba(120,66,10,0.4)" as const,
+  /**
+   * A BORDA do "gel", uma cor por lado — os valores que estão no
+   * `gelWrap` do `Glass.tsx` desde a rodada em que o botão "Ver
+   * detalhes" foi aprovado. Vieram pra cá porque agora têm dois donos:
+   * o botão e a cápsula das abas.
+   *
+   * São cores OPACAS, não o `border-white/15` do web, e isso é
+   * deliberado: a caixa tem `overflow: "hidden"` e o degradê é filho
+   * absoluto, então ele para na caixa de padding — uma borda com alfa
+   * comporia com o que está ATRÁS da caixa, não com o gel, e sairia
+   * acinzentada. Os valores abaixo são o resultado já composto, medido
+   * contra o print do web.
+   */
+  border: {
+    top: "rgb(230,180,114)",
+    bottom: "rgb(213,162,93)",
+    left: "rgb(211,166,104)",
+    right: "rgb(211,166,104)",
+  } as const,
+} as const;
+
+/**
+ * "Gel" AZUL — a mesma pílula do `gel` acima, na cor que o web usa
+ * quando a aba "Em breve" está ativa (`HomeTabs.tsx`):
+ *
+ *     radial-gradient(130% 170% at 28% 18%,
+ *       rgba(90,165,235,0.9) 0%, rgba(58,133,206,0.88) 42%,
+ *       rgba(24,78,140,0.92) 100%)
+ *     inset 0 1px 0 rgba(255,255,255,0.35),
+ *     inset 0 -4px 7px rgba(10,50,90,0.4)
+ *
+ * O porquê está no comentário do web: "Em breve" é sobre o que ainda
+ * vai chegar, não sobre o que já se acompanha — a cor diferencia isso
+ * de cara. Mesmas paradas (0/42/100) do âmbar.
+ */
+export const gelBlue = {
+  gradient: ["rgba(90,165,235,0.9)", "rgba(58,133,206,0.88)", "rgba(24,78,140,0.92)"] as const,
+  gradientLocations: [0, 0.42, 1] as const,
+  /**
+   * A versão CALIBRADA, equivalente ao `gel.gradientCalibrated` — é
+   * esta que as abas usam, porque o pedido foi "no HomeTabs o design é
+   * o mesmo do botão VER DETALHES", e aquele botão usa a calibrada.
+   *
+   * Como saiu: as 3 paradas do web reamostradas em 4 (0 / 0.35 / 0.7 /
+   * 1, iguais às do âmbar) e depois clareadas pelo MESMO delta que a
+   * calibração do âmbar aplicou em cada parada — +5/+4/+11 na segunda,
+   * +19/+23/+11 na terceira, +15/+18/+9 na quarta. Aquele delta veio de
+   * medir o print: o degradê linear do RN devolve o radial do web mais
+   * escuro no meio e embaixo, e isso é da RENDERIZAÇÃO, não da matiz —
+   * por isso vale igual no azul.
+   *
+   * RESSALVA REGISTRADA: o delta é herdado, não medido no azul. Quando
+   * houver um print com "Em breve" ativo, vale reconferir.
+   */
+  gradientCalibrated: [
+    "rgba(90,165,235,0.9)",
+    "rgba(68,142,222,0.87)",
+    "rgba(61,129,185,0.86)",
+    "rgba(39,96,149,0.89)",
+  ] as const,
+  gradientCalibratedLocations: [0, 0.35, 0.7, 1] as const,
+  highlight: ["rgba(255,255,255,0.35)", "rgba(255,255,255,0)"] as const,
+  insetBottom: "rgba(10,50,90,0.4)" as const,
+  /**
+   * A borda do gel azul. Mesma natureza da âmbar (opaca, já composta),
+   * obtida pela MESMA conta que gerou aquela: `branco 15%` sobre a cor
+   * do degradê naquele lado, mais o delta que a medição do âmbar
+   * mostrou contra o print do web — topo (−12,−2,+9), base
+   * (+12,+28,+24), lados (−18,−2,+18).
+   *
+   * RESSALVA REGISTRADA: o delta é herdado do âmbar, não medido no
+   * azul. Vale reconferir quando houver print com "Em breve" ativo.
+   */
+  border: {
+    top: "rgb(103,176,247)",
+    bottom: "rgb(83,148,189)",
+    left: "rgb(72,146,214)",
+    right: "rgb(72,146,214)",
+  } as const,
 } as const;
 
 /**

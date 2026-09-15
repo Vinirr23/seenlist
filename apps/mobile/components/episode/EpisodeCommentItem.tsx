@@ -1,27 +1,17 @@
 import { useState } from "react";
 import { View, TextInput, Pressable, Alert, StyleSheet } from "react-native";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { CommentNode } from "@/lib/social/mediaComments";
 import { SpoilerGate } from "@/components/reviews/SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
-import { Text, Button } from "@/components/ui";
+import { Text, Button, Glass } from "@/components/ui";
+import { Avatar } from "@/components/common/Avatar";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
-import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((w) => w.length > 1)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
 
 /**
  * TASK-122/123/129/132/133 — porta de `CommentItem.tsx`, com
@@ -90,8 +80,14 @@ export function EpisodeCommentItem({
     ]);
   }
 
+  // PORTE DO WEB (2026-09-04, "vidro que falta") — só o comentário-raiz
+  // (depth 0) vira card `<Glass>`; respostas (depth > 0) continuam sem
+  // card próprio, só indentação (mesmo critério do `CommentItem.tsx`
+  // do web).
+  const Container = depth === 0 ? Glass : View;
+
   return (
-    <View style={depth === 0 ? styles.card : styles.nested}>
+    <Container style={depth === 0 ? styles.card : styles.nested}>
       {editing ? (
         <View>
           <TextInput value={editBody} onChangeText={setEditBody} multiline autoFocus style={styles.editInput} />
@@ -110,13 +106,7 @@ export function EpisodeCommentItem({
         <View style={styles.row}>
           <View style={styles.headerRow}>
             <Pressable style={styles.authorRow} onPress={() => router.push(`/u/${comment.author.username}`)}>
-              <View style={styles.avatar}>
-                {comment.author.avatarUrl ? (
-                  <Image source={{ uri: comment.author.avatarUrl }} style={styles.avatarImage} />
-                ) : (
-                  <Text style={styles.avatarInitials}>{initials(displayName)}</Text>
-                )}
-              </View>
+              <Avatar uri={comment.author.avatarUrl} name={displayName} style={styles.avatar} textStyle={styles.avatarInitials} />
               <Text style={styles.authorName}>{displayName}</Text>
             </Pressable>
             <Text variant="muted" style={styles.date}>
@@ -171,19 +161,18 @@ export function EpisodeCommentItem({
           ))}
         </View>
       )}
-    </View>
+    </Container>
   );
 }
 
 const AVATAR_SIZE = 28;
 
 const styles = StyleSheet.create({
+  // Raio de `radius.md` (10) → `radius.lg` (16): web usa `rounded-2xl`
+  // no comentário-raiz (`CommentItem.tsx`). `Glass` não define raio
+  // nenhum sozinho, então ele PRECISA ficar aqui.
   card: {
-    ...elevation.low,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.sm,
     marginBottom: spacing.md,
   },

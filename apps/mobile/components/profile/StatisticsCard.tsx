@@ -1,5 +1,6 @@
-import { View, Pressable, ScrollView, StyleSheet } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+// `ScrollView` saiu daqui: era resto do carrossel revertido em
+// 2026-09-03 (ver "REVERTIDO" na doc do componente), já não tinha uso.
+import { View, Image, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useProfileStats } from "@/lib/useProfileStats";
@@ -9,6 +10,66 @@ import { PageError } from "../media/PageError";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+
+/**
+ * Mesma imagem de brilho já desfocada usada pelo `AmbientGlow`
+ * (`components/ui/Glass.tsx`) e pelo brilho da aba ativa da barra
+ * (`app/(tabs)/_layout.tsx`) — ver o histórico completo no `Glass.tsx`:
+ * um `LinearGradient` NÃO reproduz `radial-gradient` (não tem queda
+ * radial, a mancha vira faixa/círculo de borda definida), e a solução
+ * validada no aparelho foi o PNG que já nasce borrado, colorido por
+ * `tintColor`.
+ */
+const GLOW_IMAGE = require("../../assets/images/glow-soft.png");
+
+/**
+ * CORREÇÃO (2026-09-04, print real mobile × web lado a lado — "está um
+ * pouco diferente") — o card saía CINZA LAVADO, e por tabela a legenda
+ * de cada métrica sumia (mesmo `colors.muted` do web, #8C93A8: o
+ * problema nunca foi a cor do texto, foi o fundo atrás dele ficar
+ * claro demais e comer o contraste).
+ *
+ * Causa raiz: o web pinta DUAS manchas RADIAIS pequenas, de canto —
+ * `radial-gradient(55% 65% at 14% 10%, rgba(255,255,255,0.17),
+ * transparent 55%)` e `radial-gradient(50% 55% at 92% 100%,
+ * rgba(42,127,184,0.18), transparent 60%)`. Eu tinha portado as duas
+ * como `LinearGradient` do canto superior esquerdo até (0.7, 0.65):
+ * um véu branco cobrindo ~2/3 do card, onde o web tem um brilho de
+ * canto que já morre aos 55%. Somando com o `gradientNeutral` que o
+ * próprio `Glass` desenha, o miolo do card ficava ~1,7× mais branco
+ * que o web.
+ *
+ * A geometria abaixo é lida direto do CSS: numa `radial-gradient` com
+ * tamanho explícito, `55% 65%` são os raios (da largura e da altura da
+ * caixa) da elipse final, e `transparent 55%` corta a 55% desse raio —
+ * então o brilho VISÍVEL tem raio 0,55 × 55% ≈ 30% da largura e
+ * 0,55 × 65% ≈ 36% da altura, centrado em (14%, 10%). A caixa da
+ * imagem é o dobro disso, deslocada pra manter o mesmo centro. O
+ * `Glass` já tem `overflow: "hidden"`, então o que passa da borda é
+ * recortado igual ao CSS faz.
+ */
+const CARD_GLOWS = [
+  {
+    key: "white",
+    tint: "rgb(255,255,255)",
+    opacity: 0.17,
+    // centro (14%, 10%), raio visível ~30%×36% → caixa 60%×72%
+    left: "-16%",
+    top: "-26%",
+    width: "60%",
+    height: "72%",
+  },
+  {
+    key: "blue",
+    tint: "rgb(42,127,184)",
+    opacity: 0.18,
+    // centro (92%, 100%), raio visível ~30%×33% → caixa 60%×66%
+    left: "62%",
+    top: "67%",
+    width: "60%",
+    height: "66%",
+  },
+] as const;
 
 /**
  * TASK-116 (correção — Perfil) — porta de `StatisticsCard.tsx`.
@@ -81,6 +142,12 @@ export function StatisticsCard() {
     { label: t("profile.stats.timeWatchingMovies"), value: movieTime.primary, icon: "video" },
   ];
 
+  /*
+   * Este card foi o corpo de prova da calibração do vidro (2026-09-04,
+   * aprovada no aparelho): a cor do véu, medida contra os pixels do
+   * web, virou o `base` das receitas em `lib/theme.ts` e vale pra todo
+   * `Glass` do app. Nada especial aqui — usa o padrão, como os outros.
+   */
   return (
     <Glass style={styles.card}>
       {/*
@@ -96,27 +163,35 @@ export function StatisticsCard() {
         * pílulas de contagem do Perfil (`profile.tsx`) — ajuste no
         * COMPONENTE, `Glass.tsx` continua intocado.
         */}
-      <LinearGradient
-        colors={["rgba(255,255,255,0.17)", "rgba(255,255,255,0)"]}
-        start={{ x: 0.14, y: 0.1 }}
-        end={{ x: 0.7, y: 0.65 }}
-        style={StyleSheet.absoluteFillObject}
-        pointerEvents="none"
-      />
-      <LinearGradient
-        colors={["rgba(42,127,184,0)", "rgba(42,127,184,0.18)"]}
-        start={{ x: 0.35, y: 0.3 }}
-        end={{ x: 0.92, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-        pointerEvents="none"
-      />
+      {/* `pointerEvents` é prop de `View`, não de `Image` — daí a View em volta (mesma caixa, geometria inalterada). */}
+      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+        {CARD_GLOWS.map((glow) => (
+          <Image
+            key={glow.key}
+            source={GLOW_IMAGE}
+            // `stretch` (e não `cover`): o web usa raios diferentes pra
+            // largura e altura, ou seja uma ELIPSE — esticar a imagem na
+            // caixa calculada é o que reproduz isso.
+            resizeMode="stretch"
+            style={{
+              position: "absolute",
+              left: glow.left,
+              top: glow.top,
+              width: glow.width,
+              height: glow.height,
+              tintColor: glow.tint,
+              opacity: glow.opacity,
+            }}
+          />
+        ))}
+      </View>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Feather name="bar-chart-2" size={16} color={colors.primary} />
           <Text variant="label">{t("profile.statistics")}</Text>
         </View>
         <Pressable onPress={() => router.push("/profile/stats")}>
-          <GelSurface style={styles.pillButton}>
+          <GelSurface style={styles.pillButton} webCalibrated>
             <Text style={styles.pillButtonText}>{t("profile.viewDetails")}</Text>
             <Feather name="chevron-right" size={12} color={colors.background} />
           </GelSurface>
@@ -175,6 +250,17 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
     padding: spacing.md,
+    /*
+     * A borda deste card NÃO é definida aqui de propósito. Ela vem do
+     * `Glass` com a prop `rim`, que pinta COR POR LADO no mesmo anel de
+     * 1px (topo claro, laterais no 0.10 literal do web, base escura) —
+     * ver `rimBorder` em `components/ui/Glass.tsx`, com a medição.
+     *
+     * Uma tentativa anterior fixava `borderColor` uniforme em 0.06 aqui.
+     * Removida: como o `style` do componente é a ÚLTIMA camada do array
+     * no `Glass`, ela sobrescrevia as cores por lado e apagava
+     * justamente a espessura de vidro que se queria.
+     */
   },
   cardStatic: {
     backgroundColor: colors.surface,
@@ -191,13 +277,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
+  /**
+   * CORREÇÃO (2026-09-04, print real mobile × web) — a pílula estava
+   * visivelmente menor que a do web. Valores do web
+   * (`StatisticsCard.tsx`, classes do `Link`): `px-3.5` = 14px,
+   * `py-2` = 8px, `gap-1` = 4px. Eu tinha 10 / 4 / 2 — cada um pela
+   * metade ou perto disso, o que encolhia o botão inteiro.
+   */
   pillButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: spacing.xs,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    /**
+     * CORREÇÃO (2026-09-04, medido) — o web usa `py-2` (8) e o mobile
+     * também usava, mas a altura final saía menor: normalizando pela
+     * largura do card, 7.51% contra 7.78% do web (~1px a menos). A causa
+     * é a caixa de linha: o mesmo texto de 11px ocupa menos altura no RN
+     * do que no navegador. Meio pixel de cada lado fecha exatamente essa
+     * diferença, sem mexer em fonte nem em largura.
+     */
+    paddingVertical: spacing.sm + 0.5,
   },
   /**
    * CORREÇÃO (2026-09-03, a pedido — "o botão 'ver detalhes' ainda não
@@ -213,6 +314,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.background,
     textTransform: "uppercase",
+    /** `tracking-wide` do web = 0.025em; a 11px dá ~0.275px. Faltava aqui. */
+    letterSpacing: 0.275,
   },
   /**
    * Grade 2×2 (ver comentário "REVERTIDO" no topo do arquivo) — igual

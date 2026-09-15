@@ -9,6 +9,7 @@ import { LikeButton } from "@/components/feed/LikeButton";
 import { Screen, Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -21,6 +22,14 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  * apontando pra este comentário.
  */
 export default function PostCommentDetailScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { id: postId, commentId } = useLocalSearchParams<{ id: string; commentId: string }>();
   const { tree, isLoading, sending, submit, remove } = usePostComments(String(postId));
@@ -44,7 +53,7 @@ export default function PostCommentDetailScreen() {
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
         {isLoading ? (
           <AvatarRowSkeleton count={1} />
         ) : !comment ? (

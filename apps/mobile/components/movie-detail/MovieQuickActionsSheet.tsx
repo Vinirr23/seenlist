@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { View, Modal, Pressable, TextInput, ScrollView, Share, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMyLists } from "@/lib/useMyLists";
 import { addToList } from "@/lib/lists";
 import { removeMovieFromLibrary } from "@/lib/movieDetails";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
-import { Text, Skeleton } from "@/components/ui";
+import { Text, Skeleton, Glass } from "@/components/ui";
 import { colors, radius, spacing, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { RecommendSheet } from "../social/RecommendSheet";
@@ -27,6 +27,23 @@ type SheetView = "menu" | "pick-list";
  * principal (`MovieActions.tsx`), e "assistir depois" também;
  * duplicar aqui seria redundante. Só o que faltava mesmo: adicionar
  * a lista, recomendar, remover, compartilhar.
+ *
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-10, achado numa auditoria pedida —
+ * "você está sempre pulando os botões de cima e as folhas") — este
+ * arquivo nunca tinha recebido a mesma passada de vidro que
+ * `SeriesQuickActionsSheet.tsx` já tinha (mtime bem mais antigo que o
+ * resto da pasta, nunca tocado nesta rodada de portes). A folha era
+ * `colors.surface` chapado; no web (`MovieQuickActionsSheet.tsx`) ela
+ * é vidro: `border-t border-white/10 backdrop-blur-[18px]
+ * backdrop-saturate-[180%]` sobre `radial(75% 100% at 14% 15%,
+ * rgba(255,255,255,0.17), transparent 60%), rgba(20,22,30,0.85)` — a
+ * receita `dark` do `Glass`, valor por valor (mesma correção,
+ * idêntica, já aplicada em `SeriesQuickActionsSheet.tsx`).
+ *
+ * Ícone de "Adicionar a lista" também trocado: era `Feather "list"`
+ * (uma lista lisa, sem sinal de adicionar); o web usa `ListPlus` do
+ * lucide (lista com um "+"). `MaterialCommunityIcons "playlist-plus"`
+ * é o mais parecido disso disponível no app.
  */
 export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose }: MovieQuickActionsSheetProps) {
   const insets = useSafeAreaInsets();
@@ -85,7 +102,7 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
       {/* TASK-176 (achado real, comparado com CreatePostButton.tsx que já funcionava) — o `KeyboardAvoidingView` precisa ser filho DIRETO do `Modal`, sem nenhum `Pressable`/View extra o envolvendo, ou o cálculo de altura no Android não funciona direito. O "tocar fora fecha" virou um `Pressable` de fundo separado (posição absoluta, atrás da folha), não mais um wrapper por cima do KeyboardAvoidingView. */}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
+        <Glass style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]} variant="dark">
           {confirmingRemove ? (
             <View style={styles.confirm}>
               <Text style={styles.confirmTitle}>{t("movie.removeThisMovie")}</Text>
@@ -127,7 +144,11 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
 
               {lists?.map((list) => (
                 <Pressable key={list.id} style={styles.actionRow} onPress={() => handleAddToList(list.id)}>
-                  <Feather name={addedListId === list.id ? "check" : "list"} size={16} color={addedListId === list.id ? colors.primary : colors.text} />
+                  {addedListId === list.id ? (
+                    <Feather name="check" size={16} color={colors.primary} />
+                  ) : (
+                    <MaterialCommunityIcons name="playlist-plus" size={18} color={colors.text} />
+                  )}
                   <Text style={[styles.actionLabel, addedListId === list.id && { color: colors.primary }]}>{list.name}</Text>
                 </Pressable>
               ))}
@@ -160,7 +181,10 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
                 {movieTitle}
               </Text>
 
-              <ActionRow icon="list" label={t("movie.addToList")} onPress={() => setView("pick-list")} />
+              <Pressable style={styles.actionRow} onPress={() => setView("pick-list")}>
+                <MaterialCommunityIcons name="playlist-plus" size={18} color={colors.text} />
+                <Text style={styles.actionLabel}>{t("movie.addToList")}</Text>
+              </Pressable>
               <ActionRow icon="send" label={t("social.recommendToSomeone")} onPress={() => setShowRecommend(true)} />
               <ActionRow icon="trash-2" label={t("movie.removeMovie")} danger onPress={() => setConfirmingRemove(true)} />
               <ActionRow icon="share-2" label={t("social.share")} onPress={handleShare} />
@@ -171,7 +195,7 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
               </Pressable>
             </View>
           )}
-        </View>
+        </Glass>
       </KeyboardAvoidingView>
 
       {showRecommend && (
@@ -212,8 +236,12 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: scrim.modal,
   },
+  /**
+   * PORTE DO WEB (2026-09-10, mesma correção de `SeriesQuickActionsSheet.tsx`)
+   * — a folha era `colors.surface` chapado; agora é a receita `dark`
+   * do `Glass`. `rounded-t-2xl` = 16 e `p-4` = 16 já batiam.
+   */
   sheet: {
-    backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     padding: spacing.md,
@@ -272,24 +300,24 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm + 2,
+    gap: 12,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   actionLabel: {
     fontSize: 14,
   },
   cancelButton: {
-    marginTop: spacing.xs,
+    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xs,
+    gap: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm + 2,
+    borderRadius: 8,
+    paddingVertical: 12,
   },
   confirm: {
     alignItems: "center",

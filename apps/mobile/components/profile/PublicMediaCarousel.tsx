@@ -168,6 +168,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     overflow: "hidden",
     backgroundColor: colors.surface,
+    /**
+     * BORDA DE VIDRO DA CAPA (2026-09-04, a pedido — "ao redor de toda
+     * capa de série/filme tem uma borda fina que reflete").
+     *
+     * No web a caixa do pôster é uma superfície de vidro de verdade
+     * (`ProfileMediaCarousel.tsx`: `border border-white/10` +
+     * `backdrop-blur-[14px]` + a receita `0.16/0.09`) — a imagem cobre o
+     * miolo, então o que sobra visível é exatamente essa borda. Aqui a
+     * caixa não tinha borda nenhuma. Só o `border-white/10` literal.
+     */
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   posterImage: {
     width: "100%",

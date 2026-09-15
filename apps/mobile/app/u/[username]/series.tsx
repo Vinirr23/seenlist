@@ -14,6 +14,7 @@ import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 function chunk<T>(items: T[], size: number): T[][] {
   const rows: T[][] = [];
@@ -33,13 +34,21 @@ function chunk<T>(items: T[], size: number): T[][] {
  * própria.
  */
 export default function PublicSeriesScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
   const { username: rawUsername } = useLocalSearchParams<{ username: string }>();
   const username = String(rawUsername);
   const { profile, isLoading: isLoadingProfile, isError: isProfileError, refetch: refetchProfile } = usePublicProfile(username);
   const { items, isLoading: isLoadingItems, isError, refetch } = usePublicLibraryItems(profile?.userId);
-  const { viewMode, setViewMode } = useViewModePreference("public-series");
+  const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("public-series");
   const cardWidth = usePosterCardWidth();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -80,7 +89,11 @@ export default function PublicSeriesScreen() {
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </View>
 
-      {isLoadingProfile || isLoadingItems ? (
+      {!viewModeReady ? (
+        // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
+        // instante" — ver `useViewModePreference.ts`).
+        null
+      ) : isLoadingProfile || isLoadingItems ? (
         <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
       ) : isProfileError ? (
         <View style={styles.content}>
@@ -101,7 +114,7 @@ export default function PublicSeriesScreen() {
           key={viewMode}
           sections={sections}
           keyExtractor={(row, index) => row.map((i) => i.id).join("-") + index}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           stickySectionHeadersEnabled={false}
           renderSectionHeader={({ section }) => (
             <Text variant="subtitle" style={styles.categoryTitle}>

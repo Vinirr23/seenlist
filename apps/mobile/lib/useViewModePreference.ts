@@ -15,11 +15,26 @@ function isViewMode(value: unknown): value is ViewMode {
  * mesma regra do web. `AsyncStorage` no lugar de `localStorage`
  * (responde na hora); `user_metadata` do Supabase mantém entre
  * aparelhos, mesma estratégia dos dois lados.
+ *
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-04 — "esqueleto no formato errado
+ * por um instante", auditoria web-vs-mobile — mesmo bug do web, ver
+ * comentário grande de `isReady` em `useViewModePreference.ts` do
+ * web) — `viewMode` sempre começava em `"grid"` e só era corrigido pro
+ * valor de verdade DEPOIS que `AsyncStorage.getItem` (assíncrono)
+ * resolvia. Pra quem tem "lista" salva, quem usa este hook pra decidir
+ * o FORMATO do esqueleto de carregamento (`LibraryGridSkeleton` vs
+ * `LibraryListSkeleton`) desenhava o esqueleto errado (grade) por um
+ * instante, trocando pro formato certo (lista) assim que o
+ * `AsyncStorage` respondia — visível como "esqueleto piscando/
+ * trocando de formato". `isReady` só vira `true` depois que o valor
+ * real já foi conferido — quem desenha algo que depende do formato
+ * deve esperar `isReady` antes de decidir o que mostrar.
  */
 export function useViewModePreference(scope: string) {
   const storageKey = `seenlist:viewMode:${scope}`;
   const metadataKey = `viewMode_${scope}`;
   const [viewMode, setViewModeState] = useState<ViewMode>("grid");
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,8 +42,13 @@ export function useViewModePreference(scope: string) {
       if (cancelled) return;
       if (isViewMode(stored)) {
         setViewModeState(stored);
+        setIsReady(true);
         return;
       }
+      // Sem nada salvo ainda neste aparelho — "grid" já é a melhor
+      // suposição possível, não precisa esperar a rede (busca do
+      // `user_metadata`) pra liberar a tela pra desenhar.
+      setIsReady(true);
       getCurrentAuthUser().then(({ data }) => {
         if (cancelled) return;
         const saved = data.user?.user_metadata?.[metadataKey];
@@ -49,5 +69,5 @@ export function useViewModePreference(scope: string) {
     });
   }
 
-  return { viewMode, setViewMode };
+  return { viewMode, setViewMode, isReady };
 }

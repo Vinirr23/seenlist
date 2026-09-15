@@ -1,12 +1,38 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { MovieDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
-import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { Text, Glass, GlassTargetProvider } from "@/components/ui";
+import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
+/**
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-10, achado numa auditoria pedida —
+ * "você está sempre pulando os botões de cima e as folhas") — este
+ * arquivo nunca tinha recebido a mesma passada de vidro que
+ * `SeriesHeader.tsx` já tinha (mtime bem mais antigo que o resto da
+ * pasta `movie-detail/`, nunca tocado nesta rodada inteira de portes).
+ * Os dois botões (voltar/"...") eram círculos CHAPADOS
+ * (`scrim.overImage`), sem o mesmo problema já resolvido em
+ * `SeriesHeader.tsx` ("os botões não estão transparentes" — ver o
+ * comentário completo lá pra causa raiz): um `Glass` sem alvo próprio
+ * usava o contexto do `GlassTargetProvider` da TELA (campo de manchas
+ * sobre base opaca), nunca a capa em si. Mesmo fix: `GlassTargetProvider`
+ * LOCAL com `base="transparent"` e a capa como `background` — os
+ * `Glass` de dentro passam a desfocar a foto de verdade, igual ao web.
+ *
+ * Também estava faltando: o véu era chapado (agora é degradê, igual
+ * ao web `bg-gradient-to-t from-background via-background/70
+ * to-background/10`); a capa era `w780`/180 de altura (web é `h-56` =
+ * 224, mesma correção de resolução já aplicada em `SeriesHeader.tsx`);
+ * e a caixa do pôster era um retângulo sólido — no web
+ * (`rounded-lg border border-white/10 backdrop-blur-[14px]
+ * backdrop-saturate-[180%]` + brilho 0.16/base 0.09) é a receita
+ * `medium` do `Glass`.
+ */
 export function MovieHeader({
   movie,
   watched,
@@ -17,32 +43,47 @@ export function MovieHeader({
   onMorePress: () => void;
 }) {
   const router = useRouter();
-  const backdropUrl = tmdbImageUrl(movie.backdropPath, "w780");
+  const { t } = useTranslation();
+  const backdropUrl = tmdbImageUrl(movie.backdropPath, "w1280"); // era `w780` — o web usa `w1280`, esticado até 1080px de tela ficava macio
   const posterUrl = tmdbImageUrl(movie.posterPath, "w342");
   const year = movie.releaseDate ? movie.releaseDate.slice(0, 4) : null;
 
   return (
     <View>
-      <View style={styles.backdropWrapper}>
-        {backdropUrl ? (
-          <Image source={{ uri: backdropUrl }} style={styles.backdrop} contentFit="cover" />
-        ) : (
-          <View style={[styles.backdrop, styles.backdropFallback]} />
-        )}
-        <View style={styles.overlay} />
-      </View>
+      <GlassTargetProvider
+        style={styles.backdropWrapper}
+        base="transparent"
+        background={
+          <>
+            {backdropUrl ? (
+              <Image source={{ uri: backdropUrl }} style={styles.backdrop} contentFit="cover" />
+            ) : (
+              <View style={[styles.backdrop, styles.backdropFallback]} />
+            )}
+            {/** `bg-gradient-to-t from-background via-background/70 to-background/10` — quase transparente em cima, chapado embaixo. */}
+            <LinearGradient
+              colors={["rgba(11,14,20,0.1)", "rgba(11,14,20,0.7)", colors.background]}
+              locations={[0, 0.5, 1]}
+              style={styles.overlay}
+            />
+          </>
+        }
+      >
+        <Glass style={styles.backButton} variant="icon">
+          <Pressable style={styles.buttonHit} onPress={() => router.back()} hitSlop={8}>
+            <Feather name="arrow-left" size={16} color={colors.text} />
+          </Pressable>
+        </Glass>
 
-      <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-        <Feather name="arrow-left" size={18} color={colors.text} />
-      </Pressable>
-
-      {/* TASK-172 (ajuste — a pedido, mesmo lugar de SeriesHeader.tsx) — "..." flutuando na capa, não espremido na fileira de MovieActions.tsx (de onde saiu). */}
-      <Pressable style={styles.moreButton} onPress={onMorePress} hitSlop={8}>
-        <Feather name="more-horizontal" size={18} color={colors.text} />
-      </Pressable>
+        <Glass style={styles.moreButton} variant="icon">
+          <Pressable style={styles.buttonHit} onPress={onMorePress} hitSlop={8}>
+            <Feather name="more-horizontal" size={16} color={colors.text} />
+          </Pressable>
+        </Glass>
+      </GlassTargetProvider>
 
       <View style={styles.headerRow}>
-        <View style={styles.posterWrapper}>
+        <Glass style={styles.posterWrapper} variant="medium">
           {posterUrl ? (
             <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
           ) : (
@@ -53,10 +94,10 @@ export function MovieHeader({
           {watched && (
             <View style={styles.watchedBadge}>
               <Feather name="check" size={10} color={colors.background} />
-              <Text style={styles.watchedBadgeText}>Assistido</Text>
+              <Text style={styles.watchedBadgeText}>{t("action.watched")}</Text>
             </View>
           )}
-        </View>
+        </Glass>
 
         <View style={styles.info}>
           <Text variant="subtitle" numberOfLines={2}>
@@ -76,6 +117,7 @@ export function MovieHeader({
             </Text>
           )}
           <View style={styles.ratingRow}>
+            {/* Precisa ser PREENCHIDA (`fill-primary` no web) — `Feather` só tem contorno; `MaterialCommunityIcons` "star" já vem sólida. */}
             <MaterialCommunityIcons name="star" size={15} color={colors.primary} />
             <Text style={styles.rating}>{movie.voteAverage.toFixed(1)}</Text>
           </View>
@@ -89,8 +131,9 @@ const POSTER_WIDTH = 96;
 const POSTER_HEIGHT = 144;
 
 const styles = StyleSheet.create({
+  /** `h-56` = 224 no web; era 180. */
   backdropWrapper: {
-    height: 180,
+    height: 224,
     width: "100%",
     backgroundColor: colors.surface,
   },
@@ -102,27 +145,30 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: scrim.overImage,
   },
+  /** `left-3 top-3 h-9 w-9` = 12 de canto (era `spacing.md` = 16), 36 de lado — mesma medida de `SeriesHeader.tsx`. */
   backButton: {
     position: "absolute",
-    left: spacing.md,
-    top: spacing.md,
+    left: 12,
+    top: 12,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: scrim.overImage,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
+    ...elevation.medium,
   },
   moreButton: {
     position: "absolute",
-    right: spacing.md,
-    top: spacing.md,
+    right: 12,
+    top: 12,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: scrim.overImage,
+    overflow: "hidden",
+    ...elevation.medium,
+  },
+  buttonHit: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -139,9 +185,6 @@ const styles = StyleSheet.create({
     width: POSTER_WIDTH,
     height: POSTER_HEIGHT,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     overflow: "hidden",
   },
   poster: {

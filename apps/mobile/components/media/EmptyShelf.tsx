@@ -1,8 +1,8 @@
-import { View, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { Text, Button } from "@/components/ui";
-import { colors, spacing } from "@/lib/theme";
+import { Text, Glass, GelSurface } from "@/components/ui";
+import { colors, fontFamily, fontSize, radius, spacing } from "@/lib/theme";
 
 /**
  * CORREÇÃO (a pedido — auditoria de consistência) — achado real: o
@@ -41,7 +41,14 @@ export function EmptyShelf({
   const hasAction = !!actionLabel && (!!actionHref || !!onPress);
 
   return (
-    <View style={styles.wrapper}>
+    /*
+     * PORTE DO WEB (2026-09-09) — a caixa era transparente, sem borda
+     * nenhuma. No `EmptyShelf.tsx` do web ela é vidro com borda
+     * TRACEJADA (ver a receita `subtle` em `lib/theme.ts`, criada pra
+     * isto: é a mais fraca do web e não coincidia com nenhuma
+     * existente).
+     */
+    <Glass style={styles.wrapper} variant="subtle">
       {!!icon && (
         <View style={styles.iconCircle}>
           <Feather name={icon} size={22} color={colors.muted} />
@@ -51,20 +58,36 @@ export function EmptyShelf({
         {message}
       </Text>
       {hasAction && (
-        <Button variant="secondary" onPress={() => (onPress ? onPress() : router.push(actionHref!))}>
-          {actionLabel}
-        </Button>
+        /*
+         * O botão do web é o mesmo "gel" âmbar do resto do app
+         * (`radial-gradient(130% 170% at 28% 18%, ...)` + as duas
+         * sombras internas), com um `+` de 16px na frente — não o
+         * `Button variant="secondary"` que estava aqui.
+         */
+        <Pressable onPress={() => (onPress ? onPress() : router.push(actionHref!))}>
+          <GelSurface style={styles.action} webCalibrated>
+            <Feather name="plus" size={16} color={colors.background} />
+            <Text style={styles.actionText}>{actionLabel}</Text>
+          </GelSurface>
+        </Pressable>
       )}
-    </View>
+    </Glass>
   );
 }
 
 const styles = StyleSheet.create({
+  /**
+   * Valores do web: `rounded-xl` = 12, `border-dashed`, `gap-3` = 12,
+   * `px-4` = 16, `py-8` = 32. Estavam 16 de respiro, 24 de padding
+   * lateral e nenhum raio/borda.
+   */
   wrapper: {
     alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    gap: 12,
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderStyle: "dashed",
   },
   iconCircle: {
     width: 52,
@@ -78,5 +101,22 @@ const styles = StyleSheet.create({
   },
   message: {
     textAlign: "center",
+  },
+  /** `mt-1 rounded-full px-6 py-3 gap-1.5` do web. */
+  action: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: radius.full,
+  },
+  /** `text-sm font-bold text-background`. */
+  actionText: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    fontFamily: fontFamily[700],
+    color: colors.background,
   },
 });

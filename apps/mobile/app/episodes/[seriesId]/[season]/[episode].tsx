@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View, Pressable, Share, StyleSheet } from "react-native";
 import { Image } from "expo-image";
+import { BlurTargetView } from "expo-blur";
 import { Gesture, GestureDetector, type GestureStateChangeEvent, type PanGestureHandlerEventPayload } from "react-native-gesture-handler";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { Screen, Text } from "@/components/ui";
+import { EPISODE_DETAILS_GLOW_BLOBS } from "@/lib/glowBlobs";
+import { Screen, Text, GlassTargetProvider, AmbientGlow, Glass, GelSurface } from "@/components/ui";
 import { fetchEpisodePage, type EpisodePageData } from "@/lib/episodeDetails";
 import { fetchEpisodeSeriesContext, isEpisodeWatched, toggleEpisodeWatched, type EpisodeSeriesContext, type EpisodeContextSeason } from "@/lib/seriesDetails";
 import { fetchMyReview, fetchReviewAggregate, upsertReview, type Review, type ReviewAggregate } from "@/lib/social/reviews";
@@ -14,6 +16,7 @@ import { tmdbImageUrl } from "@/lib/library";
 import { PageError } from "@/components/media/PageError";
 import { MediaDetailSkeleton } from "@/components/media/MediaDetailSkeleton";
 import { EpisodeWatchedButton } from "@/components/series-detail/EpisodeWatchedButton";
+import { SeriesWatchProviders } from "@/components/series-detail/SeriesWatchProviders";
 import { EpisodeStarRatingRow } from "@/components/episode/EpisodeStarRatingRow";
 import { StarRating } from "@/components/reviews/StarRating";
 import { EpisodeMoodPicker } from "@/components/episode/EpisodeMoodPicker";
@@ -21,8 +24,10 @@ import { EpisodeWatchedPlatformPicker } from "@/components/episode/EpisodeWatche
 import { EpisodeFavoriteCharacterPicker, type FavoriteCharacterOption } from "@/components/episode/EpisodeFavoriteCharacterPicker";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { hapticTick } from "@/lib/haptics";
-import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, scrim, fontFamily } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 interface EpisodeRef {
   seasonNumber: number;
@@ -62,7 +67,17 @@ const SWIPE_THRESHOLD_PX = 60;
  * ao web — ver `comments.tsx` nesta mesma pasta).
  */
 export default function EpisodeDetailScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
+  /** Alvo de desfoque LOCAL da capa — ver o comentário no JSX do banner. */
+  const alvoDaCapa = useRef<View>(null);
   const { t, locale } = useTranslation();
   const { seriesId, season, episode } = useLocalSearchParams<{ seriesId: string; season: string; episode: string }>();
   const seriesIdStr = String(seriesId);
@@ -294,11 +309,24 @@ export default function EpisodeDetailScreen() {
 
   const { episode: ep, watchProviders } = data;
   const stillUrl = tmdbImageUrl(ep.stillPath, "w780");
-  const code = `S${String(seasonNumber).padStart(2, "0")}E${String(episodeNumber).padStart(2, "0")}`;
+  /*
+   * CORREÇÃO (2026-09-09, comparado no print) — saía "S02E10"; no web
+   * (`EpisodeDetailView.tsx`) é `T${...} | E${...}`, com barra e
+   * espaços, igual ao card de "Continue assistindo".
+   */
+  const code = `T${String(seasonNumber).padStart(2, "0")} | E${String(episodeNumber).padStart(2, "0")}`;
 
   return (
-    <Screen padded={false} bottomInset>
-      <ScrollView>
+    <Screen padded={false}>
+      {/* `bottomInset` saiu: a barra de navegação agora flutua sobre esta tela (ver `app/_layout.tsx`) e a folga do fim do conteúdo já soma a área segura, via `useTabBarClearance()`. Manter os dois empurrava o conteúdo pra cima duas vezes e ainda tirava o fundo de trás da barra, que é o que dá o efeito de vidro. */}
+      {/*
+        PORTE DO WEB (2026-09-09) — esta tela não tinha campo de manchas
+        nenhum, e o `EpisodeDetailView.tsx` do web tem (ver `EPISODE_DETAILS_GLOW_BLOBS`).
+        As manchas dele começam mais embaixo que as das telas de lista,
+        porque o topo aqui é ocupado pelo herói/capa.
+      */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={EPISODE_DETAILS_GLOW_BLOBS} />}>
+      <ScrollView contentContainerStyle={{ paddingBottom: espacoDoDock }}>
         {currentSeasonEpisodes.length > 1 && (
           <View style={styles.dotsRow}>
             <Pressable onPress={() => router.push(`/series/${seriesIdNum}`)} hitSlop={8}>
@@ -315,21 +343,59 @@ export default function EpisodeDetailScreen() {
 
         <GestureDetector gesture={swipeGesture}>
           <View style={styles.banner}>
-            {stillUrl ? (
-              <Image source={{ uri: stillUrl }} style={styles.bannerImage} contentFit="cover" />
-            ) : (
-              <View style={[styles.bannerImage, styles.bannerFallback]} />
+            {/*
+              MESMA CAUSA RAIZ do `SeriesHeader.tsx` (2026-09-09, print
+              real — "os botões não estão transparentes"): sem
+              `blurTarget` próprio, o `Glass` pega o alvo do CONTEXTO,
+              que é o campo de manchas sobre base escura opaca — não a
+              capa. O desfoque amostrava um retângulo chapado e o botão
+              saía cinza-escuro. O alvo local abaixo faz ele desfocar a
+              imagem de verdade, como o `backdrop-filter` do web.
+            */}
+            <BlurTargetView ref={alvoDaCapa} style={StyleSheet.absoluteFillObject} pointerEvents="none">
+              {stillUrl ? (
+                <Image source={{ uri: stillUrl }} style={styles.bannerImage} contentFit="cover" />
+              ) : (
+                <View style={[styles.bannerImage, styles.bannerFallback]} />
+              )}
+              <View style={styles.bannerOverlay} />
+            </BlurTargetView>
+            {/*
+              PORTE DO WEB (2026-09-09) — no canto superior esquerdo da
+              capa o web não tem seta de voltar: tem uma PÍLULA BRANCA
+              com o nome da série, que leva pra ela
+              (`rounded-full bg-white px-3 py-1.5 text-xs font-bold
+              uppercase tracking-wide text-black` + chevron de 14px).
+              A volta continua existindo no botão do topo da tela, fora
+              da capa — que é exatamente como o web organiza.
+            */}
+            {!!seriesContext && (
+              <Pressable
+                style={styles.seriesPill}
+                onPress={() => router.push(`/series/${seriesIdNum}`)}
+                hitSlop={8}
+              >
+                <Text numberOfLines={1} style={styles.seriesPillText}>
+                  {seriesContext.title}
+                </Text>
+                <Feather name="chevron-right" size={14} color="#000000" />
+              </Pressable>
             )}
-            <View style={styles.bannerOverlay} />
-            <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-              <Feather name="arrow-left" size={18} color={colors.text} />
-            </Pressable>
+            {/* Botão de compartilhar: no web é vidro (`border-white/15` + radial 0.26/0.10), que é a receita `icon`; aqui era um disco de scrim chapado. */}
             <Pressable style={styles.shareButton} onPress={handleShare} hitSlop={8}>
-              <Feather name="share-2" size={18} color={colors.text} />
+              <Glass style={styles.shareGlass} variant="icon" blurTarget={alvoDaCapa}>
+                <Feather name="share-2" size={16} color="#FFFFFF" />
+              </Glass>
             </Pressable>
+            {/*
+              A ÊNFASE ESTAVA TROCADA: aqui o código era pequeno e
+              apagado e o nome era `variant="title"`. No web é o
+              contrário — código em `text-xl font-bold text-white` (20px)
+              e nome em `text-sm text-white/90` (14px), numa linha só.
+            */}
             <View style={styles.bannerText}>
               <Text style={styles.code}>{code}</Text>
-              <Text variant="title" style={styles.episodeName}>
+              <Text numberOfLines={1} style={styles.episodeName}>
                 {ep.name}
               </Text>
             </View>
@@ -337,10 +403,42 @@ export default function EpisodeDetailScreen() {
         </GestureDetector>
 
         <View style={styles.body}>
-          <View style={styles.watchedRow}>
+          {/*
+            PORTE DO WEB (2026-09-09) — aqui era só o botão de check com
+            o rótulo "Marcar como assistido" ao lado. No web
+            (`EpisodeDetailView.tsx`) esta faixa tem:
+            data de exibição com ícone de calendário, o estado
+            (olho/olho-cortado + "Assistido"/"Não assistido") e o botão
+            à DIREITA, tudo em `text-xs text-muted`, com
+            `border-b border-border px-4 py-3`.
+            A data não aparecia em lugar nenhum da tela do mobile.
+          */}
+          <View style={styles.metaRow}>
+            <View style={styles.metaInfo}>
+              {!!ep.airDate && (
+                <View style={styles.metaItem}>
+                  <Feather name="calendar" size={14} color={colors.muted} />
+                  <Text variant="muted" style={styles.metaText}>
+                    {new Date(ep.airDate).toLocaleDateString(INTL_LOCALES[locale], {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.metaItem}>
+                <Feather name={watched ? "eye" : "eye-off"} size={14} color={colors.muted} />
+                <Text variant="muted" style={styles.metaText}>
+                  {watched ? t("episode.watched") : t("episode.notWatched")}
+                </Text>
+              </View>
+            </View>
             <EpisodeWatchedButton watched={watched} onPress={handleToggleWatched} disabled={watchedLoading} size="lg" />
-            <Text variant="label">{watched ? t("episode.watched") : t("episode.markAsWatched")}</Text>
           </View>
+
+          {/* "Onde assistir" — o web mostra os provedores quando o episódio NÃO foi assistido (`WhereToWatchSection`); no mobile a seção não existia nesta tela. */}
+          {!watched && <SeriesWatchProviders providers={watchProviders} />}
 
           {watched && (
             <View style={styles.section}>
@@ -392,7 +490,17 @@ export default function EpisodeDetailScreen() {
             * `StarRating` que já existe, em vez de criar componente
             * novo.
             */}
-          <View style={styles.communityBlock}>
+          {/*
+            PORTE DO WEB (2026-09-09) — isto era texto solto no meio da
+            tela. No web é uma SEÇÃO de vidro, com título próprio
+            ("Informações do episódio") e a sinopse DENTRO dela:
+            `rounded-lg border border-white/10 p-4 backdrop-blur-[10px]
+            backdrop-saturate-[160%]` sobre radial 0.13/0.06 — a receita
+            `light`.
+          */}
+          <Glass style={styles.infoCard} variant="light">
+            <Text style={styles.infoTitle}>{t("episode.episodeInfo")}</Text>
+            <View style={styles.communityBlock}>
             {aggregate.average !== null ? (
               <>
                 <View style={styles.communityRow}>
@@ -411,16 +519,10 @@ export default function EpisodeDetailScreen() {
                 {t("episode.noCommunityRatingsYet")}
               </Text>
             )}
-          </View>
-
-          {!!ep.overview && (
-            <View style={styles.section}>
-              <Text variant="subtitle" style={styles.sectionTitle}>
-                {t("media.synopsis")}
-              </Text>
-              <Text style={styles.overview}>{ep.overview}</Text>
             </View>
-          )}
+            {/* A sinopse é o último parágrafo DESTA seção no web, não uma seção "Sinopse" separada. */}
+            {!!ep.overview && <Text style={styles.overview}>{ep.overview}</Text>}
+          </Glass>
 
           {/*
            * CORREÇÃO (a pedido — mesma mudança já aplicada no web,
@@ -433,8 +535,15 @@ export default function EpisodeDetailScreen() {
            * mostra tudo normalmente (só o "contém spoiler" manual do
            * autor continua escondendo comentário individual).
            */}
+          {/*
+            PORTE DO WEB (2026-09-09) — era uma linha escura de vidro. No
+            web é a pílula "gel" ÂMBAR do app, com texto escuro
+            (`text-background`), ícone de balão e chevron, os dois em
+            16px: `rounded-full border border-white/15 py-3 text-sm
+            font-bold` sobre o mesmo `radial-gradient(130% 170% at 28%
+            18%, ...)` dos outros botões âmbar.
+          */}
           <Pressable
-            style={styles.commentsButton}
             onPress={() => {
               if (watched) {
                 router.push(`/episodes/${seriesIdNum}/${seasonNumber}/${episodeNumber}/comments`);
@@ -443,11 +552,13 @@ export default function EpisodeDetailScreen() {
               }
             }}
           >
-            <Feather name="message-circle" size={16} color={colors.text} />
-            <Text style={styles.commentsButtonText}>
-              {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}
-            </Text>
-            <Feather name="chevron-right" size={16} color={colors.muted} />
+            <GelSurface style={styles.commentsButton} webCalibrated>
+              <Feather name="message-circle" size={16} color={colors.background} />
+              <Text style={styles.commentsButtonText}>
+                {commentCount} {commentCount === 1 ? t("episode.commentSingular") : t("episode.commentPlural")}
+              </Text>
+              <Feather name="chevron-right" size={16} color={colors.background} />
+            </GelSurface>
           </Pressable>
         </View>
       </ScrollView>
@@ -470,11 +581,16 @@ export default function EpisodeDetailScreen() {
           ]}
         />
       )}
+      </GlassTargetProvider>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  /** O provedor ocupa a tela toda pras manchas cobrirem tudo — mesmo estilo das outras telas com vidro. */
+  glassFill: {
+    flex: 1,
+  },
   dotsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -500,8 +616,10 @@ const styles = StyleSheet.create({
     width: 16,
     backgroundColor: colors.primary,
   },
+  /** `aspect-[4/3]` no web; era altura fixa de 220. */
   banner: {
-    height: 220,
+    width: "100%",
+    aspectRatio: 4 / 3,
     backgroundColor: colors.surface,
   },
   bannerImage: {
@@ -515,41 +633,65 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: scrim.overImage,
   },
-  backButton: {
+  /**
+   * `inset-x-3 top-3` do web = 12 nas duas bordas (era `spacing.md`=16).
+   * A pílula é BRANCA com texto preto: `bg-white text-black`,
+   * `px-3 py-1.5` = 12/6, `text-xs font-bold uppercase tracking-wide`.
+   */
+  seriesPill: {
     position: "absolute",
-    left: spacing.md,
-    top: spacing.md,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: scrim.overImage,
+    left: 12,
+    top: 12,
+    maxWidth: "70%",
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 4,
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  shareButton: {
-    position: "absolute",
-    right: spacing.md,
-    top: spacing.md,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: scrim.overImage,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bannerText: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.md,
-  },
-  code: {
+  seriesPillText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "rgba(255,255,255,0.8)",
+    fontFamily: fontFamily[700],
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    color: "#000000",
+    flexShrink: 1,
   },
-  episodeName: {
+  /** `h-8 w-8` = 32 no web (era 36), e o disco é vidro, não scrim. */
+  shareButton: {
+    position: "absolute",
+    right: 12,
+    top: 12,
+  },
+  shareGlass: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  /** `inset-x-3 bottom-3` = 12 (era 16). */
+  bannerText: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 12,
+  },
+  /** `text-xl font-bold text-white` = 20/700 (era 12 e apagado). */
+  code: {
+    fontSize: 20,
+    fontWeight: "700",
+    fontFamily: fontFamily[700],
     color: "#FFFFFF",
+  },
+  /** `mt-0.5 text-sm text-white/90` = 2 de respiro, 14px (era `variant="title"`). */
+  episodeName: {
+    marginTop: 2,
+    fontSize: 14,
+    color: "rgba(255,255,255,0.9)",
   },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — `padding` (esquerda/direita) era `spacing.lg`
@@ -561,10 +703,36 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     gap: spacing.lg,
   },
-  watchedRow: {
+  /**
+   * `flex items-center justify-between border-b border-border px-4 py-3`
+   * do web. O `px-4` já vem do `body`, então aqui só o resto.
+   */
+  metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingBottom: 12,
+    marginBottom: 4,
+  },
+  /** `flex-wrap gap-x-3 gap-y-1` do web. */
+  metaInfo: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: 12,
+    rowGap: 4,
+    flexShrink: 1,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  /** `text-xs` = 12. */
+  metaText: {
+    fontSize: 12,
   },
   section: {
     gap: spacing.sm,
@@ -572,8 +740,21 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: 2,
   },
+  /** `rounded-lg p-4` do web (8 e 16); o título é `mb-3 text-sm font-semibold`. */
+  infoCard: {
+    borderRadius: 8,
+    padding: 16,
+  },
+  infoTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    fontFamily: fontFamily[600],
+    color: colors.text,
+    marginBottom: 12,
+  },
   communityBlock: {
     gap: 2,
+    marginBottom: 12,
   },
   communityRow: {
     flexDirection: "row",
@@ -593,22 +774,21 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.text,
   },
+  /** `rounded-full py-3 gap-2` do web, centralizado — não é mais uma linha com o texto esticado. */
   commentsButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: radius.full,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4,
+    paddingVertical: 12,
   },
+  /** `text-sm font-bold text-background`. */
   commentsButtonText: {
-    flex: 1,
-    fontSize: 12,
+    fontSize: fontSize.sm,
     fontWeight: "700",
-    letterSpacing: 0.4,
-    color: colors.text,
+    fontFamily: fontFamily[700],
+    color: colors.background,
   },
 });

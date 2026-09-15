@@ -3,7 +3,7 @@ import { View, TextInput, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useDebouncedValue } from "@seenlist/hooks";
 import { addSearchHistoryTerm, readSearchHistory, removeSearchHistoryTerm } from "@/lib/search";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -52,7 +52,18 @@ export function SearchBar({ onDebouncedChange }: { onDebouncedChange: (value: st
 
   return (
     <View>
-      <View style={styles.inputRow}>
+      {/*
+        * PORTE DO WEB (2026-09-04, "vidro que falta") — a caixa de busca
+        * e o painel de histórico viraram vidro (web, `SearchBar.tsx`:
+        * "antes era opaca (`border-border bg-surface`)"). O `TextInput`
+        * por dentro continua transparente — campo de formulário não
+        * recebe vidro. O painel de histórico, no web, é o "painel
+        * escuro translúcido" (base `rgba(20,22,30,0.85)` em vez do
+        * branco 10% dos cartões) — reproduzido aqui com o mesmo valor
+        * como `backgroundColor` do `Glass`, que fica abaixo do
+        * gradiente branco, igual à ordem de camadas do CSS.
+        */}
+      <Glass style={styles.inputRow}>
         <Feather name="search" size={16} color={colors.muted} />
         <TextInput
           style={styles.input}
@@ -69,10 +80,10 @@ export function SearchBar({ onDebouncedChange }: { onDebouncedChange: (value: st
             <Feather name="x" size={16} color={colors.muted} />
           </Pressable>
         )}
-      </View>
+      </Glass>
 
       {showHistory && (
-        <View style={styles.historyBox}>
+        <Glass style={styles.historyBox}>
           <Text variant="muted" style={styles.historyLabel}>
             {t("search.recentSearches").toUpperCase()}
           </Text>
@@ -87,20 +98,20 @@ export function SearchBar({ onDebouncedChange }: { onDebouncedChange: (value: st
               </Pressable>
             </View>
           ))}
-        </View>
+        </Glass>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (2026-09-04, "vidro que falta") — fundo/borda sólidos
+  // removidos (vira `<Glass>`). Raio segue `radius.md`: o web usa
+  // `rounded-lg` aqui, não o `rounded-2xl` dos cartões.
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
@@ -110,13 +121,14 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.text,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — vira `<Glass>`, mas com
+  // a base ESCURA do web (`rgba(20,22,30,0.85)`) em vez do branco 10%
+  // dos cartões: é um painel flutuante sobre conteúdo, precisa esconder
+  // o que passa por baixo (mesmo critério do dropdown do web).
   historyBox: {
     marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: "rgba(20,22,30,0.85)",
     borderRadius: radius.md,
-    overflow: "hidden",
   },
   historyLabel: {
     paddingHorizontal: spacing.md,

@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { PressableScale } from "@/components/ui";
+import { PressableScale, Glass } from "@/components/ui";
 import { colors, radius, spacing, elevation, scrim } from "@/lib/theme";
 
 const COLUMNS = 3;
@@ -97,7 +97,19 @@ export function PosterGridItem({
 
   return (
     <PressableScale style={[styles.card, { width: cardWidth }]} onPress={() => onPress?.(item)}>
-      <View style={styles.posterWrapper}>
+      {/*
+        PORTE DO WEB (2026-09-09) — era um retângulo sólido
+        (`colors.surface`). No `PosterGrid.tsx` do web a caixa do pôster
+        é vidro:
+        `rounded-lg border border-white/10 backdrop-blur-[14px] backdrop-saturate-[180%]`
+        sobre `radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16),
+        transparent 60%), rgba(255,255,255,0.09)`.
+      
+        Isso é a receita `medium`, parada por parada — inclusive a
+        geometria do brilho (raios 70/80, centro 20%/15%). Ela foi
+        derivada exatamente daqui, então não precisou de receita nova.
+      */}
+      <Glass style={styles.posterWrapper} variant="medium">
         {posterUrl ? (
           <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
         ) : (
@@ -111,7 +123,7 @@ export function PosterGridItem({
           </View>
         )}
         {!!barColor && <View style={[styles.progressTrack, { height: 5, backgroundColor: barColor }]} />}
-      </View>
+      </Glass>
     </PressableScale>
   );
 }
@@ -122,16 +134,17 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: GAP,
   },
+  /* `rounded-lg` = 8 no web; era `radius.md` = 10 (a escala do app não tem 8). */
   card: {
     ...elevation.low,
-    borderRadius: radius.md,
+    borderRadius: 8,
   },
+  /** Borda e fundo saíram: quem desenha é o `Glass` (receita `medium`). */
   posterWrapper: {
     width: "100%",
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    borderRadius: 8,
     overflow: "hidden",
-    backgroundColor: colors.surface,
   },
   poster: {
     width: "100%",

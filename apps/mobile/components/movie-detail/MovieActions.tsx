@@ -6,8 +6,8 @@ import { useIsMovieFavorite } from "@/lib/useMovieDetails";
 import { incrementMovieRewatch } from "@/lib/movieDetails";
 import { hapticTick } from "@/lib/haptics";
 import { OptionSheet } from "@/components/settings/OptionSheet";
-import { Text } from "@/components/ui";
-import { colors, radius, spacing, tint } from "@/lib/theme";
+import { Text, Glass } from "@/components/ui";
+import { colors, radius, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
@@ -54,19 +54,28 @@ export function MovieActions({
   return (
     <View>
       <View style={styles.row}>
+        {/*
+          CORREÇÃO (2026-09-10, print do usuário — "faltou o glass em
+          'assistido e quero assistir'") — os dois botões eram um
+          `Pressable` com borda sólida, sem nenhum vidro. No web
+          (`MovieActions.tsx`) os dois SEMPRE têm
+          `backdrop-blur-[10px] backdrop-saturate-[160%]` — mesma
+          receita `light` do `Glass`, tanto no estado ativo quanto no
+          inativo; só a cor de fundo/borda muda entre os dois (o
+          comentário do web, "mesmo padrão dos chips neutros do
+          Explorar", descreve de onde veio a receita, não que só o
+          inativo é vidro).
+        */}
         {OPTIONS.map((option) => {
           const active = currentStatus === option.status;
           return (
-            <Pressable
-              key={option.status}
-              disabled={busy}
-              onPress={() => handlePress(option)}
-              style={[styles.button, active && styles.buttonActive]}
-            >
-              <Feather name={option.icon} size={16} color={active ? colors.primary : colors.muted} />
-              <Text variant="label" style={active ? styles.labelActive : styles.label}>
-                {option.label}
-              </Text>
+            <Pressable key={option.status} disabled={busy} onPress={() => handlePress(option)} style={styles.buttonWrap}>
+              <Glass style={[styles.button, active && styles.buttonActive]} variant="light">
+                <Feather name={option.icon} size={16} color={active ? colors.primary : colors.muted} />
+                <Text variant="label" style={active ? styles.labelActive : styles.label}>
+                  {option.label}
+                </Text>
+              </Glass>
             </Pressable>
           );
         })}
@@ -113,18 +122,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
   },
-  button: {
+  /** O `Pressable` só cuida do toque — o vidro (`Glass`) é quem desenha o botão. */
+  buttonWrap: {
     flex: 1,
+  },
+  button: {
     alignItems: "center",
     gap: 4,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
+  /** `border-primary bg-primary/10` do web — a receita `light` do `Glass` já dá o blur/saturate; só a cor muda. */
   buttonActive: {
     borderColor: colors.primary,
-    backgroundColor: tint.subtle,
+    backgroundColor: "rgba(232,163,61,0.1)",
   },
   label: {
     color: colors.muted,

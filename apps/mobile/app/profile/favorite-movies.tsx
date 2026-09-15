@@ -15,6 +15,7 @@ import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /**
  * TASK-116 (correção — Perfil) — porta de FavoriteMoviesPageView.tsx.
@@ -24,6 +25,14 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * trocado `ScrollView`+`.map()` por `FlatList` virtualizada.
  */
 export default function FavoriteMoviesScreen() {
+  /*
+   * A BARRA DE NAVEGAÇÃO AGORA APARECE NESTA TELA TAMBÉM (2026-09-09,
+   * decisão do usuário) — ela subiu pro layout raiz (`app/_layout.tsx`),
+   * como no web. Sendo `position: absolute`, ela não reserva espaço
+   * sozinha: sem esta folga no fim do conteúdo, o último item ficaria
+   * atrás dela. Mesma conta que as telas de aba já usavam.
+   */
+  const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
   const { session } = useAuth();
@@ -33,7 +42,7 @@ export default function FavoriteMoviesScreen() {
   // carregava. O hook agora aceita `undefined` direto e só busca
   // quando o id chega.
   const { items, isLoading, isError, refetch } = usePublicFavorites(session?.user.id);
-  const { viewMode, setViewMode } = useViewModePreference("profile-favorite-movies");
+  const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("profile-favorite-movies");
   const cardWidth = usePosterCardWidth();
 
   const movies = useMemo(() => (items ?? []).filter((item) => item.mediaType === "movie"), [items]);
@@ -55,7 +64,11 @@ export default function FavoriteMoviesScreen() {
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </View>
 
-      {isLoading ? (
+      {!viewModeReady ? (
+        // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
+        // instante" — ver `useViewModePreference.ts`).
+        null
+      ) : isLoading ? (
         <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
       ) : isError ? (
         <View style={styles.content}>
@@ -76,7 +89,7 @@ export default function FavoriteMoviesScreen() {
           data={movies}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
           numColumns={3}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           columnWrapperStyle={styles.gridRow}
           renderItem={({ item }) => <PosterGridItem item={item} onPress={handlePress} cardWidth={cardWidth} />}
         />
@@ -85,7 +98,7 @@ export default function FavoriteMoviesScreen() {
           key="list"
           data={movies}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
-          contentContainerStyle={[styles.content, styles.listRows]}
+          contentContainerStyle={[styles.content, styles.listRows, { paddingBottom: espacoDoDock }]}
           renderItem={({ item }) => (
             <MediaListRow item={item} onPress={handlePress} secondaryText={item.year ? String(item.year) : ""} />
           )}

@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /** TASK-116 — porta de MediaListRow.tsx. Usado pelo modo lista de Séries/Filmes/Favoritos dentro do Perfil. */
@@ -11,7 +11,8 @@ export function MediaListRow({ item, secondaryText, onPress }: { item: LibraryIt
   const posterUrl = tmdbImageUrl(item.posterPath, "w185");
 
   return (
-    <Pressable style={styles.row} onPress={() => onPress?.(item)}>
+    <Pressable onPress={() => onPress?.(item)}>
+      <Glass style={styles.row} variant="card">
       <View style={styles.posterWrapper}>
         {posterUrl ? (
           <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
@@ -29,18 +30,26 @@ export function MediaListRow({ item, secondaryText, onPress }: { item: LibraryIt
           </Text>
         )}
       </View>
+      </Glass>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  /**
+   * PORTE DO WEB (2026-09-09, "implementar em todas as telas") — era um
+   * cartão SÓLIDO (`colors.surface` + `colors.border`). O
+   * `MediaListRow.tsx` do web usa vidro: `backdrop-blur-[18px]` com
+   * `radial-gradient(... rgba(255,255,255,0.17) ...), rgba(255,255,255,0.10)`
+   * — exatamente a receita `card` do `Glass` (`glassVariants`, em
+   * `lib/theme.ts`). `borderWidth`/`borderColor`/`backgroundColor`
+   * saíram daqui porque quem passa a desenhá-los é o `Glass`; o que fica
+   * é só layout: direção, respiro, raio e padding.
+   */
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,

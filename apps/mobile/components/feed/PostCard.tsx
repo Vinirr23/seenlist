@@ -9,6 +9,7 @@ import { reportPost } from "@/lib/social/postReports";
 import { tmdbImageUrl } from "@/lib/library";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Text, Button } from "@/components/ui";
+import { Avatar } from "@/components/common/Avatar";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { LikeButton } from "./LikeButton";
 import { CommentCount } from "./CommentCount";
@@ -24,16 +25,6 @@ import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
 
 const SITE_URL = "https://seenlist.app";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((w) => w.length > 1)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
 
 /**
  * TASK-112 (editar/apagar post) — porta do que faltava do
@@ -174,13 +165,7 @@ export function PostCard({
             router.push(`/u/${post.authorUsername}`);
           }}
         >
-          <View style={styles.avatar}>
-            {post.authorAvatarUrl ? (
-              <Image source={{ uri: post.authorAvatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarInitials}>{initials(post.authorName)}</Text>
-            )}
-          </View>
+          <Avatar uri={post.authorAvatarUrl} name={post.authorName} style={styles.avatar} textStyle={styles.avatarInitials} />
           <View style={styles.headerText}>
             <Text numberOfLines={1} style={styles.authorName}>
               {post.authorName}

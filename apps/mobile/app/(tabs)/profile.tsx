@@ -1,5 +1,11 @@
 import { useState, useCallback, useEffect } from "react";
-import { ScrollView, View, Pressable, Share, StyleSheet } from "react-native";
+/*
+ * `Image as RNImage`: este arquivo já importa o `Image` do `expo-image`
+ * (linha abaixo) pras fotos. O brilho azulado da 3ª pílula precisa do
+ * `Image` do react-native porque usa `tintColor`, que é onde ele
+ * funciona — o mesmo padrão do `AmbientGlow`/`Glass`.
+ */
+import { ScrollView, View, Pressable, Share, StyleSheet, Image as RNImage } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -12,22 +18,13 @@ import { fetchEditableProfile } from "@/lib/editProfile";
 import { useSeriesActivityIds, useMovieActivityIds, useFavoriteIds } from "@/lib/profileMediaCarousel";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text, GlassTargetProvider, Glass, GelSurface, AmbientGlow, type GlowBlob } from "@/components/ui";
+import { Avatar } from "@/components/common/Avatar";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
 import { ProfileRecommendationsPreview } from "@/components/profile/ProfileRecommendationsPreview";
 import { ProfileListsPreview } from "@/components/profile/ProfileListsPreview";
 import { ProfileMediaCarousel } from "@/components/profile/ProfileMediaCarousel";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter((w) => w.length > 1)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
 
 /**
  * CORREÇÃO (a pedido — "perfil não se parece com o web") — o vidro do
@@ -56,15 +53,17 @@ function initials(name: string): string {
  * cor/opacidade foram portadas, a técnica de desfoque continua a
  * mesma de sempre.
  */
+const GLOW_PILL = require("../../assets/images/glow-soft.png");
+
 const PROFILE_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 220, left: -88, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 460, right: -80, size: 240 },
-  { color: "rgba(13,59,92,0.45)", top: 610, left: -72, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 760, right: -80, size: 240 },
-  { color: "rgba(27,75,122,0.35)", top: 880, left: -64, size: 224 },
-  { color: "rgba(42,127,184,0.28)", top: 1140, right: -72, size: 192 },
-  { color: "rgba(13,59,92,0.2)", top: 1450, left: -56, size: 176 },
-  { color: "rgba(27,75,122,0.12)", top: 1760, right: -56, size: 160 },
+  { color: "rgba(27,75,122,0.45)", top: 220, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.4)", top: 460, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.45)", top: 610, left: -90, size: 256 },
+  { color: "rgba(42,127,184,0.4)", top: 760, right: -100, size: 240 },
+  { color: "rgba(27,75,122,0.35)", top: 880, left: -80, size: 224 },
+  { color: "rgba(42,127,184,0.28)", top: 1140, right: -90, size: 192 },
+  { color: "rgba(13,59,92,0.2)", top: 1450, left: -70, size: 176 },
+  { color: "rgba(27,75,122,0.12)", top: 1760, right: -70, size: 160 },
 ];
 
 const EDITABLE_PROFILE_CACHE_VERSION = 1;
@@ -208,35 +207,66 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
         {!!bannerUrl ? (
           <View style={styles.bannerOuter}>
-            <View style={styles.bannerInner}>
-              <Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />
-              <LinearGradient
-                colors={["transparent", colors.background]}
-                style={styles.fadeOverlay}
-                pointerEvents="none"
-              />
-            </View>
-
-            <Pressable hitSlop={8} style={styles.bannerIconLeft} onPress={() => router.push("/settings/edit-profile")}>
-              <Glass style={styles.bannerIconGlass}>
-                <Feather name="edit-2" size={16} color="#fff" />
-              </Glass>
-            </Pressable>
-
-            <View style={styles.bannerIconsRight}>
-              {!!username && (
-                <Pressable hitSlop={8} onPress={handleShare}>
-                  <Glass style={styles.bannerIconButton}>
-                    <Feather name="share-2" size={16} color="#fff" />
-                  </Glass>
-                </Pressable>
-              )}
-              <Pressable hitSlop={8} onPress={() => router.push("/settings")}>
-                <Glass style={styles.bannerIconButton}>
-                  <Feather name="settings" size={16} color="#fff" />
+            {/*
+              * CAUSA RAIZ (2026-09-04, print real — "os botões do header
+              * ficam azuis; no web eles pegam o marrom da foto").
+              *
+              * Estes três botões usam `Glass`, mas eram IRMÃOS da capa —
+              * então o `GlassTargetProvider` mais próximo era o da tela
+              * inteira, cujo alvo de blur é o `AmbientGlow`. Eles estavam
+              * desfocando o campo azul do fundo, não a fotografia que
+              * está fisicamente atrás deles. Nenhum ajuste de cor
+              * resolveria isso: é o ALVO que estava errado.
+              *
+              * No web não existe essa distinção — `backdrop-filter`
+              * sempre amostra o que está atrás, e atrás ali é a capa.
+              *
+              * Fix: a capa passa a ser o `background` de um
+              * `GlassTargetProvider` PRÓPRIO (ou seja, vai pra dentro da
+              * `BlurTargetView`, continuando visível normalmente), e os
+              * botões viram FILHOS dele — irmãos da `BlurTargetView`,
+              * nunca dentro dela, que é a regra que evita o crash
+              * documentado em `Glass.tsx`. Como o contexto mais próximo
+              * passa a ser este, o `Glass` de cada botão amostra a foto.
+              *
+              * `base="transparent"` porque quem pinta o fundo aqui é a
+              * própria imagem — a base escura padrão a cobriria.
+              */}
+            <GlassTargetProvider
+              style={styles.bannerInner}
+              base="transparent"
+              background={
+                <>
+                  <Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />
+                  <LinearGradient
+                    colors={["transparent", colors.background]}
+                    style={styles.fadeOverlay}
+                    pointerEvents="none"
+                  />
+                </>
+              }
+            >
+              <Pressable hitSlop={8} style={styles.bannerIconLeft} onPress={() => router.push("/settings/edit-profile")}>
+                <Glass variant="icon" style={styles.bannerIconGlass}>
+                  <Feather name="edit-2" size={16} color={colors.text} />
                 </Glass>
               </Pressable>
-            </View>
+
+              <View style={styles.bannerIconsRight}>
+                {!!username && (
+                  <Pressable hitSlop={8} onPress={handleShare}>
+                    <Glass variant="icon" style={styles.bannerIconButton}>
+                      <Feather name="share-2" size={16} color={colors.text} />
+                    </Glass>
+                  </Pressable>
+                )}
+                <Pressable hitSlop={8} onPress={() => router.push("/settings")}>
+                  <Glass variant="icon" style={styles.bannerIconButton}>
+                    <Feather name="settings" size={16} color={colors.text} />
+                  </Glass>
+                </Pressable>
+              </View>
+            </GlassTargetProvider>
 
             {/*
               * TASK-176 (a pedido — "gap enorme", "sobe o nome pro lado
@@ -262,15 +292,9 @@ export default function ProfileScreen() {
               * não importa quantas linhas tiver.
               */}
             <View style={styles.avatarHeaderRow}>
-              <View style={styles.avatarOverlap}>
-                {user.avatarUrl ? (
-                  <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
-                ) : (
-                  <Text style={styles.avatarInitials}>{initials(user.name)}</Text>
-                )}
-              </View>
+              <Avatar uri={user.avatarUrl} name={user.name} style={styles.avatarOverlap} textStyle={styles.avatarInitials} />
               <View style={styles.headerText}>
-                <Text numberOfLines={1} variant="subtitle">
+                <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
                   {user.name}
                 </Text>
                 {!!username && <Text style={styles.username}>@{username}</Text>}
@@ -282,7 +306,7 @@ export default function ProfileScreen() {
             {!!username && (
               <Pressable hitSlop={8} onPress={handleShare}>
                 <Glass style={styles.bannerIconButtonFlat}>
-                  <Feather name="share-2" size={16} color={colors.muted} />
+                  <Feather name="share-2" size={16} color={colors.text} />
                 </Glass>
               </Pressable>
             )}
@@ -296,15 +320,9 @@ export default function ProfileScreen() {
 
         {!bannerUrl && (
           <View style={styles.headerRow}>
-            <View style={styles.avatar}>
-              {user.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
-              ) : (
-                <Text style={styles.avatarInitials}>{initials(user.name)}</Text>
-              )}
-            </View>
+            <Avatar uri={user.avatarUrl} name={user.name} style={styles.avatar} textStyle={styles.avatarInitials} />
             <View style={styles.headerText}>
-              <Text numberOfLines={1} variant="subtitle">
+              <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
                 {user.name}
               </Text>
               {!!username && <Text style={styles.username}>@{username}</Text>}
@@ -317,28 +335,45 @@ export default function ProfileScreen() {
         {/*
           * CORREÇÃO #3 (a pedido, 2026-09-02 — comparação lado a lado
           * com print real do web, "não está igual") — o `ProfileHeader.tsx`
-          * do web pinta cada pílula com um `radial-gradient` branco no
-          * canto superior esquerdo (todas as 3), e a ÚLTIMA (Comentários)
-          * ganha um segundo, azulado, no canto inferior direito. O
-          * `Glass` genérico daqui só tem UM gradiente neutro igual em
-          * toda pílula (`glass.gradientNeutral`, `Glass.tsx`) — sem
-          * variação por card, ficava mais "chapado"/uniforme que o web.
-          * Camadas extra aqui, por CIMA do gradiente neutro do `Glass`
-          * (mesma ideia de `PROFILE_GLOW_BLOBS` acima — ajuste no
-          * COMPONENTE, sem tocar na base `Glass.tsx`) — `LinearGradient`
-          * no lugar do `radial-gradient` do web (RN não tem radial),
-          * `start`/`end` apontando pro mesmo canto que o web usa.
+          * CORREÇÃO (2026-09-09, medida no print a pedido — "no web tem
+          * um brilho suave no lado superior esquerdo, no mobile esse
+          * brilho toma o lado esquerdo todo de cima a baixo e é mais
+          * forte").
+          *
+          * Estas pílulas tinham um `LinearGradient` diagonal
+          * (branco 0.18, de 22%/12% até 85%/75%) SOMADO ao brilho que o
+          * próprio `Glass` já desenha. Dois problemas de uma vez:
+          *
+          *   FORMA — gradiente linear não tem queda radial. A cor varia
+          *   só ao longo do eixo do gradiente, então o canto inferior
+          *   esquerdo, que quase não avança nesse eixo, fica tão aceso
+          *   quanto o superior esquerdo. Daí "toma o lado esquerdo todo
+          *   de cima a baixo". Mapa do azul medido na pílula do meio,
+          *   grade normalizada, topo → base:
+          *
+          *       web                          mobile
+          *       79  88  77  60  48  45  44    41 121 110  91  81  71  64
+          *       75  78  70   —  46  45  44   117 117 107  86   —  72  62
+          *       64  64  58  49  46  45  44   106 104  95  83  76  67  60
+          *       57  54  51  48   —  45  44   104  98 102   —  71   —  60
+          *       57  54  50  47  46  45  45    44  93  87  76  70  64  58
+          *
+          *   No web o brilho MORRE: 45 chapado na metade direita e no
+          *   rodapé. No mobile a coluna esquerda fica em 104-117 inteira.
+          *
+          *   FORÇA — eram DOIS brancos empilhados (o 0.17 da receita
+          *   `card` do `Glass` mais este 0.18), quando o web tem um só.
+          *
+          * Fix: o gradiente extra saiu, e as pílulas passaram a usar uma
+          * receita própria (`pill`, em `lib/theme.ts`) com os números
+          * exatos do `ProfileHeader.tsx` do web — inclusive a base
+          * BRANCA em vez do azul compensado das outras receitas, que é o
+          * que a medição do print mostra. O segundo brilho azulado da
+          * última pílula continua, agora como radial de verdade.
           */}
         <View style={styles.countsRow}>
           <Pressable style={styles.countCardFlex} onPress={() => router.push(`/follow-list/${user.id}/following`)}>
-            <Glass style={styles.countCard}>
-              <LinearGradient
-                colors={["rgba(255,255,255,0.18)", "rgba(255,255,255,0)"]}
-                start={{ x: 0.22, y: 0.12 }}
-                end={{ x: 0.85, y: 0.75 }}
-                style={StyleSheet.absoluteFillObject}
-                pointerEvents="none"
-              />
+            <Glass style={styles.countCard} variant="pill">
               <Text style={styles.countNumber}>{counts.following}</Text>
               <Text variant="muted" style={styles.countLabel}>
                 Seguindo
@@ -346,14 +381,7 @@ export default function ProfileScreen() {
             </Glass>
           </Pressable>
           <Pressable style={styles.countCardFlex} onPress={() => router.push(`/follow-list/${user.id}/followers`)}>
-            <Glass style={styles.countCard}>
-              <LinearGradient
-                colors={["rgba(255,255,255,0.18)", "rgba(255,255,255,0)"]}
-                start={{ x: 0.22, y: 0.12 }}
-                end={{ x: 0.85, y: 0.75 }}
-                style={StyleSheet.absoluteFillObject}
-                pointerEvents="none"
-              />
+            <Glass style={styles.countCard} variant="pill">
               <Text style={styles.countNumber}>{counts.followers}</Text>
               <Text variant="muted" style={styles.countLabel}>
                 Seguidores
@@ -361,21 +389,19 @@ export default function ProfileScreen() {
             </Glass>
           </Pressable>
           <Pressable style={styles.countCardFlex} onPress={() => router.push("/profile/comments")}>
-            <Glass style={styles.countCard}>
-              <LinearGradient
-                colors={["rgba(255,255,255,0.18)", "rgba(255,255,255,0)"]}
-                start={{ x: 0.22, y: 0.12 }}
-                end={{ x: 0.85, y: 0.75 }}
-                style={StyleSheet.absoluteFillObject}
-                pointerEvents="none"
-              />
-              <LinearGradient
-                colors={["rgba(42,127,184,0)", "rgba(42,127,184,0.22)"]}
-                start={{ x: 0.4, y: 0.3 }}
-                end={{ x: 0.85, y: 1 }}
-                style={StyleSheet.absoluteFillObject}
-                pointerEvents="none"
-              />
+            <Glass style={styles.countCard} variant="pill">
+              {/*
+                O segundo brilho da ÚLTIMA pílula, o azulado do canto
+                inferior direito. No web:
+                `radial-gradient(70% 90% at 85% 100%, rgba(42,127,184,0.22), transparent 60%)`.
+                Vira caixa: raios visíveis 0.6×70 = 42% da largura e
+                0.6×90 = 54% da altura, centro em 85%/100% → esquerda
+                43%, topo 46%, 84% × 108%. Opacidade 0.22/0.867 = 0.254
+                (o 0.867 é o alpha do centro do PNG, ver `lib/theme.ts`).
+              */}
+              <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                <RNImage source={GLOW_PILL} resizeMode="stretch" style={styles.countCardBlueGlow} />
+              </View>
               <Text style={styles.countNumber}>{socialCounts?.commentsGiven ?? 0}</Text>
               <Text variant="muted" style={styles.countLabel}>
                 Comentários
@@ -399,7 +425,16 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.sectionsWrapper}>
-          <ProfileRecommendationsPreview />
+          {/*
+            * CORREÇÃO (2026-09-04, auditoria mobile × web) — no web
+            * (`ProfileSectionsList.tsx`) este bloco vem dentro de uma
+            * `<section className="mb-6">` (24), que soma com o `mb-2`
+            * (8) do próprio card: 32px até "Minhas listas". Aqui só
+            * existia o respiro do card, então o gap era 8.
+            */}
+          <View style={styles.recommendationsBlock}>
+            <ProfileRecommendationsPreview />
+          </View>
           <ProfileListsPreview />
           <ProfileMediaCarousel
             icon="tv"
@@ -448,6 +483,16 @@ export default function ProfileScreen() {
 const AVATAR_SIZE = 74;
 
 const styles = StyleSheet.create({
+  /** Ver o comentário na 3ª pílula — a caixa é o raio visível do `radial-gradient` do web. */
+  countCardBlueGlow: {
+    position: "absolute",
+    left: "43%",
+    top: "46%",
+    width: "84%",
+    height: "108%",
+    tintColor: "rgb(42,127,184)",
+    opacity: 0.254,
+  },
   /**
    * A PEDIDO ("o fundo ficar parado no mobile") — preenche a área
    * disponível da `Screen` (que já é `flex: 1`) pra que o `BlurTargetView`
@@ -473,14 +518,25 @@ const styles = StyleSheet.create({
    * tamanho da IMAGEM estava errado, a lógica da folga em si continua
    * a mesma, só recalculada em cima do novo valor (224+40=264).
    */
+  /**
+   * CORREÇÃO (2026-09-04, auditoria mobile × web) — a folga abaixo da
+   * capa era 40px (264-224), chutada. No web
+   * (`ProfileHeader.tsx`) o bloco avatar+nome é `-bottom-8` = 32px
+   * abaixo da capa, então a caixa é 224+32 = 256. E o respiro depois
+   * da fileira é `mb-14` (56) menos os 32 que o avatar já desceu = 24
+   * (`spacing.lg`), não 12 — a bio estava colada.
+   */
   bannerOuter: {
-    height: 264,
-    marginBottom: 12,
+    height: 256,
+    marginBottom: spacing.lg,
   },
   bannerInner: {
     height: 224,
     backgroundColor: colors.surface,
     overflow: "hidden",
+    /** `rounded-b-lg` do web (`ProfileHeader.tsx`, capa) = 8px só embaixo. */
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
   },
   banner: {
     width: "100%",
@@ -586,7 +642,12 @@ const styles = StyleSheet.create({
      * resolve a maior parte da diferença visível, sem precisar de
      * camada de blur nova nenhuma aqui.
      */
-    borderWidth: 2,
+    /**
+     * CORREÇÃO (2026-09-04) — era 2px. O web usa `border` = 1px, e o
+     * anel fica POR FORA do avatar (`-inset-0.5`), não por dentro —
+     * com 2px por dentro, a foto perdia 4px de diâmetro (74 → 70).
+     */
+    borderWidth: 1,
     borderColor: "rgba(255,255,255,0.4)",
   },
   /**
@@ -605,7 +666,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
+    /**
+     * CORREÇÃO (2026-09-04) — era `spacing.md` (16), que somado ao
+     * `marginBottom: 8` da fileira de ícones dava 24. No web (caso SEM
+     * capa) só existe o `pb-2` (8) daquela fileira.
+     */
+    marginTop: 0,
   },
   avatar: {
     width: AVATAR_SIZE,
@@ -628,7 +694,12 @@ const styles = StyleSheet.create({
      * resolve a maior parte da diferença visível, sem precisar de
      * camada de blur nova nenhuma aqui.
      */
-    borderWidth: 2,
+    /**
+     * CORREÇÃO (2026-09-04) — era 2px. O web usa `border` = 1px, e o
+     * anel fica POR FORA do avatar (`-inset-0.5`), não por dentro —
+     * com 2px por dentro, a foto perdia 4px de diâmetro (74 → 70).
+     */
+    borderWidth: 1,
     borderColor: "rgba(255,255,255,0.4)",
   },
   avatarImage: {
@@ -637,23 +708,30 @@ const styles = StyleSheet.create({
   },
   avatarInitials: {
     fontSize: fontSize.lg,
-    fontWeight: "700",
+    /** CORREÇÃO (2026-09-04) — era 700; o `Avatar.tsx` do web usa `font-semibold` = 600. */
+    fontWeight: "600",
     color: colors.muted,
   },
   headerText: {
     flex: 1,
     minWidth: 0,
   },
+  /** CORREÇÃO (2026-09-10) — ver comentário completo em `displayName`, acima (mesma causa raiz). `text-sm` do Tailwind = 20px de `lineHeight`. */
   username: {
     fontSize: fontSize.sm,
+    lineHeight: 20,
     color: colors.primary,
   },
-  /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); o web usa `mt-4` (`ProfileHeader.tsx`, bio) = 16px. */
-  /** CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web usa `px-4` (`spacing.md`=16) como borda de tela. */
+  /**
+   * CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); o web usa `mt-4` (`ProfileHeader.tsx`, bio) = 16px.
+   * CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web usa `px-4` (`spacing.md`=16) como borda de tela.
+   * CORREÇÃO (2026-09-10) — `lineHeight: 20` (mesma causa raiz do `displayName`/`username`, ver comentário lá): sem isso a PRÓPRIA bio também flutua mais alto que o web dentro da sua caixa, o que empurrava as pílulas de contagem (`countsRow`, logo abaixo) proporcionalmente mais longe da bio do que no web.
+   */
   bio: {
     marginTop: spacing.md,
     paddingHorizontal: spacing.md,
     fontSize: fontSize.sm,
+    lineHeight: 20,
     color: colors.text,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.sm` (8); o web usa `gap-2.5` (`ProfileHeader.tsx`, "mt-4 flex gap-2.5") = 10px — sem token exato, valor literal. */
@@ -678,7 +756,8 @@ const styles = StyleSheet.create({
    */
   countCard: {
     alignItems: "center",
-    borderRadius: radius.md,
+    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-2xl` = 16. */
+    borderRadius: radius.lg,
     paddingHorizontal: 6,
     paddingVertical: 12,
   },
@@ -698,14 +777,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
+    /** CORREÇÃO (2026-09-04) — era `spacing.sm` (8); web usa `mt-3` = 12. */
+    marginTop: 12,
   },
   // `paddingHorizontal: spacing.lg` aqui NÃO foi tocado — é padding
   // interno do botão (respiro do texto dentro do pill), não borda de
   // tela; fora do escopo da padronização de 2026-09-03.
+  /**
+   * CORREÇÃO (2026-09-04, auditoria mobile × web) — o web
+   * (`ProfileHeader.tsx`) usa `rounded-full px-4 py-2`: pílula
+   * totalmente redonda com 16px de respiro lateral. Aqui era
+   * `radius.md` (10 — canto quase reto) com 24px de respiro, o que
+   * deixava o botão mais largo E menos arredondado que o do web.
+   */
   editButton: {
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   editButtonText: {
@@ -713,6 +800,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.background,
     textTransform: "uppercase",
+    /** `tracking-wide` do web = +0.025em; a 12px dá +0.3px. */
+    letterSpacing: 0.3,
   },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
@@ -721,6 +810,35 @@ const styles = StyleSheet.create({
   section: {
     marginTop: spacing.lg,
     paddingHorizontal: spacing.md,
+  },
+  /**
+   * `text-lg font-bold` do web (`ProfileHeader.tsx`, nome) = 18/700;
+   * `variant="subtitle"` sozinho é 18/600.
+   *
+   * CORREÇÃO (2026-09-10, reportado — "distância da bio diferente do
+   * web") — medido em print real, lado a lado: a folga entre o final
+   * do "@usuário" e o início da bio ficava proporcionalmente ~40-50%
+   * maior no mobile do que no web (mesma régua: diâmetro do avatar,
+   * que é 74px nos dois). Causa raiz: `Text.tsx` (base do app) e este
+   * arquivo nunca definem `lineHeight` em lugar nenhum — sem isso, o
+   * RN usa a métrica vertical PRÓPRIA da fonte ("Plus Jakarta Sans"),
+   * que é bem mais generosa que o `line-height` do Tailwind (o web
+   * usa só `text-lg`/`text-sm`, sem `leading-*` custom, então é
+   * sempre o padrão do Tailwind: 28px pra `text-lg`, 20px pra
+   * `text-sm`) — o texto "flutua" mais alto dentro da própria caixa
+   * de linha, sobrando mais espaço visível embaixo dele antes da
+   * `bio` (que tem `marginTop` fixo, igual ao web — não é o marginTop
+   * que está errado, é a caixa de linha do texto ACIMA que é maior
+   * que deveria). `lineHeight: 28` trava a caixa deste texto no
+   * mesmo valor do `text-lg` do Tailwind.
+   */
+  displayName: {
+    fontWeight: "700",
+    lineHeight: 28,
+  },
+  /** Ver o comentário no JSX — `mb-6` (24) da `<section>` do web em volta das Recomendações. */
+  recommendationsBlock: {
+    marginBottom: spacing.lg,
   },
   sectionsWrapper: {
     marginTop: spacing.lg,

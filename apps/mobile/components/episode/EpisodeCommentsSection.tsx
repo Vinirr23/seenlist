@@ -7,7 +7,7 @@ import { useEpisodeComments } from "@/lib/social/useEpisodeComments";
 import { pickImageFromLibrary, uploadCommentImage } from "@/lib/imageUpload";
 import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { EpisodeCommentItem } from "./EpisodeCommentItem";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { hapticTick, hapticImpact } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
@@ -104,7 +104,15 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.composerArea}>
+      {/*
+        * PORTE DO WEB (2026-09-04, "vidro que falta") — o composer vira
+        * card `<Glass>` (web, `CommentsSection.tsx`: "mesma textura de
+        * card neutro já usada em MetaRow.tsx/ReviewSummary.tsx, em vez
+        * de `bg-surface` opaco"). O `TextInput` e a caixa "contém
+        * spoiler" DENTRO dele ficam como estão — campo de formulário
+        * não recebe vidro (mesmo critério do web).
+        */}
+      <Glass style={styles.composerArea}>
         <TextInput
           value={body}
           onChangeText={setBody}
@@ -149,7 +157,7 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
             <Text style={styles.sendButtonText}>{uploadingImage ? t("common.uploading") : t("common.send")}</Text>
           </Pressable>
         </View>
-      </View>
+      </Glass>
 
       {isLoading ? (
         <AvatarRowSkeleton count={3} />
@@ -183,12 +191,13 @@ const styles = StyleSheet.create({
   centerText: {
     paddingVertical: spacing.sm,
   },
+  // CORREÇÃO (2026-09-04, "vidro que falta") — fundo/borda sólidos
+  // removidos (vira `<Glass>`, que já desenha borda + blur + gradiente).
   composerArea: {
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    // `radius.md` (10) → `radius.lg` (16): web usa `rounded-2xl` no
+    // card do composer. `Glass` não define raio sozinho.
+    borderRadius: radius.lg,
     padding: spacing.sm,
     gap: spacing.xs,
   },

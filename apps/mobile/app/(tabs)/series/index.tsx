@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,11 +10,14 @@ import { useDiscoverList } from "@/lib/useDiscoverList";
 import { recalculateUpToDateSeriesCategoriesThrottled, prefetchSeriesDetails } from "@/lib/seriesDetails";
 import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
-import { Screen, Text } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
-import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingListRow";
+import { SectionTitle } from "@/components/media/SectionTitle";
+import { ViewAllButton } from "@/components/media/ViewAllButton";
+import { ContinueWatchingListRow, ESPACO_ENTRE_CARDS } from "@/components/media/ContinueWatchingListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
+import { EmptyLibraryHero } from "@/components/media/EmptyLibraryHero";
 import { DiscoverCarousel } from "@/components/explore/DiscoverCarousel";
 import { PageError } from "@/components/media/PageError";
 import { UpcomingEpisodeCard } from "@/components/media/UpcomingEpisodeCard";
@@ -22,6 +25,7 @@ import { UpcomingEpisodeCardSkeleton } from "@/components/media/UpcomingEpisodeC
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
+import { HOME_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { translateDayLabel } from "@/lib/i18n/dayLabels";
 import { colors, spacing, radius } from "@/lib/theme";
@@ -76,7 +80,7 @@ export default function SeriesHomeScreen() {
   });
 
   const upcoming = useUpcomingEpisodes();
-  const { viewMode, setViewMode } = useViewModePreference("series-library");
+  const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("series-library");
   const { t, locale } = useTranslation();
   /**
    * PORTE DO WEB (2026-09-03, auditoria "implementar tudo que não
@@ -218,6 +222,26 @@ export default function SeriesHomeScreen() {
   const [nextEpisodesLoaded, setNextEpisodesLoaded] = useState(false);
 
   /**
+   * CORREÇÃO (2026-09-04, reportado — "marcou, fez a animação de
+   * assistido, mas não fez a animação deslizando sutil pra cima") —
+   * espelha `layoutActive`/`onTransitionActiveChange` de
+   * `MinhaListaSection.tsx` (web): o `layout` do Reanimated (ver
+   * `ContinueWatchingListRow.tsx`) precisa ficar ligado nas linhas
+   * IRMÃS enquanto QUALQUER uma delas está de fato animando (confirmando
+   * ou saindo), pra elas reposicionarem suavemente quando uma sai da
+   * lista — e desligado no resto do tempo (mesmo raciocínio do web:
+   * deixar ligado sempre, parado, seria trabalho à toa nas duas listas
+   * inteiras só "de prontidão"). Contador, não booleano simples — mais
+   * de uma linha pode estar animando ao mesmo tempo (nada impede tocar
+   * em duas séries diferentes em sequência rápida).
+   */
+  const [activeTransitionCount, setActiveTransitionCount] = useState(0);
+  const handleTransitionActiveChange = useCallback((active: boolean) => {
+    setActiveTransitionCount((count) => Math.max(0, count + (active ? 1 : -1)));
+  }, []);
+  const layoutActive = activeTransitionCount > 0;
+
+  /**
    * A PEDIDO — a seção "Faz um tempo que você não assiste" usa o
    * MESMO card completo do "Continue assistindo"
    * (`ContinueWatchingListRow`: código do episódio, selo NOVO/MAIS
@@ -234,16 +258,62 @@ export default function SeriesHomeScreen() {
    */
   const listNeedingEpisodes = useMemo(() => [...continueWatching, ...staleSeries], [continueWatching, staleSeries]);
 
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-04 — "tudo em dia mostra espaço em
+   * branco", auditoria web-vs-mobile) — mesmo raciocínio de
+   * `visibleContinueWatching` do web (`MinhaListaSection.tsx`): a
+   * checagem `continueWatching.length === 0` logo abaixo só olha o
+   * STATUS bruto ("watching"/"up_to_date"), não se existe pendência de
+   * verdade. Sem este cálculo centralizado, cada série "Em dia" sem
+   * episódio pendente real (`nextEpisodes` não tem entrada pra ela)
+   * passava pelo primeiro filtro (achava que tinha conteúdo) e só
+   * desaparecia DEPOIS, dentro do modo grade (`PosterGrid`, filtro
+   * inline) ou dentro de cada `ContinueWatchingListRow` (que retorna
+   * `null` sozinho) — se TODAS as séries caíssem nesse caso ao mesmo
+   * tempo, a seção inteira ficava sem nenhum card E sem nenhuma
+   * mensagem, só espaço em branco. Calculado uma vez só, reaproveitado
+   * pela checagem de vazio de verdade e pelo modo grade.
+   */
+  const visibleContinueWatching = useMemo(
+    () => continueWatching.filter((item) => item.status === "watching" || nextEpisodes.has(item.id)),
+    [continueWatching, nextEpisodes]
+  );
+
+  /**
+   * CAUSA RAIZ do "a tela atualiza em vez da animação" (2026-09-09,
+   * achada nos 28 quadros do vídeo: entre marcar e a lista voltar,
+   * TODOS os cards viram caixas vazias por ~1 segundo).
+   *
+   * Não era a animação — era o esqueleto. Marcar um episódio chama
+   * `loadNextEpisodes()`, que zerava `nextEpisodesLoaded`; e a tela
+   * troca a lista INTEIRA por `<LibraryListSkeleton />` enquanto ele
+   * for falso. Ou seja: toda remarcação recarregava a tela na cara do
+   * usuário, e qualquer animação de layout ficava invisível debaixo
+   * disso.
+   *
+   * O web não tem isso porque lá o refetch mantém os dados anteriores
+   * na tela enquanto busca (React Query) — o esqueleto só aparece
+   * quando não há NADA pra mostrar.
+   *
+   * Mesma regra aqui: o esqueleto é só da PRIMEIRA carga. Depois dela,
+   * as buscas seguintes acontecem em silêncio, com a lista atual no
+   * lugar — que é o que deixa o colapso do card e o deslize dos de
+   * baixo aparecerem.
+   */
+  const jaCarregouEpisodiosRef = useRef(false);
+
   const loadNextEpisodes = useCallback(() => {
     if (listNeedingEpisodes.length === 0) return;
-    setNextEpisodesLoaded(false);
+    if (!jaCarregouEpisodiosRef.current) setNextEpisodesLoaded(false);
     fetchNextEpisodesToWatch(listNeedingEpisodes.map((item) => item.id), locale)
       .then((map) => {
         setNextEpisodes(map);
+        jaCarregouEpisodiosRef.current = true;
         setNextEpisodesLoaded(true);
       })
       .catch((error) => {
         console.error("[SeriesHomeScreen] Falha ao buscar próximos episódios", error);
+        jaCarregouEpisodiosRef.current = true;
         setNextEpisodesLoaded(true); // não trava no esqueleto pra sempre se der erro — cai pro cartão simples
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -266,12 +336,42 @@ export default function SeriesHomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [continueWatching.map((i) => i.id).join(",")]);
 
+  /*
+   * CORREÇÃO (2026-09-10, reportado — "continue assistindo/switch de
+   * grid e lista estão aparecendo na emptystate") — no web
+   * (`MinhaListaSection.tsx`), o cabeçalho (título "Continue
+   * assistindo" + alternância grade/lista) fica dentro de `{!isEmptyState
+   * && (...)}` — ou seja, SOME nos dois estados vazios (nunca
+   * adicionou nada, ou tudo em dia), porque o `EmptyLibraryHero` já
+   * tem seu próprio título grande. Aqui o cabeçalho sempre renderizava,
+   * incondicional, então aparecia flutuando sozinho em cima da
+   * ilustração. `isEmptyState` cobre os DOIS branches vazios daqui
+   * (`continueWatching.length === 0` e, depois de confirmado via
+   * `nextEpisodesLoaded`, `visibleContinueWatching.length === 0`) —
+   * web não precisa dessa separação em dois porque não tem o mesmo
+   * `nextEpisodesLoaded` (o filtro de "tem pendência real" já vem
+   * pronto de outra fonte lá).
+   */
+  const isEmptyState =
+    viewModeReady &&
+    !isLoading &&
+    (continueWatching.length === 0 || (nextEpisodesLoaded && visibleContinueWatching.length === 0));
+
   function handlePressItem(item: LibraryItem) {
     router.push(`/series/${item.id}`);
   }
 
   return (
     <Screen padded={false}>
+      {/*
+        PORTE DO WEB (2026-09-09) — esta tela não tinha campo de manchas
+        nenhum, e o `SeriesHome.tsx`/`MoviesHome.tsx` do web tem (cinco
+        manchas, ver `HOME_GLOW_BLOBS`). Mesmo padrão já usado em
+        Explorar/Perfil: o `GlassTargetProvider` envolve a tela inteira
+        e é também o alvo de desfoque de qualquer `Glass` que venha a
+        existir aqui.
+      */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={HOME_GLOW_BLOBS} />}>
       <View style={styles.tabsRow}>
         <HomeTabs active={tab} onChange={setTab} />
       </View>
@@ -281,13 +381,24 @@ export default function SeriesHomeScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
-          <View style={styles.sectionHeader}>
-            <Text variant="subtitle">{t("seriesHome.continueWatching")}</Text>
-            <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-          </View>
+          {!isError && !isEmptyState && (
+            <View style={styles.sectionHeader}>
+              <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
+              <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+            </View>
+          )}
 
           {isError ? (
             <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
+          ) : !viewModeReady ? (
+            // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
+            // instante" — ver comentário de `useViewModePreference.ts`)
+            // — enquanto o formato grade/lista de verdade ainda não foi
+            // conferido no `AsyncStorage`, não desenha nenhum esqueleto
+            // — evita mostrar "grade" (suposição) e trocar de formato
+            // na frente da pessoa assim que o valor real (ex.: "lista")
+            // chegar.
+            null
           ) : isLoading ? (
             viewMode === "grid" ? (
               <LibraryGridSkeleton />
@@ -295,11 +406,20 @@ export default function SeriesHomeScreen() {
               <LibraryListSkeleton />
             )
           ) : continueWatching.length === 0 ? (
+            /*
+              PORTE DO WEB (2026-09-10, auditoria — vazio "de verdade",
+              nunca adicionou nada) — o web usa `EmptyLibraryHero`
+              (ilustração + título + subtítulo + botão + divisor "OU"),
+              solto direto em cima do fundo — não o `EmptyShelf` (card
+              com borda tracejada). Ver `EmptyLibraryHero.tsx`.
+            */
             <>
-              <EmptyShelf
-                message={t("seriesHome.emptyLibrary")}
+              <EmptyLibraryHero
+                title={t("seriesHome.emptyLibraryTitle")}
+                subtitle={t("seriesHome.emptyLibrarySubtitle")}
                 actionLabel={t("seriesHome.exploreSeries")}
                 actionHref="/(tabs)/explore"
+                dividerLabel={t("seriesHome.or")}
               />
               {/*
                 * `DiscoverCarousel` já tem seu próprio `paddingHorizontal:
@@ -334,20 +454,64 @@ export default function SeriesHomeScreen() {
                 />
               </View>
             </>
-          ) : viewMode === "grid" ? (
-            !nextEpisodesLoaded ? (
-              <LibraryGridSkeleton />
-            ) : (
-              <PosterGrid
-                items={continueWatching.filter((item) => item.status === "watching" || nextEpisodes.has(item.id))}
-                onPressItem={handlePressItem}
-              />
-            )
           ) : !nextEpisodesLoaded ? (
-            <LibraryListSkeleton />
+            viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
+          ) : visibleContinueWatching.length === 0 ? (
+            /*
+             * CORREÇÃO DE CAUSA RAIZ (2026-09-04 — "tudo em dia mostra
+             * espaço em branco", auditoria web-vs-mobile — ver
+             * comentário grande em `visibleContinueWatching` acima e
+             * "Estado vazio melhorado" em `MinhaListaSection.tsx` do
+             * web) — chega até aqui só depois de confirmar (via
+             * `nextEpisodesLoaded`) que NENHUMA série de
+             * `continueWatching` tem pendência real agora — ou seja, a
+             * pessoa JÁ tem séries na Biblioteca (passou pelo branco
+             * acima), só que está tudo em dia neste momento. Antes,
+             * sem este branch, a tela caía direto no modo grade/lista,
+             * que filtravam/retornavam `null` sozinhos pra CADA item —
+             * se todos caíssem nesse caso ao mesmo tempo, sobrava
+             * espaço em branco sem nenhum aviso.
+             */
+            /*
+              CORREÇÃO (2026-09-10, mesma auditoria do `EmptyLibraryHero`
+              acima) — no web, "tudo em dia" É O MESMO branch de "nunca
+              adicionou nada" (`visibleContinueWatching.length === 0`
+              lá), só troca o texto — os dois casos SEMPRE mostram
+              `EmptyLibraryHero` + a fileira "Populares" embaixo. Aqui
+              os dois casos são branches separados (por causa do
+              `nextEpisodesLoaded`, ver comentário acima), mas o
+              resultado visual precisa ser o mesmo: faltava a fileira
+              "Populares" inteira neste branch.
+            */
+            <>
+              <EmptyLibraryHero
+                title={t("seriesHome.emptyCaughtUpTitle")}
+                subtitle={t("seriesHome.emptyCaughtUpSubtitle")}
+                actionLabel={t("seriesHome.exploreSeries")}
+                actionHref="/(tabs)/explore"
+                dividerLabel={t("seriesHome.or")}
+              />
+              <View style={styles.popularSection}>
+                <DiscoverCarousel
+                  title={
+                    <View style={styles.flameTitleRow}>
+                      <Ionicons name="flame" size={16} color={colors.primary} />
+                      <Text variant="subtitle" style={{ color: colors.primary }}>
+                        {t("seriesHome.popularSeries")}
+                      </Text>
+                    </View>
+                  }
+                  items={trendingSeries.items}
+                  isLoading={trendingSeries.isLoading}
+                  viewAllHref="/explore/all/trending_series"
+                />
+              </View>
+            </>
+          ) : viewMode === "grid" ? (
+            <PosterGrid items={visibleContinueWatching} onPressItem={handlePressItem} />
           ) : (
             <View style={styles.listRows}>
-              {continueWatching.map((item) => {
+              {continueWatching.map((item, indice) => {
                 /**
                  * CORREÇÃO (bug real, reportado com print — "série já
                  * em dia ainda na Home", card com formato errado) —
@@ -383,7 +547,11 @@ export default function SeriesHomeScreen() {
                   <ContinueWatchingListRow
                     key={item.id}
                     item={item}
+                    /* A posição decide a força do destaque âmbar na lateral — mesma curva do web, ver `OPACIDADE_DESTAQUE` no componente. */
+                    priorityIndex={indice}
                     nextEpisode={nextEpisodes.get(item.id) ?? null}
+                    layoutActive={layoutActive}
+                    onTransitionActiveChange={handleTransitionActiveChange}
                     onMarkedWatched={() => {
                       refetchSilently();
                       loadNextEpisodes();
@@ -395,6 +563,20 @@ export default function SeriesHomeScreen() {
           )}
 
           {/*
+            PORTE DO WEB (2026-09-09, a pedido) — o botão "Ver tudo",
+            que o web tem e aqui não existia. Condição e posição são as
+            de lá (`MinhaListaSection.tsx`): só aparece quando há o que
+            listar, e vem DEPOIS dos cards, tanto no modo grade quanto
+            no de lista — o `viewMode` não muda onde ele entra.
+          */}
+          {visibleContinueWatching.length > 0 && (
+            <ViewAllButton
+              label={t("seriesHome.viewAllContinueWatching")}
+              onPress={() => router.push("/series/continue-assistindo")}
+            />
+          )}
+
+          {/*
             * A PEDIDO — "Ver todas da lista Assistir depois" removido
             * daqui. A lista continua acessível normalmente (a rota
             * `/(tabs)/series/watchlist` não foi apagada), só não
@@ -403,9 +585,15 @@ export default function SeriesHomeScreen() {
 
           {staleSeries.length > 0 && (
             <View style={styles.staleSection}>
-              <Text variant="subtitle" style={styles.staleTitle}>
-                Faz um tempo que você não assiste
-              </Text>
+              {/*
+                Também é `SectionTitle` no web (`MinhaListaSection.tsx`,
+                mesma pílula de "Continue assistindo") — aqui era um
+                título comum. O texto continua literal nos dois lados:
+                nem o web tem chave de tradução pra ele.
+              */}
+              <View style={styles.staleTitle}>
+                <SectionTitle>Faz um tempo que você não assiste</SectionTitle>
+              </View>
               {viewMode === "grid" ? (
                 <PosterGrid items={staleSeries} onPressItem={handlePressItem} />
               ) : !nextEpisodesLoaded ? (
@@ -423,6 +611,8 @@ export default function SeriesHomeScreen() {
                         key={item.id}
                         item={item}
                         nextEpisode={nextEpisodes.get(item.id) ?? null}
+                        layoutActive={layoutActive}
+                        onTransitionActiveChange={handleTransitionActiveChange}
                         onMarkedWatched={() => {
                           refetchSilently();
                           loadNextEpisodes();
@@ -470,10 +660,16 @@ export default function SeriesHomeScreen() {
             <View style={styles.groupList}>
               {upcoming.groups.map((group) => (
                 <View key={group.dateKey}>
+                  {/*
+                    PORTE DO WEB (2026-09-09) — a pílula do dia era um
+                    retângulo de `colors.surface`. No `EmBreveSection.tsx`
+                    do web ela é, com o comentário dizendo isso lá,
+                    "mesmo padrão de SectionTitle.tsx": a mesma pílula de
+                    vidro do título de seção, e centralizada
+                    (`flex justify-center`).
+                  */}
                   <View style={styles.dayPillWrapper}>
-                    <View style={styles.dayPill}>
-                      <Text style={styles.dayPillText}>{translateDayLabel(group.label, t)}</Text>
-                    </View>
+                    <SectionTitle>{translateDayLabel(group.label, t)}</SectionTitle>
                   </View>
                   <View>
                     {group.episodes.map((episode, index) => {
@@ -482,7 +678,9 @@ export default function SeriesHomeScreen() {
                       return (
                         <View key={`${episode.seriesId}-${episode.seasonNumber}-${episode.episodeNumber}`} style={styles.timelineRow}>
                           <View style={styles.track}>
+                            <View style={[styles.trackLineHalf, !isFirstInGroup && styles.trackLineHalfVisible]} />
                             <View style={[styles.trackDot, isFirstInGroup ? styles.trackDotFirst : styles.trackDotMuted]} />
+                            <View style={[styles.trackLineHalf, hasNextInGroup && styles.trackLineHalfVisible]} />
                             {hasNextInGroup && <View style={styles.trackLine} />}
                           </View>
                           <View style={styles.timelineContent}>
@@ -499,11 +697,16 @@ export default function SeriesHomeScreen() {
           )}
         </ScrollView>
       )}
+      </GlassTargetProvider>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  /** O provedor precisa ocupar a tela toda pras manchas cobrirem tudo — mesmo estilo de `explore.tsx`/`profile.tsx`. */
+  glassFill: {
+    flex: 1,
+  },
   tabsRow: {
     paddingTop: spacing.sm,
   },
@@ -514,20 +717,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
+  /** `mb-3` = 12 no web (`MinhaListaSection.tsx`); estava `spacing.sm` = 8. */
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
+  /**
+   * SEM `gap` (2026-09-09): quem espaça é o `marginBottom` de cada card
+   * (`ESPACO_ENTRE_CARDS`), como no web. Os dois juntos davam 16 de
+   * respiro em vez de 12.
+   *
+   * O `marginBottom` negativo cancela o do ÚLTIMO card — é o
+   * `last:mb-0` do web, que aqui não tem equivalente direto.
+   */
   listRows: {
-    gap: spacing.sm,
+    marginBottom: -ESPACO_ENTRE_CARDS,
   },
   // CORREÇÃO (2026-09-03) — `marginHorizontal` era `-spacing.lg` pra
   // cancelar exatamente o `paddingHorizontal` do `content` (acima) —
   // ver comentário no JSX que usa este estilo. Atualizado junto.
+  /**
+   * CORREÇÃO (2026-09-10, agora que o vazio usa `EmptyLibraryHero`) —
+   * `marginTop` era `spacing.lg` (24, distância do CARD antigo do
+   * `EmptyShelf`); o web usa `mt-2` (8) entre o divisor "OU" e a
+   * fileira "Populares", medido a partir do `EmptyLibraryHero.tsx`.
+   */
   popularSection: {
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     marginHorizontal: -spacing.md,
   },
   flameTitleRow: {
@@ -535,11 +753,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
+  /** `mt-8` = 32 no web. */
   staleSection: {
-    marginTop: spacing.xl,
+    marginTop: 32,
   },
+  /** `mt-3` = 12 entre título e conteúdo no web; estava `spacing.sm` = 8. */
   staleTitle: {
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
   groupList: {
     gap: spacing.lg,
@@ -551,18 +771,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  dayPill: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  dayPillText: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.4,
-    color: colors.muted,
-  },
   // Trilha (ponto + linha) conectando os cards do mesmo grupo — ver
   // comentário grande acima, no JSX do modo "Em breve".
   timelineRow: {
@@ -572,6 +780,45 @@ const styles = StyleSheet.create({
   track: {
     width: 12,
     alignItems: "center",
+  },
+  /**
+   * CORREÇÃO DE RAIZ (2026-09-15, bug real reportado com print — "a
+   * bolinha... deixa ela mais no centro do card, atualmente ela é mais
+   * pra cima", nos dois lados, web incluso — ver mesma correção em
+   * `EmBreveSection.tsx` do web) — a trilha (`track`) inteira estica
+   * pra cobrir a altura do card + o `timelineSpacer` (via
+   * `alignItems: "stretch"`, padrão da `timelineRow`, que ela precisa
+   * pra desenhar a linha até o PRÓXIMO ponto). Antes, o ponto
+   * (`trackDot`) era o primeiro filho dessa coluna esticada, sem
+   * nenhum `justifyContent` — sentava direto no TOPO da trilha inteira
+   * (card + spacer), não no centro do card.
+   *
+   * TENTATIVA 1 (revertida) — isolar o ponto num `flex: 1` só, com a
+   * linha de conexão numa altura fixa: centralizava certo, mas
+   * "cortava" a linha, que passou a cobrir só o `timelineSpacer` (10px)
+   * — faltava o trecho entre o ponto (no meio do card) e o FIM do
+   * card, deixando um vão visível entre um ponto e o próximo (bug
+   * reportado com print, "a linha que liga um ponto ao outro ficou
+   * bugada").
+   *
+   * SOLUÇÃO DE VERDADE — a trilha ganha DOIS espaçadores `flex: 1`
+   * iguais, um ANTES e um DEPOIS do ponto (`trackLineHalf`), cada um
+   * cobrindo METADE da altura "livre" (altura do card menos os 8px do
+   * ponto) — como os dois são iguais, o ponto cai exatamente no centro
+   * do card, não importa a altura dele. Cada metade some (some só a
+   * COR, o espaço continua reservado) quando não tem nada a conectar
+   * daquele lado (`!isFirstInGroup` pro de cima, `hasNextInGroup` pro
+   * de baixo) — assim a linha fica visualmente contínua do centro de
+   * um ponto ao centro do próximo: metade de baixo deste ponto + a
+   * `trackLine` fixa (10, o mesmo `timelineSpacer`) + metade de cima
+   * do próximo ponto, sem nenhum vão.
+   */
+  trackLineHalf: {
+    width: 1,
+    flex: 1,
+  },
+  trackLineHalfVisible: {
+    backgroundColor: "rgba(255,255,255,0.13)",
   },
   trackDot: {
     width: 8,
@@ -584,9 +831,10 @@ const styles = StyleSheet.create({
   trackDotMuted: {
     backgroundColor: "rgba(255,255,255,0.22)",
   },
+  /** Trecho fixo entre o fim de um card e o começo do próximo — mesma altura do `timelineSpacer` (10). Ver comentário grande em `trackLineHalf`, acima. */
   trackLine: {
     width: 1,
-    flex: 1,
+    height: 10,
     backgroundColor: "rgba(255,255,255,0.13)",
   },
   timelineContent: {

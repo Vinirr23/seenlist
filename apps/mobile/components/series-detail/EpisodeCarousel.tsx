@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
-import { FlatList, View, Pressable, StyleSheet } from "react-native";
+import { FlatList, View, Pressable, Platform, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { LibraryStatus, SeriesDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { isEpisodeWatchedSync, resolveCarouselEpisodes, type EpisodeRef, type WatchedEpisodeKey } from "@/lib/seriesDetails";
 import type { SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -115,10 +115,14 @@ export function EpisodeCarousel({
   if (data.length === 0) return null;
 
   return (
-    <View style={styles.section}>
-      <Text variant="subtitle" style={styles.title}>
-        {t("seriesHome.episodesTab")}
-      </Text>
+    <View>
+      {/*
+        PORTE DO WEB (2026-09-09) — o título era `variant="subtitle"`
+        (18px/600). No `EpisodeCarousel.tsx` do web ele é
+        `mb-2 text-sm font-medium` = 14px/500, igualzinho aos títulos
+        de "Trailer"/"Elenco"/"Galeria" da aba Sobre.
+      */}
+      <Text style={styles.title}>{t("seriesHome.episodesTab")}</Text>
       {/**
        * TASK-162 (a pedido — desempenho em séries com muitos
        * episódios) — antes usava `ScrollView` + `.map()`, que desenha
@@ -139,6 +143,7 @@ export function EpisodeCarousel({
         keyExtractor={(item, index) =>
           item.kind === "episode" ? `${item.seasonNumber}-${item.episode.episodeNumber}` : `caught-up-${index}`
         }
+        style={styles.list}
         contentContainerStyle={styles.row}
         getItemLayout={(_, index) => ({ length: CARD_WIDTH + GAP, offset: (CARD_WIDTH + GAP) * index, index })}
         initialNumToRender={6}
@@ -180,19 +185,28 @@ function EpisodeCarouselCard({
   onToggle: () => void;
 }) {
   const router = useRouter();
-  const stillUrl = tmdbImageUrl(episode.stillPath, "w185");
+  const stillUrl = tmdbImageUrl(episode.stillPath, "w300"); // `w300` como no web — `w185` ficava borrado num card de 144dp (378px reais)
   const code = `S${String(seasonNumber).padStart(2, "0")}E${String(episode.episodeNumber).padStart(2, "0")}`;
 
   return (
     <View style={styles.card}>
       <Pressable onPress={() => router.push(`/episodes/${seriesId}/${seasonNumber}/${episode.episodeNumber}`)}>
-        <View style={styles.stillWrapper}>
+        {/*
+          PORTE DO WEB (2026-09-09) — a caixa da imagem era um
+          retângulo SÓLIDO (`colors.surface`). No web é vidro:
+          `rounded-lg border border-white/10 backdrop-blur-[14px]
+          backdrop-saturate-[180%]` + brilho 0.16 / base 0.09 — a
+          receita `medium` do `Glass`. O ícone do vazio também é
+          outro: claquete (`Clapperboard`) de 20px em `muted/40`, não
+          um "film" de 18px em `muted` cheio.
+        */}
+        <Glass style={styles.stillWrapper} variant="medium">
           {stillUrl ? (
             <Image source={{ uri: stillUrl }} style={styles.still} contentFit="cover" />
           ) : (
-            <Feather name="film" size={18} color={colors.muted} />
+            <MaterialCommunityIcons name="movie-open-outline" size={20} color={ICONE_VAZIO} />
           )}
-        </View>
+        </Glass>
         <Text style={styles.code}>{code}</Text>
         <Text numberOfLines={1} variant="muted" style={styles.name}>
           {episode.name}
@@ -222,18 +236,37 @@ function CaughtUpMiniCard({ badge }: { badge: Exclude<SeriesCaughtUpBadge, null>
   );
 }
 
-const CARD_WIDTH = 144;
-const GAP = spacing.sm;
+const CARD_WIDTH = 144; // `w-36`
+/** `gap-3` = 12 no web; aqui era `spacing.sm` = 8. */
+const GAP = 12;
+/** `text-muted/40` — o `muted` (#8C93A8) a 40%. */
+const ICONE_VAZIO = "rgba(140,147,168,0.4)";
+/**
+ * `font-mono` do web. O Tailwind não tem fonte monoespaçada
+ * configurada neste projeto, então o `font-mono` cai na pilha padrão
+ * dele (`ui-monospace, SFMono-Regular, Menlo, ...`) — ou seja, a
+ * monoespaçada DO SISTEMA. O equivalente nativo é o nome que cada
+ * plataforma dá pra ela.
+ */
+const FONTE_MONO = Platform.select({ ios: "Menlo", default: "monospace" });
+/** `-mx-4 ... px-4` — a fileira sangra até a borda da tela e o recuo volta por dentro, então o primeiro card encosta na margem e os seguintes somem na borda ao rolar. */
+const SANGRIA = spacing.md;
 
 const styles = StyleSheet.create({
-  section: {
-    marginBottom: spacing.xs,
-  },
+  /** `mb-2 text-sm font-medium text-text`. */
   title: {
-    marginBottom: spacing.sm,
+    marginBottom: 8,
+    fontSize: fontSize.sm,
+    fontWeight: "500",
+    color: colors.text,
+  },
+  list: {
+    marginHorizontal: -SANGRIA,
   },
   row: {
     gap: GAP,
+    paddingHorizontal: SANGRIA,
+    paddingBottom: 4, // `pb-1`
   },
   card: {
     width: CARD_WIDTH,
@@ -241,8 +274,8 @@ const styles = StyleSheet.create({
   stillWrapper: {
     width: CARD_WIDTH,
     aspectRatio: 16 / 9,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    /* `rounded-lg` = 8 no web; aqui era `radius.md` = 10. Fundo e borda vêm do `Glass`. */
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -251,17 +284,20 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  /** `mt-1.5 font-mono text-xs font-semibold` = 6 de topo, 12px, peso 600 e fonte monoespaçada (era 4, peso 700 e fonte normal). */
   code: {
-    marginTop: spacing.xs,
+    marginTop: 6,
     fontSize: fontSize.xs,
-    fontWeight: "700",
+    fontWeight: "600",
+    fontFamily: FONTE_MONO,
     color: colors.text,
   },
+  /** `text-xs text-muted` = 12 (era 11). */
   name: {
-    fontSize: 11,
+    fontSize: fontSize.xs,
   },
   watchedButtonRow: {
-    marginTop: spacing.xs,
+    marginTop: 6, // `mt-1.5`
     alignItems: "flex-start",
   },
   miniCardOngoing: {

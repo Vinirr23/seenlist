@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { UpcomingEpisodeWithBadge, UpcomingBadge } from "@/lib/upcomingEpisodes";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -66,7 +66,8 @@ export function UpcomingEpisodeCard({ episode }: { episode: UpcomingEpisodeWithB
   const hasRealEpisodeName = !!episode.name && !isGenericEpisodeName(episode.name, episode.episodeNumber);
 
   return (
-    <Pressable style={styles.card} onPress={() => router.push(`/series/${episode.seriesId}`)}>
+    <Pressable onPress={() => router.push(`/series/${episode.seriesId}`)}>
+      <Glass style={styles.card} variant="card">
       <View style={styles.posterWrapper}>
         {posterUrl ? (
           <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
@@ -110,6 +111,7 @@ export function UpcomingEpisodeCard({ episode }: { episode: UpcomingEpisodeWithB
           </View>
         )
       )}
+      </Glass>
     </Pressable>
   );
 }
@@ -121,13 +123,20 @@ const styles = StyleSheet.create({
   // (`gap-1.5`=6, `p-2.5`=10, `rounded-2xl`=16) — eram valores da
   // escala genérica (`spacing.sm`=8, `radius.md`=10), próximos mas
   // não iguais.
+  /**
+   * PORTE DO WEB (2026-09-09, "implementar em todas as telas") — era um
+   * cartão SÓLIDO (`colors.surface` + `colors.border`). O
+   * `EmBreveSection.tsx` do web usa vidro: `backdrop-blur-[18px]` com
+   * `radial-gradient(... rgba(255,255,255,0.17) ...), rgba(255,255,255,0.10)`
+   * — exatamente a receita `card` do `Glass` (`glassVariants`, em
+   * `lib/theme.ts`). `borderWidth`/`borderColor`/`backgroundColor`
+   * saíram daqui porque quem passa a desenhá-los é o `Glass`; o que fica
+   * é só layout: direção, respiro, raio e padding.
+   */
   card: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: 10,
   },

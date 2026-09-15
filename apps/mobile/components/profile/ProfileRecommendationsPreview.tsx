@@ -6,7 +6,8 @@ import { Feather } from "@expo/vector-icons";
 import { fetchReceivedRecommendations, type ReceivedRecommendation } from "@/lib/recommendations";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, Skeleton, Glass } from "@/components/ui";
-import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
+import { Avatar } from "@/components/common/Avatar";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const AVATAR_SIZE = 32;
@@ -20,6 +21,43 @@ const AVATAR_SIZE = 32;
  * ganha foco, mesmo padrão que já existia aqui pra contagem de
  * não-lidas.
  */
+/**
+ * CORREÇÃO (2026-09-15, item deixado de fora de propósito em
+ * 2026-09-03, retomado agora — "nome em negrito dentro da frase de
+ * recomendação") — no web o nome de quem recomendou vem dentro de um
+ * `<span className="font-semibold">` (`ProfileRecommendationsPreview.tsx`,
+ * as 3 variações da frase); aqui a frase inteira saía de `t()` já
+ * pronta, como uma string só — sem como negritar só um pedaço por
+ * dentro de um `Text` sem RECONSTRUIR a frase.
+ *
+ * As 3 traduções (`profile.recommendedSingle`/`recommendedPlusTitles`/
+ * `recommendedByMultiplePeople`, `translations.ts`) começam TODAS com
+ * o molde `{sender}` — chamando `t(key)` SEM o 2º argumento devolve o
+ * molde com os placeholders ainda literais (mesmo truque já usado em
+ * `highlightTitle.tsx`, pra "Porque você assistiu a [X]"), então dá
+ * pra dividir no `{sender}` (sempre o nome inteiro, um pedaço só) e
+ * negritar exatamente esse pedaço, preenchendo o resto (`{title}`/
+ * `{count}`/`{noun}`) manualmente — funciona em qualquer idioma, sem
+ * hard-codar posição.
+ */
+function interpolarResto(texto: string, vars: Record<string, string | number>) {
+  let resultado = texto;
+  for (const [nome, valor] of Object.entries(vars)) {
+    resultado = resultado.replace(`{${nome}}`, String(valor));
+  }
+  return resultado;
+}
+
+function fraseComNomeEmNegrito(molde: string, nome: string, vars: Record<string, string | number>) {
+  const [prefixo, sufixo = ""] = molde.split("{sender}");
+  return (
+    <>
+      {interpolarResto(prefixo, vars)}
+      <Text style={styles.messageSenderName}>{nome}</Text>
+      {interpolarResto(sufixo, vars)}
+    </>
+  );
+}
 export function ProfileRecommendationsPreview() {
   const router = useRouter();
   const { t, locale } = useTranslation();
@@ -70,7 +108,15 @@ export function ProfileRecommendationsPreview() {
           <Text variant="muted" style={styles.emptyLabel}>
             {t("profile.noRecommendationsShort")}
           </Text>
-          <Feather name="chevron-right" size={16} color={colors.muted} />
+          {/*
+            CORREÇÃO (2026-09-04, medido no print do web a pedido — "no
+            web não tem nem a mancha circular ao redor do ícone e nem a
+            seta ao lado de 'nenhuma ainda'"): havia um
+            `<Feather name="chevron-right">` aqui que o web NÃO tem. O
+            estado vazio do web (`ProfileRecommendationsPreview.tsx`)
+            termina no texto — o card inteiro já é o alvo do toque, a
+            seta era invenção do mobile.
+          */}
         </Glass>
       </Pressable>
     );
@@ -84,20 +130,18 @@ export function ProfileRecommendationsPreview() {
   const extraCount = recommendations.length - 1;
   const senderName = latest.sender.displayName ?? latest.sender.username;
 
-  let message: string;
+  let message: React.ReactNode;
   if (extraCount === 0) {
-    message = t("profile.recommendedSingle", { sender: senderName, title: latest.title });
+    message = fraseComNomeEmNegrito(t("profile.recommendedSingle"), senderName, { title: latest.title });
   } else if (uniqueSenderIds.length === 1) {
-    message = t("profile.recommendedPlusTitles", {
-      sender: senderName,
+    message = fraseComNomeEmNegrito(t("profile.recommendedPlusTitles"), senderName, {
       title: latest.title,
       count: extraCount,
       noun: extraCount === 1 ? t("profile.titleSingular") : t("profile.titlePlural"),
     });
   } else {
     const others = uniqueSenderIds.length - 1;
-    message = t("profile.recommendedByMultiplePeople", {
-      sender: senderName,
+    message = fraseComNomeEmNegrito(t("profile.recommendedByMultiplePeople"), senderName, {
       count: others,
       noun: others === 1 ? t("profile.personSingular") : t("profile.personPlural"),
     });
@@ -109,17 +153,15 @@ export function ProfileRecommendationsPreview() {
         <View style={styles.avatarStack}>
           <View style={styles.avatarRow}>
             {uniqueSenders.map((sender, index) => (
-              <View
+              <Avatar
                 key={sender.userId}
+                uri={sender.avatarUrl}
+                name={sender.displayName ?? sender.username}
+                fallbackText={(sender.displayName ?? sender.username).slice(0, 1).toUpperCase()}
                 /* CORREÇÃO (2026-09-03, comparado com o web) — era -10; o web usa `-space-x-3` (`ProfileRecommendationsPreview.tsx`, avatares sobrepostos) = -12px. */
                 style={[styles.avatar, { marginLeft: index === 0 ? 0 : -12, zIndex: uniqueSenders.length - index }]}
-              >
-                {sender.avatarUrl ? (
-                  <Image source={{ uri: sender.avatarUrl }} style={styles.avatarImage} />
-                ) : (
-                  <Text style={styles.avatarInitial}>{(sender.displayName ?? sender.username).slice(0, 1).toUpperCase()}</Text>
-                )}
-              </View>
+                textStyle={styles.avatarInitial}
+              />
             ))}
           </View>
           {unreadCount > 0 && (
@@ -155,32 +197,74 @@ const styles = StyleSheet.create({
   // em 16px app-wide) — `marginHorizontal` era `spacing.lg` (24); web
   // usa `px-4` (`spacing.md`=16) como borda de tela. `marginBottom`
   // (ritmo vertical) NÃO foi tocado — fora do escopo.
+  /**
+   * CORREÇÃO (2026-09-04, comparado com `ProfileRecommendationsPreview.tsx`
+   * do web, a pedido — "card de recomendações está diferente"):
+   * - `borderRadius` era `radius.md` (10); o web usa `rounded-2xl` = 16
+   *   (`radius.lg`). Era a diferença mais visível — canto quase reto
+   *   contra canto bem arredondado.
+   * - `marginBottom` era `spacing.lg` (24); o web usa `mb-2` = 8. O
+   *   card estava com 3× o respiro de baixo que tem lá, empurrando
+   *   tudo que vem depois.
+   */
   card: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     marginHorizontal: spacing.md,
-    marginBottom: spacing.lg,
-    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
   },
-  /** Contorno de destaque quando tem recomendação não lida — mesmo ajuste feito no web. Só a borda (não o fundo, que já é o vidro) pra não brigar com o gradiente/blur do `Glass`. */
+  /**
+   * Destaque de "tem recomendação não lida". O web usa três coisas
+   * juntas (`border-primary/60 bg-primary/5 ring-1 ring-primary/20`) e
+   * o mobile só tinha a borda, numa opacidade menor (`tint.border` =
+   * 0.4, contra 0.6 do web) — por isso o destaque quase não aparecia.
+   * O `ring-1` vira `outlineWidth`/`outlineColor` (RN tem isso desde a
+   * New Architecture, que este app já usa) — é o equivalente exato:
+   * um traço 1px POR FORA da borda, sem alterar o tamanho da caixa.
+   */
   cardHighlighted: {
-    borderColor: tint.border,
+    borderColor: "rgba(232,163,61,0.6)",
+    backgroundColor: "rgba(232,163,61,0.05)",
+    outlineWidth: 1,
+    outlineColor: "rgba(232,163,61,0.2)",
   },
+  /**
+   * CORREÇÃO (2026-09-04, medido nos dois prints a pedido — "tem um
+   * circulo transparente amarelo, no icone do card de recomendações,
+   * web não é assim"): o `backgroundColor: tint.subtle` (âmbar 12%)
+   * saiu.
+   *
+   * CAUSA RAIZ (não foi escolha de gosto): a marcação do web TEM a
+   * classe `bg-primary/12` nesse mesmo lugar, então a leitura do
+   * código sozinha diria que o disco existe lá. Medindo o PIXEL do
+   * print do web em quatro raios a partir do centro do ícone (11, 13,
+   * 16 e 20px), a cor é CONSTANTE `#2E445D` — ou seja, no web esse
+   * disco não chega a ser pintado. No mobile o mesmo teste ia de
+   * `#3E403F` (centro) a `#25313F` (borda): disco visível. Portanto o
+   * que reproduz o web aqui é NÃO pintar o fundo.
+   *
+   * A caixa 32×32 continua — ela é o que alinha o ícone com o texto.
+   */
   emptyIcon: {
     height: 32,
     width: 32,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tint.subtle,
   },
   title: {
     flex: 1,
     fontSize: fontSize.sm,
     fontWeight: "500",
+    color: colors.text,
+  },
+  /** CORREÇÃO (2026-09-15) — negrito do nome dentro da frase de recomendação; web `font-semibold` = 600 (ver `fraseComNomeEmNegrito` acima). */
+  messageSenderName: {
+    fontWeight: "600",
     color: colors.text,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — era `fontSize.sm` (14); o web usa `text-xs` (`ProfileRecommendationsPreview.tsx`, "profile.noneYet") = 12px. */

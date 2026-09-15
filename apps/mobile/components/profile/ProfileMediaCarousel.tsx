@@ -4,7 +4,8 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchDisplaySummariesCached, tmdbImageUrl, type MediaSummary } from "@/lib/library";
-import { Text, Glass } from "@/components/ui";
+// `Glass` saiu: o único uso era o card vazio, que virou material próprio (ver `emptyCard`).
+import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -90,7 +91,7 @@ export function ProfileMediaCarousel({
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[0, 1, 2, 3, 4, 5]}
+          data={[0, 1, 2, 3, 4]}
           keyExtractor={(i) => String(i)}
           contentContainerStyle={styles.row}
           renderItem={() => <View style={styles.skeleton} />}
@@ -111,10 +112,14 @@ export function ProfileMediaCarousel({
           <Text style={styles.sectionTitleText}>{label}</Text>
         </View>
         <Pressable onPress={() => router.push(emptyHref ?? href)}>
-          <Glass style={styles.emptyCard}>
-            <Feather name="plus" size={22} color={colors.muted} />
+          {/*
+            * NÃO é `Glass` de propósito (2026-09-04, a pedido) — ver
+            * `emptyCard` nos estilos.
+            */}
+          <View style={styles.emptyCard}>
+            <Feather name="plus" size={24} color={colors.muted} />
             <Text style={styles.emptyText}>{emptyLabel}</Text>
-          </Glass>
+          </View>
         </Pressable>
       </View>
     );
@@ -150,7 +155,7 @@ export function ProfileMediaCarousel({
                 <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
               ) : summary ? (
                 <View style={styles.posterPlaceholder}>
-                  <Feather name="film" size={18} color={colors.muted} style={{ opacity: 0.4 }} />
+                  <Feather name="film" size={20} color={colors.muted} style={{ opacity: 0.4 }} />
                 </View>
               ) : (
                 <View style={styles.skeleton} />
@@ -164,13 +169,23 @@ export function ProfileMediaCarousel({
 }
 
 const styles = StyleSheet.create({
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela. `marginBottom`
-  // (ritmo vertical entre seções) NÃO foi tocado — fora do escopo.
+  /**
+   * CORREÇÃO (2026-09-04, auditoria mobile × web) — duas coisas:
+   *
+   * 1. `marginBottom` era `spacing.lg` (24); o web usa `mb-8` = 32 nas
+   *    TRÊS `<section>` deste componente (carregando, vazio e normal).
+   *    Como são 4 carrosséis no Perfil, os 8px a menos se acumulavam e
+   *    apertavam o ritmo da tela inteira.
+   * 2. O `paddingHorizontal` saiu daqui. O web usa `-mx-4 … px-4` na
+   *    trilha de rolagem: ela SANGRA até a borda da tela e só o
+   *    conteúdo começa a 16px — assim o último pôster some na borda em
+   *    vez de parar 16px antes. Com o padding na seção, a `FlatList`
+   *    era recortada. Agora o respiro vai em `contentContainerStyle`
+   *    da lista (`row`) e nos cabeçalhos (`sectionPadded`), que é o
+   *    equivalente exato.
+   */
   section: {
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xl,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); o web usa `mb-3` (`ProfileMediaCarousel.tsx`, cabeçalho clicável) = 12px — sem token exato, valor literal. */
   sectionHeader: {
@@ -178,12 +193,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 12,
+    /** 16 de borda de tela (a `section` não pada mais — a trilha sangra) + `px-1` (4) do web. */
+    paddingHorizontal: spacing.md + spacing.xs,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.xs` (4); o web usa `gap-2` (`ProfileMediaCarousel.tsx`, ícone+título) = 8px. */
   sectionTitle: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    /** 16 de borda de tela + `px-1` (4) do web — mesma conta do `sectionHeader`. */
+    paddingHorizontal: spacing.md + spacing.xs,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); os estados "carregando"/vazio no web usam o MESMO `mb-3` (12px) do cabeçalho clicável (`ProfileMediaCarousel.tsx`), não um valor menor à parte. */
   sectionTitleStandalone: {
@@ -194,16 +213,55 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     fontWeight: "800",
     color: colors.text,
+    /** `tracking-tight` do web = -0.025em; a 18px dá -0.45px. */
+    letterSpacing: -0.45,
+    /**
+     * CORREÇÃO (2026-09-15, item deixado de fora de propósito em
+     * 2026-09-03, retomado agora) — o título aqui não tinha NENHUMA
+     * sombra; no web (`ProfileMediaCarousel.tsx`, os 3 estados —
+     * carregando/vazio/normal) o `<h2>` tem `text-shadow` em TRÊS
+     * camadas — `0_0_2px_rgba(0,0,0,0.9),0_0_5px_rgba(0,0,0,0.75),
+     * 0_1px_6px_rgba(0,0,0,0.6)` — pra dar legibilidade ao título
+     * sentado direto sobre o brilho azul ambiente (sem card de vidro
+     * por baixo, igual ao comentário do web: "mesmo motivo/ajuste de
+     * ProfileListsPreview.tsx").
+     *
+     * `Text` do React Native só aceita UMA camada de sombra
+     * (`textShadowColor`/`Offset`/`Radius` — sem lista, diferente do
+     * `text-shadow` do CSS que aceita várias). Não dá pra reproduzir
+     * as 3 camadas literalmente; usado um valor único que aproxima a
+     * soma visual das 3 (raio maior que a menor camada, cor bem
+     * escura e opaca) — mais fiel ao efeito (halo escuro atrás do
+     * texto) do que deixar sem sombra nenhuma, que era o estado daqui
+     * antes desta correção.
+     */
+    textShadowColor: "rgba(0,0,0,0.85)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   row: {
     gap: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   poster: {
     width: POSTER_WIDTH,
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-2xl` = 16. */
+    borderRadius: radius.lg,
     overflow: "hidden",
     backgroundColor: colors.surface,
+    /**
+     * BORDA DE VIDRO DA CAPA (2026-09-04, a pedido — "ao redor de toda
+     * capa de série/filme tem uma borda fina que reflete").
+     *
+     * No web a caixa do pôster é uma superfície de vidro de verdade
+     * (`ProfileMediaCarousel.tsx`: `border border-white/10` +
+     * `backdrop-blur-[14px]` + a receita `0.16/0.09`) — a imagem cobre o
+     * miolo, então o que sobra visível é exatamente essa borda. Aqui a
+     * caixa não tinha borda nenhuma. Só o `border-white/10` literal.
+     */
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   posterImage: {
     width: "100%",
@@ -218,17 +276,42 @@ const styles = StyleSheet.create({
   skeleton: {
     width: POSTER_WIDTH,
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-2xl` = 16. */
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.xs` (4); o web usa `gap-2` (`ProfileMediaCarousel.tsx`, card de convite vazio) = 8px. */
+  /**
+   * MATERIAL PRÓPRIO, NÃO É VIDRO (2026-09-04, a pedido — "os cards
+   * vazios no web não usam o mesmo material dos outros").
+   *
+   * Conferido no `ProfileMediaCarousel.tsx` do web: a classe do card
+   * vazio é `rounded-2xl border border-dashed border-border
+   * bg-surface/40` — e só. SEM `backdrop-blur`, SEM `radial-gradient`,
+   * sem sombra interna, sem highlight. É uma superfície translúcida
+   * plana, não vidro.
+   *
+   * Aqui estava usando `<Glass>`, que trazia junto blur, véu navy,
+   * brilho de canto e a moldura de 1px — acabamento que o web reserva
+   * pros cards de conteúdo (Estatísticas, Recomendações). Trocado por
+   * `View` com os valores literais do web:
+   *   - fundo   `bg-surface/40`      → `colors.surface` (#131826) a 40%
+   *   - borda   `border-dashed border-border` → 1px tracejada, `colors.border`
+   * O resto (raio, padding, gap, conteúdo) não mudou.
+   */
   emptyCard: {
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
+    backgroundColor: "rgba(19,24,38,0.4)",
+    borderWidth: 1,
+    borderColor: colors.border,
     borderStyle: "dashed",
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xl,
+    /** A `section` não pada mais (a trilha sangra), então a borda de tela vem aqui. */
+    marginHorizontal: spacing.md,
   },
   emptyText: {
     fontSize: fontSize.sm,

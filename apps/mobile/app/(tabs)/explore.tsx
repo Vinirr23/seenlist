@@ -49,11 +49,11 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * `PROFILE_GLOW_BLOBS`).
  */
 const EXPLORE_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 40, left: -88, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 280, right: -80, size: 240 },
-  { color: "rgba(13,59,92,0.45)", top: 520, left: -72, size: 256 },
-  { color: "rgba(42,127,184,0.35)", top: 740, right: -72, size: 224 },
-  { color: "rgba(13,59,92,0.24)", top: 950, left: -64, size: 192 },
+  { color: "rgba(27,75,122,0.45)", top: 40, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.4)", top: 280, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.45)", top: 520, left: -90, size: 256 },
+  { color: "rgba(42,127,184,0.35)", top: 740, right: -90, size: 224 },
+  { color: "rgba(13,59,92,0.24)", top: 950, left: -80, size: 192 },
 ];
 
 export default function ExploreScreen() {
@@ -123,7 +123,11 @@ function ActivityTabContent() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: tabBarClearance }}>
+    // CORREÇÃO (2026-09-04, "vidro que falta") — a borda de tela e o
+    // respiro entre linhas moram aqui agora: cada `ActivityFeedRow`
+    // virou um cartão de vidro (antes era linha crua com `border-b`, e
+    // era ela mesma quem punha a borda de tela por dentro).
+    <ScrollView contentContainerStyle={[styles.activityList, { paddingBottom: tabBarClearance }]}>
       {items.map((item) => (
         <ActivityFeedRow key={item.id} item={item} />
       ))}
@@ -157,6 +161,11 @@ const styles = StyleSheet.create({
   discoverContent: {
     paddingTop: spacing.xs,
     paddingBottom: spacing.xl,
+  },
+  activityList: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
   },
   loadingActivity: {
     paddingHorizontal: spacing.md,
