@@ -27,11 +27,15 @@ const SITE_URL = "https://seenlist.app";
  * `left`/`right` do web são % da coluna, convertido assumindo ~400px
  * de largura de referência (`-22% → -88px` etc.).
  */
+/*
+ * PARIDADE DE BRILHO (2026-09-16, "TODAS AS TELAS IGUAIS") — mesmo
+ * fator ×1.74 de `HOME_GLOW_BLOBS`, ver comentário em `profile.tsx`.
+ */
 const SETTINGS_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 120, left: -110, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 440, right: -100, size: 240 },
-  { color: "rgba(13,59,92,0.45)", top: 760, left: -90, size: 256 },
-  { color: "rgba(13,59,92,0.24)", top: 1040, right: -80, size: 192 },
+  { color: "rgba(27,75,122,0.78)", top: 120, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.7)", top: 440, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.78)", top: 760, left: -90, size: 256 },
+  { color: "rgba(13,59,92,0.42)", top: 1040, right: -80, size: 192 },
 ];
 
 /**
@@ -294,6 +298,16 @@ export default function SettingsScreen() {
           */}
         <Pressable style={styles.deleteAccountBare} onPress={handleDeleteAccount} hitSlop={8}>
           <Text style={styles.deleteAccountBareText}>{t("settings.deleteAccount")}</Text>
+        </Pressable>
+
+        {/*
+          * LINK TEMPORÁRIO, SÓ DIAGNÓSTICO (2026-09-16) — acesso pra
+          * `app/debug-grain.tsx`, a tela de teste do grão do vidro.
+          * APAGAR este bloco (e o arquivo `debug-grain.tsx`) junto,
+          * quando o diagnóstico terminar.
+          */}
+        <Pressable style={styles.deleteAccountBare} onPress={() => router.push("/debug-grain")} hitSlop={8}>
+          <Text style={[styles.deleteAccountBareText, { color: colors.muted }]}>[debug] Teste de grão</Text>
         </Pressable>
       </ScrollView>
       </GlassTargetProvider>

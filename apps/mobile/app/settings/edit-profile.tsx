@@ -3,13 +3,14 @@ import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform,
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { fetchEditableProfile, saveEditableProfile } from "@/lib/editProfile";
+import { fetchEditableProfile, saveEditableProfile, setBannerFocalY as saveBannerFocalY } from "@/lib/editProfile";
 import { pickImageFromLibrary, uploadAvatar, uploadBanner, setBannerFromTmdb } from "@/lib/imageUpload";
 import { COUNTRIES } from "@/lib/countries";
 import { Screen, Text, Button, Skeleton, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { CountryPicker } from "@/components/settings/CountryPicker";
 import { LibraryImagePickerSheet } from "@/components/settings/LibraryImagePickerSheet";
+import { BannerFocalYSlider } from "@/components/settings/BannerFocalYSlider";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -57,6 +58,12 @@ export default function EditProfileScreen() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  /**
+   * NOVO (a pedido — "eu não consigo redimensionar o banner pra ficar
+   * do jeito que eu quero") — ver `BannerFocalYSlider.tsx` e
+   * `lib/editProfile.ts`. 0 = topo da foto, 0.5 = centro/padrão, 1 = base.
+   */
+  const [bannerFocalY, setBannerFocalY] = useState(0.5);
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -74,6 +81,7 @@ export default function EditProfileScreen() {
         setCountry(profile.country);
         setAvatarUrl(profile.avatarUrl);
         setBannerUrl(profile.bannerUrl);
+        setBannerFocalY(profile.bannerFocalY);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -94,8 +102,13 @@ export default function EditProfileScreen() {
     setUploadingBanner(true);
     const result = await uploadBanner(picked.uri, picked.mimeType);
     setUploadingBanner(false);
-    if (result.url) setBannerUrl(result.url);
-    else if (result.error) setError(result.error);
+    if (result.url) {
+      setBannerUrl(result.url);
+      // `uploadBanner` já reseta `banner_focal_y: 0.5` no banco (ver
+      // `lib/imageUpload.ts`) — este `setBannerFocalY` só mantém a UI
+      // em sincronia com esse reset, sem escrita extra nenhuma.
+      setBannerFocalY(0.5);
+    } else if (result.error) setError(result.error);
   }
 
   /**
@@ -130,8 +143,28 @@ export default function EditProfileScreen() {
     setUploadingBanner(true);
     const result = await setBannerFromTmdb(url);
     setUploadingBanner(false);
-    if (result.url) setBannerUrl(result.url);
-    else if (result.error) setError(result.error);
+    if (result.url) {
+      setBannerUrl(result.url);
+      // Mesmo motivo do handler acima — `setBannerFromTmdb` já reseta
+      // `banner_focal_y: 0.5` no banco.
+      setBannerFocalY(0.5);
+    } else if (result.error) setError(result.error);
+  }
+
+  /**
+   * `onChange` do slider: atualiza só o estado local (preview ao vivo
+   * na própria tela, via `contentPosition` na `<Image>` abaixo) — SEM
+   * chamar o Supabase. `onCommit` é quem realmente salva, e só dispara
+   * quando o dedo solta a tela (ver comentário completo em
+   * `BannerFocalYSlider.tsx`).
+   */
+  function handleBannerFocalYChange(next: number) {
+    setBannerFocalY(next);
+  }
+
+  async function handleBannerFocalYCommit(next: number) {
+    const result = await saveBannerFocalY(next);
+    if (result.error) setError(result.error);
   }
 
   async function handleSave() {
@@ -193,7 +226,14 @@ export default function EditProfileScreen() {
           <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]} keyboardShouldPersistTaps="handled">
           <View style={styles.bannerWrapper}>
             {bannerUrl ? (
-              <Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />
+              <Image
+                source={{ uri: bannerUrl }}
+                style={styles.banner}
+                contentFit="cover"
+                // Preview ao vivo do ajuste do slider abaixo — mesma
+                // técnica do `app/(tabs)/profile.tsx` (ver comentário lá).
+                contentPosition={{ top: `${bannerFocalY * 100}%` }}
+              />
             ) : (
               <View style={styles.bannerFallback} />
             )}
@@ -203,6 +243,10 @@ export default function EditProfileScreen() {
 
             <Avatar uri={avatarUrl} name={name || "?"} style={styles.avatarWrapper} textStyle={styles.avatarInitials} />
           </View>
+
+          {!!bannerUrl && (
+            <BannerFocalYSlider value={bannerFocalY} onChange={handleBannerFocalYChange} onCommit={handleBannerFocalYCommit} />
+          )}
 
           <Pressable style={styles.avatarButton} onPress={handleChangeAvatar} disabled={uploadingAvatar}>
             <Feather name="camera" size={14} color={colors.text} />

@@ -371,6 +371,18 @@ export default function SeriesHomeScreen() {
         e é também o alvo de desfoque de qualquer `Glass` que venha a
         existir aqui.
       */}
+      {/*
+        TESTE REVERTIDO (2026-09-16 — "vamos fazer um teste, substitui o
+        fundo atual por essa imagem" / depois "testado, pode reverter").
+        Trocou-se `background` por uma `<Image>` estática pré-renderizada
+        (`ambient-test-glow.png`), tentando fugir do banding do fundo
+        computado. Testado no aparelho e revertido — de volta ao
+        `AmbientGlow`/`HOME_GLOW_BLOBS` original. O banding nas manchas
+        azuis continua um problema EM ABERTO (ver opções já levantadas em
+        `Glass.tsx`, perto de `DITHER_OPACITY`: baixar o brilho de volta
+        pro patamar já resolvido, aceitar o banding como trade-off, ou
+        regerar os PNGs de `GLOW_DISCS` com gradiente mais suave).
+      */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={HOME_GLOW_BLOBS} />}>
       <View style={styles.tabsRow}>
         <HomeTabs active={tab} onChange={setTab} />

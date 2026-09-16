@@ -285,62 +285,50 @@ export function PublicProfileView({ username }: { username: string }) {
 
             if (profile.bannerUrl) {
               return (
-                <>
-                  {/*
-                   * ENTREGA 10 (a pedido, 2026-08-26 — depois de 2 rodadas
-                   * tentando alinhar avatar+nome LADO A LADO com a foto
-                   * sobreposta na capa (Entregas 8 e 9), o usuário mandou
-                   * um print de referência de um layout pronto (cards
-                   * "Roman Rouf Col." / "James Robertson") e pediu "copie
-                   * esse estilo": nome NUMA LINHA PRÓPRIA, ABAIXO do
-                   * avatar — não mais do lado. Essa mudança resolve os
-                   * dois problemas that vinham se arrastando ao mesmo
-                   * tempo, pela raiz, em vez de ficar ajustando margem:
-                   *
-                   * 1. Alinhamento: não existe mais NENHUMA tentativa de
-                   *    centralizar o texto contra o avatar (nem `flex
-                   *    items-center`, nem margem negativa calibrada à mão)
-                   *    — o texto só começa numa posição fixa, com respiro
-                   *    de sobra depois que o avatar termina. Não tem como
-                   *    desalinhar o que não está tentando se alinhar.
-                   * 2. Legibilidade em capas claras (pergunta feita pelo
-                   *    usuário) — o texto nunca mais chega perto da capa
-                   *    (fica bem abaixo dela, sempre em cima do fundo
-                   *    sólido do card), então nunca corre risco de ficar
-                   *    ilegível em cima de uma foto clara, não importa a
-                   *    cor da capa.
-                   *
-                   * Avatar continua IRMÃO da capa (não filho — ver Entrega
-                   * 8 pro motivo: filho seria cortado pelo `overflow-hidden`
-                   * dela), sobrepondo a borda de baixo com `-bottom-8`
-                   * (32px). O bloco de nome agora vem DEPOIS do wrapper
-                   * avatar+capa, em fluxo normal, com `pt-10` (40px) — testado
-                   * visualmente antes de aplicar (Playwright): dá um respiro
-                   * claro entre o avatar e o texto, igual à referência.
-                   */}
-                  {/*
-                    * REVERTIDO (a pedido, 2026-09-15 — "volta pra a
-                    * versão do banner do tamanho que está no web", nos
-                    * dois: principal e público) — chegou a ser
-                    * reduzido pra `h-28` (112px) nesta mesma sessão,
-                    * mas o usuário pediu de volta o tamanho grande
-                    * original (`h-56`, 224px). (O anel do avatar
-                    * também acabou revertido, só que um dia depois —
-                    * ver comentário de `avatarGlass`, acima.)
-                    */}
-                  <div className="relative mb-4">
-                    <div className="relative -mx-4 h-56 w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-surface shadow-lg shadow-black/30">
+                /*
+                 * REDESENHO "CAPA CURTA E MINIMALISTA" (2026-09-16, a
+                 * pedido — "aplique redesign no perfil publico"), a
+                 * mesma mudança já feita no Perfil próprio
+                 * (`ProfileHeader.tsx`, ver o comentário completo lá
+                 * pro histórico "ENTREGA 8/9/10"/reversões que essa
+                 * troca substitui de vez): capa de 224px com avatar
+                 * sobreposto na borda vira capa de 190px, foto só nos
+                 * 164px de cima, véu virando `bg-background` numa
+                 * rampa só (não dois degraus), e avatar+nome+username
+                 * apoiados na faixa lisa de baixo (26px), subidos 20px
+                 * da borda — igual estrutura, só que aqui mantém
+                 * `@username`/`joinedLine` no lugar do botão "Editar"
+                 * (essa troca foi só pro Perfil PRÓPRIO — aqui username
+                 * continua sendo a identificação de quem está sendo
+                 * visitado, e "Editar"/"Seguir" já tem linha própria
+                 * mais abaixo, sem mudança).
+                 */
+                <div className="relative mb-6">
+                  <div className="relative -mx-4 h-[190px] w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-background">
+                    <div className="absolute inset-x-0 top-0 h-[164px] overflow-hidden">
+                      {/* Mesmo ajuste vertical (`profile.bannerFocalY`) do Perfil próprio, aqui no perfil de quem está sendo visitado. */}
                       {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
-                      <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
+                      <img
+                        src={profile.bannerUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        style={{ objectPosition: `center ${(profile.bannerFocalY ?? 0.5) * 100}%` }}
+                      />
                       <div
-                        className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent"
+                        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[rgba(11,14,20,0.38)] to-background"
                         aria-hidden="true"
                       />
                     </div>
-                    <div className="absolute -bottom-8 left-0 h-16 w-16">{avatarGlass}</div>
+
+                    <div className="absolute inset-x-4 bottom-5 flex items-center gap-2">
+                      {/* Anel fino translúcido — mesmo desenho do Perfil próprio, mais discreto que o `avatarGlass` (que continua no caso SEM capa, abaixo). */}
+                      <div className="relative h-[66px] w-[66px] shrink-0 rounded-full border border-[rgba(255,255,255,0.5)]">
+                        <Avatar src={avatarUrl} name={displayName} className="h-full w-full bg-surface" textClassName="text-lg" />
+                      </div>
+                      <div className="min-w-0 flex-1">{nameBlockContent}</div>
+                    </div>
                   </div>
-                  <div className="min-w-0 pt-10">{nameBlockContent}</div>
-                </>
+                </div>
               );
             }
 

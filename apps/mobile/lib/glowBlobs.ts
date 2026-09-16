@@ -60,10 +60,25 @@ import type { GlowBlob } from "@/components/ui";
  * (a coluna do web mede 500px — confirmado pelo botão "Criar nova
  * lista": 468px no print + `px-4` dos dois lados, com zoom 1.0).
  */
+/*
+ * PARIDADE DE BRILHO (2026-09-16, a pedido — "a iluminação da aba
+ * home/séries está diferente das outras telas, deixe todas iguais a
+ * ela"). Este array (e os outros três abaixo, `SERIES_DETAILS_`/
+ * `MOVIE_DETAILS_`/`EPISODE_DETAILS_GLOW_BLOBS`) usava as opacidades
+ * ORIGINAIS de antes do ajuste de brilho pedido pra Séries/Filmes —
+ * ficou mais escuro que `HOME_GLOW_BLOBS` sem nenhuma razão de design,
+ * só porque o ajuste foi pedido e aplicado só naquela tela. Aqui
+ * aplica-se o MESMO fator combinado das duas rodadas de lá (×1.45 ×
+ * 1.20 = ×1.74), pra cada opacidade ficar igual à mancha da mesma cor
+ * em `HOME_GLOW_BLOBS` (0.45→0.78, 0.4→0.7, 0.35→0.61, 0.24→0.42) —
+ * não se aplica a `PROFILE_GLOW_BLOBS`/`SETTINGS_GLOW_BLOBS`/
+ * `PUBLIC_PROFILE_GLOW_BLOBS`, que têm paleta própria (ver comentário
+ * no topo do arquivo), não uma variação mais escura desta.
+ */
 export const SUBPAGE_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 40, left: -110, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 320, right: -100, size: 240 },
-  { color: "rgba(13,59,92,0.35)", top: 620, left: -90, size: 224 },
+  { color: "rgba(27,75,122,0.78)", top: 40, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.7)", top: 320, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.61)", top: 620, left: -90, size: 224 },
 ];
 
 /**
@@ -81,35 +96,49 @@ export const SUBPAGE_GLOW_BLOBS: GlowBlob[] = [
  */
 
 /** `SeriesHome.tsx` e `MoviesHome.tsx` — arrays idênticos no web. */
+/*
+ * AJUSTE (2026-09-16, a pedido — "ilumina um pouco mais as manchas... você
+ * está mexendo na mancha errada, não é a mancha dentro do glass e sim a
+ * mancha azul do fundo"). As rodadas anteriores de "ilumina X%" foram
+ * aplicadas por erro no `highlight` do `card` (revertido em `theme.ts`) —
+ * aqui é a primeira tentativa no alvo certo, não dá pra repetir a mesma
+ * cadeia de porcentagens (foi calibrada contra outra coisa, numa escala
+ * visual bem menor que estas manchas de tela cheia). Primeiro passo:
+ * opacidade de cada mancha × 1.45 (mesmo primeiro pedido, "uns 45%"),
+ * como novo ponto de partida pra iterar.
+ *
+ * RODADA 2 (2026-09-16, a pedido — "aumenta a iluminação uns 20%"):
+ * cada opacidade × 1.20.
+ */
 export const HOME_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 40, left: -110, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 280, right: -100, size: 240 },
-  { color: "rgba(13,59,92,0.45)", top: 520, left: -90, size: 256 },
-  { color: "rgba(42,127,184,0.35)", top: 740, right: -90, size: 224 },
-  { color: "rgba(13,59,92,0.24)", top: 950, left: -80, size: 192 },
+  { color: "rgba(27,75,122,0.78)", top: 40, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.7)", top: 280, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.78)", top: 520, left: -90, size: 256 },
+  { color: "rgba(42,127,184,0.61)", top: 740, right: -90, size: 224 },
+  { color: "rgba(13,59,92,0.42)", top: 950, left: -80, size: 192 },
 ];
 
 /** `SeriesDetailsView.tsx` — mesmo desenho, começando mais embaixo (o herói da série ocupa o topo). */
 export const SERIES_DETAILS_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 300, left: -110, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 540, right: -100, size: 240 },
-  { color: "rgba(13,59,92,0.45)", top: 780, left: -90, size: 256 },
-  { color: "rgba(42,127,184,0.35)", top: 1000, right: -90, size: 224 },
-  { color: "rgba(13,59,92,0.24)", top: 1210, left: -80, size: 192 },
+  { color: "rgba(27,75,122,0.78)", top: 300, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.7)", top: 540, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.78)", top: 780, left: -90, size: 256 },
+  { color: "rgba(42,127,184,0.61)", top: 1000, right: -90, size: 224 },
+  { color: "rgba(13,59,92,0.42)", top: 1210, left: -80, size: 192 },
 ];
 
 /** `MovieDetailsView.tsx`. */
 export const MOVIE_DETAILS_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 340, left: -110, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 580, right: -100, size: 240 },
-  { color: "rgba(13,59,92,0.45)", top: 820, left: -90, size: 256 },
-  { color: "rgba(42,127,184,0.35)", top: 1040, right: -90, size: 224 },
-  { color: "rgba(13,59,92,0.24)", top: 1250, left: -80, size: 192 },
+  { color: "rgba(27,75,122,0.78)", top: 340, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.7)", top: 580, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.78)", top: 820, left: -90, size: 256 },
+  { color: "rgba(42,127,184,0.61)", top: 1040, right: -90, size: 224 },
+  { color: "rgba(13,59,92,0.42)", top: 1250, left: -80, size: 192 },
 ];
 
 /** `EpisodeDetailView.tsx` — só três manchas no web, não cinco. */
 export const EPISODE_DETAILS_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 460, left: -110, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 700, right: -100, size: 240 },
-  { color: "rgba(13,59,92,0.35)", top: 950, left: -90, size: 224 },
+  { color: "rgba(27,75,122,0.78)", top: 460, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.7)", top: 700, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.61)", top: 950, left: -90, size: 224 },
 ];

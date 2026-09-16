@@ -116,7 +116,17 @@ export async function uploadBanner(uri: string, mimeType: string): Promise<{ url
 
     const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
 
-    const { error: profileError } = await supabase.from("profiles").update({ banner_url: urlData.publicUrl, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+    /*
+     * A PEDIDO ("eu não consigo redimensionar o banner pra ficar do
+     * jeito que eu quero") — `banner_focal_y: 0.5` reseta o ajuste de
+     * enquadramento pro centro (padrão) sempre que a FOTO muda: o
+     * ajuste anterior foi calibrado pra imagem antiga, não faz
+     * sentido continuar aplicado numa foto diferente.
+     */
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ banner_url: urlData.publicUrl, banner_focal_y: 0.5, updated_at: new Date().toISOString() })
+      .eq("user_id", user.id);
     if (profileError) throw profileError;
 
     return { url: urlData.publicUrl, error: null };
@@ -155,14 +165,17 @@ export async function setAvatarFromTmdb(url: string): Promise<{ url: string | nu
   return { url, error: null };
 }
 
-/** Ver comentário de `setAvatarFromTmdb`, acima — mesma ideia, pro banner. */
+/** Ver comentário de `setAvatarFromTmdb`, acima — mesma ideia, pro banner. Ver `uploadBanner`, acima, pro porquê do `banner_focal_y: 0.5` junto. */
 export async function setBannerFromTmdb(url: string): Promise<{ url: string | null; error: string | null }> {
   const {
     data: { user },
   } = await getCurrentAuthUser();
   if (!user) return { url: null, error: "Sessão expirada. Entre novamente." };
 
-  const { error: profileError } = await supabase.from("profiles").update({ banner_url: url, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ banner_url: url, banner_focal_y: 0.5, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
   if (profileError) {
     console.error("[imageUpload] Falha ao salvar banner (biblioteca)", profileError);
     return { url: null, error: "Não foi possível salvar o banner agora." };

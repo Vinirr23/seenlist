@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/lib/queries/current-user";
 import { useMyProfile, useUpdateMyProfile } from "@/lib/queries/my-profile";
 import { useAvatarUpload } from "@/lib/queries/avatar-upload";
-import { useSetBannerFromLibrary } from "@/lib/queries/banner-upload";
+import { useSetBannerFromLibrary, useSetBannerFocalY } from "@/lib/queries/banner-upload";
 import { updateName } from "@/lib/actions/account";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -32,6 +32,7 @@ export function EditProfileView() {
   const { data: profile } = useMyProfile();
   const { upload: uploadAvatar, pending: uploadingAvatar } = useAvatarUpload();
   const { setFromUrl: setBannerFromLibrary, pending: settingBannerFromLibrary } = useSetBannerFromLibrary();
+  const { setFocalY } = useSetBannerFocalY();
   const [libraryPicker, setLibraryPicker] = useState<"banner" | null>(null);
   const updateProfile = useUpdateMyProfile();
 
@@ -39,6 +40,16 @@ export function EditProfileView() {
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [country, setCountry] = useState("");
+  /**
+   * A PEDIDO ("eu não consigo redimensionar o banner pra ficar do
+   * jeito que eu quero", 2026-09-16) — 0 a 1 (0 = topo da foto, 0.5 =
+   * centro/padrão, 1 = base), controlado pelo slider logo abaixo da
+   * prévia do banner. Estado LOCAL separado do `profile.bannerFocalY`
+   * (só usado pra inicializar, no `useEffect` abaixo) porque precisa
+   * responder em tempo real ao arrastar do slider, sem esperar a
+   * viagem de ida e volta até o banco a cada pixel.
+   */
+  const [bannerFocalY, setBannerFocalY] = useState(0.5);
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +69,7 @@ export function EditProfileView() {
       setUsername(profile.username);
       setBio(profile.bio ?? "");
       setCountry(profile.country ?? "");
+      setBannerFocalY(profile.bannerFocalY ?? 0.5);
       setInitialized(true);
     }
   }, [user, profile, initialized]);
@@ -71,6 +83,29 @@ export function EditProfileView() {
   async function handleLibraryImageSelected(url: string) {
     setLibraryPicker(null);
     await setBannerFromLibrary(url);
+    // A foto mudou — o banco já reseta `banner_focal_y` pro centro (ver
+    // `banner-upload.ts`), mas o estado local não se atualiza sozinho
+    // até a query refazer (a mesma query que `initialized` só sincroniza
+    // UMA vez). Reseta aqui também, pra prévia já refletir na hora.
+    setBannerFocalY(0.5);
+  }
+
+  /**
+   * Atualiza a prévia EM TEMPO REAL a cada tick do arrasto (evento
+   * nativo "input" — o `onChange` do React em `<input type="range">`
+   * já é esse, não o "change" que só dispara ao soltar).
+   */
+  function handleBannerFocalYPreview(event: React.ChangeEvent<HTMLInputElement>) {
+    setBannerFocalY(Number(event.target.value) / 100);
+  }
+
+  /**
+   * Só GRAVA no banco quando a pessoa solta o controle (mouse/toque)
+   * ou termina de ajustar pelo teclado — evita uma escrita por pixel
+   * arrastado. A prévia (acima) já respondeu antes disso.
+   */
+  function handleBannerFocalYCommit(event: React.SyntheticEvent<HTMLInputElement>) {
+    setFocalY(Number(event.currentTarget.value) / 100);
   }
 
   async function handleSave() {
@@ -132,7 +167,12 @@ export function EditProfileView() {
       <div className="relative -mt-2 mb-14 h-28 w-full bg-surface">
         {profile.bannerUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image
-          <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={profile.bannerUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            style={{ objectPosition: `center ${bannerFocalY * 100}%` }}
+          />
         )}
         {/*
           * REVERTIDO (a pedido, 2026-09-15 — mensagem com print de
@@ -165,6 +205,38 @@ export function EditProfileView() {
           textClassName="text-xl"
         />
       </div>
+
+      {/*
+        * NOVO (a pedido — "eu não consigo redimensionar o banner pra
+        * ficar do jeito que eu quero", 2026-09-16) — o banner sempre
+        * caiu cortado automaticamente no centro (`object-cover`), sem
+        * controle nenhum. Este slider ajusta só o eixo VERTICAL (0% =
+        * topo da foto, 100% = base) — a prévia acima já reflete em
+        * tempo real enquanto arrasta (`handleBannerFocalYPreview`); só
+        * grava no banco quando solta (`handleBannerFocalYCommit`), pra
+        * não escrever um valor por pixel arrastado. Só aparece quando
+        * existe banner — sem foto, não tem o que posicionar.
+        */}
+      {profile.bannerUrl && (
+        <div className="relative px-4 pb-4">
+          <label htmlFor="banner-focal-y" className="mb-1.5 block text-xs font-medium text-muted">
+            {t("settings.bannerPosition")}
+          </label>
+          <input
+            id="banner-focal-y"
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round(bannerFocalY * 100)}
+            onChange={handleBannerFocalYPreview}
+            onMouseUp={handleBannerFocalYCommit}
+            onTouchEnd={handleBannerFocalYCommit}
+            onKeyUp={handleBannerFocalYCommit}
+            className="w-full accent-primary"
+          />
+        </div>
+      )}
 
       <div className="relative px-4">
         {/*

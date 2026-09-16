@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Pencil, Share2, Settings, HelpCircle, Check, X } from "lucide-react";
+import { Share2, Settings, HelpCircle, Check, X } from "lucide-react";
 import { useToast } from "@/lib/toast/ToastProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useDialogAnimation } from "@/lib/useDialogAnimation";
@@ -22,6 +22,11 @@ import { cn } from "@seenlist/utils";
  * Mesmo formato visual e mesma animação de
  * `SeriesQuickActionsSheet.tsx` (`useDialogAnimation`, vidro `dark`
  * deslizando de baixo).
+ *
+ * REMOVIDO (2026-09-16, a pedido — "remove 'editar' do sheet (...)")
+ * — o item "Editar perfil" (link `/profile/edit`) saiu daqui porque
+ * virou um botão direto no cabeçalho (ver `ProfileHeader.tsx`, no
+ * lugar de onde ficava o "@username"), sem precisar abrir este sheet.
  */
 export function ProfileMoreSheet({ username, onClose }: { username?: string | null; onClose: () => void }) {
   const { mounted, handleClose } = useDialogAnimation(onClose);
@@ -69,11 +74,6 @@ export function ProfileMoreSheet({ username, onClose }: { username?: string | nu
           background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(20,22,30,0.85)",
         }}
       >
-        <Link href="/profile/edit" onClick={handleClose} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-text hover:bg-background">
-          <Pencil className="h-4 w-4" strokeWidth={2} />
-          {t("profile.edit")}
-        </Link>
-
         <button
           type="button"
           onClick={handleShare}

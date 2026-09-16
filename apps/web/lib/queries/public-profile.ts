@@ -11,6 +11,8 @@ interface ProfileRow {
   avatar_url: string | null;
   bio: string | null;
   banner_url: string | null;
+  /** A PEDIDO ("eu não consigo redimensionar o banner pra ficar do jeito que eu quero") — ver migration `20260917000000_profiles_banner_focal_y.sql`. */
+  banner_focal_y: number;
   country: string | null;
   language: string;
   profile_visibility: ProfileVisibility;
@@ -27,6 +29,7 @@ function fromRow(row: ProfileRow): UserProfile {
     avatarUrl: row.avatar_url,
     bio: row.bio,
     bannerUrl: row.banner_url,
+    bannerFocalY: row.banner_focal_y,
     country: row.country,
     language: row.language,
     profileVisibility: row.profile_visibility,

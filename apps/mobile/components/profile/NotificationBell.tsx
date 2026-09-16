@@ -36,7 +36,21 @@ export function NotificationBell({ flat }: { flat?: boolean }) {
     return () => clearInterval(interval);
   }, [reload]);
 
-  const glassVariant = flat ? undefined : "icon";
+  /*
+   * A PEDIDO (2026-09-16 — "coloca o mesmo efeito de 'seguindo,
+   * seguidos e comentários' no sino e no (...)"). Trocado pra `pill`
+   * primeiro — não resolveu (ver correção abaixo).
+   *
+   * CORREÇÃO (2026-09-16, mesmo dia — "corrige o sino e o (...) que
+   * ainda estão iluminados, verifique a causa raiz"): medido por pixel
+   * (print real) que a causa NUNCA foi o `saturate` (removido com a
+   * troca pra `pill`, disco continuou "aceso"). A causa real é a
+   * opacidade de `base`/`highlight` da receita, calibrada pra pílula
+   * sobre fundo escuro sólido, sendo forte demais sobre a foto de capa
+   * (mais clara) num disco pequeno e redondo — ver a receita nova
+   * `bannerIcon` em `lib/theme.ts`, com a medição completa.
+   */
+  const glassVariant = flat ? undefined : "bannerIcon";
 
   return (
     /*

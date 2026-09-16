@@ -19,6 +19,12 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  *
  * Mesmo formato de sheet do `SeriesQuickActionsSheet.tsx` (Modal +
  * `Glass` variant `dark` deslizando de baixo, linhas ícone+texto).
+ *
+ * REMOVIDO (2026-09-16, a pedido — "remove 'editar' do sheet (...)",
+ * mesma mudança feita no web) — o item "Editar" (rota
+ * `/settings/edit-profile`) saiu daqui porque virou um botão direto
+ * no cabeçalho (ver `app/(tabs)/profile.tsx`, no lugar de onde ficava
+ * o "@username").
  */
 export function ProfileMoreSheet({ username, onClose }: { username?: string | null; onClose: () => void }) {
   const router = useRouter();
@@ -43,14 +49,6 @@ export function ProfileMoreSheet({ username, onClose }: { username?: string | nu
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable onPress={(e) => e.stopPropagation()}>
           <Glass style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]} variant="dark">
-            <ActionRow
-              icon="edit-2"
-              label={t("profile.edit")}
-              onPress={() => {
-                onClose();
-                router.push("/settings/edit-profile");
-              }}
-            />
             <ActionRow icon="share-2" label={t("social.share")} onPress={handleShare} />
             <ActionRow
               icon="settings"

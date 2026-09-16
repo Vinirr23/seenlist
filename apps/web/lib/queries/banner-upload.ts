@@ -32,7 +32,14 @@ export function useBannerUpload() {
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
-      const result = await updateProfile.mutate({ bannerUrl: urlData.publicUrl });
+      /*
+       * A PEDIDO ("eu não consigo redimensionar o banner pra ficar do
+       * jeito que eu quero") — `bannerFocalY: 0.5` reseta o ajuste de
+       * enquadramento pro centro (padrão) sempre que a FOTO muda: o
+       * ajuste anterior foi calibrado pra imagem antiga, não faz
+       * sentido nenhum continuar aplicado numa foto diferente.
+       */
+      const result = await updateProfile.mutate({ bannerUrl: urlData.publicUrl, bannerFocalY: 0.5 });
       if (result.error) throw new Error(result.error);
 
       toast.success("Banner alterado");
@@ -64,7 +71,8 @@ export function useSetBannerFromLibrary() {
   async function setFromUrl(url: string) {
     setPending(true);
     try {
-      const result = await updateProfile.mutate({ bannerUrl: url });
+      // Ver o comentário equivalente em `useBannerUpload.upload`, acima — mesmo reset de enquadramento ao trocar a foto.
+      const result = await updateProfile.mutate({ bannerUrl: url, bannerFocalY: 0.5 });
       if (result.error) throw new Error(result.error);
       toast.success("Banner alterado");
     } catch (error) {
@@ -76,4 +84,27 @@ export function useSetBannerFromLibrary() {
   }
 
   return { setFromUrl, pending };
+}
+
+/**
+ * NOVO (a pedido — "eu não consigo redimensionar o banner pra ficar
+ * do jeito que eu quero", 2026-09-16) — salva só o ajuste vertical de
+ * enquadramento (`profiles.banner_focal_y`), sem mexer na URL da
+ * foto. Usado pelo controle de arrastar/slider em
+ * `EditProfileView.tsx`: chamado quando a pessoa SOLTA o controle
+ * (não a cada pixel arrastado — evita uma escrita no banco por
+ * frame), sem toast de sucesso (o feedback já é visual, a prévia se
+ * move em tempo real).
+ */
+export function useSetBannerFocalY() {
+  const updateProfile = useUpdateMyProfile();
+
+  async function setFocalY(value: number) {
+    const result = await updateProfile.mutate({ bannerFocalY: value });
+    if (result.error) {
+      console.error("[profile] Falha ao salvar posição do banner", result.error);
+    }
+  }
+
+  return { setFocalY };
 }

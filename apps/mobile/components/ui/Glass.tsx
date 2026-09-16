@@ -444,6 +444,45 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
       style={[styles.wrap, estiloSemFundo, styles.bordaTransparente]}
       {...props}
     >
+    {/*
+      * CORREÇÃO (a pedido — "a barra de navegação do mobile não tem o
+      * mesmo efeito do web, no mobile está quase opaca", 2026-09-15) —
+      * DUAS causas, achadas em duas rodadas de teste ao vivo no
+      * aparelho (não suposição — cada uma confirmada por print antes
+      * de seguir pra próxima):
+      *
+      * 1. O `filter: [{saturate}]` vivia no `style` do `BlurView`
+      *    (componente nativo de terceiros, `Dimezis/BlurView` por
+      *    baixo, não a `View` padrão do RN) — nada garantia que o
+      *    `ViewManager` dele reencaminhasse uma prop de estilo que ele
+      *    não espera. Fix: esta `View` comum (garantida por doc)
+      *    ENVOLVENDO o `BlurView`, em vez do `BlurView` receber o
+      *    filtro direto. Isso satura a SAÍDA já composta do blur —
+      *    igual ao `backdrop-saturate` do CSS, que também opera DEPOIS
+      *    do blur, não antes.
+      *
+      * 2. Só isso ainda não mudava nada visível — teste com
+      *    `filter: [{invert: 1}]` (rodada 1) provou que o mecanismo
+      *    FUNCIONA de verdade nesta `View` (a barra ficou visivelmente
+      *    creme/pêssego, o esperado ao inverter um fundo escuro
+      *    azulado). Ou seja o problema real nunca foi "não chega no
+      *    nativo" — foi MAGNITUDE: o `1.8` (cópia literal do `180%`
+      *    CSS do web) é fraco demais pro jeito que o RN/Android
+      *    calcula `saturate` nesta versão — não há garantia de que a
+      *    escala bata 1:1 com o `backdrop-saturate` do navegador.
+      *    Rodada 2, com `saturate: 6` só nesta barra, confirmou: ficou
+      *    visivelmente MAIS colorida que o web (e um pouco
+      *    desigual/em blocos, print comparado lado a lado) — então o
+      *    número certo fica entre 1.8 (fraco demais) e 6 (forte
+      *    demais/desigual). `dock.saturate` em `lib/theme.ts` virou
+      *    `3.5` como primeira calibração real — segue precisando de
+      *    confirmação visual no aparelho pra afinar pra cima ou pra
+      *    baixo.
+      */}
+    <View
+      pointerEvents="none"
+      style={[caixaDeBorda, recipe.saturate === undefined ? null : { filter: [{ saturate: recipe.saturate }] }]}
+    >
     <BlurView
       pointerEvents="none"
       blurTarget={target ?? undefined}
@@ -490,8 +529,21 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
        * QUALQUER redução de resolução antes de desfocar (custo de
        * desempenho maior, mas isolando se ainda sobra grão sem
        * nenhuma reamostragem de por meio).
+       *
+       * VIROU POR RECEITA (2026-09-16, ver o comentário grande em
+       * `blurReductionFactor` na interface `GlassVariant`,
+       * `lib/theme.ts`) — lendo o `ExpoBlurView.kt` real (instalado,
+       * versão `55.0.18`), achei que o `overlayColor` nativo (o véu de
+       * cor que o `tint` pinta por cima do blur) usa o valor CRU da
+       * prop `intensity`, sem dividir por `blurReductionFactor` — só o
+       * raio de desfoque de verdade é que divide. Ou seja dá pra manter
+       * o raio final (`intensity ÷ blurReductionFactor`) igual e ainda
+       * assim reduzir o véu, baixando os dois na mesma proporção. Só o
+       * `dock` usa isso por enquanto (é o único caso relatado como
+       * "leitoso"); as outras receitas continuam com `1`, o valor de
+       * sempre, pra não mexer em superfície já aprovada.
        */
-      blurReductionFactor={1}
+      blurReductionFactor={recipe.blurReductionFactor ?? 1}
       /**
        * CORREÇÃO #2 (a pedido, 2026-09-02, com print real depois de
        * testar) — era `"dark"` (véu escuro por cima do blur, deixava
@@ -535,28 +587,59 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
        * sem-blur-em-Android-velho (`dimezisBlurViewSdk31Plus`).
        */
       blurMethod="dimezisBlurViewSdk31Plus"
-      /*
-       * `tint="dark"` + `backgroundColor: transparent` (styles.noBlurVeil)
-       * existem pelo mesmo motivo: o `BlurView` do Android deriva um
-       * `backgroundColor` PRÓPRIO de `tint`+`intensity`, e o padrão
-       * (`tint: 'default'`) é BRANCO — foi ele que lavava os cards pra
-       * cinza (medido: ~22% de branco a mais que o web). O
-       * `backgroundColor` do `style` anula esse véu (sobrescrever pelo
-       * style funciona no Android/iOS; só a web ignora — expo/expo#30893),
-       * e o `tint="dark"` é a rede de segurança: se a sobrescrita não
-       * pegar numa versão futura, o véu erra pro ESCURO, nunca pro
-       * leitoso. A cor do vidro em si vem do `base` da receita.
+      /**
+       * TESTE AO VIVO (2026-09-16, "faça isso") — ver o comentário
+       * grande em `applyNoise`, na interface `GlassVariant`
+       * (`lib/theme.ts`). Passa a receita adiante; ausente = `true`
+       * (padrão da lib, nenhuma mudança de comportamento). Só `card`
+       * usa `false` por enquanto — `dock` e as outras receitas
+       * continuam exatamente como estavam.
        */
-      tint="dark"
+      applyNoise={recipe.applyNoise ?? true}
+      /*
+       * CAUSA RAIZ ENCONTRADA (a pedido, 2026-09-16 — "compare o código
+       * da barra web com o da barra mobile antes de alterar de novo").
+       * Comparando as duas implementações lado a lado:
+       *
+       * O web (`BottomNavigation.tsx`) tem só TRÊS camadas por cima do
+       * conteúdo: `backdrop-filter: blur(18px) saturate(180%)` (sample
+       * o que está atrás, sem nenhuma cor própria), o `background`
+       * do próprio elemento (o radial branco 17% + base branca 10% —
+       * autorais, escritos à mão), e a borda. Não existe NENHUM véu
+       * automático embutido no `backdrop-filter` do CSS — ele só
+       * desfoca, ponto.
+       *
+       * O `BlurView` do `expo-blur`, ao contrário, tem uma camada a
+       * MAIS que o CSS não tem: a doc oficial diz, literalmente,
+       * "every tint adds a translucent color layer on top of the
+       * blur. No value renders the blur alone" — ou seja QUALQUER
+       * valor de `tint` (inclusive "dark", que estava aqui) pinta uma
+       * camada de cor translúcida DIRETO NO NATIVO, por cima do blur,
+       * ANTES de qualquer `style` do lado JS. O comentário antigo
+       * deste arquivo assumia que `backgroundColor: transparent` no
+       * `style` cancelava essa camada (citando o issue
+       * expo/expo#30893, que é sobre o CSS `background` comum, não
+       * sobre o véu que o PRÓPRIO `tint` desenha) — não tem evidência
+       * de que isso tenha sido testado ao vivo depois de `tint="dark"`
+       * ter sido reintroduzido, e a doc oficial contradiz a premissa.
+       *
+       * Isso bate com todos os sintomas relatados nesta rodada: a
+       * barra sempre "errava pro escuro/acinzentado" (efeito
+       * esperado de um véu escuro fixo), e nenhum ajuste de
+       * `saturate`/`blurIntensity` no lado JS conseguia consertar de
+       * vez — porque os dois operam DEPOIS dessa camada nativa, nunca
+       * chegam a removê-la.
+       *
+       * FIX: tira o `tint` inteiro (nenhum valor, nem "default") — é
+       * exatamente o que uma sessão anterior já tinha validado ao vivo
+       * ("SEM tint... resolve os dois problemas de uma vez", comentário
+       * histórico logo acima) antes de alguém reintroduzir `tint="dark"`
+       * sem reconfirmar no aparelho. A cor do vidro passa a vir 100% do
+       * `base`/`highlight` da receita (autorais, iguais ao `background`
+       * do web) — igual à divisão de responsabilidade do CSS.
+       */
       style={[
         styles.noBlurVeil,
-        /*
-         * Só as receitas que TÊM `backdrop-saturate` no web (ver o campo
-         * `saturate` em `lib/theme.ts`). As pílulas de contagem do
-         * Perfil não têm — lá o web usa só `backdrop-blur-md`, e aplicar
-         * saturação nelas subia o azul da base uns 5 níveis acima do web.
-         */
-        recipe.saturate === undefined ? null : { filter: [{ saturate: recipe.saturate }] },
         /*
          * CORREÇÃO (2026-09-09, medido a pedido — "no web tem uma borda
          * de vidro em todos os cards, perceptível; no mobile, se tiver,
@@ -577,10 +660,17 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
          * dentro da borda. O anel de 1px que fica sem desfoque mostra o
          * fundo do app cru por baixo de um branco 10% — invisível, e
          * muito menos custoso que perder a borda.
+         *
+         * MUDANÇA (2026-09-15, ver o comentário grande na `View` de fora
+         * que agora envolve este `BlurView`) — o `saturate` saiu daqui
+         * (não é mais `caixaDeBorda`, é `StyleSheet.absoluteFillObject`
+         * simples): a geometria de borda agora é da `View` wrapper, e
+         * este `BlurView` só precisa preencher ELA por inteiro.
          */
-        caixaDeBorda,
+        StyleSheet.absoluteFillObject,
       ]}
     />
+    </View>
     {fundoDoChamador === undefined ? null : (
       <View style={[caixaDeBorda, { backgroundColor: fundoDoChamador }]} pointerEvents="none" />
     )}
@@ -1254,6 +1344,89 @@ const DITHER_TILE_PX = 256;
  * pra entregar os ±2.5 que faltam, projeta-se 2.6× mais. Isso NÃO
  * clareia nada, porque o levante de tom é recalculado junto na base
  * compensada abaixo.
+ */
+/*
+ * TESTE DIAGNÓSTICO (2026-09-16, a pedido — "o fundo e os cards
+ * apresentam pontos, tipo noise/grain, o web é liso"). Achei a causa
+ * antes de mexer: EXISTE, sim, uma textura de ruído intencional
+ * aplicada global (`DitherLayer`, logo abaixo, renderizada dentro de
+ * `AmbientGlow` — que é o fundo padrão de QUALQUER
+ * `GlassTargetProvider`, ou seja, aparece atrás de praticamente toda
+ * tela com vidro). Ela foi adicionada de propósito (ver o comentário
+ * grande "DITHER — CAUSA RAIZ...", logo acima) pra resolver um problema
+ * DIFERENTE e já medido: sem ela, as manchas de fundo (`AmbientGlow`)
+ * mostravam ANÉIS CONCÊNTRICOS nítidos (banding) por causa da pouca
+ * profundidade de cor do Android em tons escuros (~2 níveis de
+ * vermelho, ~10 de verde, ~23 de azul na faixa escura) — o dither troca
+ * essa banda dura por um granulado fino, que é exatamente o "noise" que
+ * está sendo relatado agora.
+ *
+ * Ou seja: não é ausência de camada nenhuma nem artefato de
+ * renderização "por acidente" — é uma troca deliberada (banding vs.
+ * grão) que já foi validada assim antes. Só que ninguém tinha comparado
+ * lado a lado com o web pra ver se o grão ficou mais visível do que a
+ * banda que ele resolve.
+ *
+ * ISOLANDO A VARIÁVEL: `0.115 → 0`, SÓ ISSO, temporariamente — não mudo
+ * blur nem escurecimento nenhum (`base`/`glow` continuam iguais).
+ *   - Se o grão sumir e os anéis de banding NÃO voltarem visíveis no
+ *     aparelho de teste → o dither pode ser reduzido/removido sem
+ *     custo real, decisão fácil.
+ *   - Se o grão sumir mas os anéis voltarem → é o trade-off documentado
+ *     se manifestando; aí a decisão (grão fino vs. anel de banding) é seu.
+ *   - Se o grão NÃO sumir (continuar igual com opacidade 0) → o dither
+ *     não é a causa (ou não é a causa PRINCIPAL), e o problema está em
+ *     outro lugar — meu próximo suspeito seria o próprio algoritmo de
+ *     blur do Android (`dimezisBlurViewSdk31Plus`, já documentado como
+ *     fonte de grão em fundos de blur — ver o histórico em `BlurView`,
+ *     acima) e/ou escala do emulador (a captura enviada é de um
+ *     "Android Emulator - Medium_Phone", não aparelho físico — GPU de
+ *     emulador às vezes renderiza sem o mesmo anti-aliasing/dithering de
+ *     saída de um aparelho real; se der pra repetir a mesma tela num
+ *     device físico, ajuda a isolar isso).
+ *
+ * RESULTADO DO TESTE (confirmado por print) — os anéis de banding
+ * VOLTARAM visíveis com `0`, faixas fortes no fundo. Isso prova que o
+ * dither está fazendo trabalho real (o trade-off documentado é
+ * verdadeiro, não teórico) — mas os CARDS continuaram granulados MESMO
+ * com o dither desligado. Como `DitherLayer` nem chega a renderizar
+ * dentro de um card (`dentroDeCard` retorna `null` — ver a função,
+ * abaixo), o grão do card nunca poderia vir dele: a fonte é outra.
+ * Valor restaurado, sem alternativa melhor encontrada ainda.
+ */
+/*
+ * REABERTO (2026-09-16, a pedido — "agora no mobile tem umas ondas nas
+ * manchas azuis, é possivel tirar e deixar lisa?", depois de subir a
+ * opacidade das manchas do `HOME_GLOW_BLOBS` em ~74% no total — ×1.45
+ * ("ilumina as manchas uns 45%") × ×1.20 ("aumenta a iluminação uns
+ * 20%") — ver `lib/glowBlobs.ts`).
+ *
+ * CAUSA: essa amplitude foi calibrada, com medição real (todo o
+ * histórico grande acima), pra ser EXATAMENTE meio degrau de
+ * quantização (±3) contra a rampa de cor das manchas NO NÍVEL DE
+ * OPACIDADE ORIGINAL. Subir a opacidade das manchas alarga a faixa de
+ * cor que a rampa percorre — os degraus entre níveis de 8 bits ficam
+ * maiores — e a mesma amplitude de ruído, que antes cobria exatamente
+ * meio degrau, passa a cobrir MENOS que meio degrau relativo ao novo
+ * degrau maior. É o mesmo mecanismo documentado no comentário grande
+ * "AMPLITUDE — medida contra o degrau real", só que na direção
+ * contrária (degrau cresceu, ruído não acompanhou).
+ *
+ * PRIMEIRA TENTATIVA (revertida) — escalei a mesma proporção do
+ * aumento de opacidade das manchas (×1.45 × ×1.20 ≈ ×1.74): `0.115 →
+ * 0.20 → 0.26`. ERRADO: a pedido — "percebi que não está mexendo
+ * nessas ondas e sim escurecendo as manchas azuis" — e MEDINDO o
+ * `dither-tile.png` de verdade (`Image.open(...).convert('RGB').mean()`)
+ * a causa ficou clara: a média do ladrilho é `(70.5, 30.5, 26.0)` — um
+ * tom ESCURO e AVERMELHADO, não cinza neutro (é a "base compensada",
+ * ver o comentário abaixo — ele foi desenhado pra, numa opacidade
+ * PEQUENA, corrigir quantização, não pra ser um véu visível). Subir a
+ * opacidade dele de `0.115` pra `0.26` (mais que o dobro) faz esse tom
+ * escuro/vermelho dominar cada vez mais a mistura por cima do azul das
+ * manchas — é isso que lê como "escurecendo", não como liso. Nunca
+ * chega a resolver as ondas porque essa amplitude NÃO é a alavanca
+ * certa pra um degrau de quantização maior — ela move o TOM médio, não
+ * o tamanho do degrau. Revertido pro valor original, já validado.
  */
 const DITHER_OPACITY = 0.115;
 

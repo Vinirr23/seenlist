@@ -226,7 +226,7 @@ export const fontSize = {
  * aparelho (18px ↔ 45) e estendida por regra de três — aproximação
  * assumida, não medida.
  */
-export type GlassVariantName = "light" | "card" | "medium" | "icon" | "dark" | "dock" | "pill" | "subtle";
+export type GlassVariantName = "light" | "card" | "medium" | "icon" | "dark" | "dock" | "pill" | "subtle" | "bannerIcon";
 
 export interface GlassVariant {
   /** Cor de base chapada (no web, o valor depois da vírgula no `background`). */
@@ -250,6 +250,86 @@ export interface GlassVariant {
    * aplica filtro, igual ao web.
    */
   saturate?: number;
+  /**
+   * CAUSA RAIZ DO "LEITOSO" (2026-09-16, achada no código-fonte REAL do
+   * `expo-blur` instalado — `node_modules/expo-blur/android/.../
+   * ExpoBlurView.kt` + `enums/TintStyle.kt`, versão `55.0.18`, não
+   * documentação genérica nem suposição).
+   *
+   * O Android tem uma camada que o CSS `backdrop-filter` NÃO tem: o
+   * `BlurView` nativo (`Dimezis/BlurView`, por baixo do `expo-blur`)
+   * pinta um `overlayColor` PRÓPRIO por cima do blur, e o valor usado
+   * pra calcular esse overlay é O MESMO número que a prop `intensity`
+   * manda como raio de desfoque — sem divisão nenhuma:
+   *
+   *     // ExpoBlurView.kt
+   *     private fun applyBlurViewOverlayColorCompat(useBlurView: Boolean) {
+   *       ...
+   *       blurView.setOverlayColor(tint.toBlurEffect(blurRadius))  // blurRadius = a prop `intensity`, CRUA
+   *     }
+   *
+   *     // TintStyle.kt — tint "default" (o nosso, já que não passamos
+   *     // `tint` nenhum) cai no `else`, que é BRANCO puro:
+   *     private fun toColorInt(blurRadius: Float): Int {
+   *       val intensity = blurRadius / 100
+   *       return when (this) {
+   *         ...
+   *         else -> ((255 * intensity * 0.44).toInt() shl 24) + (255 shl 16) + (255 shl 8) + 255
+   *       }
+   *     }
+   *
+   * Ou seja: `overlayAlpha = (intensity/100) × 0.44`, cor
+   * `rgb(255,255,255)` fixa — SEMPRE branco, pra qualquer intensidade
+   * >0, e NENHUM valor de `tint` (nem `'default'`) zera isso (o `0.44`
+   * é o multiplicador MAIS BAIXO de toda a tabela — não existe opção de
+   * alfa zero). Com `blurIntensity: 55` isso dava
+   * `(55/100)×0.44 ≈ 0.242` — quase 1/4 de branco puro por cima do
+   * blur, ANTES do nosso `filter:[{saturate}]` sequer entrar (que por
+   * isso nunca resolvia: `saturate` amplifica cor que existe, não
+   * desfaz uma mistura pra branco que já aconteceu antes dele).
+   *
+   * A SAÍDA, achada no mesmo arquivo: o raio de desfoque REAL entregue
+   * ao `Dimezis/BlurView` é `blurRadius / blurReductionFactor` — MAS o
+   * overlay usa `blurRadius` CRU, sem dividir por
+   * `blurReductionFactor`. As duas contas usam o MESMO número de
+   * entrada (`intensity`) de formas DIFERENTES — isso quer dizer que dá
+   * pra manter o raio de desfoque final (`intensity ÷
+   * blurReductionFactor`) igual a antes, baixando os dois ao mesmo
+   * tempo na MESMA proporção: o desfoque visível não muda (mesma
+   * divisão), mas o `intensity` cru que vira overlay fica bem menor —
+   * isso SEPARA desfoque e véu de cor, que é exatamente o que foi
+   * pedido. Ver `blurReductionFactor` abaixo e o uso em `Glass.tsx`
+   * (antes fixo em `1` pra TODA superfície de vidro — virou por
+   * receita, só o `dock` muda).
+   *
+   * AINDA PRECISA DE CONFIRMAÇÃO VISUAL NO APARELHO — a conta é exata
+   * (vem do código-fonte, não de medição em print), mas o RESULTADO
+   * final (blur + saturate + base/highlight juntos) só se valida
+   * olhando.
+   */
+  blurReductionFactor?: number;
+  /**
+   * TESTE AO VIVO (2026-09-16, a pedido — "faça isso", depois de provar
+   * a causa do grão na tela `debug-grain.tsx`: painel 3 com
+   * `applyNoise=true` mediu 3,34 de variação pixel-a-pixel; o mesmo
+   * painel com `applyNoise=false` mediu 0,38 — quase 9× menos, grão
+   * praticamente eliminado). Ver `ExpoBlurView.kt`/`BlurModule.kt`
+   * (`node_modules/expo-blur`, patch de diagnóstico) — controla se o
+   * `Dimezis/BlurView` nativo desenha por cima a textura de dithering
+   * (`blue_noise.webp`, alfa 38/255) que causa o grão no Android.
+   *
+   * Ausente aqui = `true` (padrão da lib, comportamento de sempre — Ver
+   * `Glass.tsx`, `applyNoise={recipe.applyNoise ?? true}`). Só `card`
+   * usa `false` por enquanto, pra comparação ao vivo isolada — NENHUMA
+   * outra receita (inclusive `dock`, que continua intocado) foi
+   * alterada. Contrapartida já demonstrada na tela de diagnóstico: sem
+   * o ruído, um banding leve (anel esverdeado na transição do brilho)
+   * volta a aparecer — mais fraco que sem blur nenhum, mas perceptível.
+   * Ainda precisa de confirmação visual no app real antes de decidir se
+   * fica, se volta pro padrão, ou se vale patchar o alfa do ruído em vez
+   * de desligar totalmente.
+   */
+  applyNoise?: boolean;
   border: string;
 }
 
@@ -302,18 +382,153 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
      * `backdrop-saturate-[160%]`. O 180% é dos CARTÕES.
      */
     saturate: 1.6,
+    /*
+     * ESTENDIDO (2026-09-16, a pedido — "estenda", depois do `card`
+     * confirmado bom em 2 telas reais). Ver o comentário grande em
+     * `applyNoise`, na interface `GlassVariant`, acima.
+     */
+    applyNoise: false,
     border: "rgba(255,255,255,0.1)",
   },
   card: {
+    /*
+     * REVERTIDO (2026-09-16) — toda a sequência de ajustes de `base`/
+     * `highlight` desta receita (rodadas de "ilumina as manchas"/
+     * "escurece o tom escuro") foi feita no alvo ERRADO: o pedido era
+     * sobre a mancha azul do FUNDO (`AmbientGlow`/`lib/glowBlobs.ts`,
+     * atrás do `GlassTargetProvider`), não sobre o brilho de canto
+     * DENTRO do card `Glass`. Voltou pros valores originais; o ajuste
+     * de verdade vai em `glowBlobs.ts`.
+     */
     base: "rgba(80,115,180,0.10)",
-    highlight: "rgba(255,255,255,0.17)",
+    /*
+     * AJUSTE (2026-09-16, a pedido — "diminui a mancha branca no glass
+     * de estatística, está forte ainda... diminui uns 25%"). Esta é a
+     * mancha de canto DENTRO do card mesmo (diferente da mancha de
+     * fundo, essa é `HOME_GLOW_BLOBS`/`glowBlobs.ts`, ajustada em
+     * separado): `0.17 × 0.75 ≈ 0.13`.
+     *
+     * RODADA 2 (2026-09-16, a pedido — "diminui a mancha branca de
+     * estatísticas que ela tá muito forte", sem % desta vez): mesmo
+     * corte de 25% de novo: `0.13 × 0.75 ≈ 0.0975 ≈ 0.10`.
+     */
+    highlight: "rgba(255,255,255,0.10)",
     highlightRadiusX: 75,
     highlightRadiusY: 100,
     highlightCenterX: 14,
     highlightCenterY: 15,
     highlightStop: 60,
-    blurIntensity: Math.round(18 * PX_TO_BLUR_INTENSITY),
-    saturate: 1.8,
+    /*
+     * MESMA CAUSA RAIZ DA BARRA DE NAVEGAÇÃO (2026-09-16, a pedido —
+     * "está esbranquiçado, não era assim, estava igual web antes",
+     * print do card de Estatísticas).
+     *
+     * NÃO mexi na barra (`dock`, intocada) nem em nenhum código deste
+     * card — o `blurReductionFactor` fixo em `1` que existia antes da
+     * Rodada 5 (ver `Glass.tsx`) sempre valeu pra TODAS as receitas,
+     * `card` incluída. Ou seja este véu já existia antes de eu tocar em
+     * qualquer coisa hoje; só nunca tinha sido medido/relatado aqui —
+     * a barra foi a primeira porque foi o que você pediu primeiro.
+     *
+     * Mesma conta do `dock` (`ExpoBlurView.kt`/`TintStyle.kt`, ver o
+     * comentário grande em `blurReductionFactor`, na interface acima):
+     * véu branco = `(intensity/100) × 0.44`. Com `blurIntensity: 45` e
+     * `blurReductionFactor` implícito em `1` (o padrão antes de existir
+     * este campo), o véu era `(45/100)×0.44 ≈ 0.198` — quase 20% de
+     * branco puro por cima do blur, em TODO card que usa esta receita
+     * (23 usos no web, a mais comum das cinco).
+     *
+     * Mesmo tipo de correção: mantém o raio final de desfoque IGUAL
+     * (`45`, o mesmo "alargamento" já calibrado — aqui, diferente da
+     * barra, ninguém reportou problema de mistura de cor, só de véu, e
+     * por isso o raio não muda) repartindo a proporção entre
+     * `intensity` e `blurReductionFactor`: `45 → 6.75` /
+     * `1 → 0.15` (mesmo fator `0.15` usado na Rodada 5 do `dock`) — raio
+     * final `6.75 ÷ 0.15 = 45`, véu cai pra `(6.75/100)×0.44 ≈ 0.030`
+     * (3%, contra ~20% antes).
+     *
+     * ESCOPO: esta receita (`card`) é usada em MUITAS superfícies do
+     * app, não só no card de Estatísticas — a mudança vale pra todas
+     * elas de uma vez (é a correção da causa, não um remendo local).
+     * Ainda precisa de confirmação visual — primeira tentativa.
+     */
+    blurIntensity: 6.75,
+    blurReductionFactor: 0.15,
+    /*
+     * TESTE DIAGNÓSTICO #2 (2026-09-16) — RESULTADO: grão continuou
+     * visível sem `saturate`, só o card ficou menos colorido. Não
+     * confirmou a causa — restaurado. `saturate` está DESCARTADO como
+     * causa PRINCIPAL do grão (eliminação completa desta vez: eu vi o
+     * resultado com ele desligado e o grão não sumiu), mas continua
+     * valendo — sem ele o card perde o "acender com o fundo".
+     */
+    /*
+     * RODADA 1 DE RECALIBRAÇÃO (2026-09-16, a pedido — "parece que no
+     * mobile os cards glass tem uma cor azulada neles", print
+     * comparando o card do "REACHER" web × mobile lado a lado, mesmo
+     * conteúdo).
+     *
+     * MEDIÇÃO DIRETA no print (região lisa do card, longe de pôster/
+     * texto/badge, várias amostras por lado):
+     *
+     *              web            mobile
+     *     R          32             20
+     *     G          44             55
+     *     B          57             85
+     *
+     * "Distância da luminância" (magnitude de croma, mesma ideia do
+     * `saturate` — luma = 0.213R+0.715G+0.072B):
+     *     web:    luma≈42.4, croma≈18.0
+     *     mobile: luma≈49.7, croma≈46.4
+     *
+     * Proporção mobile/web ≈ 2.58× mais saturado. Isso é uma ESTIMATIVA,
+     * não uma conta exata como a do véu branco — diferente da barra, o
+     * card do RN empilha uma camada própria (`base:
+     * rgba(80,115,180,0.10)`, este arquivo) que o CSS do web não tem,
+     * então "mesma entrada, multiplicador diferente" não é
+     * necessariamente verdade aqui; a proporção medida assume que sim,
+     * como primeiro palpite informado.
+     *
+     * Primeiro teste: `1.8 ÷ 2.58 ≈ 0.7`. AINDA PRECISA DE CONFIRMAÇÃO
+     * VISUAL no aparelho, comparando o MESMO card (mesmo título, mesma
+     * posição) antes/depois — não é valor final, é o ponto de partida
+     * pra iterar (mesmo processo usado no `dock`).
+     *
+     * RODADA 2 (2026-09-16, a pedido — "diminuiu demais, não foque só
+     * nos números investigue como está visualmente"). Print novo, MESMO
+     * card (REACHER), mesma medição:
+     *
+     *              web            mobile (saturate=0.7)
+     *     R          30             35
+     *     G          55             49
+     *     B          77             65
+     *     croma     33.6            21.7
+     *
+     * Olhando visualmente, não só o número: o card ficou visivelmente
+     * mais CINZA/lavado que o web — perdeu o tom azul-índigo, virou
+     * quase monocromático. Confirma numericamente: a `0.7` o mobile
+     * ficou 0.65× do croma do web (SUBSATURADO), enquanto a `1.8`
+     * estava 2.58× (SUPERSATURADO) — passou direto do exagero pro
+     * oposto, sem parar perto do alvo.
+     *
+     * A relação `saturate → croma` claramente NÃO é proporcional direta
+     * (croma/web não vai a zero quando saturate→0 — tem uma camada de
+     * cor de base que não depende do multiplicador). Com dois pontos
+     * reais (1.8→2.58×; 0.7→0.65×), a reta que passa por eles cruza a
+     * proporção 1.0× (igual ao web) em `saturate ≈ 0.90` — bem mais
+     * perto de "sem alteração" (`1.0`) que dos dois extremos já
+     * testados. Ainda é estimativa (só 2 pontos, modelo linear
+     * aproximado) — próxima rodada de confirmação visual decide se para
+     * aqui ou ajusta mais.
+     */
+    saturate: 0.9,
+    /*
+     * TESTE AO VIVO (2026-09-16, "faça isso") — ver o comentário grande
+     * em `applyNoise`, na interface `GlassVariant` acima. Só esta
+     * receita (`card`) desliga o ruído nativo, pra comparar ao vivo nas
+     * telas reais que a usam sem tocar em `dock` nem nas outras.
+     */
+    applyNoise: false,
     border: "rgba(255,255,255,0.1)",
   },
   medium: {
@@ -326,6 +541,8 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
     highlightStop: 60,
     blurIntensity: Math.round(14 * PX_TO_BLUR_INTENSITY),
     saturate: 1.8,
+    /* ESTENDIDO (2026-09-16, "estenda") — ver `applyNoise` na interface `GlassVariant`, acima. */
+    applyNoise: false,
     border: "rgba(255,255,255,0.1)",
   },
   /**
@@ -350,8 +567,43 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
     highlightCenterX: 25,
     highlightCenterY: 20,
     highlightStop: 65,
-    blurIntensity: Math.round(12 * PX_TO_BLUR_INTENSITY),
+    /*
+     * CAUSA RAIZ DO "ACESO"/BRILHO NO SINO E NO "..." (2026-09-16, a
+     * pedido — "verifica porque o sino e (...) no mobile está
+     * iluminado"). Investigando o código achei que esta receita
+     * (`icon`) nunca recebeu a MESMA correção já aplicada em `light`,
+     * `card`, `medium`, `dock`, `subtle`, `dark` e `pill` (ver o
+     * comentário grande em `blurReductionFactor`, na interface
+     * `GlassVariant`, acima): sem `blurReductionFactor` explícito
+     * (implícito em `1`), o véu branco nativo do `Dimezis/BlurView`
+     * (`(intensity/100) × 0.44`) usava o `intensity` CRU de `30`
+     * (`Math.round(12 × PX_TO_BLUR_INTENSITY)`) → véu ≈ 13% de branco
+     * puro por cima do blur — bem mais forte que os ~2-3% já corrigidos
+     * nas outras receitas. Sobre a foto de capa (mais clara/colorida
+     * que o fundo navy do app), esse véu somado ao `saturate: 1.8`
+     * amplificando a cor já misturada é o candidato mais forte pra
+     * explicar o efeito de "disco aceso" — mesma causa raiz, só que
+     * nunca tinha sido corrigida aqui porque ninguém tinha reportado
+     * esta receita especificamente antes.
+     *
+     * Mesma correção: mantém o raio final de desfoque igual (`30`)
+     * repartindo a proporção `intensity`/`blurReductionFactor` (mesmo
+     * fator `0.15` das outras): `30 → 4.5`, `blurReductionFactor: 1 →
+     * 0.15` → raio final `4.5 ÷ 0.15 = 30` (idêntico), véu cai pra
+     * `(4.5/100) × 0.44 ≈ 0.0198` (2%, contra ~13% antes).
+     *
+     * `saturate` mantido em `1.8` por enquanto — ainda não recalibrado
+     * contra a foto real (diferente do `dock`, que teve medição
+     * dedicada). Ainda precisa de confirmação visual: se o "aceso"
+     * sumir só com o véu corrigido, `saturate` pode nem precisar mexer;
+     * se sobrar, aí sim entra medição dedicada, igual foi feito pro
+     * `dock`.
+     */
+    blurIntensity: 4.5,
+    blurReductionFactor: 0.15,
     saturate: 1.8,
+    /* ESTENDIDO (2026-09-16, "estenda") — ver `applyNoise` na interface `GlassVariant`, acima. */
+    applyNoise: false,
     border: "rgba(255,255,255,0.15)",
   },
   /**
@@ -389,8 +641,117 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
     highlightCenterX: 14,
     highlightCenterY: 15,
     highlightStop: 60,
-    blurIntensity: Math.round(18 * PX_TO_BLUR_INTENSITY),
-    saturate: 1.8,
+    /*
+     * CORREÇÃO EM DUAS RODADAS (a pedido, 2026-09-16 — "não foque
+     * apenas em código e números, quero visualmente igual").
+     *
+     * RODADA 1 (`85`, revertida) — a hipótese: no web dá pra ver que
+     * tem um pôster atrás, mas o detalhe (rosto, texto) some numa
+     * mancha de cor; no mobile (intensidade 45) ainda dava pra LER o
+     * pôster, então subi bastante a intensidade. ERRADO NA PRÁTICA —
+     * print seguinte mostrou a barra praticamente CINZA CHAPADA, sem
+     * cor nenhuma, pior que antes. CAUSA: essa escala do
+     * `expo-blur`/`dimezisBlurViewSdk31Plus` não é linear até o fim —
+     * perto de 85 (de uma escala 0-100) o desfoque já homogeneíza a
+     * COR MÉDIA da faixa inteira embaixo da barra, não só o detalhe
+     * fino. Depois disso não sobra quase gradiente de cor nenhum pra
+     * o `saturate` amplificar (amplificar um cinza quase uniforme
+     * continua dando cinza) — e eu tinha BAIXADO o `saturate` no mesmo
+     * commit (achando que precisaria de menos reforço com mais blur),
+     * o que só piorou o resultado nas duas direções ao mesmo tempo.
+     *
+     * RODADA 2 — o que o web faz de verdade, olhando com calma: o
+     * desfoque dele é MODERADO (apaga detalhe fino — rosto, texto —
+     * mas preserva a variação de cor REGIONAL — quente à esquerda,
+     * frio à direita, transição suave, sem cinza uniforme). Isso é
+     * mais perto do 45 original que do 85 — por isso a intensidade só
+     * sobe um pouco (pra suavizar a costura dura vista na rodada
+     * anterior), e o `saturate` volta a subir bastante (a variação
+     * regional que sobra do blur moderado precisa de reforço forte pra
+     * ficar tão vívida quanto o web). Ainda precisa de confirmação
+     * visual no aparelho.
+     */
+    /*
+     * RODADA 5 — CAUSA RAIZ CONFIRMADA NO CÓDIGO-FONTE (2026-09-16, ver
+     * o comentário completo em `blurReductionFactor`, na interface
+     * `GlassVariant` acima — leitura direta do
+     * `ExpoBlurView.kt`/`TintStyle.kt` instalados, versão `55.0.18`, não
+     * suposição).
+     *
+     * O teste da Rodada 4 (`blurIntensity: 4`) não confirmou nem
+     * derrubou a hipótese de véu fixo — ele MUDOU DUAS COISAS ao mesmo
+     * tempo (desfoque quase sumiu, cor melhorou), porque no Android o
+     * `overlayColor` do `Dimezis/BlurView` usa o MESMO número que vira
+     * raio de desfoque (`intensity`), sem separação nenhuma nativamente.
+     * Baixar `intensity` sempre reduz as duas coisas juntas — por isso o
+     * pôster ficou nítido demais (pouco blur) E menos leitoso (menos
+     * véu) ao mesmo tempo.
+     *
+     * A CONTA REAL (lida direto do Kotlin): o raio de desfoque que
+     * chega no `Dimezis/BlurView` é `intensity ÷ blurReductionFactor`;
+     * o `overlayColor` (branco, tint "default") é
+     * `(intensity/100) × 0.44` — usando `intensity` CRU, sem dividir por
+     * `blurReductionFactor`. As duas conas usam a MESMA entrada de
+     * jeitos diferentes — isso permite manter o raio de desfoque final
+     * IGUAL (mesma divisão) baixando `intensity` E
+     * `blurReductionFactor` NA MESMA PROPORÇÃO: o blur visível não muda,
+     * o véu branco cai proporcionalmente.
+     *
+     * Antes: `intensity=55, blurReductionFactor=1` (implícito, fixo em
+     * `Glass.tsx`) → raio final = 55/1 = 55, véu = (55/100)×0.44 ≈ 0.242
+     * (24% de branco puro).
+     *
+     * Agora: mesma razão 55, mas repartida — `intensity=8.25,
+     * blurReductionFactor=0.15` → raio final = 8.25/0.15 = 55 (IGUAL,
+     * mesmo desfoque de antes) → véu = (8.25/100)×0.44 ≈ 0.036 (3.6% de
+     * branco, contra 24% antes — quase 7× menor). `blurReductionFactor`
+     * só divide o NÚMERO que vira raio pro Dimezis (ver `ExpoBlurView.kt`)
+     * — não é resolução de cálculo nem afeta o grão documentado em
+     * `Glass.tsx` (aquilo é uma característica DIFERENTE, do algoritmo
+     * do `blurMethod`, já resolvida), então não deveria reintroduzir o
+     * problema de granulado já corrigido.
+     *
+     * `saturate` mantido em `2.2` — com o véu branco quase eliminado, a
+     * cor que sobra pro saturate amplificar já deveria ser a cor real do
+     * blur, não mais uma mistura pré-lavada. Ainda precisa de
+     * confirmação visual sobre pôster E sobre fundo escuro, como pedido.
+     */
+    /*
+     * RODADA 6 (a pedido, 2026-09-16 — "sobre os pôsteres a barra
+     * continua muito uniforme e acinzentada... não considere concluído
+     * apenas porque a fórmula mantém o mesmo raio").
+     *
+     * Ponto correto: eu mantive o raio final em `55` (o mesmo de antes
+     * da Rodada 5) só porque era o número já em uso — nunca tinha sido
+     * validado que ESSE raio reproduz a mistura de cor do web, só que
+     * batia com uma medição antiga de "alargamento de borda"
+     * (comentário de `PX_TO_BLUR_INTENSITY`, acima: raio ≈ 45 ↔
+     * `blur(18px)` do CSS). Alargar borda e preservar manchas de cor
+     * regionais são coisas DIFERENTES — o Android pode homogeneizar mais
+     * a cor média pro MESMO alargamento de contorno, dependendo do
+     * algoritmo. O print confirmou: mesmo raio 55, cor mais uniforme e
+     * acinzentada que o web sobre pôster — então o raio precisa DESCER,
+     * não ficar preso ao valor antigo.
+     *
+     * `intensity` continua baixo (`8.25`, intocado — é ele que controla
+     * o véu branco, já resolvido na Rodada 5: véu ≈ 3.6%, e o fundo
+     * escuro já bateu no print). Só `blurReductionFactor` sobe —
+     * pela fórmula (`raio = intensity ÷ blurReductionFactor`), SUBIR o
+     * divisor DESCE o raio, sem mexer no véu (que só depende de
+     * `intensity`, não de `blurReductionFactor` — ver Rodada 5).
+     *
+     * `0.15 → 0.33`: raio final `8.25 ÷ 0.33 ≈ 25` (era 55) — bem abaixo
+     * até do `45` antigo, de propósito: o pedido explícito foi manchas
+     * separadas, pôster ainda irreconhecível mas NÃO uniforme — e 45 já
+     * tinha sido escolhido só pela métrica de alargamento de borda, sem
+     * confirmar a mistura de cor. Ainda precisa de confirmação visual —
+     * primeira tentativa desta rodada, não valor final. Comparar sobre o
+     * MESMO trecho de pôster nas duas capturas (o print anterior linkou
+     * cores diferentes atrás de cada barra, dificultando comparar).
+     */
+    blurIntensity: 8.25,
+    blurReductionFactor: 0.33,
+    saturate: 2.2,
     border: "rgba(255,255,255,0.06)",
   },
   /**
@@ -445,7 +806,72 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
     highlightCenterX: 22,
     highlightCenterY: 12,
     highlightStop: 60,
-    blurIntensity: Math.round(12 * PX_TO_BLUR_INTENSITY),
+    /*
+     * MESMA CAUSA RAIZ DA BARRA/CARD (2026-09-16, a pedido — "esqueceu
+     * das pílulas Seguindo/Seguidores/Comentários"). Ver o comentário
+     * completo em `blurReductionFactor`, na interface `GlassVariant`, e
+     * o histórico igual na receita `card`, acima — mesmo véu branco do
+     * `expo-blur` no Android (`(intensity/100)×0.44`), e esta receita
+     * também estava com `blurReductionFactor` implícito em `1`.
+     *
+     * Raio antigo: `30` (`Math.round(12 × PX_TO_BLUR_INTENSITY)`), véu
+     * ≈ `(30/100)×0.44 ≈ 0.132` (13%). Mesma proporção `0.15` das outras
+     * duas correções, mantendo o raio final igual: `30 → 4.5`,
+     * `blurReductionFactor: 1 → 0.15`, raio final `4.5÷0.15=30`
+     * (idêntico), véu cai pra `(4.5/100)×0.44 ≈ 0.020` (2%).
+     */
+    blurIntensity: 4.5,
+    blurReductionFactor: 0.15,
+    /*
+     * ESTENDIDO (2026-09-16, a pedido — "esses cards continuam com
+     * grain", reportado nas pílulas Seguindo/Seguidores/Comentários
+     * depois de eu esquecer de incluir esta receita na leva anterior).
+     * Ver `applyNoise` na interface `GlassVariant`, acima.
+     */
+    applyNoise: false,
+    border: "rgba(255,255,255,0.1)",
+  },
+  /**
+   * SINO/"..." DO BANNER DE PERFIL (2026-09-16, a pedido — "corrige o
+   * sino e o (...) que ainda estão iluminados, verifique a causa raiz").
+   *
+   * CAUSA RAIZ achada por MEDIÇÃO de pixel (print real, web × mobile,
+   * disco do sino e disco de "..." nos dois), não suposição: a hipótese
+   * anterior (troca pra `pill` pra tirar o `saturate: 1.8` da `icon`)
+   * NÃO era a causa — medido em HSV, a SATURAÇÃO do mobile está mais
+   * BAIXA que a do web (12-23% contra 29% do web), não mais alta. O que
+   * bate muito mais claro é o VALOR/BRILHO: disco do sino, V=80-86% no
+   * mobile contra 50-53% no web — quase 30 pontos de sobra, mesmo já
+   * com `saturate` removido e o véu do `blurReductionFactor` corrigido.
+   *
+   * Ou seja: nem o `saturate` nem o véu nativo do `expo-blur` eram (mais)
+   * o problema — é a própria opacidade de `base`/`highlight` da receita
+   * usada (`pill`: 0.08/0.208). Esses valores foram medidos e aprovados
+   * pras pílulas Seguindo/Seguidores/Comentários, que ficam sobre um
+   * fundo ESCURO SÓLIDO (`colors.surface`) — aqui o alvo é a FOTO DE
+   * CAPA, naturalmente mais clara, e o disco é pequeno (36px) e REDONDO:
+   * a mesma geometria de brilho em PORCENTAGEM (`highlightRadiusX/Y`,
+   * `highlightStop`) que rende um brilho de CANTO discreto numa pílula
+   * larga cobre quase o disco INTEIRO num círculo pequeno — dois fatores
+   * empilhados (base+brilho sobre fundo já claro, cobertura proporcional
+   * maior) que a troca de receita anterior não endereçava.
+   *
+   * Corte inicial (a confirmar visualmente, mesma metodologia iterativa
+   * já usada nas outras calibrações): `base`/`highlight` cortados pela
+   * metade em relação à `pill` (0.08→0.04, 0.208→0.09) — raio de
+   * desfoque/véu nativo e `border` continuam os mesmos já corrigidos.
+   */
+  bannerIcon: {
+    base: "rgba(255,255,255,0.04)",
+    highlight: "rgba(255,255,255,0.09)",
+    highlightRadiusX: 75,
+    highlightRadiusY: 90,
+    highlightCenterX: 22,
+    highlightCenterY: 12,
+    highlightStop: 60,
+    blurIntensity: 4.5,
+    blurReductionFactor: 0.15,
+    applyNoise: false,
     border: "rgba(255,255,255,0.1)",
   },
   /**
@@ -475,6 +901,8 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
     highlightStop: 60,
     blurIntensity: Math.round(10 * PX_TO_BLUR_INTENSITY),
     saturate: 1.6,
+    /* ESTENDIDO (2026-09-16, "estenda") — ver `applyNoise` na interface `GlassVariant`, acima. */
+    applyNoise: false,
     border: "rgba(255,255,255,0.15)",
   },
   dark: {
@@ -487,6 +915,8 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
     highlightStop: 60,
     blurIntensity: Math.round(18 * PX_TO_BLUR_INTENSITY),
     saturate: 1.8,
+    /* ESTENDIDO (2026-09-16, "estenda") — ver `applyNoise` na interface `GlassVariant`, acima. */
+    applyNoise: false,
     border: "rgba(255,255,255,0.1)",
   },
 };

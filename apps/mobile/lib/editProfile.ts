@@ -7,6 +7,8 @@ export interface EditableProfile {
   country: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
+  /** A PEDIDO ("eu não consigo redimensionar o banner pra ficar do jeito que eu quero") — 0 = topo, 0.5 = centro/padrão, 1 = base. Ver migration `20260917000000_profiles_banner_focal_y.sql`. */
+  bannerFocalY: number;
 }
 
 /**
@@ -28,7 +30,7 @@ export async function fetchEditableProfile(): Promise<EditableProfile | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, bio, country, avatar_url, banner_url")
+    .select("username, display_name, bio, country, avatar_url, banner_url, banner_focal_y")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -39,6 +41,7 @@ export async function fetchEditableProfile(): Promise<EditableProfile | null> {
     country: profile?.country ?? "",
     avatarUrl: profile?.avatar_url ?? metadataAvatar,
     bannerUrl: profile?.banner_url ?? null,
+    bannerFocalY: profile?.banner_focal_y ?? 0.5,
   };
 }
 
@@ -88,5 +91,32 @@ export async function saveEditableProfile(input: {
     return { error: "Não foi possível salvar agora. Tente de novo." };
   }
 
+  return { error: null };
+}
+
+/**
+ * NOVO (a pedido — "eu não consigo redimensionar o banner pra ficar
+ * do jeito que eu quero", 2026-09-16) — salva só o ajuste vertical de
+ * enquadramento do banner (`profiles.banner_focal_y`), sem mexer em
+ * mais nada. Chamado pelo controle de arrastar em `edit-profile.tsx`
+ * quando o dedo SOLTA a tela (não a cada pixel arrastado — evita uma
+ * escrita no banco por frame; ver comentário completo lá). Mesmo
+ * padrão do web (`useSetBannerFocalY`, `banner-upload.ts`).
+ */
+export async function setBannerFocalY(value: number): Promise<{ error: string | null }> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return { error: "Sessão expirada. Entre novamente." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ banner_focal_y: value, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("[editProfile] Falha ao salvar posição do banner", error);
+    return { error: "Não foi possível salvar agora. Tente de novo." };
+  }
   return { error: null };
 }

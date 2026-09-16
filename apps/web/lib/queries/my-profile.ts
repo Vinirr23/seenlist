@@ -11,6 +11,8 @@ interface ProfileRow {
   avatar_url: string | null;
   bio: string | null;
   banner_url: string | null;
+  /** A PEDIDO ("eu não consigo redimensionar o banner pra ficar do jeito que eu quero") — ver migration `20260917000000_profiles_banner_focal_y.sql`. */
+  banner_focal_y: number;
   country: string | null;
   language: string;
   profile_visibility: ProfileVisibility;
@@ -27,6 +29,7 @@ function fromRow(row: ProfileRow): UserProfile {
     avatarUrl: row.avatar_url,
     bio: row.bio,
     bannerUrl: row.banner_url,
+    bannerFocalY: row.banner_focal_y,
     country: row.country,
     language: row.language,
     profileVisibility: row.profile_visibility,
@@ -72,6 +75,8 @@ export interface UpdateProfileInput {
   avatarUrl?: string | null;
   bio?: string | null;
   bannerUrl?: string | null;
+  /** Ver o comentário em `ProfileRow.banner_focal_y`, acima. */
+  bannerFocalY?: number;
   country?: string | null;
   language?: string;
   profileVisibility?: ProfileVisibility;
@@ -96,6 +101,7 @@ export function useUpdateMyProfile() {
       if (input.avatarUrl !== undefined) payload.avatar_url = input.avatarUrl;
       if (input.bio !== undefined) payload.bio = input.bio;
       if (input.bannerUrl !== undefined) payload.banner_url = input.bannerUrl;
+      if (input.bannerFocalY !== undefined) payload.banner_focal_y = input.bannerFocalY;
       if (input.country !== undefined) payload.country = input.country;
       if (input.language !== undefined) payload.language = input.language;
       if (input.profileVisibility !== undefined) payload.profile_visibility = input.profileVisibility;

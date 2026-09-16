@@ -122,8 +122,22 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
           <div className="relative -mx-4 h-[190px] w-[calc(100%+2rem)] overflow-hidden rounded-b-lg bg-background">
             {/* Só os 164px de cima têm foto — o resto (26px) já é o `bg-background` do `<div>` pai, aparecendo por baixo. */}
             <div className="absolute inset-x-0 top-0 h-[164px] overflow-hidden">
+              {/*
+                * A PEDIDO ("eu não consigo redimensionar o banner pra
+                * ficar do jeito que eu quero", 2026-09-16) —
+                * `object-position` aplica o ajuste vertical que a
+                * pessoa escolheu em "Editar perfil" (`profile.bannerFocalY`,
+                * 0 = topo, 0.5 = centro/padrão, 1 = base). Sem isso o
+                * corte automático (`object-cover`) sempre usava o
+                * centro, sem opção nenhuma de ajuste.
+                */}
               {/* eslint-disable-next-line @next/next/no-img-element -- banner externo, sem domínio fixo pra configurar em next/image */}
-              <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
+              <img
+                src={profile.bannerUrl}
+                alt=""
+                className="h-full w-full object-cover"
+                style={{ objectPosition: `center ${(profile.bannerFocalY ?? 0.5) * 100}%` }}
+              />
               {/*
                 * CAUSA RAIZ da "sombra estranha" (achada primeiro no
                 * mobile, comparando print pixel a pixel) — DUAS camadas
@@ -161,7 +175,32 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-lg font-bold text-text">{user.name}</p>
-                {profile?.username && <p className="truncate text-sm text-primary">@{profile.username}</p>}
+                {/*
+                  * A PEDIDO (2026-09-16 — "remove @seenlistapp em baixo de
+                  * 'seenlist' e substitui por um botão 'editar'"). O
+                  * "Editar perfil" que ficava dentro do sheet "..." (ver
+                  * `ProfileMoreSheet.tsx`) virou este botão direto aqui.
+                  *
+                  * AJUSTE (2026-09-16, a pedido — "ao invés de só texto
+                  * o 'editar' deixa um botão ambar") — virou pílula
+                  * "gel" âmbar sólida, mas o usuário achou feio
+                  * ("ficou feio, deixa ele um botão glass igual
+                  * 'seguindo,seguidores e comentários'").
+                  *
+                  * AJUSTE 2 (mesmo dia) — trocado pra vidro translúcido,
+                  * MESMA receita das pílulas de contagem logo abaixo
+                  * (`statPills.map`, variante SEM o azul do canto —
+                  * essa é só da última pílula, "Comentários").
+                  */}
+                <Link
+                  href="/profile/edit"
+                  className="mt-0.5 inline-flex items-center rounded-full border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-text backdrop-blur-md"
+                  style={{
+                    background: "radial-gradient(75% 90% at 22% 12%, rgba(255,255,255,0.18), transparent 60%), rgba(255,255,255,0.10)",
+                  }}
+                >
+                  {t("profile.edit")}
+                </Link>
               </div>
             </div>
           </div>
@@ -193,7 +232,16 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
         const nameBlockContent = (
           <>
             <p className="truncate text-lg font-bold text-text">{user.name}</p>
-            {profile?.username && <p className="truncate text-sm text-primary">@{profile.username}</p>}
+            {/* Ver comentário completo no bloco COM capa, acima — mesma pílula em vidro no lugar do "@username". */}
+            <Link
+              href="/profile/edit"
+              className="mt-0.5 inline-flex items-center rounded-full border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-text backdrop-blur-md"
+              style={{
+                background: "radial-gradient(75% 90% at 22% 12%, rgba(255,255,255,0.18), transparent 60%), rgba(255,255,255,0.10)",
+              }}
+            >
+              {t("profile.edit")}
+            </Link>
           </>
         );
 

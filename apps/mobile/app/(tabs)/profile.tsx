@@ -67,15 +67,22 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  */
 const GLOW_PILL = require("../../assets/images/glow-soft.png");
 
+/*
+ * PARIDADE DE BRILHO (2026-09-16, a pedido — "troque em profile
+ * também, eu disse TODAS AS TELAS IGUAIS"). Mesmo fator combinado
+ * aplicado em `HOME_GLOW_BLOBS`/`lib/glowBlobs.ts` (×1.45 × 1.20 =
+ * ×1.74) aplicado em cada opacidade aqui — mesma iluminação em todas
+ * as telas com esta paleta azul, perfil incluso.
+ */
 const PROFILE_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 220, left: -110, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 460, right: -100, size: 240 },
-  { color: "rgba(13,59,92,0.45)", top: 610, left: -90, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 760, right: -100, size: 240 },
-  { color: "rgba(27,75,122,0.35)", top: 880, left: -80, size: 224 },
-  { color: "rgba(42,127,184,0.28)", top: 1140, right: -90, size: 192 },
-  { color: "rgba(13,59,92,0.2)", top: 1450, left: -70, size: 176 },
-  { color: "rgba(27,75,122,0.12)", top: 1760, right: -70, size: 160 },
+  { color: "rgba(27,75,122,0.78)", top: 220, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.7)", top: 460, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.78)", top: 610, left: -90, size: 256 },
+  { color: "rgba(42,127,184,0.7)", top: 760, right: -100, size: 240 },
+  { color: "rgba(27,75,122,0.61)", top: 880, left: -80, size: 224 },
+  { color: "rgba(42,127,184,0.49)", top: 1140, right: -90, size: 192 },
+  { color: "rgba(13,59,92,0.35)", top: 1450, left: -70, size: 176 },
+  { color: "rgba(27,75,122,0.21)", top: 1760, right: -70, size: 160 },
 ];
 
 const EDITABLE_PROFILE_CACHE_VERSION = 1;
@@ -86,6 +93,7 @@ function editableProfileCacheKeyFor(userId: string): string {
 
 interface CachedEditableFields {
   bannerUrl: string | null;
+  bannerFocalY: number;
   bio: string | null;
   username: string | null;
 }
@@ -104,6 +112,8 @@ export default function ProfileScreen() {
   const counts = useFollowCounts(user?.id ?? null);
   const socialCounts = useSocialCounts(user?.id ?? null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  /** A PEDIDO ("eu não consigo redimensionar o banner pra ficar do jeito que eu quero") — 0 a 1, aplicado no `contentPosition` da `<Image>` do banner, mais abaixo. */
+  const [bannerFocalY, setBannerFocalY] = useState(0.5);
   const [bio, setBio] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
@@ -131,6 +141,7 @@ export default function ProfileScreen() {
         if (cancelled || !raw) return;
         const cached = JSON.parse(raw) as CachedEditableFields;
         setBannerUrl(cached.bannerUrl);
+        setBannerFocalY(cached.bannerFocalY ?? 0.5);
         setBio(cached.bio);
         setUsername(cached.username);
       })
@@ -168,15 +179,22 @@ export default function ProfileScreen() {
       fetchEditableProfile().then((profile) => {
         if (!profile) return;
         const nextBannerUrl = profile.bannerUrl;
+        const nextBannerFocalY = profile.bannerFocalY ?? 0.5;
         const nextBio = profile.bio || null;
         const nextUsername = profile.username || null;
         setBannerUrl(nextBannerUrl);
+        setBannerFocalY(nextBannerFocalY);
         setBio(nextBio);
         setUsername(nextUsername);
         if (cacheUserId) {
           AsyncStorage.setItem(
             editableProfileCacheKeyFor(cacheUserId),
-            JSON.stringify({ bannerUrl: nextBannerUrl, bio: nextBio, username: nextUsername } satisfies CachedEditableFields)
+            JSON.stringify({
+              bannerUrl: nextBannerUrl,
+              bannerFocalY: nextBannerFocalY,
+              bio: nextBio,
+              username: nextUsername,
+            } satisfies CachedEditableFields)
           ).catch((error) => {
             console.warn("[ProfileScreen] Falha ao salvar cache local de perfil", error);
           });
@@ -207,6 +225,14 @@ export default function ProfileScreen() {
         * "solidário" com a lista). Os cards `Glass` continuam achando o
         * alvo do blur normalmente: `GlassTargetProvider` só passa a ref
         * pelo Context, não importa se o `ScrollView` está no meio.
+        */}
+      {/*
+        * TESTE DIAGNÓSTICO (2026-09-16) REVERTIDO — resultado: grão
+        * continuou mesmo com fundo sólido (sem `AmbientGlow`/dither
+        * nenhum), então a causa não é o conteúdo capturado, é a própria
+        * cadeia de renderização do card. Investigação continua num
+        * componente de teste separado (`app/debug-grain.tsx`), sem
+        * tocar mais nesta tela — fundo de volta ao de sempre.
         */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={PROFILE_GLOW_BLOBS} />}>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
@@ -275,7 +301,23 @@ export default function ProfileScreen() {
                 * quem pinta o fundo aqui é a própria imagem — a base
                 * escura padrão a cobriria.
                 */}
-              <GlassTargetProvider style={styles.bannerPhoto} base="transparent" background={<Image source={{ uri: bannerUrl }} style={styles.banner} contentFit="cover" />}>
+              <GlassTargetProvider
+                style={styles.bannerPhoto}
+                base="transparent"
+                background={
+                  <Image
+                    source={{ uri: bannerUrl }}
+                    style={styles.banner}
+                    contentFit="cover"
+                    // A PEDIDO ("eu não consigo redimensionar o banner pra ficar do jeito que eu quero") —
+                    // `contentPosition` é o equivalente do `expo-image` ao `object-position` do CSS (mesma
+                    // técnica usada no web): desloca verticalmente QUAL parte da foto aparece dentro do
+                    // recorte fixo de 164px, sem esticar/distorcer nada. `bannerFocalY` vem de
+                    // `profiles.banner_focal_y` (0 = topo, 0.5 = centro/padrão, 1 = base).
+                    contentPosition={{ top: `${bannerFocalY * 100}%` }}
+                  />
+                }
+              >
                 {/*
                   * CORREÇÃO (a pedido — "essa sombra dentro do banner
                   * está estranha, deixa mais natural", com print
@@ -311,7 +353,18 @@ export default function ProfileScreen() {
                   accessibilityLabel={t("profile.moreOptions")}
                   onPress={() => setShowMore(true)}
                 >
-                  <Glass variant="icon" style={styles.bannerIconButton}>
+                  {/*
+                    * A PEDIDO (2026-09-16 — "coloca o mesmo efeito de
+                    * 'seguindo, seguidos e comentários' no sino e no
+                    * (...)", depois corrigido no mesmo dia — "corrige o
+                    * sino e o (...) que ainda estão iluminados"). Ver
+                    * comentário completo em `NotificationBell.tsx`
+                    * (`glassVariant`) e na receita `bannerIcon` em
+                    * `lib/theme.ts` — `pill` não resolveu, a causa real
+                    * era `base`/`highlight` fortes demais pra um disco
+                    * pequeno sobre a foto de capa, não o `saturate`.
+                    */}
+                  <Glass variant="bannerIcon" style={styles.bannerIconButton}>
                     <Feather name="more-horizontal" size={16} color={colors.text} />
                   </Glass>
                 </Pressable>
@@ -323,7 +376,29 @@ export default function ProfileScreen() {
                   <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
                     {user.name}
                   </Text>
-                  {!!username && <Text style={styles.username}>@{username}</Text>}
+                  {/*
+                    * A PEDIDO (2026-09-16 — "remove @seenlistapp em baixo
+                    * de 'seenlist' e substitui por um botão 'editar'",
+                    * mesma mudança já feita no web, `ProfileHeader.tsx`).
+                    * O "Editar" que ficava dentro do sheet "..." (ver
+                    * `ProfileMoreSheet.tsx`) virou este botão direto aqui.
+                    *
+                    * AJUSTE (2026-09-16, a pedido — "ao invés de só
+                    * texto o 'editar' deixa um botão ambar") — virou
+                    * pílula âmbar sólida (`GelSurface`), mas o usuário
+                    * achou feio ("ficou feio, deixa ele um botão glass
+                    * igual 'seguindo,seguidores e comentários'").
+                    *
+                    * AJUSTE 2 (mesmo dia) — trocado pra `Glass`
+                    * `variant="pill"`, a MESMA receita das pílulas de
+                    * contagem logo abaixo (`countCard`) — vidro
+                    * translúcido, não âmbar sólido.
+                    */}
+                  <Pressable hitSlop={8} onPress={() => router.push("/settings/edit-profile")} style={styles.editButtonWrap}>
+                    <Glass style={styles.editButton} variant="pill">
+                      <Text style={styles.editButtonText}>{t("profile.edit")}</Text>
+                    </Glass>
+                  </Pressable>
                 </View>
               </View>
             </View>
@@ -346,7 +421,12 @@ export default function ProfileScreen() {
               <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
                 {user.name}
               </Text>
-              {!!username && <Text style={styles.username}>@{username}</Text>}
+              {/* Ver comentário completo no bloco COM capa, acima — mesma pílula "Editar" em vidro (variant `pill`). */}
+              <Pressable hitSlop={8} onPress={() => router.push("/settings/edit-profile")} style={styles.editButtonWrap}>
+                <Glass style={styles.editButton} variant="pill">
+                  <Text style={styles.editButtonText}>{t("profile.edit")}</Text>
+                </Glass>
+              </Pressable>
             </View>
           </View>
         )}
@@ -792,11 +872,27 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  /** CORREÇÃO (2026-09-10) — ver comentário completo em `displayName`, acima (mesma causa raiz). `text-sm` do Tailwind = 20px de `lineHeight`. */
-  username: {
-    fontSize: fontSize.sm,
-    lineHeight: 20,
-    color: colors.primary,
+  /**
+   * A PEDIDO (2026-09-16 — "deixa ele um botão glass igual
+   * 'seguindo,seguidores e comentários'") — mesmo `Glass` `variant`
+   * (`pill`) das pílulas de contagem (`countCard`, abaixo), só num
+   * tamanho compacto (não `flex: 1` esticado) pra caber ao lado do
+   * nome. `editButtonWrap` existe só pra não deixar o `Pressable`
+   * esticar (o pai, `headerText`, é `flex: 1`) — sem ele a pílula
+   * ficaria larga igual ao nome em vez do tamanho do próprio texto.
+   */
+  editButtonWrap: {
+    alignSelf: "flex-start",
+  },
+  editButton: {
+    borderRadius: radius.full,
+    paddingHorizontal: 14,
+    paddingVertical: spacing.sm - 2,
+  },
+  editButtonText: {
+    fontSize: fontSize.xs,
+    fontWeight: "600",
+    color: colors.text,
   },
   /**
    * CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); o web usa `mt-4` (`ProfileHeader.tsx`, bio) = 16px.

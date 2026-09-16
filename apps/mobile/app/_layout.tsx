@@ -22,6 +22,7 @@ import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { DockNavegacao } from "@/components/layout/DockNavegacao";
 import { colors } from "@/lib/theme";
 import { markFontsReady } from "@/lib/appReady";
+import { useInAppUpdateCheck } from "@/lib/inAppUpdate";
 
 /**
  * TASK-165 (splash, retomada) — sem isso, a splash NATIVA (a que o
@@ -162,6 +163,13 @@ function ChromeDeNavegacao({ alvoDaTela }: { alvoDaTela: React.RefObject<View | 
 export default function RootLayout() {
   useNotificationDeepLinks();
   useFontsReady();
+  /**
+   * IN-APP UPDATE DO GOOGLE PLAY (a pedido, 2026-09-16 — ver comentário
+   * completo em `lib/inAppUpdate.ts`) — checa ao abrir o app e a cada
+   * retomada de primeiro plano; roda no layout raiz porque precisa
+   * existir em toda tela, não só dentro de `(tabs)`/`(auth)`.
+   */
+  useInAppUpdateCheck();
   /**
    * O ALVO DE DESFOQUE DA BARRA subiu junto com ela (estava em
    * `app/(tabs)/_layout.tsx`). Os dois precisam andar juntos: o

@@ -33,13 +33,17 @@ const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year
  */
 const GLOW_PILL = require("../../../assets/images/glow-soft.png");
 
+/*
+ * PARIDADE DE BRILHO (2026-09-16, "TODAS AS TELAS IGUAIS") — mesmo
+ * fator ×1.74 de `HOME_GLOW_BLOBS`, ver comentário em `profile.tsx`.
+ */
 const PUBLIC_PROFILE_GLOW_BLOBS: GlowBlob[] = [
-  { color: "rgba(27,75,122,0.45)", top: 120, left: -110, size: 256 },
-  { color: "rgba(42,127,184,0.4)", top: 340, right: -100, size: 240 },
-  { color: "rgba(13,59,92,0.45)", top: 560, left: -90, size: 256 },
-  { color: "rgba(42,127,184,0.35)", top: 800, right: -90, size: 224 },
-  { color: "rgba(27,75,122,0.28)", top: 1050, left: -80, size: 192 },
-  { color: "rgba(13,59,92,0.18)", top: 1300, right: -70, size: 160 },
+  { color: "rgba(27,75,122,0.78)", top: 120, left: -110, size: 256 },
+  { color: "rgba(42,127,184,0.7)", top: 340, right: -100, size: 240 },
+  { color: "rgba(13,59,92,0.78)", top: 560, left: -90, size: 256 },
+  { color: "rgba(42,127,184,0.61)", top: 800, right: -90, size: 224 },
+  { color: "rgba(27,75,122,0.49)", top: 1050, left: -80, size: 192 },
+  { color: "rgba(13,59,92,0.31)", top: 1300, right: -70, size: 160 },
 ];
 
 /**
@@ -168,50 +172,72 @@ export default function PublicProfileScreen() {
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={PUBLIC_PROFILE_GLOW_BLOBS} />}>
         <ScrollView contentContainerStyle={{ paddingBottom: espacoDoDock }}>
           {!!profile.bannerUrl ? (
-            <View style={styles.bannerOuter}>
-              {/*
-                * MESMA CORREÇÃO DO PERFIL PRÓPRIO (2026-09-04, ver o
-                * comentário completo em `app/(tabs)/profile.tsx`) — estes
-                * botões eram IRMÃOS da capa, então o
-                * `GlassTargetProvider` mais próximo era o da tela, cujo
-                * alvo é o `AmbientGlow`: eles desfocavam o campo azul do
-                * fundo em vez da fotografia que está atrás deles.
-                *
-                * A capa vira o `background` de um provider próprio (segue
-                * visível — a `BlurTargetView` é uma view normal) e os
-                * botões viram FILHOS dele, irmãos da `BlurTargetView`,
-                * nunca dentro dela. O bloco do avatar continua FORA,
-                * porque ele transborda abaixo da capa e seria recortado
-                * pelo `overflow: hidden` do `bannerInner`.
-                */}
-              <GlassTargetProvider
-                style={styles.bannerInner}
-                base="transparent"
-                background={
-                  <>
-                    <Image source={{ uri: profile.bannerUrl }} style={styles.banner} contentFit="cover" />
-                    <LinearGradient colors={["transparent", colors.background]} style={styles.fadeOverlay} pointerEvents="none" />
-                  </>
-                }
-              >
-                <Pressable hitSlop={8} style={styles.bannerIconLeft} onPress={() => router.back()}>
-                  <Glass variant="icon" style={styles.bannerIconGlass}>
-                    <Feather name="arrow-left" size={16} color={colors.text} />
-                  </Glass>
-                </Pressable>
+            /*
+             * REDESENHO "CAPA CURTA E MINIMALISTA" (2026-09-16, a
+             * pedido — "aplique no mobile também... deixa perfil
+             * público header igual ao perfil pessoal") — mesma
+             * estrutura de `app/(tabs)/profile.tsx` (`bannerSection`/
+             * `bannerShort`/`bannerPhoto`/`shortRow`, ver os
+             * comentários completos lá pro histórico "versão
+             * A/D/F"): capa de 264px com avatar 74px sobreposto vira
+             * capa de 190px, foto só nos 164px de cima, avatar 66px +
+             * nome/username apoiados na faixa lisa de baixo. Continua
+             * mostrando `@username`/`joinedLine` (não vira botão
+             * "Editar" — essa troca foi só pro Perfil PRÓPRIO; aqui
+             * username é a identificação de quem está sendo visitado,
+             * e "Editar"/"Seguir" continuam na própria linha mais
+             * abaixo, sem mudança). Ícones viram voltar/compartilhar
+             * (em vez de sino/"..." do Perfil próprio), mas na MESMA
+             * posição/receita — inclusive `variant="bannerIcon"`, a
+             * correção de brilho já aplicada lá (ver `lib/theme.ts`).
+             */
+            <View style={styles.bannerSection}>
+              <View style={styles.bannerShort}>
+                {/*
+                  * MESMA CORREÇÃO DO PERFIL PRÓPRIO (2026-09-04) —
+                  * estes botões precisam ser FILHOS do
+                  * `GlassTargetProvider` da própria foto, não irmãos
+                  * dela, senão desfocam o campo azul do fundo da tela
+                  * em vez da fotografia atrás deles.
+                  */}
+                <GlassTargetProvider
+                  style={styles.bannerPhoto}
+                  base="transparent"
+                  background={
+                    <Image
+                      source={{ uri: profile.bannerUrl }}
+                      style={styles.banner}
+                      contentFit="cover"
+                      // Aqui é sempre o `bannerFocalY` de OUTRO usuário — só leitura, sem controle nesta tela.
+                      contentPosition={{ top: `${(profile.bannerFocalY ?? 0.5) * 100}%` }}
+                    />
+                  }
+                >
+                  <LinearGradient
+                    colors={["rgba(11,14,20,0.38)", colors.background]}
+                    style={styles.bannerDarken}
+                    pointerEvents="none"
+                  />
 
-                <View style={styles.bannerIconsRight}>
-                  <Pressable hitSlop={8} onPress={handleShare}>
-                    <Glass variant="icon" style={styles.bannerIconGlass}>
-                      <Feather name="share-2" size={16} color={colors.text} />
+                  <Pressable hitSlop={8} style={styles.bannerIconLeft} onPress={() => router.back()}>
+                    <Glass variant="bannerIcon" style={styles.bannerIconGlass}>
+                      <Feather name="arrow-left" size={16} color={colors.text} />
                     </Glass>
                   </Pressable>
-                </View>
-              </GlassTargetProvider>
 
-              <View style={styles.avatarHeaderRow}>
-                <Avatar uri={profile.avatarUrl} name={displayName} style={styles.avatarOverlap} textStyle={styles.avatarInitials} />
-                {nameBlock}
+                  <View style={styles.bannerIconsRight}>
+                    <Pressable hitSlop={8} onPress={handleShare}>
+                      <Glass variant="bannerIcon" style={styles.bannerIconGlass}>
+                        <Feather name="share-2" size={16} color={colors.text} />
+                      </Glass>
+                    </Pressable>
+                  </View>
+                </GlassTargetProvider>
+
+                <View style={styles.shortRow}>
+                  <Avatar uri={profile.avatarUrl} name={displayName} style={styles.avatarShort} textStyle={styles.avatarInitials} />
+                  {nameBlock}
+                </View>
               </View>
             </View>
           ) : (
@@ -325,8 +351,10 @@ export default function PublicProfileScreen() {
   );
 }
 
-/** Mesmo tamanho do perfil próprio (`app/(tabs)/profile.tsx`) — era 80 aqui. */
+/** Mesmo tamanho do perfil próprio (`app/(tabs)/profile.tsx`) — era 80 aqui. Continua valendo pro caso SEM capa. */
 const AVATAR_SIZE = 74;
+/** Avatar do caso COM capa, redesenho "capa curta e minimalista" (2026-09-16) — mesmo valor de `app/(tabs)/profile.tsx`. */
+const SHORT_HEADER_AVATAR_SIZE = 66;
 
 const styles = StyleSheet.create({
   /**
@@ -360,26 +388,41 @@ const styles = StyleSheet.create({
    * dia depois, 2026-09-16, ver comentário dele — não fazia parte
    * deste pedido de banner.)
    */
-  bannerOuter: {
-    height: 264,
-    marginBottom: 12,
+  /**
+   * REDESENHO "CAPA CURTA E MINIMALISTA" (2026-09-16) — mesma receita
+   * de `app/(tabs)/profile.tsx` (`bannerSection`/`bannerShort`/
+   * `bannerPhoto`/`bannerDarken`, ver os comentários completos lá).
+   * `bannerOuter`/`bannerInner`/`fadeOverlay` (capa de 264/224px, véu
+   * chapado + degradê separados) saíram — essa é a MESMA correção de
+   * "sombra estranha" já aplicada no Perfil próprio.
+   */
+  bannerSection: {
+    marginBottom: spacing.lg,
   },
-  bannerInner: {
-    height: 224,
-    backgroundColor: colors.surface,
+  bannerShort: {
+    height: 190,
+    backgroundColor: colors.background,
     overflow: "hidden",
+    borderBottomLeftRadius: radius.md,
+    borderBottomRightRadius: radius.md,
+  },
+  bannerPhoto: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 164,
   },
   banner: {
     width: "100%",
     height: "100%",
   },
-  /** Degradê de leitura na borda de baixo da capa — `h-16` (64px) no web. */
-  fadeOverlay: {
+  bannerDarken: {
     position: "absolute",
+    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    height: 64,
   },
   bannerIconLeft: {
     position: "absolute",
@@ -419,11 +462,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.md,
   },
-  avatarHeaderRow: {
+  /** Mesmo valor de `app/(tabs)/profile.tsx` (`shortRow`) — avatar+nome subidos 20px (30% de `SHORT_HEADER_AVATAR_SIZE`) da borda de baixo da capa. */
+  shortRow: {
     position: "absolute",
     left: spacing.md,
     right: spacing.md,
-    bottom: 0,
+    bottom: 20,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
@@ -450,16 +494,17 @@ const styles = StyleSheet.create({
    * mobile (esta tela + Perfil principal em `app/(tabs)/profile.tsx`)
    * — o código do web (ainda não publicado) fica como está.
    */
-  avatarOverlap: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
+  /** Avatar do caso COM capa, redesenho "capa curta e minimalista" — mesmo `avatarShort` de `app/(tabs)/profile.tsx` (anel fino, não o anel grosso `avatarNoBanner` de baixo). */
+  avatarShort: {
+    width: SHORT_HEADER_AVATAR_SIZE,
+    height: SHORT_HEADER_AVATAR_SIZE,
+    borderRadius: SHORT_HEADER_AVATAR_SIZE / 2,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.4)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.5)",
   },
   /** Anel de vidro (branco translúcido) — mesmo valor de antes, preservado só pro caso SEM capa (`headerRow`, acima). */
   avatarNoBanner: {
