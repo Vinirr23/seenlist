@@ -1,6 +1,21 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import LandingPage from "@/components/landing/LandingPage";
+
+/**
+ * REVISÃO DE METADADOS (2026-09-16) — canonical da home movido de
+ * `app/layout.tsx` (onde era fixo e "vazava" como canonical padrão de
+ * QUALQUER página-filha sem o dela próprio) pra cá. Título e descrição
+ * continuam vindo do layout de propósito — a home não os sobrescreve,
+ * então herda "SeenList — Organize séries e filmes" normalmente, sem
+ * precisar duplicar esse texto aqui.
+ */
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+  },
+};
 
 /**
  * SEO — dado estruturado (JSON-LD, schema.org "SoftwareApplication",
@@ -30,8 +45,18 @@ import LandingPage from "@/components/landing/LandingPage";
 const SOFTWARE_APPLICATION_JSON_LD = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
+  // REVISÃO (2026-09-16) — `@id` estável: identifica esta entidade de
+  // forma única e reutilizável (outros dados estruturados do site
+  // podem referenciar "https://seenlist.app/#app" em vez de duplicar o
+  // objeto inteiro). `image` aponta pro logo oficial já servido em
+  // `public/logo.png` (mesmo arquivo usado no <Header> — ver
+  // `components/landing/shared.tsx` — e nos ícones do app) — URL
+  // absoluta porque JSON-LD não resolve caminho relativo contra
+  // `metadataBase` como o resto do `Metadata` da página resolve.
+  "@id": "https://seenlist.app/#app",
   name: "SeenList",
   url: "https://seenlist.app",
+  image: "https://seenlist.app/logo.png",
   description: "Acompanhe episódio por episódio, avalie séries e filmes, escreva resenhas, monte listas e siga amigos — tudo num só lugar.",
   applicationCategory: "EntertainmentApplication",
   operatingSystem: "ANDROID",

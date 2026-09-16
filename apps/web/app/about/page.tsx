@@ -9,6 +9,7 @@ import {
   Header,
   Footer,
   SOCIAL_LINKS,
+  StoreBadges,
 } from "@/components/landing/shared";
 
 /**
@@ -24,18 +25,49 @@ import {
  * indexaria "/about" como página própria. Mesma correção replicada em
  * `/privacy` e `/terms`, abaixo.
  */
+const ABOUT_TITLE = "Sobre o SeenList";
+const ABOUT_DESCRIPTION =
+  "Conheça o SeenList: acompanhe episódio por episódio, avalie séries e filmes, escreva resenhas, monte listas e siga amigos — tudo num só lugar.";
+
+/**
+ * REVISÃO DE METADADOS (2026-09-16) — `openGraph` daqui SUBSTITUI por
+ * inteiro o `openGraph` do layout global (`app/layout.tsx`) quando
+ * definido numa página-filha — o Next.js não faz merge campo a campo
+ * dos objetos aninhados, só dos campos de nível raiz do `Metadata`.
+ * Antes só tinha `title`/`description`/`url` aqui, então essa troca
+ * apagava silenciosamente `siteName`, `locale`, `type` e principalmente
+ * `images` do OG herdado — resultado: link de "/about" compartilhado
+ * no WhatsApp/Twitter/etc. vinha sem imagem nenhuma. Corrigido
+ * reaproveitando os MESMOS valores/imagem do layout global (mesmo
+ * `og-image.png`, 1200×630), sem criar nenhuma imagem ou componente
+ * novo — e adicionado o bloco `twitter`, que esta página não tinha.
+ */
 export const metadata: Metadata = {
-  title: "Sobre o SeenList",
-  description:
-    "Conheça o SeenList: acompanhe episódio por episódio, avalie séries e filmes, escreva resenhas, monte listas e siga amigos — tudo num só lugar.",
+  title: ABOUT_TITLE,
+  description: ABOUT_DESCRIPTION,
   alternates: {
     canonical: "/about",
   },
   openGraph: {
-    title: "Sobre o SeenList",
-    description:
-      "Conheça o SeenList: acompanhe episódio por episódio, avalie séries e filmes, escreva resenhas, monte listas e siga amigos — tudo num só lugar.",
+    title: ABOUT_TITLE,
+    description: ABOUT_DESCRIPTION,
     url: "/about",
+    siteName: "SeenList",
+    locale: "pt_BR",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: ABOUT_TITLE,
+    description: ABOUT_DESCRIPTION,
+    images: ["/og-image.png"],
   },
 };
 
@@ -89,11 +121,28 @@ export default function AboutPage() {
         <h1 className="text-balance text-3xl font-extrabold leading-tight text-text sm:text-4xl">
           O que é o <span className="text-primary">SeenList</span>?
         </h1>
+        {/*
+         * A PEDIDO (2026-09-16, revisão de metadados — "identificar
+         * claramente seenlist.app como site oficial") — existe um app
+         * homônimo de outro desenvolvedor em lojas de app, sem nenhuma
+         * ligação com este projeto (mesmo problema documentado no
+         * JSON-LD de `app/page.tsx`). Frase inicial deixa explícito
+         * que "seenlist.app" É o site oficial deste SeenList, sem
+         * mencionar o app de terceiros (não há necessidade — e citar
+         * o nome dele só ajudaria a confundir busca). `<StoreBadges />`
+         * reaproveitada tal e qual (mesmo componente do rodapé da
+         * landing) em vez de criar um link novo — já tem o Google Play
+         * como link direto e o selo "Em breve na App Store", que já diz
+         * sozinho que o iOS ainda não foi lançado.
+         */}
         <p className="mx-auto mt-4 max-w-xl text-pretty text-base leading-relaxed text-muted">
-          O SeenList é uma plataforma gratuita pra acompanhar tudo que você assiste — séries e
-          filmes, episódio por episódio — e uma comunidade de gente que também leva isso a sério.
-          Disponível na web e no Android, com uma versão pra iOS a caminho.
+          <strong className="font-bold text-text">seenlist.app</strong> é o site oficial do
+          SeenList — uma plataforma gratuita pra acompanhar tudo que você assiste, séries e
+          filmes, episódio por episódio, e uma comunidade de gente que também leva isso a sério.
         </p>
+        <div className="mt-5 flex justify-center">
+          <StoreBadges />
+        </div>
       </section>
 
       <section className="relative z-10 mx-auto w-full max-w-5xl px-6 py-10 sm:px-8 sm:py-14">
