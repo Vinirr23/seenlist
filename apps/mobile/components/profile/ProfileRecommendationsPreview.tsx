@@ -49,7 +49,19 @@ function interpolarResto(texto: string, vars: Record<string, string | number>) {
 }
 
 function fraseComNomeEmNegrito(molde: string, nome: string, vars: Record<string, string | number>) {
-  const [prefixo, sufixo = ""] = molde.split("{sender}");
+  /*
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-17, typecheck real — "Argument of
+   * type 'string | undefined' is not assignable to parameter of type
+   * 'string'" em `interpolarResto(prefixo, vars)` logo abaixo) —
+   * `String.prototype.split` devolve `string[]` genérico; com
+   * `noUncheckedIndexedAccess` ligado, desestruturar a 1ª posição de
+   * um array genérico sempre vira `string | undefined` pro
+   * TypeScript, mesmo `.split()` sempre devolvendo pelo menos 1
+   * elemento na prática (nunca array vazio). `sufixo` já tinha esse
+   * default (`= ""`); faltava o mesmo em `prefixo` — mesmo raciocínio,
+   * mesma correção.
+   */
+  const [prefixo = "", sufixo = ""] = molde.split("{sender}");
   return (
     <>
       {interpolarResto(prefixo, vars)}

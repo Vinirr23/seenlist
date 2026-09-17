@@ -1,18 +1,75 @@
-import { createContext, useContext, useRef, type ReactNode, type RefObject } from "react";
+import { createContext, useContext, useRef, type ComponentType, type ReactNode, type RefObject } from "react";
 import {
   View,
   Image,
   StyleSheet,
   PixelRatio,
+  Platform,
   useWindowDimensions,
   type ViewProps,
   type StyleProp,
   type ViewStyle,
   type ImageSourcePropType,
 } from "react-native";
-import { BlurView, BlurTargetView } from "expo-blur";
+import { BlurView, BlurTargetView, type BlurViewProps } from "expo-blur";
+
+/**
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-17, typecheck real — "Property
+ * 'applyNoise' does not exist on type ... Readonly<BlurViewProps>",
+ * na linha que usa `<BlurView applyNoise={...} />` abaixo) —
+ * `applyNoise` é uma prop NATIVA real, só que não faz parte do
+ * `expo-blur` publicado: foi adicionada por um patch local direto no
+ * código nativo Android do pacote (ver o comentário grande em
+ * `lib/theme.ts`, na interface `GlassVariant` — `ExpoBlurView.kt`/
+ * `BlurModule.kt`, criada durante a investigação do grão de
+ * dithering no `Dimezis/BlurView`, com a tela de diagnóstico
+ * `debug-grain.tsx`, já removida). O patch mexe no código nativo, mas
+ * nunca tocou no tipo `BlurViewProps` do pacote — que também não deve
+ * ser editado à mão (dentro de `node_modules`, refeito a cada `pnpm
+ * install`), nem dá pra estender por "declaration merging"
+ * (`BlurViewProps` é um `type` no pacote, não uma `interface` — só
+ * interface é mesclável).
+ *
+ * `PatchedBlurView` é um alias de tipo só pra este componente: o
+ * MESMO `BlurView`, em runtime, só que o TypeScript passa a aceitar
+ * `applyNoise` nele também — sem precisar de `as any` em cada prop.
+ */
+const PatchedBlurView = BlurView as unknown as ComponentType<BlurViewProps & { applyNoise?: boolean }>;
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, glass, gel, glassVariants, type GlassVariant, type GlassVariantName } from "@/lib/theme";
+
+/**
+ * DIAGNÓSTICO TEMPORÁRIO (2026-09-16, a pedido — "rolagem dá umas
+ * travadas" no Android, aparelho físico, sensação GERAL, não numa
+ * tela específica).
+ *
+ * HIPÓTESE: o `BlurView` do `expo-blur` no Android
+ * (`dimezisBlurViewSdk31Plus`) já é documentado neste arquivo como
+ * caro (ver o histórico de "grão"/`blurMethod`, mais abaixo, no
+ * `Glass()`) — e a barra de navegação (`DockNavegacao.tsx`) desfoca o
+ * CONTEÚDO DA TELA INTEIRA, AO VIVO, em TODA tela do app, o tempo
+ * todo (inclusive durante o gesto de rolar). Some a isso o `PosterGrid`/
+ * `SeasonAccordion`, que montam um `Glass`/`BlurView` POR ITEM, todos
+ * de uma vez (sem `FlatList`, sem desmontar o que está fora da tela).
+ * A soma disso é a suspeita pra uma lentidão sentida no app INTEIRO,
+ * não amarrada a uma tela só.
+ *
+ * ESTE FLAG desliga o blur DE VERDADE em TODO `Glass` do app, só no
+ * Android (mantém o véu de cor translúcida — já testado antes, ver o
+ * comentário "TESTE 2" dentro do `BlurView`, mais abaixo: "o grão
+ * SOME junto com o blur" quando `blurMethod="none"`) — é só pra
+ * ISOLAR a causa num build de teste, não é a correção final. Se a
+ * rolagem ficar lisa com isto ligado, confirma a hipótese e o próximo
+ * passo é decidir ENTRE pausar o blur durante o gesto de rolar (mais
+ * fiel visualmente, mais trabalho) OU virar as listas pra `FlatList`
+ * virtualizada (resolve o acúmulo de itens, não o custo da barra).
+ * Se a rolagem CONTINUAR travando com isto ligado, a causa é outra
+ * coisa, não o blur — e essa outra causa ainda está em aberto.
+ *
+ * REVERTER (voltar pra `false`) assim que o teste acontecer, esteja o
+ * resultado confirmando ou derrubando a hipótese.
+ */
+const DIAGNOSTICO_BLUR_DESLIGADO_ANDROID = true;
 
 /**
  * Porte do redesign "âmbar/vidro" do web pro mobile — depende do
@@ -318,7 +375,8 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
    */
 
   // A cor de véu calibrada mora no `base` de cada receita (`lib/theme.ts`).
-  const baseColor = recipe.base;
+  // No iOS, reforçada — ver o comentário completo em `boostAlphaOnIOS`.
+  const baseColor = boostAlphaOnIOS(recipe.base);
 
   /**
    * `backdrop-saturate(180%)` — CAUSA RAIZ do "os cards glass não se
@@ -483,10 +541,58 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
       pointerEvents="none"
       style={[caixaDeBorda, recipe.saturate === undefined ? null : { filter: [{ saturate: recipe.saturate }] }]}
     >
-    <BlurView
+    <PatchedBlurView
       pointerEvents="none"
       blurTarget={target ?? undefined}
-      intensity={recipe.blurIntensity}
+      /**
+       * CORREÇÃO REVERTIDA (2026-09-16, mesmo dia — a tentativa anterior
+       * aqui estava ERRADA, e o print do usuário depois do build provou
+       * (barra continuou "quase legível" por trás, e os cards em geral
+       * apareceram com a borda "linha fina" em vez do detalhe de vidro
+       * do web — o mesmo sintoma em mais lugares, não só a barra).
+       *
+       * A tentativa anterior calculava `intensity ÷ blurReductionFactor`
+       * também no iOS, supondo que esse fosse o "raio real" que faltava
+       * lá. Errado: `blurReductionFactor` e essa conta inteira são a
+       * correção de um bug ESPECÍFICO do `Dimezis/BlurView` (a lib
+       * nativa ANDROID por baixo do `expo-blur` — ver o comentário
+       * grande "CAUSA RAIZ DO LEITOSO" em `lib/theme.ts`, escrito a
+       * partir do código-fonte real de `ExpoBlurView.kt`): aquela lib
+       * pinta um véu branco (`overlayColor`) calculado a partir do
+       * `intensity` CRU, e a única forma de manter o raio de desfoque
+       * igual reduzindo esse véu é dividir os dois numa proporção fixa.
+       * Isso não tem NENHUMA relação com o `BlurView` do iOS, que é o
+       * `UIVisualEffectView` nativo da Apple — outro componente, outra
+       * lib, sem `Dimezis` envolvido. Confirmado também na documentação
+       * oficial do `expo-blur` (checada agora, com acesso à web): ela
+       * descreve `blurReductionFactor` como "a number by which the blur
+       * intensity will be divided ON ANDROID" — explicitamente do lado
+       * Android, para aproximar o resultado do iOS, nunca o contrário.
+       * Aplicar essa mesma conta no iOS multiplicava o número por até 6×
+       * sem fundamento nenhum — o iOS voltou a receber `blurIntensity`
+       * cru, sem nenhuma divisão platform-specific.
+       *
+       * CAUSA RAIZ ENCONTRADA (2026-09-16, mesmo dia, print seguinte —
+       * "a barra voltou a ficar muito transparente e os botões ainda
+       * estão bugados") — o revert acima resolveu o erro de fórmula,
+       * mas trocou por outro problema: `recipe.blurIntensity` (o valor
+       * CRU já dividido pra caber no véu do Android, ex.: `dock` em
+       * `8.25`) nunca foi pensado pra ser um desfoque sozinho — só faz
+       * sentido junto do `blurReductionFactor` (Android). Usado cru no
+       * iOS, vira um desfoque quase nulo (a barra deixa passar cor E
+       * detalhe quase sem tratamento nenhum) — não porque a fórmula
+       * anterior estivesse "mais certa", mas porque este número, sem a
+       * dupla, é baixo demais pra qualquer plataforma.
+       *
+       * Ver o comentário grande em `iosBlurIntensity`, na interface
+       * `GlassVariant` (`lib/theme.ts`) — cada receita agora carrega um
+       * raio PRÓPRIO pro iOS, fixo (não recalculado a partir do
+       * `blurReductionFactor` do Android, que muda a cada rodada de
+       * calibração de lá) e já extraído das rodadas de calibração
+       * visual já feitas contra o print do web, antes de qualquer
+       * redução que só o algoritmo Android precisou.
+       */
+      intensity={Platform.OS === "ios" && recipe.iosBlurIntensity !== undefined ? recipe.iosBlurIntensity : recipe.blurIntensity}
       /**
        * CORREÇÃO (2026-09-10, reportado — "o vidro no mobile tem
        * granulado, no web é liso") — causa raiz confirmada na
@@ -586,7 +692,7 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
        * volta a ser uma escolha entre grão (`dimezisBlurView`) ou
        * sem-blur-em-Android-velho (`dimezisBlurViewSdk31Plus`).
        */
-      blurMethod="dimezisBlurViewSdk31Plus"
+      blurMethod={DIAGNOSTICO_BLUR_DESLIGADO_ANDROID && Platform.OS === "android" ? "none" : "dimezisBlurViewSdk31Plus"}
       /**
        * TESTE AO VIVO (2026-09-16, "faça isso") — ver o comentário
        * grande em `applyNoise`, na interface `GlassVariant`
@@ -1084,6 +1190,39 @@ function stripAlpha(rgba: string): string {
 /** Alpha de um `rgba(...)`, pra usar em `opacity`. */
 function alphaOf(rgba: string): number {
   return parseRgba(rgba).alpha;
+}
+
+/**
+ * REFORÇO NO iOS (2026-09-16, primeira tentativa, ainda por confirmar
+ * com print do próximo build) — ver o comentário grande no `BlurView`,
+ * em `Glass()`, pra causa raiz completa: a fórmula `intensity ÷
+ * blurReductionFactor` que "consertava" a barra no Android é
+ * específica de um bug da lib nativa Android (`Dimezis/BlurView`) e não
+ * tem nenhum efeito real no iOS — aplicá-la lá foi revertido.
+ *
+ * Em vez de continuar chutando o número de `intensity` do `BlurView`
+ * (API nativa da Apple, sem visibilidade de código-fonte daqui, ao
+ * contrário do Android), a primeira tentativa mexe numa peça bem mais
+ * simples e previsível: o véu de cor sólida (`baseColor`, uma `View`
+ * comum por cima do blur, SEM nenhuma API de blur envolvida) — reforça
+ * o alfa dele só no iOS, deixando o Android intocado (já calibrado e
+ * aprovado). Isso ataca os dois sintomas relatados juntos (barra
+ * "quase legível" por trás E cards com borda "linha fina" em vez do
+ * detalhe de vidro do web) porque os dois são, no fundo, "não tem
+ * contraste suficiente contra o que está atrás" — um véu mais forte
+ * ajuda nos dois, mesmo que o desfoque em si continue igual.
+ *
+ * `1.6` é um chute inicial (não medido em aparelho) — multiplica o
+ * alfa calibrado sem passar de 1 (alfa cheio). Precisa de confirmação
+ * visual no próximo build, e pode precisar subir ou descer.
+ */
+const IOS_BASE_ALPHA_BOOST = 1.6;
+function boostAlphaOnIOS(rgba: string): string {
+  if (Platform.OS !== "ios") return rgba;
+  const { rgb, alpha } = parseRgba(rgba);
+  const boosted = Math.min(1, alpha * IOS_BASE_ALPHA_BOOST);
+  const [r, g, b] = rgb.match(/[\d.]+/g) ?? ["255", "255", "255"];
+  return `rgba(${r}, ${g}, ${b}, ${boosted})`;
 }
 
 /**

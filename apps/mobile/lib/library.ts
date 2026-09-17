@@ -397,7 +397,22 @@ export async function fetchLibraryItems(userId?: string, language = "pt-BR"): Pr
   return buildLibraryItemsFromRows(movieRows, seriesRows, episodeStats, summaries);
 }
 
-/** URL de pôster do TMDB — mesma função do web (lib/tmdb/image.ts), só copiada. */
-export function tmdbImageUrl(path: string | null, size: "w185" | "w342" | "w780" = "w342"): string | null {
+/**
+ * URL de pôster do TMDB — mesma função do web (lib/tmdb/image.ts), só
+ * copiada.
+ *
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-17, typecheck real — 3 chamadores
+ * usando "w300"/"w1280" pra bater com os tamanhos do web em telas de
+ * backdrop/still, mas o tipo desta cópia nunca foi atualizado junto)
+ * — a união de tamanhos aceitos tinha ficado desatualizada em relação
+ * ao web (`"w185" | "w342" | "w780"` aqui vs. `"w185" | "w300" |
+ * "w342" | "w500" | "w780" | "w1280"` lá). Sincronizada de novo com o
+ * tipo `TmdbImageSize` do web — mesmos 6 tamanhos, todos válidos na
+ * API de imagens da TMDB.
+ */
+export function tmdbImageUrl(
+  path: string | null,
+  size: "w185" | "w300" | "w342" | "w500" | "w780" | "w1280" = "w342"
+): string | null {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 }

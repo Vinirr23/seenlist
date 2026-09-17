@@ -229,7 +229,24 @@ export function DockNavegacao({ alvoDaTela }: { alvoDaTela: RefObject<View | nul
   const [unreadCount, setUnreadCount] = useState(0);
   const { t } = useTranslation();
   const router = useRouter();
-  const segmentos = useSegments();
+  /*
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-17, typecheck real — "Tuple type
+   * '[string]' of length '1' has no element at index '1'" em
+   * `segmentos[1]` abaixo) — `useSegments()` do expo-router, com rotas
+   * tipadas ativas, infere o tipo como a união literal de TODOS os
+   * caminhos de rota do app — e o tipo "mais largo" em comum entre
+   * eles, hoje, é uma tupla de 1 posição só. Isso não bate com o uso
+   * daqui: este componente não quer um caminho de rota tipado
+   * específico, quer os segmentos da URL atual como uma lista
+   * genérica (tamanho variável) pra ler a posição 0 e 1 na mão — é
+   * exatamente o caso de uso que a própria documentação do expo-router
+   * recomenda tratar como `string[]` genérico, não como a tupla
+   * tipada. `as string[]` preserva o comportamento de sempre (o
+   * acesso por índice abaixo já era escrito supondo `string |
+   * undefined`, por causa do `noUncheckedIndexedAccess` do
+   * tsconfig) — só destrava o typecheck, sem mudar nada em runtime.
+   */
+  const segmentos = useSegments() as string[];
 
   useEffect(() => {
     let cancelled = false;

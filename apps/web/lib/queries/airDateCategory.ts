@@ -165,9 +165,54 @@ export function decideWatchingVsUpToDate(
   const seasonsWithConfirmedAiring = new Set(
     nonSpecialLiveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today).map((e) => e.seasonNumber)
   );
-  const airedByNow = nonSpecialLiveEpisodes.filter(
-    (e) => (e.airDate !== null && e.airDate <= today) || (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber))
-  );
+  /*
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-17, bug real reportado — "Tomb
+   * Raider King preso em 'Assistindo' toda semana", confirmado com
+   * dado real comparando com TVMaze: episódio 12 estreia só em
+   * 23/09, e mesmo assim a série ficava presa) — a regra logo acima
+   * (`airDate === null` conta como "já saiu" se a temporada já tem
+   * outro episódio confirmado no passado) foi pensada pra um cenário
+   * específico (Re:Zero — a TMDB atrasa pra preencher a data de um
+   * episódio QUE JÁ SAIU, no MEIO de uma temporada em andamento), mas
+   * também pegava sem querer o cenário oposto: séries de lançamento
+   * semanal têm, no exato momento em que a pessoa marca o episódio
+   * recém-lançado, um PRÓXIMO episódio que ainda nem tem data
+   * confirmada na TMDB (ela normalmente só anuncia a data exata dias
+   * antes de sair). As duas situações têm `airDate: null` — a regra
+   * antiga não distinguia "TMDB atrasada no meio da temporada" de
+   * "episódio futuro ainda não anunciado", tratando as duas como "já
+   * saiu". Resultado: toda semana, o recálculo automático via
+   * `recalculateSeriesCategoryAfterEpisodeChange` (disparado na hora
+   * de marcar o episódio novo) via o PRÓXIMO episódio (sem data
+   * ainda) como pendente de verdade, e a série ficava presa em
+   * "Assistindo" até a TMDB preencher a data real (futura) dele —
+   * daí só se corrigia sozinha se algum recálculo rodasse DEPOIS
+   * disso (ex.: desmarcar/marcar de novo), voltando a travar na
+   * semana seguinte com o episódio de depois.
+   *
+   * Correção: o episódio de MAIOR número conhecido de cada temporada
+   * (o "mais recente que a TMDB já lista") nunca conta como "já saiu"
+   * só por causa desta regra — só entra na exceção um episódio no
+   * MEIO da lista (existe outro depois dele na mesma temporada), que
+   * é o caso real que a regra foi criada pra cobrir. O caso "o último
+   * episódio da temporada já saiu, mas a TMDB não atualizou a data
+   * dele" continua coberto — só que por outro mecanismo, já existente
+   * e mais preciso pra esse cenário específico: a checagem extra via
+   * `next_episode_to_air` em `recalculateUpToDateSeriesCategories`
+   * (`seriesCategoryRecalc.ts`, comentário "Re:Zero ... próximo
+   * episódio de verdade").
+   */
+  const maxKnownEpisodeNumberBySeason = new Map<number, number>();
+  for (const e of nonSpecialLiveEpisodes) {
+    const currentMax = maxKnownEpisodeNumberBySeason.get(e.seasonNumber) ?? -Infinity;
+    if (e.episodeNumber > currentMax) maxKnownEpisodeNumberBySeason.set(e.seasonNumber, e.episodeNumber);
+  }
+  const airedByNow = nonSpecialLiveEpisodes.filter((e) => {
+    if (e.airDate !== null) return e.airDate <= today;
+    const isLastKnownEpisodeOfSeason = e.episodeNumber === maxKnownEpisodeNumberBySeason.get(e.seasonNumber);
+    if (isLastKnownEpisodeOfSeason) return false;
+    return seasonsWithConfirmedAiring.has(e.seasonNumber);
+  });
 
   // CORREÇÃO (ver comentário grande em `AirDateDecision.allNonSpecialEpisodesWatched`
   // acima — investigação do Bleach) — comparação por IDENTIDADE
