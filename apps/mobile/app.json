@@ -35,7 +35,15 @@
       ],
       "expo-localization",
       "expo-image",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true
+          }
+        }
+      ]
     ],
     "ios": {
       "bundleIdentifier": "com.seenlist.ios",
