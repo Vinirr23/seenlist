@@ -114,11 +114,23 @@ export function DiscoverGridScreen({
   return (
     <Screen padded={false}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        {/*
+          * CORREÇÃO (2026-09-16, a pedido — "no web, quando aperto
+          * algum botão pílula glass, tem uma pequena animação, confere
+          * e adiciona também") — conferido no web real
+          * (`DiscoverAllView.tsx`): o botão de voltar (círculo de
+          * vidro) usa `active:scale-90`. Aqui era `Pressable` puro, sem
+          * nenhum feedback de toque. Trocado por `PressableScale`
+          * (mesmo componente do "+"/pôsteres) — o "Carregar mais" logo
+          * abaixo NÃO ganhou o mesmo tratamento de propósito: conferido
+          * no web, aquele botão só tem `transition-colors`, sem
+          * `active:scale` nenhum.
+          */}
+        <PressableScale onPress={() => router.back()} hitSlop={8}>
           <Glass style={styles.backButton}>
             <Feather name="arrow-left" size={16} color={colors.text} />
           </Glass>
-        </Pressable>
+        </PressableScale>
         <Text variant="title" style={styles.headerTitle} numberOfLines={1}>
           {title}
         </Text>

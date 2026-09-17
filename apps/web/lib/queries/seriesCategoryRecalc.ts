@@ -549,13 +549,29 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
    * dia" (não gasta chamada à toa pras que já sabem que tem
    * pendência) — reaproveita `/api/tmdb/upcoming`, a MESMA rota que
    * "Em breve" já usa, em vez de duplicar a lógica de
-   * `getNextEpisodeToAir`. Se essa fonte separada indica um episódio
-   * com data confirmada e já passada pra uma série que a lista
-   * completa achou "sem pendência", a lista completa está incompleta
-   * — promove pra "watching" sem precisar casar número de
-   * temporada/episódio entre as duas fontes (a numeração pode
-   * divergir, mas "existe episódio confirmado, ainda não contado" é
-   * suficiente pra decidir).
+   * `getNextEpisodeToAir`.
+   *
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-17, bug real reportado — "Tomb
+   * Raider King preso em 'Assistindo', só aparece na grade, some da
+   * lista" — mesma correção aplicada no mobile, `seriesDetails.ts`) —
+   * esta checagem promovia pra "watching" só com base em `air_date <=
+   * hoje`, SEM NUNCA cruzar com o que a pessoa já assistiu (única
+   * decisão de status em todo este arquivo que não fazia essa
+   * checagem — `resolveSeriesCategory`/`decideWatchingVsUpToDate`
+   * sempre cruzam). A TMDB demora pra atualizar/zerar
+   * `next_episode_to_air` depois que o episódio mais recente é
+   * lançado — enquanto isso, o campo continua apontando pro episódio
+   * que a pessoa JÁ MARCOU como assistido, com uma data que já
+   * passou, e essa checagem confundia isso com "tem pendência real",
+   * forçando "watching" de novo numa série genuinamente em dia. Isso
+   * também explicava o card só aparecer na grade (que só olha o
+   * status) e sumir da lista (que exige um episódio pendente de
+   * verdade, e a lista de temporadas não tinha mais nenhum).
+   *
+   * Agora só promove se o episódio específico (temporada-episódio,
+   * mesma chave usada em todo o resto do arquivo) AINDA NÃO estiver
+   * em `watchedEpisodeKeysBySeriesId` — reaproveita o mesmo lookup já
+   * buscado em lote acima, nenhuma chamada nova.
    */
   const upToDateSeriesIds = seriesIds.filter((id) => categoryBySeriesId.get(id) === "up_to_date");
   if (upToDateSeriesIds.length > 0) {
@@ -568,9 +584,14 @@ export async function recalculateUpToDateSeriesCategories(): Promise<boolean> {
       if (response.ok) {
         const now = new Date();
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-        const data = (await response.json()) as { episodes: { seriesId: number; airDate: string | null }[] };
+        const data = (await response.json()) as {
+          episodes: { seriesId: number; seasonNumber: number; episodeNumber: number; airDate: string | null }[];
+        };
         for (const ep of data.episodes) {
-          if (ep.airDate && ep.airDate <= today) {
+          if (!ep.airDate || ep.airDate > today) continue;
+          const watchedKeys = watchedEpisodeKeysBySeriesId.get(ep.seriesId) ?? new Set<string>();
+          const alreadyWatched = watchedKeys.has(`${ep.seasonNumber}-${ep.episodeNumber}`);
+          if (!alreadyWatched) {
             categoryBySeriesId.set(ep.seriesId, "watching");
           }
         }

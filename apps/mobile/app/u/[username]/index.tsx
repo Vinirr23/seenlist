@@ -7,7 +7,7 @@ import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePublicProfile, useFollowCounts, useFollow } from "@/lib/usePublicProfile";
 import { usePublicProfileStats } from "@/lib/useProfileStats";
-import { Screen, Text, GlassTargetProvider, Glass, GelSurface, AmbientGlow, type GlowBlob } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, GelSurface, PressableScale, AmbientGlow, type GlowBlob } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
@@ -116,9 +116,10 @@ export default function PublicProfileScreen() {
   if (isError || !profile) {
     return (
       <Screen>
-        <Pressable style={styles.backButtonAlone} onPress={() => router.back()} hitSlop={8}>
+        {/* CORREÇÃO (2026-09-16, "botão pílula glass sem animação", ver comentário completo mais abaixo nos botões de voltar/compartilhar da capa) — `PressableScale` em vez de `Pressable` puro. */}
+        <PressableScale style={styles.backButtonAlone} onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-left" size={18} color={colors.text} />
-        </Pressable>
+        </PressableScale>
         {isError ? (
           <PageError message={t("error.loadProfileFailed")} onRetry={() => refetch()} />
         ) : (
@@ -219,18 +220,29 @@ export default function PublicProfileScreen() {
                     pointerEvents="none"
                   />
 
-                  <Pressable hitSlop={8} style={styles.bannerIconLeft} onPress={() => router.back()}>
+                  {/*
+                    * CORREÇÃO (2026-09-16, a pedido — "no web, quando
+                    * aperto algum botão pílula glass, tem uma pequena
+                    * animação, confere e adiciona também") — conferido
+                    * no web real (`PublicProfileView.tsx`/
+                    * `ShareProfileButton.tsx`): os círculos de vidro de
+                    * voltar/compartilhar usam `active:scale-90`. Aqui
+                    * eram `Pressable` puro, sem nenhum feedback de
+                    * toque — trocados por `PressableScale` nos 4
+                    * lugares desta tela (com capa e sem capa).
+                    */}
+                  <PressableScale hitSlop={8} style={styles.bannerIconLeft} onPress={() => router.back()}>
                     <Glass variant="bannerIcon" style={styles.bannerIconGlass}>
                       <Feather name="arrow-left" size={16} color={colors.text} />
                     </Glass>
-                  </Pressable>
+                  </PressableScale>
 
                   <View style={styles.bannerIconsRight}>
-                    <Pressable hitSlop={8} onPress={handleShare}>
+                    <PressableScale hitSlop={8} onPress={handleShare}>
                       <Glass variant="bannerIcon" style={styles.bannerIconGlass}>
                         <Feather name="share-2" size={16} color={colors.text} />
                       </Glass>
-                    </Pressable>
+                    </PressableScale>
                   </View>
                 </GlassTargetProvider>
 
@@ -243,17 +255,18 @@ export default function PublicProfileScreen() {
           ) : (
             <>
               <View style={styles.topIconsRowNoBanner}>
-                <Pressable hitSlop={8} onPress={() => router.back()}>
+                {/* Ver comentário completo no bloco COM capa, acima — mesma correção do `PressableScale`. */}
+                <PressableScale hitSlop={8} onPress={() => router.back()}>
                   <Glass style={styles.bannerIconGlass}>
                     <Feather name="arrow-left" size={16} color={colors.muted} />
                   </Glass>
-                </Pressable>
+                </PressableScale>
                 <View style={styles.topIconsSpacer} />
-                <Pressable hitSlop={8} onPress={handleShare}>
+                <PressableScale hitSlop={8} onPress={handleShare}>
                   <Glass style={styles.bannerIconGlass}>
                     <Feather name="share-2" size={16} color={colors.muted} />
                   </Glass>
-                </Pressable>
+                </PressableScale>
               </View>
 
               <View style={styles.headerRow}>
@@ -311,7 +324,8 @@ export default function PublicProfileScreen() {
 
           <View style={styles.actionsRow}>
             {isOwnProfile ? (
-              <Pressable onPress={() => router.push("/settings/edit-profile")}>
+              // CORREÇÃO (2026-09-16, mesmo motivo dos botões de voltar/compartilhar acima) — `PressableScale`, conferido no web (`active:scale-[0.96]`).
+              <PressableScale onPress={() => router.push("/settings/edit-profile")}>
                 {/*
                   * BUG REAL CORRIGIDO (a pedido, "verifique se tem mais
                   * botões âmbar e padronize todos", 2026-09-16) —
@@ -329,7 +343,7 @@ export default function PublicProfileScreen() {
                 <GelSurface style={styles.editButton} webCalibrated>
                   <Text style={styles.editButtonText}>{t("common.edit")}</Text>
                 </GelSurface>
-              </Pressable>
+              </PressableScale>
             ) : (
               <FollowButton isFollowing={follow.isFollowing} busy={follow.busy} onPress={follow.toggle} />
             )}

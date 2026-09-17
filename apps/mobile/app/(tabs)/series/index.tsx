@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,6 +29,8 @@ import { HOME_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { translateDayLabel } from "@/lib/i18n/dayLabels";
 import { colors, spacing, radius } from "@/lib/theme";
+// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+import { logTempoDesdeOToque } from "@/lib/perfNavStamp";
 
 const CONTINUE_LIMIT = 8;
 
@@ -61,9 +63,33 @@ const STALE_AFTER_DAYS = 14;
  * série (também já construída depois).
  */
 export default function SeriesHomeScreen() {
+  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — roda em TODO render (não só no 1º), pra ver se a tela está remontando a cada troca de aba. REMOVER junto.
+  console.log(`[PERF-DOCK] BODY Séries (Minha Lista) renderizou em ${performance.now().toFixed(1)}ms`);
   const router = useRouter();
   const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
+  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+  useFocusEffect(useCallback(() => { logTempoDesdeOToque("Séries (Minha Lista)"); }, []));
+  /**
+   * CORREÇÃO DE RAIZ (2026-09-17, reportado — "mudar de tabs ainda
+   * trava", igual ao mesmo bug já corrigido em `series/[id].tsx`
+   * nesta mesma sessão) — o `tab === "minha-lista" ? (<ScrollView>) :
+   * (<ScrollView>)` mais abaixo DESMONTAVA a árvore inteira da aba que
+   * saía de vista e MONTAVA do zero a que entrava, a cada troca —
+   * caro pra "Minha Lista" (grade/lista de séries, cards com pôster) e
+   * pra "Em breve" (trilha + cards de episódio). Mesmo padrão da
+   * correção irmã: cada aba monta UMA vez (na primeira vez que é
+   * aberta) e depois só alterna visibilidade via `display: none`
+   * (`styles.hidden`) — nunca mais desmonta content já carregado.
+   * "Minha Lista" já nasce montada (é a aba inicial); "Em breve" só
+   * monta quando o usuário abre ela pela primeira vez.
+   */
+  const [jaMontouMinhaLista, setJaMontouMinhaLista] = useState(true);
+  const [jaMontouEmBreve, setJaMontouEmBreve] = useState(false);
+  useEffect(() => {
+    if (tab === "minha-lista") setJaMontouMinhaLista(true);
+    else setJaMontouEmBreve(true);
+  }, [tab]);
   /**
    * ACHADO DE PERFORMANCE (a pedido — "Séries busca a biblioteca 2x
    * toda abertura", confirmado com `adb logcat` em aparelho real) —
@@ -93,6 +119,29 @@ export default function SeriesHomeScreen() {
    * visual/redesign, fora do escopo desta leva).
    */
   const trendingSeries = useDiscoverList("trending_series");
+
+  /**
+   * ESTABILIZADO (2026-09-17, réplica do fix do Perfil — "pode
+   * replicar nas outras abas") — este título é passado como `title`
+   * (um elemento JSX) pro `DiscoverCarousel`, agora memoizado
+   * (`memo()`, ver `DiscoverCarousel.tsx`) — sem fixar a identidade
+   * dele aqui com `useMemo`, um elemento NOVO seria criado a cada
+   * render desta tela (o JSX inline sempre é um objeto novo), e o
+   * `memo()` do carrossel nunca teria props "iguais" pra comparar.
+   * Os dois lugares que usam essa fileira (biblioteca vazia / tudo em
+   * dia) compartilham o mesmo título — um `useMemo` só, reaproveitado.
+   */
+  const popularSeriesTitle = useMemo<ReactNode>(
+    () => (
+      <View style={styles.flameTitleRow}>
+        <Ionicons name="flame" size={16} color={colors.primary} />
+        <Text variant="subtitle" style={{ color: colors.primary }}>
+          {t("seriesHome.popularSeries")}
+        </Text>
+      </View>
+    ),
+    [t]
+  );
 
   /**
    * TASK-143/151 — toda vez que a aba Séries ganha foco, recalcula
@@ -322,6 +371,24 @@ export default function SeriesHomeScreen() {
   useEffect(loadNextEpisodes, [loadNextEpisodes]);
 
   /**
+   * ESTABILIZADO (2026-09-17, réplica do fix do Perfil — "pode
+   * replicar nas outras abas") — antes, cada `ContinueWatchingListRow`
+   * (agora `memo()`, ver o componente) recebia uma função-seta NOVA
+   * pra `onMarkedWatched` a cada render desta tela (`() => {
+   * refetchSilently(); loadNextEpisodes(); }`, recriada dentro do
+   * `.map()`) — isso sozinho já quebraria o `memo()` de todo card,
+   * sempre. Como nenhum card precisa da sua PRÓPRIA identidade aqui
+   * (é sempre a mesma ação: rebuscar biblioteca + próximos episódios),
+   * um `useCallback` só, reaproveitado por todos, resolve — estável de
+   * verdade agora que `refetchSilently` também é (correção de causa
+   * raiz em `lib/useLibraryItems.ts`, mesma sessão).
+   */
+  const handleMarkedWatched = useCallback(() => {
+    refetchSilently();
+    loadNextEpisodes();
+  }, [refetchSilently, loadNextEpisodes]);
+
+  /**
    * A PEDIDO (auditoria — velocidade percebida) — pré-carrega, em
    * silêncio, o detalhe das 2 primeiras séries de "Continue
    * assistindo": são de longe as mais prováveis de serem tocadas, e
@@ -357,9 +424,20 @@ export default function SeriesHomeScreen() {
     !isLoading &&
     (continueWatching.length === 0 || (nextEpisodesLoaded && visibleContinueWatching.length === 0));
 
-  function handlePressItem(item: LibraryItem) {
-    router.push(`/series/${item.id}`);
-  }
+  /**
+   * ESTABILIZADO (2026-09-17, réplica do fix do Perfil — "pode
+   * replicar nas outras abas") — era declarada como `function` normal
+   * dentro do corpo do componente: identidade nova a cada render,
+   * quebrando o `memo()` de `PosterGrid`/`PosterGridItem` (ver
+   * `PosterGrid.tsx`) do mesmo jeito que as funções-seta inline
+   * quebravam o de `ContinueWatchingListRow`.
+   */
+  const handlePressItem = useCallback(
+    (item: LibraryItem) => {
+      router.push(`/series/${item.id}`);
+    },
+    [router]
+  );
 
   return (
     <Screen padded={false}>
@@ -388,8 +466,9 @@ export default function SeriesHomeScreen() {
         <HomeTabs active={tab} onChange={setTab} />
       </View>
 
-      {tab === "minha-lista" ? (
+      {jaMontouMinhaLista && (
         <ScrollView
+          style={tab === "minha-lista" ? undefined : styles.hidden}
           contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
@@ -452,14 +531,7 @@ export default function SeriesHomeScreen() {
                 */}
               <View style={styles.popularSection}>
                 <DiscoverCarousel
-                  title={
-                    <View style={styles.flameTitleRow}>
-                      <Ionicons name="flame" size={16} color={colors.primary} />
-                      <Text variant="subtitle" style={{ color: colors.primary }}>
-                        {t("seriesHome.popularSeries")}
-                      </Text>
-                    </View>
-                  }
+                  title={popularSeriesTitle}
                   items={trendingSeries.items}
                   isLoading={trendingSeries.isLoading}
                   viewAllHref="/explore/all/trending_series"
@@ -505,14 +577,7 @@ export default function SeriesHomeScreen() {
               />
               <View style={styles.popularSection}>
                 <DiscoverCarousel
-                  title={
-                    <View style={styles.flameTitleRow}>
-                      <Ionicons name="flame" size={16} color={colors.primary} />
-                      <Text variant="subtitle" style={{ color: colors.primary }}>
-                        {t("seriesHome.popularSeries")}
-                      </Text>
-                    </View>
-                  }
+                  title={popularSeriesTitle}
                   items={trendingSeries.items}
                   isLoading={trendingSeries.isLoading}
                   viewAllHref="/explore/all/trending_series"
@@ -564,10 +629,7 @@ export default function SeriesHomeScreen() {
                     nextEpisode={nextEpisodes.get(item.id) ?? null}
                     layoutActive={layoutActive}
                     onTransitionActiveChange={handleTransitionActiveChange}
-                    onMarkedWatched={() => {
-                      refetchSilently();
-                      loadNextEpisodes();
-                    }}
+                    onMarkedWatched={handleMarkedWatched}
                   />
                 );
               })}
@@ -625,10 +687,7 @@ export default function SeriesHomeScreen() {
                         nextEpisode={nextEpisodes.get(item.id) ?? null}
                         layoutActive={layoutActive}
                         onTransitionActiveChange={handleTransitionActiveChange}
-                        onMarkedWatched={() => {
-                          refetchSilently();
-                          loadNextEpisodes();
-                        }}
+                        onMarkedWatched={handleMarkedWatched}
                       />
                     );
                   })}
@@ -637,8 +696,12 @@ export default function SeriesHomeScreen() {
             </View>
           )}
         </ScrollView>
-      ) : (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
+      )}
+      {jaMontouEmBreve && (
+        <ScrollView
+          style={tab === "minha-lista" ? styles.hidden : undefined}
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+        >
           {upcoming.isLoading ? (
             <UpcomingEpisodeCardSkeleton />
           ) : upcoming.isError ? (
@@ -710,6 +773,7 @@ export default function SeriesHomeScreen() {
         </ScrollView>
       )}
       </GlassTargetProvider>
+
     </Screen>
   );
 }
@@ -718,6 +782,10 @@ const styles = StyleSheet.create({
   /** O provedor precisa ocupar a tela toda pras manchas cobrirem tudo — mesmo estilo de `explore.tsx`/`profile.tsx`. */
   glassFill: {
     flex: 1,
+  },
+  /** Ver comentário grande em `jaMontouMinhaLista`/`jaMontouEmBreve` — esconde sem desmontar, pra trocar de aba não remontar a árvore inteira. */
+  hidden: {
+    display: "none",
   },
   tabsRow: {
     paddingTop: spacing.sm,

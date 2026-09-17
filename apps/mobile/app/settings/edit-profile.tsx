@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { fetchEditableProfile, saveEditableProfile, setBannerFocalY as saveBannerFocalY } from "@/lib/editProfile";
 import { pickImageFromLibrary, uploadAvatar, uploadBanner, setBannerFromTmdb } from "@/lib/imageUpload";
 import { COUNTRIES } from "@/lib/countries";
-import { Screen, Text, Button, Skeleton, GlassTargetProvider, AmbientGlow } from "@/components/ui";
+import { Screen, Text, Button, Skeleton, GlassTargetProvider, PressableScale, AmbientGlow } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { CountryPicker } from "@/components/settings/CountryPicker";
 import { LibraryImagePickerSheet } from "@/components/settings/LibraryImagePickerSheet";
@@ -237,9 +237,16 @@ export default function EditProfileScreen() {
             ) : (
               <View style={styles.bannerFallback} />
             )}
-            <Pressable style={styles.bannerButton} onPress={handleChangeBanner} disabled={uploadingBanner}>
+            {/*
+              CORREÇÃO (2026-09-16, "no web, quando aperto algum botão
+              pílula glass, tem uma pequena animação, confere e adiciona
+              também") — conferido no web (`EditProfileView.tsx`): os
+              botões de trocar capa/foto usam `active:scale-[0.96]`.
+              `Pressable` puro virou `PressableScale` nos dois.
+            */}
+            <PressableScale style={styles.bannerButton} onPress={handleChangeBanner} disabled={uploadingBanner}>
               <Text style={styles.bannerButtonText}>{uploadingBanner ? t("common.uploading") : t("profile.changeBanner")}</Text>
-            </Pressable>
+            </PressableScale>
 
             <Avatar uri={avatarUrl} name={name || "?"} style={styles.avatarWrapper} textStyle={styles.avatarInitials} />
           </View>
@@ -248,10 +255,10 @@ export default function EditProfileScreen() {
             <BannerFocalYSlider value={bannerFocalY} onChange={handleBannerFocalYChange} onCommit={handleBannerFocalYCommit} />
           )}
 
-          <Pressable style={styles.avatarButton} onPress={handleChangeAvatar} disabled={uploadingAvatar}>
+          <PressableScale style={styles.avatarButton} onPress={handleChangeAvatar} disabled={uploadingAvatar}>
             <Feather name="camera" size={14} color={colors.text} />
             <Text style={styles.avatarButtonText}>{uploadingAvatar ? t("common.uploading") : t("profile.changePhoto")}</Text>
-          </Pressable>
+          </PressableScale>
 
           <Field label={t("profile.name")} value={name} onChangeText={setName} />
           <Field

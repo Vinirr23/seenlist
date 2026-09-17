@@ -1,5 +1,6 @@
 // `ScrollView` saiu daqui: era resto do carrossel revertido em
 // 2026-09-03 (ver "REVERTIDO" na doc do componente), já não tinha uso.
+import { memo } from "react";
 import { View, Image, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -98,7 +99,15 @@ const CARD_GLOWS = [
  * item). Toque continua só na pílula "Ver detalhes" — no web também é
  * só o `Link` da pílula, o resto do card não é clicável.
  */
-export function StatisticsCard() {
+/**
+ * MEMOIZADO (2026-09-17, causa raiz do "delay na mudança de abas" —
+ * ver `Glass.tsx`/`app/(tabs)/profile.tsx`) — zero props, então
+ * `memo()` sem comparador nunca deixa passar um re-render desnecessário:
+ * só recalcula quando o PRÓPRIO estado interno (`useProfileStats`)
+ * muda, nunca porque um hook IRMÃO em `ProfileScreen` (`useFollowCounts`,
+ * `useSeriesActivityIds`, etc.) resolveu e disparou um re-render do pai.
+ */
+export const StatisticsCard = memo(function StatisticsCard() {
   const router = useRouter();
   const { stats, isLoading, isError, refetch } = useProfileStats();
   const { t, locale } = useTranslation();
@@ -241,7 +250,7 @@ export function StatisticsCard() {
       </View>
     </Glass>
   );
-}
+});
 
 const styles = StyleSheet.create({
   skeletonLabel: {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { View, ScrollView, RefreshControl, Pressable, StyleSheet } from "react-native";
+import { View, FlatList, RefreshControl, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
@@ -8,8 +8,8 @@ import { useViewModePreference } from "@/lib/useViewModePreference";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
 import { Screen, Text, GlassTargetProvider, AmbientGlow } from "@/components/ui";
-import { ContinueWatchingListRow, ESPACO_ENTRE_CARDS } from "@/components/media/ContinueWatchingListRow";
-import { PosterGrid } from "@/components/media/PosterGrid";
+import { ContinueWatchingListRow } from "@/components/media/ContinueWatchingListRow";
+import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
@@ -50,6 +50,30 @@ export default function ContinueWatchingAllScreen() {
    */
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("series-library");
   const tabBarClearance = useTabBarClearance();
+  /**
+   * CORREÇÃO DE DESEMPENHO (2026-09-17, a pedido — "listas grandes tem
+   * uma lentidão", confirmado pelo usuário testando no aparelho físico
+   * com o blur já desligado — ou seja, a causa aqui é outra, não o
+   * blur) — esta tela mostra a MESMA seleção da Home, "sem o corte de
+   * 8" (ver comentário no topo do arquivo): pode crescer bastante. Era
+   * `ScrollView` + `PosterGrid`/`.map()` (sem limite, desenha tudo de
+   * uma vez), igual ao achado já corrigido em `movies.tsx`. Vira
+   * `FlatList` nos dois modos.
+   *
+   * RISCO CONHECIDO, aceito a pedido do usuário — o modo LISTA usa
+   * `ContinueWatchingListRow`, que depende de `layout={LinearTransition}`
+   * do Reanimated pra animação aprovada de "as linhas de baixo deslizam
+   * suavemente pra cima" ao marcar um episódio. Essa técnica tem
+   * problemas de compatibilidade já documentados com `FlatList`/
+   * `VirtualizedList` (o jeito como a lista posiciona/recicla células
+   * pode não deixar a transição de layout do Reanimated rodar direito).
+   * PRECISA ser conferida no aparelho físico depois: marcar um episódio
+   * no modo lista aqui e ver se a animação de "deslizar pra cima"
+   * continua suave. Se quebrar, a correção é reverter só o modo LISTA
+   * desta tela específica (o modo grade não usa esse componente, não
+   * corre esse risco).
+   */
+  const cardWidth = usePosterCardWidth();
 
   const recentSeries = useMemo(() => {
     const cutoff = Date.now() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
@@ -136,32 +160,30 @@ export default function ContinueWatchingAllScreen() {
           <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
         </View>
 
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />
-          }
-        >
-          {isError ? (
+        {isError ? (
+          <View style={styles.content}>
             <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
-          ) : !viewModeReady || isLoading || !nextEpisodesLoaded ? (
-            viewMode === "grid" ? (
-              <LibraryGridSkeleton />
-            ) : (
-              <LibraryListSkeleton />
-            )
-          ) : visibleContinueWatching.length === 0 ? (
-            <Text variant="muted">{t("seriesHome.emptyCaughtUp")}</Text>
-          ) : viewMode === "grid" ? (
-            <PosterGrid items={visibleContinueWatching} onPressItem={handlePressItem} />
-          ) : (
-            <View style={styles.listRows}>
-              {visibleContinueWatching.map((item, indice) => (
+          </View>
+        ) : !viewModeReady || isLoading || !nextEpisodesLoaded ? (
+          <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
+        ) : (
+          <FlatList
+            key={`continue-${viewMode}`}
+            data={visibleContinueWatching}
+            keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+            numColumns={viewMode === "grid" ? 3 : 1}
+            columnWrapperStyle={viewMode === "grid" ? styles.gridRow : undefined}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+            contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+            ListEmptyComponent={<Text variant="muted">{t("seriesHome.emptyCaughtUp")}</Text>}
+            renderItem={({ item, index }) =>
+              viewMode === "grid" ? (
+                <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} />
+              ) : (
                 <ContinueWatchingListRow
-                  key={item.id}
                   item={item}
                   /* Igual ao web: aqui a curva do destaque vale pra lista INTEIRA, não só pras 8 da Home. */
-                  priorityIndex={indice}
+                  priorityIndex={index}
                   nextEpisode={nextEpisodes.get(item.id) ?? null}
                   layoutActive={transicoesAtivas > 0}
                   onTransitionActiveChange={handleTransitionActiveChange}
@@ -170,10 +192,10 @@ export default function ContinueWatchingAllScreen() {
                     loadNextEpisodes();
                   }}
                 />
-              ))}
-            </View>
-          )}
-        </ScrollView>
+              )
+            }
+          />
+        )}
       </GlassTargetProvider>
     </Screen>
   );
@@ -204,15 +226,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
-  /**
-   * SEM `gap` (2026-09-09): quem espaça é o `marginBottom` de cada card
-   * (`ESPACO_ENTRE_CARDS`), como no web. Os dois juntos davam 16 de
-   * respiro em vez de 12.
-   *
-   * O `marginBottom` negativo cancela o do ÚLTIMO card — é o
-   * `last:mb-0` do web, que aqui não tem equivalente direto.
-   */
-  listRows: {
-    marginBottom: -ESPACO_ENTRE_CARDS,
+  /** Espaçamento entre pôsteres de fileiras diferentes no grid — mesmo valor de `FilteredSeriesListScreen.tsx`/`movies.tsx`. */
+  gridRow: {
+    gap: POSTER_GRID_GAP,
+    marginBottom: POSTER_GRID_GAP,
   },
 });

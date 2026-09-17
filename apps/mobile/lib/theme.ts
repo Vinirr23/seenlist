@@ -330,6 +330,49 @@ export interface GlassVariant {
    * de desligar totalmente.
    */
   applyNoise?: boolean;
+  /**
+   * INTENSIDADE PRÓPRIA DO iOS (2026-09-16, causa raiz encontrada — "a
+   * barra voltou a ficar muito transparente e os botões ainda estão
+   * bugados", depois do build com `boostAlphaOnIOS`).
+   *
+   * `blurIntensity`/`blurReductionFactor` (acima) são uma DUPLA: só
+   * fazem sentido juntos, e só existem pra resolver um bug ESPECÍFICO
+   * do `Dimezis/BlurView` do Android (o véu branco calculado a partir
+   * do `intensity` CRU — ver o comentário grande em
+   * `blurReductionFactor`). O RAIO DE DESFOQUE que essa dupla entrega
+   * de fato (`blurIntensity ÷ blurReductionFactor`) é o número que
+   * passou por rodadas de calibração visual contra o print do web — só
+   * que, no caminho, pelo menos uma rodada (a 6ª do `dock`) BAIXOU esse
+   * raio por um motivo 100% Android: em intensidade alta, o algoritmo
+   * `dimezisBlurViewSdk31Plus` homogeneiza a cor média da faixa
+   * inteira (vira cinza chapado) — problema do ALGORITMO Android, sem
+   * nenhuma relação com o `UIVisualEffectView` do iOS.
+   *
+   * Aplicar o `blurIntensity` cru (já dividido pra caber no véu do
+   * Android) direto no iOS, como o revert desta sessão passou a fazer,
+   * dá um desfoque quase inexistente lá — o iOS nunca teve o problema
+   * de véu que motivou dividir esse número pra baixo, então herda uma
+   * intensidade calibrada pra OUTRO bug, não pro que ele tem.
+   *
+   * Este campo é o raio JÁ calibrado contra o web, mas ANTES da
+   * redução que só o Android precisava — pego direto dos comentários de
+   * cada receita, não chutado de novo: `card`/`icon`/`pill`/`bannerIcon`
+   * nunca tiveram uma rodada de redução adicional (raio validado = a
+   * primeira divisão registrada); `dock` usa o raio da Rodada 5 (`55`),
+   * de antes da Rodada 6 baixar pra `25` só pelo motivo Android acima.
+   *
+   * AINDA PRECISA DE CONFIRMAÇÃO VISUAL NO APARELHO — é a mesma
+   * incerteza de toda calibração deste arquivo, só que agora isolada
+   * (um valor FIXO, que não se move mais junto com futuras rodadas de
+   * ajuste do Android, ao contrário da tentativa revertida antes desta
+   * — que recalculava `intensity ÷ blurReductionFactor` ao vivo e por
+   * isso testou um valor de RODADA ANTIGA, não necessariamente este).
+   * Ausente aqui = usa `blurIntensity` cru também no iOS (caso das
+   * receitas sem `blurReductionFactor`: `light`/`medium`/`subtle`/
+   * `dark` — nunca tiveram o bug do véu, o número já sempre foi
+   * pensado pra desfoque puro nas duas plataformas).
+   */
+  iosBlurIntensity?: number;
   border: string;
 }
 
@@ -454,6 +497,8 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
      */
     blurIntensity: 6.75,
     blurReductionFactor: 0.15,
+    /** Ver o comentário grande em `iosBlurIntensity`, na interface `GlassVariant` — raio já calibrado (`6.75 ÷ 0.15`), sem redução adicional registrada. */
+    iosBlurIntensity: 45,
     /*
      * TESTE DIAGNÓSTICO #2 (2026-09-16) — RESULTADO: grão continuou
      * visível sem `saturate`, só o card ficou menos colorido. Não
@@ -601,6 +646,8 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
      */
     blurIntensity: 4.5,
     blurReductionFactor: 0.15,
+    /** Ver o comentário grande em `iosBlurIntensity`, na interface `GlassVariant` — raio já calibrado (`4.5 ÷ 0.15`), sem redução adicional registrada. */
+    iosBlurIntensity: 30,
     saturate: 1.8,
     /* ESTENDIDO (2026-09-16, "estenda") — ver `applyNoise` na interface `GlassVariant`, acima. */
     applyNoise: false,
@@ -749,8 +796,44 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
      * MESMO trecho de pôster nas duas capturas (o print anterior linkou
      * cores diferentes atrás de cada barra, dificultando comparar).
      */
+    /*
+     * RODADA 7 (2026-09-17, palpite informado — a Rodada 6 nunca tinha
+     * sido confirmada num aparelho de verdade: o próprio comentário
+     * dela dizia "ainda precisa de confirmação visual... primeira
+     * tentativa desta rodada, não valor final". Print real (Android
+     * 12, aparelho físico) mostrou a barra parecendo uma pílula
+     * cinza-azulada sólida, sem nenhum traço de cor dos pôsteres atrás
+     * — o mesmo sintoma de fundo que a Rodada 5 já tinha (raio grande
+     * demais homogeneíza a cor média da faixa inteira, deixando tudo
+     * cinza uniforme), só que ainda mais forte que o esperado depois
+     * do corte da Rodada 6.
+     *
+     * Continua na MESMA direção que a Rodada 6 já tinha apontado (raio
+     * final menor preserva mais variação regional de cor), só que mais
+     * longe: `blurReductionFactor` sobe de novo (`0.33 → 0.55`), raio
+     * final cai de `25` pra `8.25 ÷ 0.55 ≈ 15`. O véu branco não muda
+     * (`(intensity/100) × 0.44`, só depende de `intensity`, que
+     * continua em `8.25` — ainda ~3.6%, já validado como correto na
+     * Rodada 5).
+     *
+     * AINDA PRECISA DE CONFIRMAÇÃO VISUAL NO APARELHO — é um palpite
+     * informado pela mesma direção já validada, não um valor final. Se
+     * ainda estiver acinzentada/opaca demais, o próximo passo é
+     * continuar subindo `blurReductionFactor` (raio cada vez menor); se
+     * virar transparente demais (dá pra ler o que está atrás com
+     * nitidez, tipo vidro fino demais), o caminho é o oposto.
+     */
     blurIntensity: 8.25,
-    blurReductionFactor: 0.33,
+    blurReductionFactor: 0.55,
+    /**
+     * Ver o comentário grande em `iosBlurIntensity`, na interface
+     * `GlassVariant` — o raio do iOS não vem dessa divisão (Android):
+     * ele fica fixo no valor validado contra o print do web na Rodada
+     * 5 (`55`), sem acompanhar os ajustes de `blurReductionFactor`
+     * feitos só por causa da homogeneização de cor específica do
+     * Android.
+     */
+    iosBlurIntensity: 55,
     saturate: 2.2,
     border: "rgba(255,255,255,0.06)",
   },
@@ -822,6 +905,8 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
      */
     blurIntensity: 4.5,
     blurReductionFactor: 0.15,
+    /** Ver o comentário grande em `iosBlurIntensity`, na interface `GlassVariant` — raio já calibrado (`4.5 ÷ 0.15`), sem redução adicional registrada. */
+    iosBlurIntensity: 30,
     /*
      * ESTENDIDO (2026-09-16, a pedido — "esses cards continuam com
      * grain", reportado nas pílulas Seguindo/Seguidores/Comentários
@@ -871,6 +956,8 @@ export const glassVariants: Record<GlassVariantName, GlassVariant> = {
     highlightStop: 60,
     blurIntensity: 4.5,
     blurReductionFactor: 0.15,
+    /** Ver o comentário grande em `iosBlurIntensity`, na interface `GlassVariant` — raio já calibrado (`4.5 ÷ 0.15`), sem redução adicional registrada. */
+    iosBlurIntensity: 30,
     applyNoise: false,
     border: "rgba(255,255,255,0.1)",
   },

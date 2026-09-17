@@ -57,6 +57,21 @@ export default function SeriesDetailScreen() {
   const seriesId = String(id);
   const numericId = Number(seriesId);
   const [tab, setTab] = useState<DetailTab>("episodios");
+  /*
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-17, bug real reportado — "trava
+   * quando passo de Sobre pra Episódios") — ver o comentário grande
+   * onde essas duas flags são usadas, mais abaixo (perto de
+   * `styles.hidden`). Cada uma vira `true` na primeira vez que a
+   * respectiva aba é mostrada, e nunca mais volta a `false` — é o que
+   * permite as duas árvores ficarem montadas ao mesmo tempo depois da
+   * primeira visita, em vez de desmontar/remontar a cada troca.
+   */
+  const [jaMontouSobre, setJaMontouSobre] = useState(false);
+  const [jaMontouEpisodios, setJaMontouEpisodios] = useState(true);
+  useEffect(() => {
+    if (tab === "sobre") setJaMontouSobre(true);
+    else setJaMontouEpisodios(true);
+  }, [tab]);
   const [sinopseAberta, setSinopseAberta] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showRecommendationActions, setShowRecommendationActions] = useState(Boolean(recId));
@@ -195,8 +210,28 @@ export default function SeriesDetailScreen() {
             <TabButton label={t("seriesHome.episodesTab")} active={tab === "episodios"} onPress={() => setTab("episodios")} />
           </View>
 
-          {tab === "sobre" ? (
-            <View style={styles.section}>
+          {/*
+            CORREÇÃO DE CAUSA RAIZ (2026-09-17, bug real reportado —
+            "trava quando passo de Sobre pra Episódios") — antes, era
+            um ternário: cada troca de aba DESMONTAVA a árvore inteira
+            de uma e MONTAVA a outra do zero — inclusive a pesada
+            (`SeasonAccordion` de todas as temporadas, cada uma com
+            vários episódios, mais os carrosséis inteiros da aba Sobre:
+            elenco, similares, avaliações, galeria). Montar tudo isso
+            de novo a cada toque, na mesma hora em que o indicador da
+            aba anima, é o que travava.
+
+            Fix: as duas árvores ficam montadas ao mesmo tempo depois
+            da primeira vez que cada uma aparece (`display: "none"` só
+            ESCONDE, não desmonta — diferente de tirar do JSX) —
+            trocar de aba passa a ser só uma troca de visibilidade,
+            sem remontar nada. Custo: a aba que a pessoa nunca abriu
+            simplesmente nunca monta (preserva a economia de não gastar
+            memória à toa); a que ela já abriu uma vez fica pronta pra
+            sempre, sem pagar o custo de montagem de novo a cada troca.
+          */}
+          {jaMontouSobre && (
+            <View style={tab === "sobre" ? styles.section : styles.hidden}>
               {/* IMPLEMENTAÇÃO (2026-09-04) — "onde assistir" nunca existia
                   nesta tela. Mesma posição do web (antes da sinopse, ver
                   SeriesDetailsView.tsx/SeriesWatchProviders.tsx). */}
@@ -304,9 +339,10 @@ export default function SeriesDetailScreen() {
                 />
               </View>
             </View>
-          ) : (
+          )}
+          {jaMontouEpisodios && (
             /* O web usa `space-y-4` (16) aqui, não os 24 da aba Sobre (`space-y-6`). */
-            <View style={styles.episodesSection}>
+            <View style={tab === "episodios" ? styles.episodesSection : styles.hidden}>
               <EpisodeCarousel
                 seriesId={numericId}
                 category={status}
@@ -328,6 +364,7 @@ export default function SeriesDetailScreen() {
                     key={season.seasonNumber}
                     seriesId={numericId}
                     season={season}
+                    allSeasons={series.seasons}
                     watched={watched}
                     watchedEpisodeIds={watchedEpisodeIds}
                     busy={episodesBusy}
@@ -479,6 +516,10 @@ const styles = StyleSheet.create({
   },
   episodesSection: {
     gap: spacing.md,
+  },
+  /** Ver o comentário grande em `jaMontouSobre`/`jaMontouEpisodios` — esconde sem desmontar, pra trocar de aba não remontar a árvore inteira. */
+  hidden: {
+    display: "none",
   },
   seasonList: {
     gap: 12,

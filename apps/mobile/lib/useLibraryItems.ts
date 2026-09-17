@@ -159,5 +159,23 @@ export function useLibraryItems(options: UseLibraryItemsOptions = {}): UseLibrar
     }, [skipFocusRefetch])
   );
 
-  return { items, isLoading, isError, refreshing, refetch: () => load(true), refetchSilently: () => load(false) };
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-17, achado replicando o fix de
+   * memoização do Perfil pras abas Séries/Filmes — "pode replicar nas
+   * outras abas") — `refetch`/`refetchSilently` eram funções-seta
+   * criadas AQUI, direto no objeto de retorno: uma identidade NOVA a
+   * cada render deste hook, mesmo sem nada relevante ter mudado. Quem
+   * chama (`series/index.tsx`) tentava construir um callback estável
+   * com `useCallback([refetchSilently, ...])` pra passar pros cards
+   * memoizados (`ContinueWatchingListRow`) — mas com a dependência
+   * mudando de identidade a cada render, o `useCallback` nunca ficava
+   * estável de verdade, e o `memo()` dos cards nunca segurava nada.
+   * `load` já é estável (`useCallback`, depende só de `locale`/
+   * `cacheKey`) — bastava embrulhar `refetch`/`refetchSilently` no
+   * mesmo padrão pra herdar essa estabilidade.
+   */
+  const refetch = useCallback(() => load(true), [load]);
+  const refetchSilently = useCallback(() => load(false), [load]);
+
+  return { items, isLoading, isError, refreshing, refetch, refetchSilently };
 }

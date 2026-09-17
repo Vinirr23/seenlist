@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -70,7 +70,13 @@ function fraseComNomeEmNegrito(molde: string, nome: string, vars: Record<string,
     </>
   );
 }
-export function ProfileRecommendationsPreview() {
+/**
+ * MEMOIZADO (2026-09-17, causa raiz do "delay na mudança de abas" —
+ * ver `Glass.tsx`/`app/(tabs)/profile.tsx`) — zero props; só
+ * recalcula pelo próprio estado interno, nunca por um hook irmão de
+ * `ProfileScreen` resolvendo e re-renderizando o pai.
+ */
+export const ProfileRecommendationsPreview = memo(function ProfileRecommendationsPreview() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const [recommendations, setRecommendations] = useState<ReceivedRecommendation[] | null>(null);
@@ -195,7 +201,7 @@ export function ProfileRecommendationsPreview() {
       </Glass>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   /**

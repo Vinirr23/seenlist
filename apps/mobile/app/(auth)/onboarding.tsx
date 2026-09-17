@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Text, Button } from "@/components/ui";
 import { AuthBrand } from "@/components/auth/AuthBrand";
@@ -70,6 +71,20 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const [posterUrls, setPosterUrls] = useState<string[]>([]);
+  /*
+   * BUG REAL CORRIGIDO (2026-09-17, reportado com print — "Começar"/
+   * "Já tenho conta" atrás da barra de navegação do celular) — esta
+   * tela não usa o `<Screen>` compartilhado (que já resolve isso via
+   * `bottomInset`, ver o comentário na própria prop: "use `true` só em
+   * telas sem tab bar (login, registro)" — exatamente o caso daqui),
+   * porque o fundo (mosaico de pôster + gradientes + blur) precisa
+   * cobrir a tela INTEIRA, de ponta a ponta, sem o `paddingTop` que o
+   * `<Screen>` aplicaria por padrão. Por isso o ajuste é local, só no
+   * rodapé: reserva o espaço da barra/gesto do sistema (`insets.bottom`)
+   * SOMADO ao respiro que já existia (`spacing.xl`, de `styles.content`)
+   * — não no lugar dele, para não colar os botões na borda visível.
+   */
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     /*
@@ -195,7 +210,7 @@ export default function OnboardingScreen() {
         */}
       <BlurView intensity={40} tint="dark" style={styles.centerSoftenZone} pointerEvents="none" />
 
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: spacing.xl + insets.bottom }]}>
         <View style={styles.spacerTop} />
 
         <View style={styles.textBlock}>

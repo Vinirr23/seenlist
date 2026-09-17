@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { View, ScrollView, StyleSheet } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { Screen, Text, GlassTargetProvider, AmbientGlow, type GlowBlob } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
@@ -13,6 +14,8 @@ import { useActivityFeed } from "@/lib/useActivityFeed";
 import { spacing } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+import { logTempoDesdeOToque } from "@/lib/perfNavStamp";
 
 /**
  * PORTE DO WEB (2026-09-02 — "vamos implementar as mudanças que
@@ -57,10 +60,14 @@ const EXPLORE_GLOW_BLOBS: GlowBlob[] = [
 ];
 
 export default function ExploreScreen() {
+  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — roda em TODO render (não só no 1º), pra ver se a tela está remontando a cada troca de aba. REMOVER junto.
+  console.log(`[PERF-DOCK] BODY Explorar renderizou em ${performance.now().toFixed(1)}ms`);
   const tabBarClearance = useTabBarClearance();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<ExploreTab>("movies");
   const { t } = useTranslation();
+  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+  useFocusEffect(useCallback(() => { logTempoDesdeOToque("Explorar"); }, []));
 
   return (
     <Screen padded={false}>

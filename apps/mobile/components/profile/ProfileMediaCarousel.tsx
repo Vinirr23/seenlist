@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { View, Pressable, FlatList, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -34,7 +34,19 @@ const POSTER_WIDTH = 144;
  * `onEndReached`, equivalente ao listener de scroll do web — não tem
  * `IntersectionObserver`/scroll de DOM no React Native).
  */
-export function ProfileMediaCarousel({
+/**
+ * MEMOIZADO (2026-09-17, causa raiz do "delay na mudança de abas" —
+ * ver `Glass.tsx`/`app/(tabs)/profile.tsx`) — as props que variam de
+ * verdade aqui (`ids`, `isLoadingIds`) vêm de hooks `useState` em
+ * `lib/profileMediaCarousel.ts` (`useSeriesActivityIds`/
+ * `useMovieActivityIds`/`useFavoriteIds`): a referência do array `ids`
+ * só muda quando o PRÓPRIO `setIds` daquele hook roda, nunca por um
+ * hook IRMÃO (de outro carrossel, de `useFollowCounts`, etc.)
+ * resolvendo e re-renderizando `ProfileScreen` inteiro — então a
+ * comparação rasa padrão do `memo()` (sem 2º argumento) já é
+ * suficiente pra pular esses re-renders desnecessários.
+ */
+export const ProfileMediaCarousel = memo(function ProfileMediaCarousel({
   icon,
   label,
   href,
@@ -166,7 +178,7 @@ export function ProfileMediaCarousel({
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   /**
@@ -201,12 +213,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    /** 16 de borda de tela + `px-1` (4) do web — mesma conta do `sectionHeader`. */
-    paddingHorizontal: spacing.md + spacing.xs,
+    /*
+     * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-16, print real — "Séries"
+     * aparecia mais recuado da borda que "Minhas listas"/"Séries
+     * favoritas", medido no pixel: 80px contra 42px de início do ícone,
+     * ~38px de diferença real, não ilusão de ótica dos glifos).
+     *
+     * O `paddingHorizontal` estava AQUI **e** em `sectionHeader`, logo
+     * abaixo — e no estado "com itens" um envolve o outro
+     * (`<Pressable style={sectionHeader}><View style={sectionTitle}>`),
+     * então a borda de tela era somada DUAS vezes (20 + 20 = 40px em vez
+     * de 20px). O estado vazio/carregando usa só `sectionTitle` (sem o
+     * `sectionHeader` por fora — não é clicável), por isso nunca mostrou
+     * o bug: e é exatamente por isso que "Séries favoritas" (vazia no
+     * print) parecia correta enquanto "Séries" (com itens, com o
+     * cabeçalho clicável) saía deslocada.
+     *
+     * Fix: o respiro de borda sai daqui (só teria efeito real dentro do
+     * `sectionHeader`, que já o aplica) e vai para `sectionTitleStandalone`
+     * — assim cada estado carrega o padding exatamente UMA vez: o
+     * clicável no `sectionHeader`, o parado aqui embaixo.
+     */
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — era `spacing.sm` (8); os estados "carregando"/vazio no web usam o MESMO `mb-3` (12px) do cabeçalho clicável (`ProfileMediaCarousel.tsx`), não um valor menor à parte. */
   sectionTitleStandalone: {
     marginBottom: 12,
+    /** Ver o comentário longo em `sectionTitle`, acima — o padding de borda mudou pra cá. */
+    paddingHorizontal: spacing.md + spacing.xs,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — era `fontSize.md` (16) / `"700"`; o web usa `text-lg font-extrabold` (`ProfileMediaCarousel.tsx`, título de cada carrossel) = 18px / peso 800. */
   sectionTitleText: {

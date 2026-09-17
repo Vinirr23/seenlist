@@ -106,14 +106,25 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  /**
+   * MESMO PADRÃO ACHADO EM `SlidingTabs.tsx` (2026-09-16, mesma
+   * varredura — "procure por outros desalinhamentos") — `label`
+   * (peso padrão do `Text`, 400) e `labelActive` (peso 600) usam
+   * arquivos de fonte diferentes (`PlusJakartaSans_400Regular` vs
+   * `_600SemiBold`), sem `lineHeight` travado; ver o comentário
+   * completo lá. `14` é o padrão comum pra `fontSize.micro` (10) no
+   * resto do app (`1.4×`).
+   */
   label: {
     marginTop: spacing.xs,
     fontSize: fontSize.micro,
+    lineHeight: 14,
     color: colors.muted,
     textAlign: "center",
   },
   labelActive: {
     color: colors.primary,
     fontWeight: "600",
+    lineHeight: 14,
   },
 });

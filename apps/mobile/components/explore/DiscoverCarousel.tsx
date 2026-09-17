@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { memo, useEffect, useState, type ReactNode } from "react";
 import { ScrollView, View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -41,7 +41,19 @@ const CARD_WIDTH = 144;
  * comportamento de sempre (nem todo carrossel do app tem uma tela "ver
  * todos" — ver `PosterGrid`/carrosséis do Perfil).
  */
-export function DiscoverCarousel({
+/**
+ * MEMOIZADO (2026-09-17, réplica do fix do Perfil/Séries — "pode
+ * replicar nas outras abas") — usado em Séries/Filmes/Explorar; sozinho
+ * já faz sua própria busca de status por baixo (`fetchLibraryStatusesFor`),
+ * então evitar reconciliação à toa quando a TELA que o envolve
+ * re-renderiza por outro motivo vale a pena. `title` sendo `ReactNode`
+ * (elemento JSX) só ajuda de verdade quando quem chama o mantém
+ * ESTÁVEL entre renders (`useMemo`) — ver `series/index.tsx` e
+ * `movies.tsx`, que agora fazem isso; sem isso o `memo()` aqui não
+ * segura nada (um elemento novo a cada render do pai nunca é "igual"
+ * na comparação rasa).
+ */
+export const DiscoverCarousel = memo(function DiscoverCarousel({
   title,
   items,
   isLoading,
@@ -140,9 +152,9 @@ export function DiscoverCarousel({
       )}
     </View>
   );
-}
+});
 
-function DiscoverCard({ item, status }: { item: DiscoverItem; status: string | null }) {
+const DiscoverCard = memo(function DiscoverCard({ item, status }: { item: DiscoverItem; status: string | null }) {
   const router = useRouter();
   const posterUrl = tmdbImageUrl(item.posterPath, "w342");
 
@@ -183,7 +195,7 @@ function DiscoverCard({ item, status }: { item: DiscoverItem; status: string | n
       </Glass>
     </PressableScale>
   );
-}
+});
 
 const styles = StyleSheet.create({
   /** `mb-8` = 32 no web; era `spacing.lg` = 24. */

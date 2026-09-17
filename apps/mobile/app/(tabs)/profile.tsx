@@ -26,7 +26,7 @@ import { useFollowCounts } from "@/lib/usePublicProfile";
 import { fetchEditableProfile } from "@/lib/editProfile";
 import { useSeriesActivityIds, useMovieActivityIds, useFavoriteIds } from "@/lib/profileMediaCarousel";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
-import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow, type GlowBlob } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, PressableScale, AmbientGlow, type GlowBlob } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
@@ -37,6 +37,8 @@ import { NotificationBell } from "@/components/profile/NotificationBell";
 import { ProfileMoreSheet } from "@/components/profile/ProfileMoreSheet";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+import { logTempoDesdeOToque } from "@/lib/perfNavStamp";
 
 /**
  * CORREÇÃO (a pedido — "perfil não se parece com o web") — o vidro do
@@ -106,9 +108,13 @@ interface CachedEditableFields {
  * cards de seção com contagem, e o card de estatísticas certo).
  */
 export default function ProfileScreen() {
+  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — roda em TODO render (não só no 1º), pra ver se a tela está remontando a cada troca de aba. REMOVER junto.
+  console.log(`[PERF-DOCK] BODY Perfil renderizou em ${performance.now().toFixed(1)}ms`);
   const router = useRouter();
   const { user } = useCurrentUser();
   const { t } = useTranslation();
+  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+  useFocusEffect(useCallback(() => { logTempoDesdeOToque("Perfil"); }, []));
   const counts = useFollowCounts(user?.id ?? null);
   const socialCounts = useSocialCounts(user?.id ?? null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
@@ -372,7 +378,7 @@ export default function ProfileScreen() {
 
               <View style={styles.shortRow}>
                 <Avatar uri={user.avatarUrl} name={user.name} style={styles.avatarShort} textStyle={styles.avatarInitials} />
-                <View style={styles.headerText}>
+                <View style={[styles.headerText, styles.headerTextCenterShort]}>
                   <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
                     {user.name}
                   </Text>
@@ -394,11 +400,20 @@ export default function ProfileScreen() {
                     * contagem logo abaixo (`countCard`) — vidro
                     * translúcido, não âmbar sólido.
                     */}
-                  <Pressable hitSlop={8} onPress={() => router.push("/settings/edit-profile")} style={styles.editButtonWrap}>
+                  {/*
+                    * CORREÇÃO (2026-09-16, a pedido — "no web, quando
+                    * aperto algum botão pílula glass, tem uma pequena
+                    * animação, confere e adiciona também") — conferido
+                    * no web real (`PublicProfileView.tsx`, mesma
+                    * pílula "Editar" em vidro/gel): `active:scale-[0.96]`.
+                    * Aqui era `Pressable` puro, sem nenhum feedback de
+                    * toque. Trocado por `PressableScale`.
+                    */}
+                  <PressableScale hitSlop={8} onPress={() => router.push("/settings/edit-profile")} style={styles.editButtonWrap}>
                     <Glass style={styles.editButton} variant="pill">
                       <Text style={styles.editButtonText}>{t("profile.edit")}</Text>
                     </Glass>
-                  </Pressable>
+                  </PressableScale>
                 </View>
               </View>
             </View>
@@ -406,27 +421,32 @@ export default function ProfileScreen() {
         ) : (
           <View style={styles.topIconsRowNoBanner}>
             <NotificationBell flat />
-            <Pressable hitSlop={8} accessibilityLabel={t("profile.moreOptions")} onPress={() => setShowMore(true)}>
+            {/*
+              * CORREÇÃO (2026-09-16, mesmo motivo do comentário acima) —
+              * conferido no web (`ProfileHeader.tsx`, `GLASS_ICON_BTN`):
+              * o botão "..." (mais opções) usa `active:scale-90`.
+              */}
+            <PressableScale hitSlop={8} accessibilityLabel={t("profile.moreOptions")} onPress={() => setShowMore(true)}>
               <Glass style={styles.bannerIconButtonFlat}>
                 <Feather name="more-horizontal" size={16} color={colors.muted} />
               </Glass>
-            </Pressable>
+            </PressableScale>
           </View>
         )}
 
         {!bannerUrl && (
           <View style={styles.headerRow}>
             <Avatar uri={user.avatarUrl} name={user.name} style={styles.avatar} textStyle={styles.avatarInitials} />
-            <View style={styles.headerText}>
+            <View style={[styles.headerText, styles.headerTextCenterTall]}>
               <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
                 {user.name}
               </Text>
-              {/* Ver comentário completo no bloco COM capa, acima — mesma pílula "Editar" em vidro (variant `pill`). */}
-              <Pressable hitSlop={8} onPress={() => router.push("/settings/edit-profile")} style={styles.editButtonWrap}>
+              {/* Ver comentário completo no bloco COM capa, acima — mesma pílula "Editar" em vidro (variant `pill`), incluindo a correção do `PressableScale`. */}
+              <PressableScale hitSlop={8} onPress={() => router.push("/settings/edit-profile")} style={styles.editButtonWrap}>
                 <Glass style={styles.editButton} variant="pill">
                   <Text style={styles.editButtonText}>{t("profile.edit")}</Text>
                 </Glass>
-              </Pressable>
+              </PressableScale>
             </View>
           </View>
         )}
@@ -871,6 +891,39 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     minWidth: 0,
+  },
+  /**
+   * CAUSA RAIZ DE VERDADE, ACHADA COM PRINT REAL (2026-09-17 —
+   * "avatar desalinhado do bloco nome+Editar"). `shortRow`/`headerRow`
+   * (linha compartilhada, abaixo) já tinham `alignItems: "center"` —
+   * a fórmula certa em tese, o mesmo padrão que o usuário pediu de
+   * volta. Só que "centralizar" um `View` (`headerText`) contra o
+   * `Avatar` só funciona se a ALTURA REAL do `headerText` bater com o
+   * que a gente espera — e ela não batia: a soma de `displayName`
+   * (`lineHeight: 28`, de propósito, pra casar com o `leading-7` do
+   * web) + o botão "Editar" (`PressableScale` → `Pressable` →
+   * `Animated.View` com `flex: 1`, cada camada com seu próprio jeito
+   * de medir "auto") não é um número fixo nem óbvio de calcular à mão
+   * — e não precisa ser. Em vez de tentar adivinhar o valor certo (ou
+   * pior, compensar com `marginTop` manual, que quebraria de novo com
+   * nome maior/fonte diferente/idioma diferente), a altura do
+   * `headerText` agora é TRAVADA no tamanho do PRÓPRIO avatar que ele
+   * acompanha (`headerTextCenterShort`/`headerTextCenterTall`, logo
+   * abaixo — dois avatares, duas alturas, `SHORT_HEADER_AVATAR_SIZE` e
+   * `AVATAR_SIZE`) e `justifyContent: "center"` centraliza nome+botão
+   * como UM BLOCO SÓ dentro dessa altura — não cada um separado. Como
+   * a altura já é EXATAMENTE a do avatar, o `alignItems: "center"` da
+   * linha vira redundante (as duas caixas já nascem do mesmo tamanho)
+   * mas continua correto e foi mantido. Funciona igual pra qualquer
+   * nome/idioma — nada aqui depende do texto específico.
+   */
+  headerTextCenterShort: {
+    height: SHORT_HEADER_AVATAR_SIZE,
+    justifyContent: "center",
+  },
+  headerTextCenterTall: {
+    height: AVATAR_SIZE,
+    justifyContent: "center",
   },
   /**
    * A PEDIDO (2026-09-16 — "deixa ele um botão glass igual

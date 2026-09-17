@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { setSeriesStatus } from "@/lib/seriesDetails";
 import { setMovieStatus } from "@/lib/movieDetails";
 import { hapticTick } from "@/lib/haptics";
-import { PressableScale, Glass } from "@/components/ui";
+import { PressableScale } from "@/components/ui";
 import { colors, radius } from "@/lib/theme";
 
 /**
@@ -56,20 +56,30 @@ export function AddToLibraryButton({
   return (
     <PressableScale style={styles.buttonWrap} onPress={handlePress} disabled={isPending} hitSlop={6}>
       {/*
-        * PORTE DO WEB (2026-09-04, "vidro que falta") — o web
-        * (`AddToLibraryButton.tsx`) deixou o CONTORNO e o ÍCONE âmbar
-        * como estavam ("nada de âmbar no fundo aqui") e trocou só o
-        * FUNDO por vidro de verdade. Aqui: `<Glass>` (blur + brilho
-        * branco no canto) com a borda âmbar de 2px por cima e a base
-        * escura do web (`rgba(11,14,20,0.55)`) como `backgroundColor`
-        * — no `Glass`, o `backgroundColor` fica ABAIXO do gradiente
-        * branco, mesma ordem de camadas do CSS de lá.
+        * CORREÇÃO (2026-09-16, achado no teste real em iPhone via
+        * TestFlight — "esses cards não tem o (+)") — era `<Glass>`
+        * (blur de verdade) aqui dentro do `<Glass>` do pôster
+        * (`DiscoverCarousel.tsx`, `posterWrapper`). Confirmado ao vivo
+        * no aparelho: um `Glass` sozinho renderiza certo no iOS
+        * (pílulas do Perfil, botão "Ver detalhes" — ambos com
+        * conteúdo visível), mas Glass ANINHADO dentro de outro Glass
+        * não desenha nada — mesma família do bug de `BlurView`
+        * aninhado que já tinha causado crash (SIGSEGV) no Android,
+        * documentado em `components/ui/Glass.tsx`; no iOS, em vez de
+        * travar, o conteúdo simplesmente não aparecia.
+        *
+        * Troca: `View` comum, sem blur, com a MESMA borda âmbar de 2px
+        * e o mesmo fundo escuro semi-transparente (`rgba(11,14,20,
+        * 0.55)`) que o `Glass` já usava como base — numa badge de
+        * 26×26px o blur por trás praticamente não se notava mesmo,
+        * então a perda visual é mínima e ganha-se confiabilidade nas
+        * duas plataformas.
         */}
-      <Glass style={styles.button}>
+      <View style={styles.button}>
         <View pointerEvents="none">
           <Feather name={isAdded ? "check" : "plus"} size={16} color={colors.primary} />
         </View>
-      </Glass>
+      </View>
     </PressableScale>
   );
 }

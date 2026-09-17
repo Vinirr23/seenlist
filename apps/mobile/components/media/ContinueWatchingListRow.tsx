@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -156,7 +156,23 @@ function opacidadeDoDestaque(indice: number | undefined): number {
   return OPACIDADE_DESTAQUE[indice] ?? 0;
 }
 
-export function ContinueWatchingListRow({
+/**
+ * MEMOIZADO (2026-09-17, réplica do fix do Perfil — "pode replicar nas
+ * outras abas") — este é o card mais renderizado da tela mais visitada
+ * (Séries, aba "Minha Lista": um `ContinueWatchingListRow` por série em
+ * "Continue assistindo" + "Faz um tempo que você não assiste"). Antes,
+ * QUALQUER re-render de `SeriesHomeScreen` (tem vários hooks de busca
+ * independentes — `useLibraryItems`/`useUpcomingEpisodes`/
+ * `useDiscoverList`/`useViewModePreference`, cada um resolvendo em
+ * momento diferente) reconciliava TODOS esses cards de novo, mesmo
+ * quando nenhuma prop de um card específico tinha mudado de verdade.
+ * Só funciona porque `item`/`nextEpisode` vêm de listas já memoizadas
+ * (`useMemo`) no pai e `onMarkedWatched`/`onTransitionActiveChange`
+ * agora são estáveis (`useCallback` no pai, ver `series/index.tsx` e a
+ * correção de causa raiz em `useLibraryItems.ts`) — sem isso, o
+ * `memo()` não seguraria nada (props "novas" a cada render).
+ */
+export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
   item,
   nextEpisode,
   onMarkedWatched,
@@ -500,7 +516,7 @@ export function ContinueWatchingListRow({
       </Glass>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   /**

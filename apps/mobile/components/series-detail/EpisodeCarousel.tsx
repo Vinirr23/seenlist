@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useRef } from "react";
 import { FlatList, View, Pressable, Platform, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -170,9 +170,12 @@ export function EpisodeCarousel({
             <EpisodeCarouselCard
               seriesId={seriesId}
               seasonNumber={item.seasonNumber}
-              episode={item.episode}
+              episodeNumber={item.episode.episodeNumber}
+              episodeId={item.episode.id}
+              episodeName={item.episode.name}
+              stillPath={item.episode.stillPath}
               isWatched={isEpisodeWatchedSync(watched, item.seasonNumber, item.episode.episodeNumber, item.episode.id, watchedEpisodeIds)}
-              onToggle={() => onToggleEpisode(item.seasonNumber, item.episode.episodeNumber, item.episode.id)}
+              onToggleEpisode={onToggleEpisode}
               categoryColor={categoryColor}
             />
           ) : (
@@ -184,28 +187,82 @@ export function EpisodeCarousel({
   );
 }
 
-function EpisodeCarouselCard({
+/*
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-17, a pedido — "desmarcar e marcar
+ * episódio na tela de detalhes ainda está lento", medido de verdade
+ * com `performance.now()` — ver o diagnóstico entregue ao usuário) —
+ * o próprio React Native denunciou o culpado sozinho, sem precisar
+ * adivinhar: `VirtualizedList: You have a large list that is slow to
+ * update`, com `dt` de mais de 500ms (chegou a 2717ms num caso). Esta
+ * é a `FlatList` horizontal do carrossel de episódios, a ÚNICA lista
+ * pesada da tela que nunca tinha ganho a memoização que
+ * `SeasonAccordion.tsx` já tem (`SeasonEpisodeRow`, `memo`) — cada
+ * toque em QUALQUER episódio (do carrossel OU do acordeão, já que os
+ * dois lêem o mesmo `watched`) recriava a árvore inteira do carrossel
+ * inline no `.map()`/`renderItem`, e o React redesenhava TODOS os
+ * cards visíveis de novo, não só o tocado.
+ *
+ * Duas causas, as duas resolvidas juntas (uma sozinha não bastaria,
+ * mesma lição do `SeasonAccordion`/`watchedRef` — ver comentário
+ * grande em `useSeriesDetails.ts`):
+ *
+ * 1. O card recebia o objeto `episode` INTEIRO como prop — vindo de
+ *    `resolveCarouselEpisodes`, que monta um objeto/array NOVO a cada
+ *    render (mesmo quando o conteúdo do episódio não mudou nada) — um
+ *    `React.memo` comparando esse objeto por referência nunca bateria
+ *    igual, então nunca pularia o re-render. Agora os campos que
+ *    realmente importam (`episodeNumber`, `episodeId`, `episodeName`,
+ *    `stillPath`) vêm como props PRIMITIVAS — aí sim o `memo` compara
+ *    de verdade.
+ * 2. `onToggle` era uma função NOVA por item a cada render do pai
+ *    (`() => onToggleEpisode(...)`, criada dentro do `renderItem`) —
+ *    invalidava o `memo` de todo card de novo, mesmo com o item #1
+ *    corrigido. Agora quem recebe é `onToggleEpisode` direto (a
+ *    própria `toggle`, já estável — ver `watchedRef` em
+ *    `useSeriesDetails.ts`) e o card monta sua PRÓPRIA função estável
+ *    por dentro, via `useCallback` com dependências primitivas.
+ *
+ * Resultado: só o card do episódio TOCADO muda de prop (`isWatched`)
+ * e só ele re-renderiza — os outros, mesmo continuando montados pela
+ * virtualização da `FlatList`, ficam intocados.
+ */
+const EpisodeCarouselCard = memo(function EpisodeCarouselCard({
   seriesId,
   seasonNumber,
-  episode,
+  episodeNumber,
+  episodeId,
+  episodeName,
+  stillPath,
   isWatched,
-  onToggle,
+  onToggleEpisode,
   categoryColor,
 }: {
   seriesId: number;
   seasonNumber: number;
-  episode: EpisodeRef["episode"];
+  episodeNumber: number;
+  episodeId?: number;
+  episodeName: string;
+  stillPath: string | null;
   isWatched: boolean;
-  onToggle: () => void;
+  onToggleEpisode: (seasonNumber: number, episodeNumber: number, episodeId?: number) => void;
   categoryColor?: string;
 }) {
   const router = useRouter();
-  const stillUrl = tmdbImageUrl(episode.stillPath, "w300"); // `w300` como no web — `w185` ficava borrado num card de 144dp (378px reais)
-  const code = `S${String(seasonNumber).padStart(2, "0")}E${String(episode.episodeNumber).padStart(2, "0")}`;
+  const stillUrl = tmdbImageUrl(stillPath, "w300"); // `w300` como no web — `w185` ficava borrado num card de 144dp (378px reais)
+  const code = `S${String(seasonNumber).padStart(2, "0")}E${String(episodeNumber).padStart(2, "0")}`;
+
+  const handleOpen = useCallback(
+    () => router.push(`/episodes/${seriesId}/${seasonNumber}/${episodeNumber}`),
+    [router, seriesId, seasonNumber, episodeNumber]
+  );
+  const handleToggle = useCallback(
+    () => onToggleEpisode(seasonNumber, episodeNumber, episodeId),
+    [onToggleEpisode, seasonNumber, episodeNumber, episodeId]
+  );
 
   return (
     <View style={styles.card}>
-      <Pressable onPress={() => router.push(`/episodes/${seriesId}/${seasonNumber}/${episode.episodeNumber}`)}>
+      <Pressable onPress={handleOpen}>
         {/*
           PORTE DO WEB (2026-09-09) — a caixa da imagem era um
           retângulo SÓLIDO (`colors.surface`). No web é vidro:
@@ -224,16 +281,16 @@ function EpisodeCarouselCard({
         </Glass>
         <Text style={styles.code}>{code}</Text>
         <Text numberOfLines={1} variant="muted" style={styles.name}>
-          {episode.name}
+          {episodeName}
         </Text>
       </Pressable>
 
       <View style={styles.watchedButtonRow}>
-        <EpisodeWatchedButton watched={isWatched} onPress={onToggle} size="sm" color={categoryColor} />
+        <EpisodeWatchedButton watched={isWatched} onPress={handleToggle} size="sm" color={categoryColor} pulseOnConfirm />
       </View>
     </View>
   );
-}
+});
 
 /** TASK-170 (ajuste) — mesmo tamanho/formato do `EpisodeCarouselCard` (CARD_WIDTH, `stillWrapper` no lugar da imagem), pra ficar visualmente parte da mesma fileira, não um banner destoante. */
 function CaughtUpMiniCard({ badge }: { badge: Exclude<SeriesCaughtUpBadge, null> }) {

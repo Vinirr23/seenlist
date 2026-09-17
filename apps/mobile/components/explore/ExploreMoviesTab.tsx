@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { View, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui";
@@ -36,7 +37,22 @@ import { colors, spacing } from "@/lib/theme";
  * item-já-na-Biblioteca internamente (TASK-152), diferente do web que
  * filtra fora.
  */
-export function ExploreMoviesTab() {
+/**
+ * MEMOIZADO (2026-09-17, achado ao replicar o fix do Perfil/Séries —
+ * "pode replicar nas outras abas") — esta aba tem o MESMO padrão que
+ * causava o delay no Perfil: vários hooks de busca independentes
+ * (`useFavoriteGenres`/`useDiscoverByGenre`/`useAnchorTitle`/
+ * `useDiscoverSimilar`/`useDiscoverList` × 2), cada um resolvendo em
+ * momento diferente e forçando esta função inteira a re-renderizar —
+ * e sem `memo()`, os 4 `DiscoverCarousel` filhos (cada um já fazendo
+ * sua própria busca de status por baixo) reconciliavam de novo TODA
+ * vez, mesmo quando só UM hook tinha dado resultado novo. `title` de
+ * cada carrossel agora é `useMemo`, pela mesma razão de
+ * `popularSeriesTitle`/`popularMoviesTitle` em `series/index.tsx`/
+ * `movies.tsx` — sem isso, o `memo()` do `DiscoverCarousel` nunca
+ * teria uma prop "igual" pra comparar.
+ */
+export const ExploreMoviesTab = memo(function ExploreMoviesTab() {
   const { topMovieGenres, isLoading: favoriteGenresLoading, hasCompletedItems } = useFavoriteGenres();
   const topGenre = topMovieGenres[0] ?? null;
   const forYou = useDiscoverByGenre("genre_movies", topGenre?.genreId ?? null);
@@ -49,17 +65,46 @@ export function ExploreMoviesTab() {
   const showForYou = hasCompletedItems && (favoriteGenresLoading || !!topGenre);
   const showBecauseYouWatched = hasCompletedItems && (anchorLoading || !!anchor);
 
+  const trendingTitle = useMemo(
+    () => (
+      <View style={styles.flameTitleRow}>
+        <Ionicons name="flame" size={16} color={colors.primary} />
+        <Text variant="subtitle" style={{ color: colors.primary }}>
+          {t("seriesHome.popularSeries")}
+        </Text>
+      </View>
+    ),
+    [t]
+  );
+  const becauseYouWatchedTitle = useMemo(
+    () => (
+      <Text variant="subtitle" style={styles.title}>
+        {anchor ? highlightTitle(t("explore.discover.becauseYouWatched"), anchor.title) : "…"}
+      </Text>
+    ),
+    [t, anchor]
+  );
+  const forYouTitle = useMemo(
+    () => (
+      <Text variant="subtitle" style={styles.title}>
+        {t("explore.discover.topMoviesForYou")}
+      </Text>
+    ),
+    [t]
+  );
+  const upcomingTitle = useMemo(
+    () => (
+      <Text variant="subtitle" style={styles.title}>
+        {t("explore.discover.upcomingMovies")}
+      </Text>
+    ),
+    [t]
+  );
+
   return (
     <View style={styles.wrap}>
       <DiscoverCarousel
-        title={
-          <View style={styles.flameTitleRow}>
-            <Ionicons name="flame" size={16} color={colors.primary} />
-            <Text variant="subtitle" style={{ color: colors.primary }}>
-              {t("seriesHome.popularSeries")}
-            </Text>
-          </View>
-        }
+        title={trendingTitle}
         items={trendingMovies.items}
         isLoading={trendingMovies.isLoading}
         viewAllHref="/explore/all/trending_movies"
@@ -67,11 +112,7 @@ export function ExploreMoviesTab() {
 
       {showBecauseYouWatched && (
         <DiscoverCarousel
-          title={
-            <Text variant="subtitle" style={styles.title}>
-              {anchor ? highlightTitle(t("explore.discover.becauseYouWatched"), anchor.title) : "…"}
-            </Text>
-          }
+          title={becauseYouWatchedTitle}
           items={becauseYouWatched.items}
           isLoading={anchorLoading || becauseYouWatched.isLoading}
           viewAllHref={anchor ? `/explore/similar/movie/${anchor.id}?title=${encodeURIComponent(anchor.title)}` : undefined}
@@ -82,11 +123,7 @@ export function ExploreMoviesTab() {
 
       {showForYou && (
         <DiscoverCarousel
-          title={
-            <Text variant="subtitle" style={styles.title}>
-              {t("explore.discover.topMoviesForYou")}
-            </Text>
-          }
+          title={forYouTitle}
           items={forYou.items}
           isLoading={favoriteGenresLoading || forYou.isLoading}
           viewAllHref={topGenre ? `/explore/genre/movie/${topGenre.genreId}` : undefined}
@@ -94,18 +131,14 @@ export function ExploreMoviesTab() {
       )}
 
       <DiscoverCarousel
-        title={
-          <Text variant="subtitle" style={styles.title}>
-            {t("explore.discover.upcomingMovies")}
-          </Text>
-        }
+        title={upcomingTitle}
         items={upcomingMovies.items}
         isLoading={upcomingMovies.isLoading}
         viewAllHref="/explore/all/upcoming_movies"
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import type { SeriesDetails, LibraryStatus } from "@seenlist/types";
 import {
@@ -72,6 +72,37 @@ export function useWatchedEpisodes(seriesId: number) {
   const [watchedEpisodeIds, setWatchedEpisodeIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-17, a pedido — "desmarcar e marcar
+   * está lento", confirmado pelo usuário no aparelho físico DEPOIS da
+   * memoização do `SeasonAccordion` já aplicada hoje — ou seja, aquela
+   * correção sozinha não bastou, a causa real estava mais fundo, aqui).
+   *
+   * `toggle` (abaixo) precisava ler `watched` pra saber `wasWatched` —
+   * e por isso tinha `watched` na lista de dependências do
+   * `useCallback`. Resultado: a CADA marcação/desmarcação (que muda
+   * `watched`), o React cria uma função `toggle` NOVA. Essa função é
+   * `onToggleEpisode` em `SeasonAccordion.tsx`, que por sua vez é
+   * dependência do `handleEpisodePress` de lá (também um `useCallback`)
+   * — então `handleEpisodePress` TAMBÉM virava uma função nova a cada
+   * toque, e ela é exatamente o prop que o `SeasonEpisodeRow` memoizado
+   * (a correção de hoje) usa pra decidir se re-renderiza. Uma prop de
+   * função nova a cada render invalida o `React.memo` de TODAS as
+   * linhas de novo — cancelando o ganho da memoização inteira, sem
+   * nenhum aviso (nem erro, nem warning: só continuava lento).
+   *
+   * FIX: um `ref` espelha `watched` sempre que ele muda (efeito
+   * simples, sem custo perceptível). `toggle` lê o valor mais recente
+   * por esse ref em vez de pela variável capturada no closure — assim
+   * a lista de dependências vira só `[seriesId]`, que não muda entre
+   * marcações. `toggle` agora mantém a MESMA identidade de função
+   * durante toda a vida da tela (só muda se a série mudar), e a
+   * memoização de `SeasonEpisodeRow` volta a funcionar de verdade.
+   */
+  const watchedRef = useRef(watched);
+  useEffect(() => {
+    watchedRef.current = watched;
+  }, [watched]);
 
   const reload = useCallback(() => {
     fetchWatchedEpisodes(seriesId).then((data) => setWatched(data));
@@ -121,9 +152,17 @@ export function useWatchedEpisodes(seriesId: number) {
   const toggle = useCallback(
     // CORREÇÃO (2026-08-26 — "motor resistente", ver seriesDetails.ts) — episodeId opcional, repassado direto pra gravação.
     async (seasonNumber: number, episodeNumber: number, episodeId?: number) => {
+      /*
+       * CAUSA RAIZ ENCONTRADA (2026-09-17, medida de verdade — ver
+       * diagnóstico entregue ao usuário) — não era aqui: esta função
+       * sempre foi rápida (~1-2ms até `setWatched`). O culpado de
+       * verdade era `handleEpisodePress`, em `SeasonAccordion.tsx` —
+       * ver o comentário grande lá (mesma classe de bug do `watchedRef`
+       * logo acima, só que dentro do acordeão).
+       */
       hapticTick();
       const key = episodeKey(seasonNumber, episodeNumber);
-      const wasWatched = watched.has(key);
+      const wasWatched = watchedRef.current.has(key);
 
       // Otimista: muda a tela antes da resposta do servidor, desfaz se der erro.
       setWatched((current) => {
@@ -147,7 +186,7 @@ export function useWatchedEpisodes(seriesId: number) {
         });
       }
     },
-    [seriesId, watched]
+    [seriesId]
   );
 
   /** TASK-113 — "marcar episódios anteriores?" e "marcar temporada inteira" usam a mesma função, só muda a lista de episódios passada. */

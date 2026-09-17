@@ -26,6 +26,34 @@ import { colors, radius } from "@/lib/theme";
  *   `bg-primary/20`, âmbar a 20% (o ícone já era `text-primary` nos
  *   dois).
  */
+/**
+ * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-17, print real medido —
+ * "o seletor grade/lista está à esquerda no mobile; no web está à
+ * direita"). Cheguei nisso comparando a árvore de estilos de verdade,
+ * não só o print: o `wrapper` (abaixo) tinha `alignSelf: "flex-start"`
+ * fixo. Numa tela como `profile/series.tsx`, onde o pai
+ * (`toggleRow`) é um `View` de coluna com `alignItems: "flex-end"`
+ * pedindo EXPLICITAMENTE que o filho fique à direita, esse
+ * `alignSelf` no próprio componente SOBRESCREVE o pedido do pai — é
+ * assim que `alignSelf` funciona no flexbox: o filho tem a palavra
+ * final sobre o próprio alinhamento no eixo cruzado, não o pai. Por
+ * isso o seletor sempre ficava à esquerda, não importa o que a tela
+ * que o usa pedisse.
+ *
+ * Nas duas telas que usam `ViewModeToggle` dentro de uma LINHA
+ * (`(tabs)/series/index.tsx`, `(tabs)/movies.tsx` — `sectionHeader`,
+ * `flexDirection: "row"`), o `alignSelf` controlava o eixo VERTICAL,
+ * não o horizontal (a posição horizontal ali já vem de
+ * `justifyContent: "space-between"`) — removê-lo não muda a posição
+ * horizontal nelas, só deixa de forçar "topo" e passa a herdar
+ * `alignItems: "center"` do próprio `sectionHeader`, o que já
+ * era o alinhamento vertical real dos outros itens da mesma linha.
+ *
+ * O web (`ViewModeToggle.tsx`) não tem nada parecido com
+ * `self-start`/`align-self` — a posição sempre vem de quem usa o
+ * componente. Fix: tirar o `alignSelf` fixo daqui, deixar cada tela
+ * decidir a própria posição, igual ao web.
+ */
 export function ViewModeToggle({ viewMode, onChange }: { viewMode: ViewMode; onChange: (mode: ViewMode) => void }) {
   return (
     <Glass style={styles.wrapper} variant="light">
@@ -48,10 +76,14 @@ export function ViewModeToggle({ viewMode, onChange }: { viewMode: ViewMode; onC
 }
 
 const styles = StyleSheet.create({
-  /** Borda e fundo saíram: quem desenha é o `Glass`. `p-0.5` = 2, `gap-1` = 4, `rounded-lg` = 8. */
+  /**
+   * Borda e fundo saíram: quem desenha é o `Glass`. `p-0.5` = 2,
+   * `gap-1` = 4, `rounded-lg` = 8. `alignSelf: "flex-start"` SAIU —
+   * ver o comentário grande acima de `ViewModeToggle` — quem decide a
+   * posição agora é sempre a tela que usa o componente, igual ao web.
+   */
   wrapper: {
     flexDirection: "row",
-    alignSelf: "flex-start",
     gap: 4,
     borderRadius: 8,
     padding: 2,

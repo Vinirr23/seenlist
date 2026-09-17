@@ -38,7 +38,11 @@
       "expo-font"
     ],
     "ios": {
-      "bundleIdentifier": "com.seenlist.app"
+      "bundleIdentifier": "com.seenlist.ios",
+      "icon": "./assets/images/icon-ios.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.seenlist.app",
@@ -49,7 +53,6 @@
       },
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
       ]
     },

@@ -110,12 +110,22 @@ const styles = StyleSheet.create({
   // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
   // usa `px-4` (`spacing.md`=16) como borda de tela.
   header: {
+    /**
+     * CORREÇÃO (2026-09-16, print real — "botão de voltar, título e o
+     * que vem depois estão tudo junto") — `paddingBottom` era
+     * `spacing.sm` (8). No web (`SectionPageHeader.tsx`, componente
+     * compartilhado por TODAS essas telas lá — aqui cada tela reimplementa
+     * o próprio cabeçalho, sem componente comum), o espaço entre a linha
+     * voltar+título e o que vem a seguir é `mb-4` = 16 = `spacing.md`, o
+     * dobro do que o mobile tinha. Alinhado ao valor real do web, não a um
+     * chute.
+     */
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
   },
   content: {
     paddingHorizontal: spacing.md,

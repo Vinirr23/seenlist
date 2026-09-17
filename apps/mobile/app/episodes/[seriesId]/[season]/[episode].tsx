@@ -6,7 +6,7 @@ import { Gesture, GestureDetector, type GestureStateChangeEvent, type PanGesture
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { EPISODE_DETAILS_GLOW_BLOBS } from "@/lib/glowBlobs";
-import { Screen, Text, GlassTargetProvider, AmbientGlow, Glass, GelSurface } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, AmbientGlow, Glass, GelSurface, PressableScale } from "@/components/ui";
 import { fetchEpisodePage, type EpisodePageData } from "@/lib/episodeDetails";
 import { fetchEpisodeSeriesContext, isEpisodeWatched, toggleEpisodeWatched, type EpisodeSeriesContext, type EpisodeContextSeason } from "@/lib/seriesDetails";
 import { useSeriesStatus } from "@/lib/useSeriesDetails";
@@ -393,12 +393,21 @@ export default function EpisodeDetailScreen() {
                 <Feather name="chevron-right" size={14} color="#000000" />
               </Pressable>
             )}
-            {/* Botão de compartilhar: no web é vidro (`border-white/15` + radial 0.26/0.10), que é a receita `icon`; aqui era um disco de scrim chapado. */}
-            <Pressable style={styles.shareButton} onPress={handleShare} hitSlop={8}>
+            {/*
+              Botão de compartilhar: no web é vidro (`border-white/15` +
+              radial 0.26/0.10), que é a receita `icon`; aqui era um
+              disco de scrim chapado.
+
+              CORREÇÃO (2026-09-16, "botão pílula glass sem animação")
+              — conferido no web (`EpisodeDetailView.tsx`): este botão
+              usa `active:scale-90`. `Pressable` puro virou
+              `PressableScale`.
+            */}
+            <PressableScale style={styles.shareButton} onPress={handleShare} hitSlop={8}>
               <Glass style={styles.shareGlass} variant="icon" blurTarget={alvoDaCapa}>
                 <Feather name="share-2" size={16} color="#FFFFFF" />
               </Glass>
-            </Pressable>
+            </PressableScale>
             {/*
               A ÊNFASE ESTAVA TROCADA: aqui o código era pequeno e
               apagado e o nome era `variant="title"`. No web é o

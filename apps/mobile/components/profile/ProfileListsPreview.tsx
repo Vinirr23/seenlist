@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { View, Pressable, ScrollView, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { fetchMyListsWithPreview, type ListWithPreview } from "@/lib/lists";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, Skeleton, Glass } from "@/components/ui";
@@ -27,7 +27,13 @@ const CARD_SIZE = 112;
  * padrão já usado em `ProfileRecommendationsPreview`), que busca de
  * novo toda vez que a aba ganha foco.
  */
-export function ProfileListsPreview() {
+/**
+ * MEMOIZADO (2026-09-17, causa raiz do "delay na mudança de abas" —
+ * ver `Glass.tsx`/`app/(tabs)/profile.tsx`) — zero props; só
+ * recalcula pelo próprio estado interno, nunca por um hook irmão de
+ * `ProfileScreen` resolvendo e re-renderizando o pai.
+ */
+export const ProfileListsPreview = memo(function ProfileListsPreview() {
   const router = useRouter();
   const { locale } = useTranslation();
   const [lists, setLists] = useState<ListWithPreview[] | null>(null);
@@ -63,7 +69,11 @@ export function ProfileListsPreview() {
         * em si não era um link, inconsistente com o resto do Perfil. */}
       <Pressable style={styles.sectionHeader} onPress={() => router.push("/lists")}>
         <View style={styles.sectionTitle}>
-          <Feather name="check-square" size={16} color={colors.primary} />
+          {/* Mesmo ícone de `app/lists/index.tsx` — ver o comentário de
+            * causa raiz lá ("check-square" do Feather não é o
+            * `ListChecks` do lucide que o web usa; trocado por
+            * `format-list-checks`). */}
+          <MaterialCommunityIcons name="format-list-checks" size={16} color={colors.primary} />
           <Text style={styles.sectionTitleText}>Minhas listas</Text>
         </View>
         <Feather name="chevron-right" size={16} color={colors.muted} />
@@ -89,7 +99,7 @@ export function ProfileListsPreview() {
               <View style={styles.deck}>
                 {list.previewPosters.length === 0 ? (
                   <View style={styles.deckEmpty}>
-                    <Feather name="check-square" size={24} color={colors.muted} style={{ opacity: 0.4 }} />
+                    <MaterialCommunityIcons name="format-list-checks" size={24} color={colors.muted} style={{ opacity: 0.4 }} />
                   </View>
                 ) : (
                   list.previewPosters.slice(0, 4).map((posterPath, index, arr) => {
@@ -123,7 +133,7 @@ export function ProfileListsPreview() {
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { ScrollView, View, TextInput, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMyLists } from "@/lib/useMyLists";
-import { Screen, Text, GlassTargetProvider, Glass, GelSurface, AmbientGlow } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, GelSurface, PressableScale, AmbientGlow } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
@@ -127,7 +127,14 @@ export default function ListsScreen() {
             * "em vez do `bg-primary` chapado"), com o mesmo
             * `rounded-full` de lá.
             */}
-          <Pressable onPress={() => setShowForm((v) => !v)}>
+          {/*
+            * CORREÇÃO (2026-09-16, a pedido — "no web, quando aperto
+            * algum botão pílula glass, tem uma pequena animação,
+            * confere e adiciona também") — conferido no web
+            * (`ListsView.tsx`): este botão usa `active:scale-[0.98]`.
+            * `Pressable` puro virou `PressableScale`.
+            */}
+          <PressableScale onPress={() => setShowForm((v) => !v)}>
             {/*
               * CORREÇÃO (2026-09-09, a pedido — "ajuste o botão de criar
               * nova lista igual ao ver detalhes"). Conferido no web: os
@@ -146,7 +153,7 @@ export default function ListsScreen() {
               <Feather name="plus" size={16} color={colors.background} />
               <Text style={styles.createButtonText}>{t("profile.createNewList")}</Text>
             </GelSurface>
-          </Pressable>
+          </PressableScale>
 
           {showForm && (
             <View style={styles.form}>
@@ -181,8 +188,28 @@ export default function ListsScreen() {
                 // âmbar translúcido (`bg-primary/12`), como no web.
                 <Pressable key={list.id} onPress={() => router.push(`/lists/${list.id}`)}>
                   <Glass style={styles.listRow}>
+                    {/*
+                      CAUSA RAIZ DE VERDADE, ENCONTRADA COM PRINT REAL
+                      (2026-09-17 — "os ícones ganharam círculos e
+                      tamanho maior"). Medi os dois prints: o `tint.subtle`
+                      (12) já é o MESMO `rgba(232,163,61,0.12)` do
+                      `bg-primary/12` do web — os pixels batem (matemática
+                      de composição do alfa confere) — e o círculo (32×32)
+                      e o gap (12) também já eram idênticos ao web. A causa
+                      real não era cor nem tamanho de caixa: era o ÍCONE
+                      ERRADO. O web usa `ListChecks` do lucide (duas linhas
+                      finas com check, visual "leve"); aqui tinha
+                      `Feather name="check-square"` — um ícone BEM
+                      diferente (caixa cheia com check dentro, visual
+                      "denso"), que enche o círculo quase todo e por isso
+                      parece maior/mais pesado, mesmo em 16px igual ao web.
+                      Fix: `MaterialCommunityIcons name="format-list-checks"`
+                      — o glifo mais próximo do `ListChecks` disponível no
+                      `@expo/vector-icons` já usado no app (não trouxe
+                      `lucide-react-native`, que não é dependência daqui).
+                    */}
                     <View style={styles.listIconCircle}>
-                      <Feather name="check-square" size={16} color={colors.primary} />
+                      <MaterialCommunityIcons name="format-list-checks" size={16} color={colors.primary} />
                     </View>
                     <Text style={styles.listName}>{list.name}</Text>
                     <Feather name="chevron-right" size={18} color={colors.muted} style={{ marginLeft: "auto" }} />
@@ -206,12 +233,22 @@ const styles = StyleSheet.create({
   // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
   // usa `px-4` (`spacing.md`=16) como borda de tela.
   header: {
+    /**
+     * CORREÇÃO (2026-09-16, print real — "botão de voltar, título e o
+     * que vem depois estão tudo junto") — `paddingBottom` era
+     * `spacing.sm` (8). No web (`SectionPageHeader.tsx`, componente
+     * compartilhado por TODAS essas telas lá — aqui cada tela reimplementa
+     * o próprio cabeçalho, sem componente comum), o espaço entre a linha
+     * voltar+título e o que vem a seguir é `mb-4` = 16 = `spacing.md`, o
+     * dobro do que o mobile tinha. Alinhado ao valor real do web, não a um
+     * chute.
+     */
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
   },
   content: {
     paddingHorizontal: spacing.md,

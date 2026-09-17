@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { View, StyleSheet, Pressable, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
@@ -48,7 +49,13 @@ export interface PosterGridProps {
  * Perfil) a barra de cor da categoria. O mobile mostrava sempre,
  * inconsistente com o web em todo lugar que usa este componente.
  */
-export function PosterGrid({ items, onPressItem, barColor }: PosterGridProps) {
+/**
+ * MEMOIZADO (2026-09-17, réplica do fix do Perfil/Séries — "pode
+ * replicar nas outras abas") — `onPressItem` precisa vir estável
+ * (`useCallback`) de quem chama pra este `memo()` valer alguma coisa;
+ * `items`/`barColor` já costumam vir de listas memoizadas no pai.
+ */
+export const PosterGrid = memo(function PosterGrid({ items, onPressItem, barColor }: PosterGridProps) {
   const { width } = useWindowDimensions();
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — era `spacing.lg * 2` (48, borda de tela dos
@@ -65,7 +72,7 @@ export function PosterGrid({ items, onPressItem, barColor }: PosterGridProps) {
       ))}
     </View>
   );
-}
+});
 
 export const POSTER_GRID_COLUMNS = COLUMNS;
 export const POSTER_GRID_GAP = GAP;
@@ -78,7 +85,7 @@ export function usePosterCardWidth(): number {
   return Math.floor((width - spacing.md * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
 }
 
-export function PosterGridItem({
+export const PosterGridItem = memo(function PosterGridItem({
   item,
   onPress,
   barColor,
@@ -126,7 +133,7 @@ export function PosterGridItem({
       </Glass>
     </PressableScale>
   );
-}
+});
 
 const styles = StyleSheet.create({
   grid: {

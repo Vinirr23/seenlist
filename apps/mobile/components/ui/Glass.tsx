@@ -1,4 +1,13 @@
-import { createContext, useContext, useRef, type ComponentType, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   View,
   Image,
@@ -39,37 +48,62 @@ import { LinearGradient } from "expo-linear-gradient";
 import { colors, glass, gel, glassVariants, type GlassVariant, type GlassVariantName } from "@/lib/theme";
 
 /**
- * DIAGNÓSTICO TEMPORÁRIO (2026-09-16, a pedido — "rolagem dá umas
- * travadas" no Android, aparelho físico, sensação GERAL, não numa
- * tela específica).
+ * HISTÓRICO — DIAGNÓSTICO TEMPORÁRIO (2026-09-16, a pedido — "rolagem
+ * dá umas travadas" no Android, aparelho físico, sensação GERAL, não
+ * numa tela específica) → RELIGADO (2026-09-17) → **DECISÃO FINAL
+ * (2026-09-17, mesmo dia, depois de testar o app inteiro com blur
+ * religado)**: o blur real no Android SÓ existe pra barra de
+ * navegação (`variant === "dock"`) — nenhum outro `Glass` do app
+ * desfoca de verdade no Android. Ver `ANDROID_REAL_BLUR_VARIANTS`,
+ * abaixo, e o comentário grande em `blurMethod` no JSX.
  *
- * HIPÓTESE: o `BlurView` do `expo-blur` no Android
- * (`dimezisBlurViewSdk31Plus`) já é documentado neste arquivo como
- * caro (ver o histórico de "grão"/`blurMethod`, mais abaixo, no
- * `Glass()`) — e a barra de navegação (`DockNavegacao.tsx`) desfoca o
- * CONTEÚDO DA TELA INTEIRA, AO VIVO, em TODA tela do app, o tempo
- * todo (inclusive durante o gesto de rolar). Some a isso o `PosterGrid`/
- * `SeasonAccordion`, que montam um `Glass`/`BlurView` POR ITEM, todos
- * de uma vez (sem `FlatList`, sem desmontar o que está fora da tela).
- * A soma disso é a suspeita pra uma lentidão sentida no app INTEIRO,
- * não amarrada a uma tela só.
+ * HIPÓTESE ORIGINAL: o `BlurView` do `expo-blur` no Android
+ * (`dimezisBlurViewSdk31Plus`) é caro, e a soma dele com listas sem
+ * virtualização explicava a lentidão sentida no app inteiro.
  *
- * ESTE FLAG desliga o blur DE VERDADE em TODO `Glass` do app, só no
- * Android (mantém o véu de cor translúcida — já testado antes, ver o
- * comentário "TESTE 2" dentro do `BlurView`, mais abaixo: "o grão
- * SOME junto com o blur" quando `blurMethod="none"`) — é só pra
- * ISOLAR a causa num build de teste, não é a correção final. Se a
- * rolagem ficar lisa com isto ligado, confirma a hipótese e o próximo
- * passo é decidir ENTRE pausar o blur durante o gesto de rolar (mais
- * fiel visualmente, mais trabalho) OU virar as listas pra `FlatList`
- * virtualizada (resolve o acúmulo de itens, não o custo da barra).
- * Se a rolagem CONTINUAR travando com isto ligado, a causa é outra
- * coisa, não o blur — e essa outra causa ainda está em aberto.
+ * RESULTADO DO TESTE #1 (usuário, build de preview, blur desligado no
+ * app inteiro) — a rolagem melhorou de verdade (confirma que o blur
+ * custa algo de verdade, não é imaginação), mas "listas grandes",
+ * "trocar de aba", "marcar/desmarcar episódio" e "carregamento de
+ * tela" CONTINUARAM lentos com o blur JÁ desligado — ou seja, a causa
+ * principal dessas quatro queixas NUNCA foi o blur. Cada uma teve
+ * causa raiz própria, achada e corrigida separadamente nesta mesma
+ * sessão: `PosterGrid`/`.map()` sem `FlatList` em
+ * `movies.tsx`/`continue-assistindo.tsx`; a lista de episódios do
+ * `SeasonAccordion` sem memoização; a função `toggle` de
+ * `useWatchedEpisodes` (`useSeriesDetails.ts`) recriada a cada
+ * marcação, invalidando a memoização acima; e `useLibraryItems`
+ * substituindo a lista inteira por uma referência nova a cada foco de
+ * aba, mesmo com o mesmo conteúdo.
  *
- * REVERTER (voltar pra `false`) assim que o teste acontecer, esteja o
- * resultado confirmando ou derrubando a hipótese.
+ * EFEITO COLATERAL REAL do blur desligado no app inteiro, achado com
+ * print do usuário — a barra de navegação (`DockNavegacao.tsx`) fica
+ * TRANSPARENTE: ela não tem véu de cor próprio, depende inteiramente
+ * do desfoque de verdade pra parecer vidro (ver o comentário "SEM
+ * VÉU, de propósito" no próprio `DockNavegacao.tsx`).
+ *
+ * RESULTADO DO TESTE #2 (usuário, build de preview, blur religado no
+ * app inteiro, com as quatro causas acima já corrigidas) — a barra
+ * voltou a parecer vidro, mas apareceram problemas de desempenho
+ * pré-existentes (Explorar, "Em breve", troca de aba, troca de
+ * sub-aba nos detalhes da série — todos confirmados como já existirem
+ * ANTES desta sessão, não regressão do blur religado) e um problema
+ * NOVO: a barra ficou opaca/sólida em vez de vidro (ainda sob
+ * investigação).
+ *
+ * DECISÃO FINAL (usuário, depois de ver o custo real do blur
+ * confirmado no teste #1) — blur de verdade só onde ele é
+ * indispensável (a barra não tem NENHUM outro jeito de parecer vidro,
+ * já que não tem véu de cor próprio); todo o resto do app volta ao
+ * visual sem desfoque real (borda + gradiente, o mesmo fallback já
+ * usado quando não há `blurTarget` nenhum) — evita pagar o custo do
+ * blur em dezenas de cards simultâneos (Perfil, Explorar, Detalhes)
+ * pra um ganho visual que a barra sozinha já entrega. Só no Android —
+ * o `BlurView` do iOS é o `UIVisualEffectView` nativo da Apple, outra
+ * biblioteca, nunca implicado em nenhuma queixa de performance nesta
+ * investigação.
  */
-const DIAGNOSTICO_BLUR_DESLIGADO_ANDROID = true;
+const ANDROID_REAL_BLUR_VARIANTS: ReadonlySet<GlassVariantName> = new Set(["dock"]);
 
 /**
  * Porte do redesign "âmbar/vidro" do web pro mobile — depende do
@@ -359,6 +393,67 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
   const target = blurTarget ?? alvoDoContexto;
   const recipe = glassVariants[variant];
   const highlight = highlightBox(recipe);
+  /**
+   * Usado na troca `BlurView` → `View` comum, mais abaixo — ver o
+   * comentário grande junto do `{semBlurNoAndroid ? ... : ...}`.
+   */
+  const semBlurNoAndroid = Platform.OS === "android" && !ANDROID_REAL_BLUR_VARIANTS.has(variant);
+  /**
+   * EXPERIMENTO (2026-09-17, a pedido — "a barra de navegação continua
+   * opaca, ela muda de cor sempre que mudo de tela, pegando a primeira
+   * cor da tela e fica nessa até eu mudar de tela novamente").
+   *
+   * LIDO NO CÓDIGO NATIVO REAL do `expo-blur` instalado
+   * (`ExpoBlurView.kt`) — `applyTint()` termina SEMPRE com
+   * `blurView.invalidate()`, e esse método roda automaticamente toda
+   * vez que o React Native manda uma atualização de QUALQUER prop pra
+   * essa view nativa (`OnViewDidUpdateProps`, em `BlurModule.kt`). Ou
+   * seja: o `BlurView` (biblioteca `Dimezis/BlurView`, de terceiros, sem
+   * código-fonte neste repositório) só recalcula o desfoque quando ALGO
+   * manda uma prop nova pra ele — não sozinho, a cada frame, seguindo o
+   * conteúdo atrás. Trocar de tela dispara várias atualizações de props
+   * (a `Stack` inteira remonta/relayouta), por isso a cor "pega" nesse
+   * momento; rolar a lista por trás não manda NENHUMA prop nova pro
+   * `BlurView` da barra (eles são views irmãs, sem relação), por isso a
+   * cor trava até a próxima troca de tela.
+   *
+   * HIPÓTESE, AINDA EM TESTE NO APARELHO — força esse recálculo de
+   * tempos em tempos, só na barra (`dock`, único `Glass` do Android com
+   * blur de verdade — ver `ANDROID_REAL_BLUR_VARIANTS`), variando o
+   * `blurReductionFactor` por uma fração imperceptível (0.0001) pra
+   * gerar uma prop "diferente" a cada tique — mesmo valor não dispara
+   * atualização nenhuma (o React Native não manda prop que não mudou).
+   *
+   * CUSTO CONHECIDO: cada atualização dessas é uma reconstrução nativa
+   * do `BlurView` (mesma classe de custo já medida e reduzida nos cards/
+   * linhas do app inteiro nesta sessão) — por isso é só nesta única
+   * barra, não em nenhum outro `Glass`.
+   *
+   * RODADA 2 (2026-09-17, confirmado no aparelho — "tá quase certo,
+   * funciona, mas tem um delay") — a técnica funciona (a cor passa a
+   * acompanhar o fundo), o "delay" sentido é literalmente o intervalo
+   * de 300ms escolhido pra ser conservador na 1ª tentativa (a barra só
+   * atualizava 3× por segundo, de propósito). Reduzido pra 100ms (10×
+   * por segundo) — usuário confirmou "melhorou bastante".
+   *
+   * RODADA 3 (2026-09-17, mesmo dia — "falta aumentar a velocidade mais
+   * um pouco") — reduzido pra 60ms (~16-17× por segundo, perto da
+   * cadência de um frame de tela a 60fps, sem chegar lá — redesenhar a
+   * CADA frame reintroduziria o mesmo custo por render que já foi
+   * medido e reduzido nos cards/linhas nesta sessão, só que agora
+   * constante o tempo todo em vez de só nas marcações). Ainda um
+   * elemento só (a barra); medir no aparelho se a rolagem/troca de aba
+   * continua fluida antes de ir mais rápido que isso.
+   */
+  const blurAoVivo = Platform.OS === "android" && ANDROID_REAL_BLUR_VARIANTS.has(variant);
+  const [pulsoDeInvalidate, setPulsoDeInvalidate] = useState(0);
+  useEffect(() => {
+    if (!blurAoVivo) return;
+    const intervalo = setInterval(() => {
+      setPulsoDeInvalidate((n) => (n + 1) % 2);
+    }, 60);
+    return () => clearInterval(intervalo);
+  }, [blurAoVivo]);
   /*
    * MOLDURA (`rim`) DESLIGADA NA COR DO FIO (2026-09-09, medido).
    *
@@ -541,6 +636,57 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
       pointerEvents="none"
       style={[caixaDeBorda, recipe.saturate === undefined ? null : { filter: [{ saturate: recipe.saturate }] }]}
     >
+    {semBlurNoAndroid ? (
+      /**
+       * OTIMIZAÇÃO DE CAUSA RAIZ (2026-09-17, medido — "tem um delay na
+       * hora de desmarcar/marcar temporada completa"), root-caused até
+       * aqui depois de DUAS hipóteses testadas e descartadas por medição
+       * real (ver histórico em `useSeriesDetails.ts`/`SeasonAccordion.tsx`
+       * — não foi re-render de JS sem memoização, nem o `<Modal>` do
+       * `OptionSheet` desmontando junto).
+       *
+       * Instrumentação por timestamp mostrou: todo o JS de render (cada
+       * `SeasonEpisodeRow`/`EpisodeCarouselCard` mudado) termina em menos
+       * de 1ms, mas sobra uma lacuna de ~230-300ms SEM NENHUM log entre o
+       * fim desses renders e o "commit do React terminado" — ou seja, o
+       * tempo está sendo gasto na fase nativa (commit/layout) do Android,
+       * não em JavaScript.
+       *
+       * CAUSA: `PatchedBlurView` (abaixo) era montada incondicionalmente
+       * em TODO `Glass`, mesmo quando `blurMethod="none"` (todo Android
+       * fora do `dock`, ver `ANDROID_REAL_BLUR_VARIANTS`) — ou seja, sem
+       * nenhum blur real calculado E com `styles.noBlurVeil` totalmente
+       * transparente (nenhuma cor própria, ver mais abaixo). Essa
+       * `BlurView` não desenha NADA visível nesse caso, mas ainda assim é
+       * uma view nativa de terceiros (`Dimezis/BlurView`) sendo
+       * construída/atualizada — quando várias linhas/cards `Glass`
+       * mudam no mesmo commit (marcar uma temporada inteira = vários
+       * episódios de uma vez), esse custo de construção nativa se
+       * multiplica e é o candidato mais forte pra explicar a lacuna
+       * medida.
+       *
+       * FIX: nesse caso específico (Android, variante sem blur real) a
+       * `BlurView` é trocada por uma `View` comum, com o MESMO estilo
+       * (`styles.noBlurVeil` + `absoluteFillObject`) — visualmente
+       * idêntico, porque a `BlurView` já não desenhava nada aqui; só
+       * deixa de existir a view nativa de terceiros por trás. `dock` (o
+       * único com blur real no Android) e o iOS inteiro continuam
+       * exatamente como antes, sem nenhuma mudança visual em lugar
+       * nenhum — só o Android fora do `dock` perde a `BlurView` ociosa.
+       *
+       * AINDA PENDENTE DE CONFIRMAÇÃO NO APARELHO: esta é uma hipótese
+       * forte pela medição, mas só a suíte de testes reais do usuário
+       * (marcar/desmarcar temporada completa, com o app rodando no
+       * aparelho) confirma se ela é (ou não) a causa raiz completa do
+       * delay. Se sobrar delay depois desta troca, o próximo suspeito são
+       * as OUTRAS camadas do `Glass` (borda, saturação, brilho) que
+       * também são views nativas extras por card — não esta.
+       */
+      <View
+        pointerEvents="none"
+        style={[styles.noBlurVeil, StyleSheet.absoluteFillObject]}
+      />
+    ) : (
     <PatchedBlurView
       pointerEvents="none"
       blurTarget={target ?? undefined}
@@ -649,7 +795,8 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
        * "leitoso"); as outras receitas continuam com `1`, o valor de
        * sempre, pra não mexer em superfície já aprovada.
        */
-      blurReductionFactor={recipe.blurReductionFactor ?? 1}
+      /* `pulsoDeInvalidate` (0 ou 1) soma uma fração imperceptível pra forçar o `expo-blur` a recalcular — ver o comentário grande em `blurAoVivo`, acima. Fora do `dock`, `blurAoVivo` é sempre `false`, então isto nunca muda nada aqui. */
+      blurReductionFactor={(recipe.blurReductionFactor ?? 1) + pulsoDeInvalidate * 0.0001}
       /**
        * CORREÇÃO #2 (a pedido, 2026-09-02, com print real depois de
        * testar) — era `"dark"` (véu escuro por cima do blur, deixava
@@ -691,8 +838,24 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
        * "sem graça" de novo), o emulador é mais velho que isso, e
        * volta a ser uma escolha entre grão (`dimezisBlurView`) ou
        * sem-blur-em-Android-velho (`dimezisBlurViewSdk31Plus`).
+       *
+       * CORREÇÃO DE ESCOPO (2026-09-17, decisão do usuário — "só era
+       * pra adicionar o blur na barra de navegação e não no restante
+       * do app", ver o comentário grande em
+       * `ANDROID_REAL_BLUR_VARIANTS`, acima) — o blur de verdade no
+       * Android agora é SÓ pra `variant === "dock"`. Todo outro
+       * `Glass` no Android cai em `"none"` (mesmo caminho que o
+       * diagnóstico de 2026-09-16 usava pro app inteiro) — sem
+       * desfoque de verdade, só o véu/gradiente da própria receita
+       * (`recipe.base`/`gradientNeutral`), visual idêntico ao que
+       * qualquer `Glass` já mostra hoje quando não existe nenhum
+       * `blurTarget` no contexto (fallback documentado, "não deveria
+       * acontecer, mas não quebra"). No iOS, sem mudança — todas as
+       * receitas continuam com blur nativo de verdade.
        */
-      blurMethod={DIAGNOSTICO_BLUR_DESLIGADO_ANDROID && Platform.OS === "android" ? "none" : "dimezisBlurViewSdk31Plus"}
+      blurMethod={
+        Platform.OS === "android" && !ANDROID_REAL_BLUR_VARIANTS.has(variant) ? "none" : "dimezisBlurViewSdk31Plus"
+      }
       /**
        * TESTE AO VIVO (2026-09-16, "faça isso") — ver o comentário
        * grande em `applyNoise`, na interface `GlassVariant`
@@ -776,6 +939,7 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
         StyleSheet.absoluteFillObject,
       ]}
     />
+    )}
     </View>
     {fundoDoChamador === undefined ? null : (
       <View style={[caixaDeBorda, { backgroundColor: fundoDoChamador }]} pointerEvents="none" />

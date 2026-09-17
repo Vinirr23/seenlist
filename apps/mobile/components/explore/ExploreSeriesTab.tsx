@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { View, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui";
@@ -28,7 +29,13 @@ import { colors, spacing } from "@/lib/theme";
  * seção agora tem `viewAllHref`, igual ao web — ver comentário
  * completo em `ExploreMoviesTab.tsx`.
  */
-export function ExploreSeriesTab() {
+/**
+ * MEMOIZADO (2026-09-17, mesmo achado/correção de `ExploreMoviesTab.tsx`
+ * — ver o comentário grande lá pro racional completo) — mesmo padrão
+ * de vários hooks independentes forçando re-render à toa dos 4
+ * `DiscoverCarousel` filhos.
+ */
+export const ExploreSeriesTab = memo(function ExploreSeriesTab() {
   const { topSeriesGenres, isLoading: favoriteGenresLoading, hasCompletedItems } = useFavoriteGenres();
   const topGenre = topSeriesGenres[0] ?? null;
   const forYou = useDiscoverByGenre("genre_series", topGenre?.genreId ?? null);
@@ -41,17 +48,46 @@ export function ExploreSeriesTab() {
   const showForYou = hasCompletedItems && (favoriteGenresLoading || !!topGenre);
   const showBecauseYouWatched = hasCompletedItems && (anchorLoading || !!anchor);
 
+  const trendingTitle = useMemo(
+    () => (
+      <View style={styles.flameTitleRow}>
+        <Ionicons name="flame" size={16} color={colors.primary} />
+        <Text variant="subtitle" style={{ color: colors.primary }}>
+          {t("seriesHome.popularSeries")}
+        </Text>
+      </View>
+    ),
+    [t]
+  );
+  const becauseYouWatchedTitle = useMemo(
+    () => (
+      <Text variant="subtitle" style={styles.title}>
+        {anchor ? highlightTitle(t("explore.discover.becauseYouWatched"), anchor.title) : "…"}
+      </Text>
+    ),
+    [t, anchor]
+  );
+  const forYouTitle = useMemo(
+    () => (
+      <Text variant="subtitle" style={styles.title}>
+        {t("explore.discover.topSeriesForYou")}
+      </Text>
+    ),
+    [t]
+  );
+  const onTheAirTitle = useMemo(
+    () => (
+      <Text variant="subtitle" style={styles.title}>
+        {t("explore.discover.onTheAir")}
+      </Text>
+    ),
+    [t]
+  );
+
   return (
     <View style={styles.wrap}>
       <DiscoverCarousel
-        title={
-          <View style={styles.flameTitleRow}>
-            <Ionicons name="flame" size={16} color={colors.primary} />
-            <Text variant="subtitle" style={{ color: colors.primary }}>
-              {t("seriesHome.popularSeries")}
-            </Text>
-          </View>
-        }
+        title={trendingTitle}
         items={trendingSeries.items}
         isLoading={trendingSeries.isLoading}
         viewAllHref="/explore/all/trending_series"
@@ -59,11 +95,7 @@ export function ExploreSeriesTab() {
 
       {showBecauseYouWatched && (
         <DiscoverCarousel
-          title={
-            <Text variant="subtitle" style={styles.title}>
-              {anchor ? highlightTitle(t("explore.discover.becauseYouWatched"), anchor.title) : "…"}
-            </Text>
-          }
+          title={becauseYouWatchedTitle}
           items={becauseYouWatched.items}
           isLoading={anchorLoading || becauseYouWatched.isLoading}
           viewAllHref={anchor ? `/explore/similar/series/${anchor.id}?title=${encodeURIComponent(anchor.title)}` : undefined}
@@ -74,11 +106,7 @@ export function ExploreSeriesTab() {
 
       {showForYou && (
         <DiscoverCarousel
-          title={
-            <Text variant="subtitle" style={styles.title}>
-              {t("explore.discover.topSeriesForYou")}
-            </Text>
-          }
+          title={forYouTitle}
           items={forYou.items}
           isLoading={favoriteGenresLoading || forYou.isLoading}
           viewAllHref={topGenre ? `/explore/genre/series/${topGenre.genreId}` : undefined}
@@ -86,18 +114,14 @@ export function ExploreSeriesTab() {
       )}
 
       <DiscoverCarousel
-        title={
-          <Text variant="subtitle" style={styles.title}>
-            {t("explore.discover.onTheAir")}
-          </Text>
-        }
+        title={onTheAirTitle}
         items={onTheAirSeries.items}
         isLoading={onTheAirSeries.isLoading}
         viewAllHref="/explore/all/on_the_air_series"
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: {

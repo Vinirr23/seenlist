@@ -9,6 +9,8 @@ import { colors, fontFamily, radius, spacing } from "@/lib/theme";
 import { Glass } from "@/components/ui/Glass";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+import { marcarToqueNaAba } from "@/lib/perfNavStamp";
 
 const UNREAD_POLL_INTERVAL_MS = 30_000;
 
@@ -393,7 +395,11 @@ export function DockNavegacao({ alvoDaTela }: { alvoDaTela: RefObject<View | nul
              * em lugar nenhum), ele só era emitido.
              */
             function handlePress() {
-              if (!focused) router.navigate(ROUTE_HREF[nome]);
+              if (!focused) {
+                // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+                marcarToqueNaAba();
+                router.navigate(ROUTE_HREF[nome]);
+              }
             }
 
             return (

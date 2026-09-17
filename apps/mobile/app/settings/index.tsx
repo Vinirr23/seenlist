@@ -217,12 +217,21 @@ export default function SettingsScreen() {
                     numberOfLines={1}
                   />
                   <Pressable onPress={handleCopyUid} hitSlop={8} accessibilityLabel={t("settings.copyUid")}>
-                    <Glass style={styles.uidCopyButton}>
+                    {/*
+                      * CORREÇÃO (2026-09-16, mesmo achado do botão "+" em
+                      * `AddToLibraryButton.tsx` — Glass aninhado dentro de
+                      * outro Glass, aqui o card da seção "Conta", não
+                      * desenha nada no iOS real, confirmado via TestFlight).
+                      * Trocado por `View` comum com o mesmo fundo/borda da
+                      * receita `card` (`lib/theme.ts`) copiados diretamente,
+                      * sem blur.
+                      */}
+                    <View style={[styles.uidCopyButton, styles.uidCopyButtonSurface]}>
                       <Feather name={uidCopied ? "check" : "copy"} size={14} color={uidCopied ? colors.success : colors.muted} />
                       <Text style={[styles.uidCopyButtonText, uidCopied && { color: colors.success }]}>
                         {uidCopied ? t("settings.copied") : t("common.copy")}
                       </Text>
-                    </Glass>
+                    </View>
                   </Pressable>
                 </View>
               </View>
@@ -300,15 +309,6 @@ export default function SettingsScreen() {
           <Text style={styles.deleteAccountBareText}>{t("settings.deleteAccount")}</Text>
         </Pressable>
 
-        {/*
-          * LINK TEMPORÁRIO, SÓ DIAGNÓSTICO (2026-09-16) — acesso pra
-          * `app/debug-grain.tsx`, a tela de teste do grão do vidro.
-          * APAGAR este bloco (e o arquivo `debug-grain.tsx`) junto,
-          * quando o diagnóstico terminar.
-          */}
-        <Pressable style={styles.deleteAccountBare} onPress={() => router.push("/debug-grain")} hitSlop={8}>
-          <Text style={[styles.deleteAccountBareText, { color: colors.muted }]}>[debug] Teste de grão</Text>
-        </Pressable>
       </ScrollView>
       </GlassTargetProvider>
 
@@ -466,6 +466,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+  },
+  // Mesma cor da receita `card` do Glass (`lib/theme.ts`) — ver comentário no JSX acima.
+  uidCopyButtonSurface: {
+    backgroundColor: "rgba(80,115,180,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   uidCopyButtonText: {
     fontSize: fontSize.xs,

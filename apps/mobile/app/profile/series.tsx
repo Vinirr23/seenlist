@@ -10,6 +10,7 @@ import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
+import { SectionTitle } from "@/components/media/SectionTitle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { colors, spacing } from "@/lib/theme";
@@ -121,9 +122,9 @@ export default function ProfileSeriesScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           stickySectionHeadersEnabled={false}
           renderSectionHeader={({ section }) => (
-            <Text variant="subtitle" style={styles.categoryTitle}>
-              {section.title}
-            </Text>
+            <View style={styles.categoryTitleRow}>
+              <SectionTitle>{section.title}</SectionTitle>
+            </View>
           )}
           renderItem={({ item: row, section }) =>
             viewMode === "grid" ? (
@@ -170,12 +171,22 @@ const styles = StyleSheet.create({
   // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
   // usa `px-4` (`spacing.md`=16) como borda de tela.
   header: {
+    /**
+     * CORREÇÃO (2026-09-16, print real — "botão de voltar, título e o
+     * que vem depois estão tudo junto") — `paddingBottom` era
+     * `spacing.sm` (8). No web (`SectionPageHeader.tsx`, componente
+     * compartilhado por TODAS essas telas lá — aqui cada tela reimplementa
+     * o próprio cabeçalho, sem componente comum), o espaço entre a linha
+     * voltar+título e o que vem a seguir é `mb-4` = 16 = `spacing.md`, o
+     * dobro do que o mobile tinha. Alinhado ao valor real do web, não a um
+     * chute.
+     */
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
   },
   content: {
     paddingHorizontal: spacing.md,
@@ -186,9 +197,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
-  categoryTitle: {
+  /**
+   * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-17, print real comparado
+   * com o web) — o título de cada categoria ("Assistindo"/"Assistir
+   * depois"/etc.) era um `<Text variant="subtitle">` cru: título
+   * grande, à esquerda, sem nada em volta. No web
+   * (`ProfileSeriesSection.tsx`), o mesmo lugar usa o `SectionTitle`
+   * compartilhado — a cápsula de vidro pequena, maiúscula, CENTRALIZADA
+   * (`mb-2 flex justify-center`) — mesmo componente que "Continue
+   * assistindo" na Home já usa certo no mobile
+   * (`components/media/SectionTitle.tsx`, já é a réplica exata do
+   * web). Bastava reaproveitar, não existia motivo pra essa tela ter
+   * ficado com o título cru. `marginBottom: spacing.sm` = `mb-2` (8) do
+   * web, igual ao que já estava.
+   */
+  categoryTitleRow: {
+    flexDirection: "row",
+    justifyContent: "center",
     marginBottom: spacing.sm,
-    backgroundColor: colors.background,
   },
   sectionGap: {
     height: spacing.lg,

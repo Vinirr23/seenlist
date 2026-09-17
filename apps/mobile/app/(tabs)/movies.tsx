@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
-import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { View, FlatList, RefreshControl, StyleSheet } from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
@@ -8,7 +8,7 @@ import { useViewModePreference } from "@/lib/useViewModePreference";
 import { useDiscoverList } from "@/lib/useDiscoverList";
 import { todayLocalKey } from "@/lib/localDate";
 import { Screen, Text, GlassTargetProvider, AmbientGlow } from "@/components/ui";
-import { PosterGrid } from "@/components/media/PosterGrid";
+import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { SectionTitle } from "@/components/media/SectionTitle";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
@@ -24,12 +24,19 @@ import { HOME_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, spacing } from "@/lib/theme";
+// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+import { logTempoDesdeOToque } from "@/lib/perfNavStamp";
 
 type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 function isReleased(releaseDate: string | null | undefined, todayKey: string): boolean {
   if (!releaseDate) return true; // sem data conhecida — trata como já lançado, mesmo padrão de "year: null" já usado no resto do app.
   return releaseDate <= todayKey;
+}
+
+/** Ver `styles.listRowSeparator`, abaixo — componente fora do corpo de `MoviesScreen` pra não ser recriado a cada render (mesma identidade sempre, embora aqui isso não afete memoização nenhuma — é só o jeito correto de declarar um `ItemSeparatorComponent` fixo). */
+function ListRowSeparator() {
+  return <View style={styles.listRowSeparator} />;
 }
 
 function upcomingLabel(releaseDate: string, todayKey: string, t: TFunction, dateFormatter: Intl.DateTimeFormat): string {
@@ -60,9 +67,13 @@ function upcomingLabel(releaseDate: string, todayKey: string, t: TFunction, date
  * automaticamente — sem precisar de nada manual.
  */
 export default function MoviesScreen() {
+  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — roda em TODO render (não só no 1º), pra ver se a tela está remontando a cada troca de aba. REMOVER junto.
+  console.log(`[PERF-DOCK] BODY Filmes renderizou em ${performance.now().toFixed(1)}ms`);
   const router = useRouter();
   const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
+  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
+  useFocusEffect(useCallback(() => { logTempoDesdeOToque("Filmes"); }, []));
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("movies-library");
   const { t, locale } = useTranslation();
@@ -77,6 +88,25 @@ export default function MoviesScreen() {
    * "séries populares"), mesma decisão do web.
    */
   const trendingMovies = useDiscoverList("trending_movies");
+  /**
+   * ESTABILIZADO (2026-09-17, réplica do fix do Perfil/Séries — "pode
+   * replicar nas outras abas") — mesmo raciocínio de
+   * `popularSeriesTitle` em `series/index.tsx`: `DiscoverCarousel`
+   * agora é `memo()`, e sem fixar a identidade deste título com
+   * `useMemo` ele seria um elemento JSX novo a cada render desta tela,
+   * nunca "igual" na comparação rasa do `memo()`.
+   */
+  const popularMoviesTitle = useMemo(
+    () => (
+      <View style={styles.flameTitleRow}>
+        <Ionicons name="flame" size={16} color={colors.primary} />
+        <Text variant="subtitle" style={{ color: colors.primary }}>
+          {t("seriesHome.popularSeries")}
+        </Text>
+      </View>
+    ),
+    [t]
+  );
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "long", year: "numeric" }),
     [locale]
@@ -109,9 +139,34 @@ export default function MoviesScreen() {
    */
   const isEmptyState = viewModeReady && !isLoading && wantToWatch.length === 0;
 
-  function handlePressItem(item: LibraryItem) {
-    router.push(`/movies/${item.id}`);
-  }
+  /**
+   * CORREÇÃO DE DESEMPENHO (2026-09-17, a pedido — mesmo achado já
+   * corrigido em "Assistir depois"/"Completadas"/"Interrompidas" de
+   * Séries, ver `FilteredSeriesListScreen.tsx`) — "Quero assistir" e
+   * "Em breve" eram desenhados com `PosterGrid` (`View`+`.map()`, sem
+   * limite), dentro de um `ScrollView`: TODOS os pôsteres eram
+   * desenhados de uma vez, cada um com seu próprio `Glass` (blur
+   * nativo de verdade no Android), mesmo os que nunca chegam a aparecer
+   * na tela sem rolar bastante. "Quero assistir" cresce com o uso do
+   * app (o usuário marca mais filmes do que assiste, sem limpar a
+   * lista sozinho) — igual às listas de Séries que já tinham essa
+   * correção. Os dois `ScrollView` viraram `FlatList` virtualizada
+   * (só desenha o que está perto da área visível), usando os mesmos
+   * `PosterGridItem`/`usePosterCardWidth` que a versão de Séries já
+   * usa. `key` no `FlatList` muda com `viewMode` de propósito: o React
+   * Native não permite trocar `numColumns` numa lista já montada (dá
+   * erro em runtime) — mudar a `key` força remontar a lista quando o
+   * usuário alterna grade/lista, o mesmo padrão de qualquer lista que
+   * alterna colunas dinamicamente.
+   */
+  const cardWidth = usePosterCardWidth();
+
+  const handlePressItem = useCallback(
+    (item: LibraryItem) => {
+      router.push(`/movies/${item.id}`);
+    },
+    [router]
+  );
 
   return (
     <Screen padded={false}>
@@ -129,110 +184,116 @@ export default function MoviesScreen() {
       </View>
 
       {tab === "minha-lista" ? (
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+        isError ? (
+          <View style={styles.content}>
+            <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
+          </View>
+        ) : !viewModeReady ? (
+          // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
+          // instante" — ver `useViewModePreference.ts`).
+          null
+        ) : isLoading ? (
+          <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
+        ) : (
+          <FlatList
+            key={`minha-lista-${viewMode}`}
+            data={wantToWatch}
+            keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+            numColumns={viewMode === "grid" ? 3 : 1}
+            columnWrapperStyle={viewMode === "grid" ? styles.gridRow : undefined}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+            contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+            ListHeaderComponent={
+              !isEmptyState ? (
+                <View style={styles.sectionHeader}>
+                  <SectionTitle>{t("moviesHome.watchlist")}</SectionTitle>
+                  <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+                </View>
+              ) : null
+            }
+            ListEmptyComponent={
+              /*
+                PORTE DO WEB (2026-09-10, auditoria — "Assistir depois"
+                vazio) — o `EmptyShelf` (card com borda tracejada) saiu
+                daqui: o web usa o `EmptyLibraryHero` (ilustração + título
+                + subtítulo + botão + divisor "OU"), solto direto em cima
+                do fundo, sem card nenhum em volta. Ver o componente novo
+                (`EmptyLibraryHero.tsx`) pro porte completo.
+              */
+              <>
+                <EmptyLibraryHero
+                  title={t("moviesHome.emptyWatchlistTitle")}
+                  subtitle={t("moviesHome.emptyWatchlistSubtitle")}
+                  actionLabel={t("moviesHome.exploreMovies")}
+                  actionHref="/(tabs)/explore"
+                  dividerLabel={t("seriesHome.or")}
+                />
+                {/** `mt-2` do web entre o divisor e a fileira "Populares". */}
+                <View style={styles.popularSection}>
+                  <DiscoverCarousel
+                    title={popularMoviesTitle}
+                    items={trendingMovies.items}
+                    isLoading={trendingMovies.isLoading}
+                    viewAllHref="/explore/all/trending_movies"
+                  />
+                </View>
+              </>
+            }
+            ItemSeparatorComponent={viewMode === "list" ? ListRowSeparator : undefined}
+            renderItem={({ item }) =>
+              viewMode === "grid" ? (
+                <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} />
+              ) : (
+                <MediaListRow item={item} onPress={handlePressItem} secondaryText={item.year ? String(item.year) : ""} />
+              )
+            }
+          />
+        )
+      ) : isError ? (
+        <View style={styles.content}>
+          <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
+        </View>
+      ) : !viewModeReady ? (
+        // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
+        // instante" — ver `useViewModePreference.ts`).
+        null
+      ) : isLoading ? (
+        <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
+      ) : (
+        <FlatList
+          key={`em-breve-${viewMode}`}
+          data={upcoming}
+          keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          numColumns={viewMode === "grid" ? 3 : 1}
+          columnWrapperStyle={viewMode === "grid" ? styles.gridRow : undefined}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
-        >
-          {!isError && !isEmptyState && (
-            <View style={styles.sectionHeader}>
-              <SectionTitle>{t("moviesHome.watchlist")}</SectionTitle>
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+          ListHeaderComponent={
+            /*
+              CORREÇÃO (2026-09-10, auditoria web — `EmBreveSection.tsx`)
+              — o web NÃO mostra título nenhum nesta aba, só o alternador
+              grade/lista alinhado à direita (`mb-2 flex items-center
+              justify-end`). Tinha um `SectionTitle` aqui que o web não
+              tem.
+            */
+            <View style={styles.upcomingHeader}>
               <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
             </View>
-          )}
-
-          {isError ? (
-            <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
-          ) : !viewModeReady ? (
-            // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
-            // instante" — ver `useViewModePreference.ts`).
-            null
-          ) : isLoading ? (
-            viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
-          ) : wantToWatch.length === 0 ? (
-            /*
-              PORTE DO WEB (2026-09-10, auditoria — "Assistir depois"
-              vazio) — o `EmptyShelf` (card com borda tracejada) saiu
-              daqui: o web usa o `EmptyLibraryHero` (ilustração + título
-              + subtítulo + botão + divisor "OU"), solto direto em cima
-              do fundo, sem card nenhum em volta. Ver o componente novo
-              (`EmptyLibraryHero.tsx`) pro porte completo.
-            */
-            <>
-              <EmptyLibraryHero
-                title={t("moviesHome.emptyWatchlistTitle")}
-                subtitle={t("moviesHome.emptyWatchlistSubtitle")}
-                actionLabel={t("moviesHome.exploreMovies")}
-                actionHref="/(tabs)/explore"
-                dividerLabel={t("seriesHome.or")}
+          }
+          ListEmptyComponent={<EmptyShelf message={t("moviesHome.emptyUpcoming")} />}
+          ItemSeparatorComponent={viewMode === "list" ? ListRowSeparator : undefined}
+          renderItem={({ item }) =>
+            viewMode === "grid" ? (
+              <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} />
+            ) : (
+              <MediaListRow
+                item={item}
+                onPress={handlePressItem}
+                secondaryText={item.releaseDate ? upcomingLabel(item.releaseDate, todayKey, t, dateFormatter) : ""}
               />
-              {/** `mt-2` do web entre o divisor e a fileira "Populares". */}
-              <View style={styles.popularSection}>
-                <DiscoverCarousel
-                  title={
-                    <View style={styles.flameTitleRow}>
-                      <Ionicons name="flame" size={16} color={colors.primary} />
-                      <Text variant="subtitle" style={{ color: colors.primary }}>
-                        {t("seriesHome.popularSeries")}
-                      </Text>
-                    </View>
-                  }
-                  items={trendingMovies.items}
-                  isLoading={trendingMovies.isLoading}
-                  viewAllHref="/explore/all/trending_movies"
-                />
-              </View>
-            </>
-          ) : viewMode === "grid" ? (
-            <PosterGrid items={wantToWatch} onPressItem={handlePressItem} />
-          ) : (
-            <View style={styles.listRows}>
-              {wantToWatch.map((item) => (
-                <MediaListRow key={item.id} item={item} onPress={handlePressItem} secondaryText={item.year ? String(item.year) : ""} />
-              ))}
-            </View>
-          )}
-        </ScrollView>
-      ) : (
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
-        >
-          {/*
-            CORREÇÃO (2026-09-10, auditoria web — `EmBreveSection.tsx`)
-            — o web NÃO mostra título nenhum nesta aba, só o alternador
-            grade/lista alinhado à direita (`mb-2 flex items-center
-            justify-end`). Tinha um `SectionTitle` aqui que o web não
-            tem.
-          */}
-          <View style={styles.upcomingHeader}>
-            <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-          </View>
-
-          {isError ? (
-            <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
-          ) : !viewModeReady ? (
-            // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
-            // instante" — ver `useViewModePreference.ts`).
-            null
-          ) : isLoading ? (
-            viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />
-          ) : upcoming.length === 0 ? (
-            <EmptyShelf message={t("moviesHome.emptyUpcoming")} />
-          ) : viewMode === "grid" ? (
-            <PosterGrid items={upcoming} onPressItem={handlePressItem} />
-          ) : (
-            <View style={styles.listRows}>
-              {upcoming.map((item) => (
-                <MediaListRow
-                  key={item.id}
-                  item={item}
-                  onPress={handlePressItem}
-                  secondaryText={item.releaseDate ? upcomingLabel(item.releaseDate, todayKey, t, dateFormatter) : ""}
-                />
-              ))}
-            </View>
-          )}
-        </ScrollView>
+            )
+          }
+        />
       )}
       </GlassTargetProvider>
     </Screen>
@@ -268,8 +329,14 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     marginBottom: spacing.sm,
   },
-  listRows: {
-    gap: spacing.sm,
+  /** Espaçamento entre pôsteres de fileiras diferentes no grid — mesmo valor de `FilteredSeriesListScreen.tsx`. */
+  gridRow: {
+    gap: POSTER_GRID_GAP,
+    marginBottom: POSTER_GRID_GAP,
+  },
+  /** `ItemSeparatorComponent` do modo lista — reproduz o `gap: spacing.sm` que o `View` antigo (`listRows`) tinha ENTRE os itens, sem sobrar espaço depois do último (o que `marginBottom` por item deixaria). */
+  listRowSeparator: {
+    height: spacing.sm,
   },
   // Mesma margem negativa de `series/index.tsx` (ver comentário lá) —
   // `DiscoverCarousel` já tem seu próprio `paddingHorizontal`, e esta
