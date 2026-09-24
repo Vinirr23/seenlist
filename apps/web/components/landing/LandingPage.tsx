@@ -811,8 +811,12 @@ function Faq() {
       a: "Sim — o SeenList importa seu histórico direto do TV Time e do Trakt, direto de dentro do app.",
     },
     {
+      // REVISÃO (2026-09-24, a pedido) — resposta desatualizada desde
+      // 2026-09-04 ("ainda está a caminho"); o app iOS já foi
+      // publicado de verdade na App Store (confirmado por instalação
+      // de terceiro).
       q: "Em quais plataformas o SeenList está disponível?",
-      a: "Nesse site (web) e no Android, pela Google Play Store. Uma versão pra iOS ainda está a caminho.",
+      a: "Nesse site (web), no Android pela Google Play Store, e no iPhone pela App Store.",
     },
     {
       q: "De onde vêm os dados de filmes e séries?",

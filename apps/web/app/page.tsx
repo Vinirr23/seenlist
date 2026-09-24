@@ -22,19 +22,26 @@ export const metadata: Metadata = {
  * 2026-09-04, a pedido — "preciso que o app ranqueie nas pesquisas do
  * Google") — isto é o que dá ao Google (inclusive à IA por trás da
  * "Visão geral criada por IA") um jeito de ENTENDER, de forma
- * estruturada, que "SeenList" = este site = este app, com um link de
+ * estruturada, que "SeenList" = este site = este app, com links de
  * download de verdade — em vez de só adivinhar a partir de texto
  * solto. Sem isso, o Google não tinha nenhuma fonte estruturada
  * apontando pro SeenList de verdade, só a fonte não-estruturada que
  * ele já achou (o app "SeenList: Track Shows & Movies" de outro
- * desenvolvedor na App Store, sem nenhuma ligação com este projeto).
+ * desenvolvedor — Mustafa Nur Kanli, o mesmo do aviso de marca
+ * registrada da Apple — na App Store, sem nenhuma ligação com este
+ * projeto).
  *
- * `operatingSystem` lista só "ANDROID" DE PROPÓSITO — o app ainda não
- * está na App Store (só na Play Store, confirmado com o usuário em
- * 2026-09-04). Assim que sair na App Store, adicionar "IOS" aqui e um
- * segundo item em `offers`/`downloadUrl` com o link real da Apple —
- * NUNCA inventar/adiantar isso, dado estruturado errado é pior do que
- * nenhum (o Google pode penalizar por informação enganosa).
+ * REVISÃO (2026-09-24, a pedido) — app iOS ("SeenList: Séries e
+ * Filmes", App ID 6812850654) confirmado publicado de verdade na App
+ * Store (confirmado por instalação de terceiro, não só pela ficha
+ * pública — o Connect ainda mostrava "Ready for Distribution"
+ * desatualizado no momento desta mudança). Virou DOIS objetos
+ * `SoftwareApplication` (um por loja, cada um com seu próprio `@id`,
+ * `operatingSystem`, `offers.priceCurrency` e `downloadUrl`) em vez de
+ * um `operatingSystem` combinado — é o formato que o Google recomenda
+ * pra apps multiplataforma, permite cada loja ter seu preço/moeda
+ * corretos, e evita reintroduzir o mesmo tipo de dado ambíguo que
+ * causava a confusão com o Seenr.
  *
  * Sem `aggregateRating`/`review` de propósito também — o SeenList
  * ainda não tem avaliação nenhuma nas lojas; inventar uma nota
@@ -42,23 +49,24 @@ export const metadata: Metadata = {
  * estruturado tem que refletir o que existe de verdade na página/no
  * app).
  */
-const SOFTWARE_APPLICATION_JSON_LD = {
+const SHARED_APP_FIELDS = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  // REVISÃO (2026-09-16) — `@id` estável: identifica esta entidade de
-  // forma única e reutilizável (outros dados estruturados do site
-  // podem referenciar "https://seenlist.app/#app" em vez de duplicar o
-  // objeto inteiro). `image` aponta pro logo oficial já servido em
-  // `public/logo.png` (mesmo arquivo usado no <Header> — ver
+  name: "SeenList",
+  url: "https://seenlist.app",
+  // `image` aponta pro logo oficial já servido em `public/logo.png`
+  // (mesmo arquivo usado no <Header> — ver
   // `components/landing/shared.tsx` — e nos ícones do app) — URL
   // absoluta porque JSON-LD não resolve caminho relativo contra
   // `metadataBase` como o resto do `Metadata` da página resolve.
-  "@id": "https://seenlist.app/#app",
-  name: "SeenList",
-  url: "https://seenlist.app",
   image: "https://seenlist.app/logo.png",
   description: "Acompanhe episódio por episódio, avalie séries e filmes, escreva resenhas, monte listas e siga amigos — tudo num só lugar.",
   applicationCategory: "EntertainmentApplication",
+} as const;
+
+const ANDROID_APP_JSON_LD = {
+  ...SHARED_APP_FIELDS,
+  "@id": "https://seenlist.app/#app-android",
   operatingSystem: "ANDROID",
   offers: {
     "@type": "Offer",
@@ -66,6 +74,18 @@ const SOFTWARE_APPLICATION_JSON_LD = {
     priceCurrency: "BRL",
   },
   downloadUrl: "https://play.google.com/store/apps/details?id=com.seenlist.app",
+};
+
+const IOS_APP_JSON_LD = {
+  ...SHARED_APP_FIELDS,
+  "@id": "https://seenlist.app/#app-ios",
+  operatingSystem: "IOS",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+  downloadUrl: "https://apps.apple.com/app/seenlist-s%C3%A9ries-e-filmes/id6812850654",
 };
 
 /**
@@ -97,7 +117,12 @@ export default async function RootPage() {
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger -- JSON.stringify de um objeto literal fixo aqui em cima, não de dado de usuário/externo — nada pra sanitizar.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(SOFTWARE_APPLICATION_JSON_LD) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(ANDROID_APP_JSON_LD) }}
+      />
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger -- JSON.stringify de um objeto literal fixo aqui em cima, não de dado de usuário/externo — nada pra sanitizar.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(IOS_APP_JSON_LD) }}
       />
       <LandingPage />
     </>

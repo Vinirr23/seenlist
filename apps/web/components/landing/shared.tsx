@@ -138,6 +138,14 @@ export const SOCIAL_LINKS = [
  * (`LandingPage.tsx`) e agora aqui no rodapé de novo (a pedido —
  * "coloca no final novamente o badge"). Extraído pra não duplicar o
  * JSX das duas cópias.
+ *
+ * REVISÃO (2026-09-24, a pedido — "atualiza as páginas onde tem que o
+ * app 'vai chegar em breve pra iOS'") — o selo da App Store estava
+ * fixo em "Em breve" desde 2026-09-04 (data em que só o Android
+ * existia). Confirmado nesta sessão que o app iOS ("SeenList: Séries
+ * e Filmes", App ID 6812850654) já foi aprovado E liberado de verdade
+ * (instalação de terceiro confirmada) — por isso virou link real,
+ * igual ao do Google Play, com o app id de verdade.
  */
 export function StoreBadges({ className = "" }: { className?: string }) {
   return (
@@ -154,13 +162,18 @@ export function StoreBadges({ className = "" }: { className?: string }) {
           <span className="text-xs font-bold text-text">Google Play</span>
         </span>
       </Link>
-      <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-background/60 px-4 py-2.5 opacity-60">
+      <Link
+        href="https://apps.apple.com/app/seenlist-s%C3%A9ries-e-filmes/id6812850654"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2.5 rounded-xl border border-border bg-background px-4 py-2.5 transition-colors hover:border-primary/50"
+      >
         <Apple className="h-5 w-5" />
         <span className="flex flex-col items-start leading-tight">
-          <span className="text-[9px] uppercase tracking-wide text-muted">Em breve na</span>
-          <span className="text-xs font-bold text-muted">App Store</span>
+          <span className="text-[9px] uppercase tracking-wide text-muted">Disponível na</span>
+          <span className="text-xs font-bold text-text">App Store</span>
         </span>
-      </div>
+      </Link>
     </div>
   );
 }

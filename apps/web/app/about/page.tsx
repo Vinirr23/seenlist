@@ -131,9 +131,13 @@ export default function AboutPage() {
          * mencionar o app de terceiros (não há necessidade — e citar
          * o nome dele só ajudaria a confundir busca). `<StoreBadges />`
          * reaproveitada tal e qual (mesmo componente do rodapé da
-         * landing) em vez de criar um link novo — já tem o Google Play
-         * como link direto e o selo "Em breve na App Store", que já diz
-         * sozinho que o iOS ainda não foi lançado.
+         * landing) em vez de criar um link novo.
+         *
+         * REVISÃO (2026-09-24) — comentário acima desatualizado desde
+         * então: `StoreBadges` trocou o selo "Em breve na App Store"
+         * por um link real assim que o app iOS foi confirmado
+         * publicado (ver `shared.tsx`) — agora os dois selos linkam
+         * direto pra loja de verdade.
          */}
         <p className="mx-auto mt-4 max-w-xl text-pretty text-base leading-relaxed text-muted">
           <strong className="font-bold text-text">seenlist.app</strong> é o site oficial do
