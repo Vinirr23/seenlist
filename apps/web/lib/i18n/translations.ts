@@ -258,6 +258,13 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     "seriesHome.continueWatching": "Continue assistindo",
     "seriesHome.viewAllContinueWatching": "Ver tudo",
+    /**
+     * A PEDIDO (2026-09-22, "Continue de onde parou" — mesma mudança
+     * no mobile, ver `translations.ts` de lá pro comentário completo)
+     * — título da seção "Faz um tempo que você não assiste" ganhou
+     * chave de tradução pela primeira vez (era texto literal antes).
+     */
+    "seriesHome.continueWhereYouLeftOff": "Continue de onde parou",
     "seriesHome.loadingMessage": "Já estamos quase lá...",
     "seriesHome.completed": "Concluídas",
     "seriesHome.paused": "Interrompidas",
@@ -569,6 +576,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "androidPromo.featureSync": "Sincroniza com a web",
     "androidPromo.availableFor": "Disponível para",
     "androidPromo.cta": "Baixar na Play Store",
+    // NOVA (2026-09-24, a pedido — "estende agora" o banner de
+    // promoção do app pra iOS também, já que o app saiu de verdade na
+    // App Store) — namespace continua "androidPromo" por continuidade
+    // (as chaves acima são genéricas, só esta muda por loja).
+    "androidPromo.ctaIos": "Baixar na App Store",
     "moviesHome.emptyUpcoming": "Nenhum filme da sua lista 'Assistir depois' tem estreia futura conhecida.",
     "moviesHome.emptyWatching": "Você ainda não adicionou nenhum filme.",
     "moviesHome.exploreMovies": "Explorar filmes",
@@ -1093,6 +1105,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     "seriesHome.continueWatching": "Continue watching",
     "seriesHome.viewAllContinueWatching": "View all",
+    "seriesHome.continueWhereYouLeftOff": "Pick up where you left off",
     "seriesHome.loadingMessage": "Almost there...",
     "seriesHome.completed": "Completed",
     "seriesHome.paused": "Paused",
@@ -1404,6 +1417,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "androidPromo.featureSync": "Syncs with the web",
     "androidPromo.availableFor": "Available for",
     "androidPromo.cta": "Download on Play Store",
+    "androidPromo.ctaIos": "Download on the App Store",
     "moviesHome.emptyUpcoming": "No movies in your 'Watch later' list have a known future release.",
     "moviesHome.emptyWatching": "You haven't added any movies yet.",
     "moviesHome.exploreMovies": "Explore movies",
@@ -1910,6 +1924,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     "seriesHome.continueWatching": "Continuar viendo",
     "seriesHome.viewAllContinueWatching": "Ver todo",
+    "seriesHome.continueWhereYouLeftOff": "Retoma donde lo dejaste",
     "seriesHome.loadingMessage": "Ya casi llegamos...",
     "seriesHome.completed": "Completadas",
     "seriesHome.paused": "Pausadas",
@@ -2221,6 +2236,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "androidPromo.featureSync": "Se sincroniza con la web",
     "androidPromo.availableFor": "Disponible para",
     "androidPromo.cta": "Descargar en Play Store",
+    "androidPromo.ctaIos": "Descargar en App Store",
     "moviesHome.emptyUpcoming": "Ninguna película de tu lista 'Ver más tarde' tiene un estreno futuro conocido.",
     "moviesHome.emptyWatching": "Todavía no agregaste ninguna película.",
     "moviesHome.exploreMovies": "Explorar películas",

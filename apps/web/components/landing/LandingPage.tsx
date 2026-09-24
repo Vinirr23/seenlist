@@ -17,6 +17,7 @@ import {
   Footer,
   StoreBadges,
   AndroidIcon,
+  Apple,
 } from "./shared";
 
 /**
@@ -291,7 +292,8 @@ function Hero({ posters }: { posters: LandingItem[] }) {
 
       <div className="absolute inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 pb-16 pt-10 text-center sm:px-8 sm:pb-20">
         <h1 className="text-balance text-4xl font-extrabold leading-[1.08] tracking-tight text-text sm:text-5xl lg:text-[3.4rem]">
-          Filmes e séries, tudo que você assiste, <span className="text-primary">num só lugar</span>.
+          {/* REVISÃO (2026-09-24, a pedido) — título trocado de "Filmes e séries, tudo que você assiste, num só lugar." */}
+          Organize e acompanhe tudo que você assiste, <span className="text-primary">num só lugar</span>.
         </h1>
 
         <Link
@@ -305,9 +307,24 @@ function Hero({ posters }: { posters: LandingItem[] }) {
           </span>
         </Link>
 
-        <p className="flex items-center gap-1.5 text-xs text-text/60">
-          Também disponível para Android
-          <AndroidIcon className="h-4 w-4" />
+        {/*
+         * CORREÇÃO (2026-09-24, achado real — a pedido "atualiza e
+         * checa vê se tem outras partes desatualizadas") — essa linha
+         * do hero tinha ficado de fora da revisão de "Em breve na App
+         * Store" (fixada só em `StoreBadges`/FAQ): mencionava só
+         * Android, mesmo com o app já publicado de verdade no iOS.
+         *
+         * REVISÃO (mesmo pedido, "deixa essa parte mais visivel") —
+         * texto reduzido de "Também disponível..." pra "Disponível...",
+         * e o tamanho/peso/opacidade subiram (de `text-xs text-text/60`
+         * pra `text-sm font-semibold text-text/85`) — mesma cor de
+         * texto do resto do hero, só mais discreta que o título, em vez
+         * de quase invisível como estava.
+         */}
+        <p className="flex items-center gap-2 text-sm font-semibold text-text/85">
+          Disponível para Android e iOS
+          <AndroidIcon className="h-5 w-5" />
+          <Apple className="h-5 w-5" />
         </p>
       </div>
     </section>

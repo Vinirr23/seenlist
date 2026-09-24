@@ -1,5 +1,5 @@
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
-import { AndroidAppPromoBanner } from "@/components/layout/AndroidAppPromoBanner";
+import { MobileAppPromoBanner } from "@/components/layout/MobileAppPromoBanner";
 import { YearInReviewModal } from "@/components/profile/YearInReviewModal";
 
 /**
@@ -17,7 +17,10 @@ import { YearInReviewModal } from "@/components/profile/YearInReviewModal";
  * `BetaPromoBanner` (o pop-up "Participe do nosso beta!") removido
  * antes — a fase de convite/teste fechado do Android já não fazia
  * mais sentido. No lugar dele, a pedido: `AndroidAppPromoBanner`,
- * anunciando que o app já está disponível pra valer na Play Store.
+ * anunciando que o app já está disponível pra valer na Play Store —
+ * RENOMEADO pra `MobileAppPromoBanner` (2026-09-24, a pedido) quando
+ * passou a cobrir iOS também, depois do app sair de verdade na App
+ * Store (ver comentário completo dentro do próprio componente).
  *
  * `YearInReviewModal` (a pedido, "Seu ano") — só se torna visível
  * de verdade em dezembro/janeiro (ver o componente). Risco baixo,
@@ -72,7 +75,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     // essa regra, igual `visible`, então o outro eixo (`overflow-y`)
     // permanece genuinamente `visible`, sem segunda área de rolagem.
     <div className="min-h-dvh overflow-x-clip bg-background">
-      <AndroidAppPromoBanner />
+      <MobileAppPromoBanner />
       <YearInReviewModal />
       {children}
 
