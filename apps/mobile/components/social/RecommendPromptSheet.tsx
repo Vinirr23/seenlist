@@ -2,8 +2,9 @@ import { View, Modal, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text, Button } from "@/components/ui";
+import { Text, Button, Glass } from "@/components/ui";
 import { colors, radius, spacing, fontSize, scrim, elevation } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * A PEDIDO — convite pra recomendar, mostrado depois de uma
@@ -29,6 +30,7 @@ export function RecommendPromptSheet({
   onRecommend: () => void;
   onDismiss: () => void;
 }) {
+  const { t } = useTranslation();
   const posterUrl = tmdbImageUrl(posterPath, "w185");
 
   return (
@@ -36,7 +38,7 @@ export function RecommendPromptSheet({
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
 
-        <View style={styles.sheet}>
+        <Glass style={styles.sheet} variant="dark">
           <View style={styles.row}>
             <View style={styles.poster}>
               {posterUrl && <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />}
@@ -53,11 +55,12 @@ export function RecommendPromptSheet({
                   />
                 ))}
               </View>
+              {/* CORREÇÃO (FASE 2, strings hardcoded, 2026-09-26) — as 4 strings desta folha eram texto literal, sem passar por `t()`. */}
               <Text style={styles.title} numberOfLines={2}>
-                Você gostou de {mediaTitle}!
+                {t("social.recommendPromptTitle", { mediaTitle })}
               </Text>
               <Text variant="muted" style={styles.subtitle}>
-                Tem alguém que também ia gostar?
+                {t("social.recommendPromptSubtitle")}
               </Text>
             </View>
           </View>
@@ -65,14 +68,14 @@ export function RecommendPromptSheet({
           <View style={styles.actions}>
             <Pressable style={styles.dismissButton} onPress={onDismiss} hitSlop={8}>
               <Text variant="muted" style={styles.dismissText}>
-                Agora não
+                {t("social.recommendPromptDismiss")}
               </Text>
             </Pressable>
             <View style={styles.recommendButton}>
-              <Button onPress={onRecommend}>Recomendar</Button>
+              <Button onPress={onRecommend}>{t("social.recommendPromptCta")}</Button>
             </View>
           </View>
-        </View>
+        </Glass>
       </View>
     </Modal>
   );
@@ -84,9 +87,12 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: scrim.modal,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — `backgroundColor`
+  // sólido saiu (vira `<Glass variant="dark">`, mesmo padrão dos outros
+  // sheets do app); `elevation.high` (sombra) é independente do fundo,
+  // continua aqui.
   sheet: {
     ...elevation.high,
-    backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     padding: spacing.lg,

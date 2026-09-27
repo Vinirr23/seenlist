@@ -6,3 +6,4 @@ export * from "./Skeleton";
 export * from "./PressableScale";
 export * from "./SlidingTabs";
 export * from "./Glass";
+export * from "./ScreenHeader";

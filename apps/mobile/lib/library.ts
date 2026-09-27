@@ -21,6 +21,15 @@ interface SeriesStatusRow {
 export interface MediaSummary {
   id: number;
   title: string;
+  /**
+   * NOVO (a pedido, 2026-09-27 — "quero que a pesquisa [do seletor de
+   * banner] funcione independente de idioma") — título ORIGINAL da
+   * TMDB. Vem de graça na MESMA busca de resumo (`/api/tmdb/
+   * library-summaries`, que já lê/grava isso em `media_summaries_cache`
+   * — ver migração `20260927000000_media_summaries_cache_original_title.sql`) —
+   * nenhuma chamada nova.
+   */
+  originalTitle?: string;
   year: number | null;
   posterPath: string | null;
   totalEpisodes?: number;
@@ -281,6 +290,7 @@ function buildLibraryItemsFromRows(
       updatedAt: entry.updatedAt,
       lastActivityAt: entry.updatedAt,
       title: summary?.title ?? `Filme #${entry.movieId}`,
+      originalTitle: summary?.originalTitle,
       year: summary?.year ?? null,
       posterPath: summary?.posterPath ?? null,
       runtimeMinutes: summary?.runtimeMinutes,
@@ -301,6 +311,7 @@ function buildLibraryItemsFromRows(
       updatedAt: entry.updatedAt,
       lastActivityAt: entry.lastActivityAt,
       title: summary?.title ?? `Série #${entry.seriesId}`,
+      originalTitle: summary?.originalTitle,
       year: summary?.year ?? null,
       posterPath: summary?.posterPath ?? null,
       progress: {
@@ -324,7 +335,47 @@ function buildLibraryItemsFromRows(
  * decora depois com poster/título — mesma ordem de responsabilidades
  * do web.
  */
-export async function fetchLibraryItems(userId?: string, language = "pt-BR"): Promise<LibraryItem[]> {
+/**
+ * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance — item
+ * 2 da Etapa 1B: "Explorar — deduplicar busca da biblioteca") —
+ * `useFavoriteGenres` e `useAnchorTitle` cada um chama seu próprio
+ * `useLibraryItems()` (arquivo separado, `useState`/`useEffect`
+ * próprios, sem nada em comum entre as duas instâncias) — como as
+ * duas são usadas na MESMA tela (`ExploreMoviesTab`/`ExploreSeriesTab`),
+ * abrir a aba Explorar disparava 2 buscas completas e independentes
+ * da Biblioteca em paralelo, a mesma consulta pesada (contagem +
+ * páginas de `series_status`/`movie_status` + TMDB), sem nenhuma
+ * aproveitar o resultado da outra.
+ *
+ * Fix: deduplicação de PROMISE EM VOO, no nível mais baixo possível
+ * (aqui, não em cada hook) — assim todo chamador de `fetchLibraryItems`
+ * ganha o benefício (`useLibraryItems.ts`, `useProfileStats.ts`,
+ * `upcomingEpisodes.ts`, `LibraryImagePickerSheet.tsx`, além dos dois
+ * hooks do Explorar), sem duplicar a lógica de dedup em cada um.
+ * Chamadas concorrentes com o MESMO `userId`+`language` compartilham a
+ * mesma promise; uma vez resolvida (sucesso ou erro), a entrada sai do
+ * mapa — a PRÓXIMA chamada (ex.: puxar-pra-atualizar) sempre dispara
+ * uma busca de rede nova, sem cache "preso". Nenhuma mudança de
+ * arquitetura nova: é o mesmo princípio já usado em
+ * `fetchDisplaySummariesCached`/`seriesDetailsCache`, só que sem TTL —
+ * aqui o objetivo é só evitar o "mesmo pedido 2x ao mesmo tempo", não
+ * cachear entre pedidos diferentes.
+ */
+const libraryItemsInFlight = new Map<string, Promise<LibraryItem[]>>();
+
+export function fetchLibraryItems(userId?: string, language = "pt-BR"): Promise<LibraryItem[]> {
+  const key = `${userId ?? "self"}:${language}`;
+  const inFlight = libraryItemsInFlight.get(key);
+  if (inFlight) return inFlight;
+
+  const promise = fetchLibraryItemsUncached(userId, language).finally(() => {
+    libraryItemsInFlight.delete(key);
+  });
+  libraryItemsInFlight.set(key, promise);
+  return promise;
+}
+
+async function fetchLibraryItemsUncached(userId?: string, language = "pt-BR"): Promise<LibraryItem[]> {
   let targetUserId = userId;
   if (!targetUserId) {
     const {
@@ -368,10 +419,36 @@ export async function fetchLibraryItems(userId?: string, language = "pt-BR"): Pr
   const seriesStatusError = seriesStatusPages.find((p) => p.error)?.error;
   const seriesStatusData = seriesStatusPages.flatMap((p) => p.data ?? []);
 
-  const [movieResult, episodeStats] = await Promise.all([
-    supabase.from("movie_status").select("movie_id, status, created_at, updated_at").eq("user_id", targetUserId),
+  /*
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-27, auditoria de performance —
+   * item 9.1: "movie_status — paginação") — `series_status` (acima)
+   * já tem a paginação por causa do corte padrão de 1000 linhas do
+   * Supabase/PostgREST; `movie_status`, a tabela irmã, usava uma
+   * consulta simples sem paginação nenhuma — usuário com mais de 1000
+   * filmes marcados teria filmes "sumindo" silenciosamente da
+   * Biblioteca. Mesmo princípio exato já aplicado acima: contagem
+   * primeiro, depois páginas de 1000 em paralelo, ordenadas por
+   * `movie_id` (mesma razão do `.order("series_id")` acima — sem ordem
+   * explícita o Postgres não garante o mesmo recorte de página entre
+   * chamadas paralelas).
+   */
+  const [movieStatusCountResult, episodeStats] = await Promise.all([
+    supabase.from("movie_status").select("movie_id", { count: "exact", head: true }).eq("user_id", targetUserId),
     fetchWatchedEpisodeStats(targetUserId),
   ]);
+  const MOVIE_STATUS_PAGE_SIZE = 1000;
+  const movieStatusPages = await Promise.all(
+    Array.from({ length: Math.ceil((movieStatusCountResult.count ?? 0) / MOVIE_STATUS_PAGE_SIZE) }, (_, i) =>
+      supabase
+        .from("movie_status")
+        .select("movie_id, status, created_at, updated_at")
+        .eq("user_id", targetUserId)
+        .order("movie_id", { ascending: true })
+        .range(i * MOVIE_STATUS_PAGE_SIZE, i * MOVIE_STATUS_PAGE_SIZE + MOVIE_STATUS_PAGE_SIZE - 1)
+    )
+  );
+  const movieStatusError = movieStatusPages.find((p) => p.error)?.error;
+  const movieResult = { data: movieStatusPages.flatMap((p) => p.data ?? []), error: movieStatusError };
   const seriesResult = { data: seriesStatusData, error: seriesStatusError };
 
   if (movieResult.error) throw movieResult.error;

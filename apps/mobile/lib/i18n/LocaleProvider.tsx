@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Localization from "expo-localization";
 import { translations, DEFAULT_LOCALE, matchSupportedLocale, type Locale } from "./translations";
@@ -46,12 +46,19 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  function setLocale(next: Locale) {
+  // CORREÇÃO DE DESEMPENHO (2026-09-27, Etapa 1B, item 3) — antes era
+  // `function setLocale(...)` solta, recriada a cada render; envolvida
+  // em `useCallback` com deps `[]` (não fecha sobre nada que mude —
+  // `setLocaleState` é a função de estado do `useState`, garantida
+  // estável pelo React, e `STORAGE_KEY` é constante do módulo) pra ter
+  // identidade estável de verdade, sem precisar de nenhum
+  // eslint-disable no `useMemo` do `value` logo abaixo.
+  const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
     AsyncStorage.setItem(STORAGE_KEY, next).catch((error) => {
       console.error("[LocaleProvider] Falha ao salvar idioma", error);
     });
-  }
+  }, []);
 
   const t = useMemo(() => {
     return (key: string, vars?: Record<string, string | number>) => {
@@ -66,9 +73,26 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     };
   }, [locale]);
 
-  return (
-    <LocaleContext.Provider value={{ locale, setLocale, t, isLoading }}>{children}</LocaleContext.Provider>
+  /*
+   * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance —
+   * item 3 da Etapa 1B: "LocaleProvider — identidade estável do
+   * contexto") — o `value` era um objeto literal criado INLINE aqui,
+   * uma referência nova a cada render deste provider (que envolve o
+   * app inteiro, em `app/_layout.tsx`). Isso derruba a comparação rasa
+   * de Context pra todo componente que usa `useTranslation()` (130+
+   * arquivos), inclusive dentro de `memo()` — `memo` não blinda contra
+   * mudança de Context consumido internamente. `AuthProvider.tsx` já
+   * resolve isso com `useMemo`; mesmo princípio aqui. Puramente
+   * técnico: `t`/`setLocale`/`locale`/`isLoading` continuam
+   * exatamente os mesmos, só a IDENTIDADE do objeto que os agrupa
+   * passa a ser estável entre renders que não mudam nenhum deles.
+   */
+  const value = useMemo<LocaleContextValue>(
+    () => ({ locale, setLocale, t, isLoading }),
+    [locale, setLocale, t, isLoading]
   );
+
+  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 
 export function useTranslation() {

@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet } from "react-native";
+import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet, Image } from "react-native";
 import { Link, useRouter } from "expo-router";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Screen, Text, Input, Button } from "@/components/ui";
 import { AuthBrand } from "@/components/auth/AuthBrand";
-import { colors, spacing, fontSize } from "@/lib/theme";
+import { colors, spacing, fontSize, radius } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+
+/** PARIDADE COM O WEB (2026-09-22) — ver comentário completo em `login.tsx` (mesmo grupo de rotas, mesma causa raiz). */
+const GOOGLE_ICON = require("../../assets/images/google-icon.png");
 
 /**
  * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
@@ -14,7 +18,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  */
 export default function RegisterScreen() {
   const router = useRouter();
-  const { signUpWithEmail, signInWithGoogle } = useAuth();
+  const { signUpWithEmail, signInWithGoogle, signInWithApple } = useAuth();
   const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
@@ -24,6 +28,7 @@ export default function RegisterScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   async function handleSignUp() {
     setError(null);
@@ -54,7 +59,20 @@ export default function RegisterScreen() {
     router.replace("/(tabs)/series");
   }
 
-  const busy = loading || googleLoading;
+  /** REQUISITO DA APP STORE (2026-09-22) — ver comentário grande em `AuthProvider.tsx`, `signInWithApple`, e em `login.tsx`. */
+  async function handleAppleSignUp() {
+    setError(null);
+    setAppleLoading(true);
+    const result = await signInWithApple();
+    setAppleLoading(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    router.replace("/(tabs)/series");
+  }
+
+  const busy = loading || googleLoading || appleLoading;
 
   return (
     <Screen bottomInset padded={false}>
@@ -71,7 +89,28 @@ export default function RegisterScreen() {
               </Text>
             </View>
 
-            <Button variant="outline" onPress={handleGoogleSignUp} loading={googleLoading} disabled={busy && !googleLoading}>
+            {/* REQUISITO DA APP STORE (2026-09-22) — ver comentário grande no mesmo lugar em `login.tsx`. */}
+            {Platform.OS === "ios" && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={radius.md}
+                style={[styles.appleButton, busy && !appleLoading && styles.appleButtonDisabled]}
+                // BUG REAL CORRIGIDO (achado por `npx tsc --noEmit`, 2026-09-22) — ver comentário completo no mesmo lugar em `login.tsx`, mesma causa raiz (`onPress` de `AppleAuthenticationButton` é obrigatório, `undefined` nunca deveria ter compilado).
+                onPress={() => {
+                  if (busy && !appleLoading) return;
+                  handleAppleSignUp();
+                }}
+              />
+            )}
+
+            <Button
+              variant="outline"
+              onPress={handleGoogleSignUp}
+              loading={googleLoading}
+              disabled={busy && !googleLoading}
+              icon={<Image source={GOOGLE_ICON} style={styles.googleIcon} />}
+            >
               {t("auth.continueWithGoogle")}
             </Button>
 
@@ -146,6 +185,18 @@ const styles = StyleSheet.create({
   // campos do formulário, não borda de tela; fora do escopo.
   content: {
     gap: spacing.lg,
+  },
+  /** Mesma altura mínima do `Button` (`minHeight: 48`) — ver `login.tsx`. */
+  appleButton: {
+    height: 48,
+  },
+  appleButtonDisabled: {
+    opacity: 0.5,
+  },
+  /** Mesmo tamanho (16px) do `<GoogleIcon />` do web. */
+  googleIcon: {
+    width: 16,
+    height: 16,
   },
   subtitle: {
     marginTop: spacing.xs,

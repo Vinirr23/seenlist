@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { Text, GelSurface } from "@/components/ui";
 import { colors, fontSize, radius, spacing } from "@/lib/theme";
 
-const EMPTY_LIBRARY_SCENE = require("../../assets/images/empty-library-scene.png") as ImageSourcePropType;
+const EMPTY_LIBRARY_SCENE = require("../../assets/images/empty-library-scene.webp") as ImageSourcePropType;
 
 /**
  * PORTE DO WEB (2026-09-10, achado numa auditoria — Séries/Filmes com
@@ -19,11 +19,25 @@ const EMPTY_LIBRARY_SCENE = require("../../assets/images/empty-library-scene.png
  * do web; `EmptyShelf` continua existindo pros outros usos (esses,
  * sim, são cards de verdade no web também).
  *
- * A imagem (`empty-library-scene.png`, luminária + gato dormindo +
- * pipoca + planta) é o MESMO arquivo PNG do web, copiado sem
- * reprocessar — real canal alfa, sem retângulo de fundo (ver
- * comentário completo no arquivo do web sobre a conferência pixel a
- * pixel que confirmou isso antes de usar).
+ * A imagem (luminária + gato dormindo + pipoca + planta) é o MESMO
+ * conteúdo do PNG original do web, copiado sem reprocessar — real
+ * canal alfa, sem retângulo de fundo (ver comentário completo no
+ * arquivo do web sobre a conferência pixel a pixel que confirmou isso
+ * antes de usar).
+ *
+ * OTIMIZAÇÃO (2026-09-22, a pedido — Play Console apontou "Resources"
+ * do APK crescendo, e recomendou "otimização de imagens de bitmap")
+ * — convertido de `.png` (1,8 MB) pra `.webp` SEM PERDA (`lossless`,
+ * não `quality`), verificado programaticamente contra o PNG original
+ * pixel a pixel: nos pixels VISÍVEIS (alpha > 0) a diferença é ZERO em
+ * todos os canais — só os pixels totalmente transparentes têm RGB
+ * "bagunçado" diferente do original, o que não importa (invisível por
+ * definição, alpha=0). Ou seja, mantém a mesma conferência pixel a
+ * pixel contra o web já validada acima, só que com metade do peso
+ * (874 KB). O `.png` antigo (`empty-library-scene.png`) ficou órfão em
+ * `assets/images/` — sem nenhum `require()` apontando pra ele agora,
+ * não entra mais no bundle, mas continua no repositório até alguém
+ * apagar o arquivo.
  */
 export function EmptyLibraryHero({
   title,
@@ -85,9 +99,10 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  /** `text-xl font-bold text-text` = 20px (a escala do app não tem 20 exato — `fontSize.xl` é 22). */
+  /** `text-xl font-bold text-text` = 20px. */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.lgPlus` (era literal 20, mesmo valor).
   title: {
-    fontSize: 20,
+    fontSize: fontSize.lgPlus,
     fontWeight: "700",
     color: colors.text,
     textAlign: "center",
@@ -119,8 +134,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   /** `text-[15px] font-bold text-background`. */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26, decisão do usuário) — token formalizado `fontSize.smPlus` (mesmo valor).
   actionText: {
-    fontSize: 15,
+    fontSize: fontSize.smPlus,
     fontWeight: "700",
     color: colors.background,
   },

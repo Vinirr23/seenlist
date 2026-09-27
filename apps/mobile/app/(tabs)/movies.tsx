@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { View, FlatList, RefreshControl, StyleSheet } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
@@ -24,8 +24,6 @@ import { HOME_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, spacing } from "@/lib/theme";
-// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-import { logTempoDesdeOToque } from "@/lib/perfNavStamp";
 
 type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -67,13 +65,9 @@ function upcomingLabel(releaseDate: string, todayKey: string, t: TFunction, date
  * automaticamente — sem precisar de nada manual.
  */
 export default function MoviesScreen() {
-  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — roda em TODO render (não só no 1º), pra ver se a tela está remontando a cada troca de aba. REMOVER junto.
-  console.log(`[PERF-DOCK] BODY Filmes renderizou em ${performance.now().toFixed(1)}ms`);
   const router = useRouter();
   const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
-  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-  useFocusEffect(useCallback(() => { logTempoDesdeOToque("Filmes"); }, []));
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("movies-library");
   const { t, locale } = useTranslation();

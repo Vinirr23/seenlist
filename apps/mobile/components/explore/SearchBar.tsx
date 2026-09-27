@@ -134,7 +134,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
-    fontSize: 11,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+    fontSize: fontSize.xxs,
     letterSpacing: 0.5,
   },
   historyRow: {

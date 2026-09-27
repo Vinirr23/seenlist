@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { View, StyleSheet, Pressable, useWindowDimensions } from "react-native";
+import { View, StyleSheet, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
@@ -141,16 +141,16 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: GAP,
   },
-  /* `rounded-lg` = 8 no web; era `radius.md` = 10 (a escala do app não tem 8). */
+  /* `rounded-lg` = 8 no web = `radius.poster` (FASE 2, 2026-09-26 — token formalizado pra esse papel: pôster/thumbnail de card numa lista/grade). */
   card: {
     ...elevation.low,
-    borderRadius: 8,
+    borderRadius: radius.poster,
   },
   /** Borda e fundo saíram: quem desenha é o `Glass` (receita `medium`). */
   posterWrapper: {
     width: "100%",
     aspectRatio: 2 / 3,
-    borderRadius: 8,
+    borderRadius: radius.poster,
     overflow: "hidden",
   },
   poster: {

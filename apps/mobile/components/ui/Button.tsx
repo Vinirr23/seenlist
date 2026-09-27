@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, type PressableProps } from "react-native";
 import { colors, radius, spacing } from "@/lib/theme";
 import { Text } from "./Text";
@@ -8,6 +9,16 @@ export interface ButtonProps extends Omit<PressableProps, "children"> {
   children: string;
   variant?: ButtonVariant;
   loading?: boolean;
+  /**
+   * NOVO (2026-09-22, achado real — o botão "Continuar com Google" no
+   * web tem o logo oficial colorido do Google do lado do texto
+   * (`components/auth/GoogleButton.tsx` do web, `<GoogleIcon />`); a
+   * versão mobile nunca portou isso, só o texto — reportado pelo
+   * usuário ao comparar com o botão nativo da Apple, que já vem com
+   * ícone por ser componente oficial da Apple. Opcional e sem efeito
+   * nenhum nos outros botões do app (todos continuam sem ícone).
+   */
+  icon?: ReactNode;
 }
 
 /**
@@ -16,7 +27,7 @@ export interface ButtonProps extends Omit<PressableProps, "children"> {
  * com React Native). Mesmos tokens de cor, comportamento próprio de
  * toque (`Pressable`) em vez de CSS `:hover`/`:disabled`.
  */
-export function Button({ children, variant = "primary", loading = false, disabled, style, ...props }: ButtonProps) {
+export function Button({ children, variant = "primary", loading = false, disabled, style, icon, ...props }: ButtonProps) {
   const isDisabled = disabled || loading;
 
   return (
@@ -36,9 +47,12 @@ export function Button({ children, variant = "primary", loading = false, disable
       {loading ? (
         <ActivityIndicator color={variant === "primary" ? colors.background : colors.primary} size="small" />
       ) : (
-        <Text variant="label" style={variant === "primary" ? styles.primaryText : styles.otherText}>
-          {children}
-        </Text>
+        <>
+          {icon}
+          <Text variant="label" style={variant === "primary" ? styles.primaryText : styles.otherText}>
+            {children}
+          </Text>
+        </>
       )}
     </Pressable>
   );

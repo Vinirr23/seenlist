@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { fetchWatchedEpisodeStats } from "@/lib/library";
@@ -23,10 +23,23 @@ import { fetchWatchedEpisodeStats } from "@/lib/library";
  * abas ao trocar), assistir um episódio/favoritar algo em outra tela
  * e voltar pro Perfil nunca disparava uma busca nova. Trocado por
  * `useFocusEffect`, que busca de novo toda vez que a aba ganha foco.
+ *
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-27, Etapa 3 — bug real reportado:
+ * "se eu passar de abas e voltar pra perfil as bibliotecas recarregam
+ * toda vez") — o `useFocusEffect` acima está certo (precisa buscar de
+ * novo a cada foco, pra pegar mudanças feitas em outra tela), mas
+ * resetava `isLoading` pra `true` incondicionalmente TODA vez — como a
+ * aba Perfil nunca desmonta, isso fazia os carrosséis piscarem
+ * (escondiam e reapareciam) a cada troca de aba, mesmo sem nenhuma
+ * mudança real. Mesmo padrão já usado em `lib/useLibraryItems.ts`
+ * (`hasLoadedOnce`): o esqueleto só aparece na 1ª busca; buscas
+ * seguintes (refoco) atualizam os dados em silêncio, sem esconder o
+ * carrossel que já estava na tela.
  */
 export function useSeriesActivityIds(userId: string | null) {
   const [ids, setIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedOnce = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,7 +49,7 @@ export function useSeriesActivityIds(userId: string | null) {
         return;
       }
       let cancelled = false;
-      setIsLoading(true);
+      if (!hasLoadedOnce.current) setIsLoading(true);
 
       (async () => {
         try {
@@ -76,7 +89,10 @@ export function useSeriesActivityIds(userId: string | null) {
           console.error("[profileMediaCarousel] Falha ao calcular atividade de séries", error);
           if (!cancelled) setIds([]);
         } finally {
-          if (!cancelled) setIsLoading(false);
+          if (!cancelled) {
+            hasLoadedOnce.current = true;
+            setIsLoading(false);
+          }
         }
       })();
 
@@ -93,6 +109,7 @@ export function useSeriesActivityIds(userId: string | null) {
 export function useMovieActivityIds(userId: string | null) {
   const [ids, setIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedOnce = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,7 +119,7 @@ export function useMovieActivityIds(userId: string | null) {
         return;
       }
       let cancelled = false;
-      setIsLoading(true);
+      if (!hasLoadedOnce.current) setIsLoading(true);
 
       supabase
         .from("movie_status")
@@ -117,6 +134,7 @@ export function useMovieActivityIds(userId: string | null) {
           } else {
             setIds((data ?? []).map((row) => row.movie_id as number));
           }
+          hasLoadedOnce.current = true;
           setIsLoading(false);
         });
 
@@ -133,6 +151,7 @@ export function useMovieActivityIds(userId: string | null) {
 export function useFavoriteIds(userId: string | null, mediaType: "movie" | "series") {
   const [ids, setIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedOnce = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -142,7 +161,7 @@ export function useFavoriteIds(userId: string | null, mediaType: "movie" | "seri
         return;
       }
       let cancelled = false;
-      setIsLoading(true);
+      if (!hasLoadedOnce.current) setIsLoading(true);
 
       supabase
         .from("favorites")
@@ -158,6 +177,7 @@ export function useFavoriteIds(userId: string | null, mediaType: "movie" | "seri
           } else {
             setIds((data ?? []).map((row) => row.media_id as number));
           }
+          hasLoadedOnce.current = true;
           setIsLoading(false);
         });
 

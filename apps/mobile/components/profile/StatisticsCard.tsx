@@ -124,7 +124,8 @@ export const StatisticsCard = memo(function StatisticsCard() {
             <View key={index} style={styles.gridItem}>
               <Skeleton width={16} height={16} style={styles.skeletonIcon} />
               <View style={styles.gridItemText}>
-                <Skeleton width={50} height={fontSize.lg} />
+                {/* FASE 2 (Bucket C, 2026-09-26) — altura do esqueleto acompanha o novo `value.fontSize` (fontSize.xl, era fontSize.lg). */}
+                <Skeleton width={50} height={fontSize.xl} />
                 <Skeleton width={90} height={11} style={styles.skeletonLabel} />
               </View>
             </View>
@@ -318,8 +319,9 @@ const styles = StyleSheet.create({
    * ajuste. Ver comentário em `Glass.tsx` (`gelWrap`) pro resto da
    * correção (borda + sombra que faltavam no botão em si).
    */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   pillButtonText: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     fontWeight: "700",
     color: colors.background,
     textTransform: "uppercase",
@@ -350,8 +352,12 @@ const styles = StyleSheet.create({
   skeletonIcon: {
     borderRadius: radius.sm,
   },
+  // FASE 2 (consistência visual sistêmica, Bucket C, 2026-09-26, decisão do
+  // usuário) — token formalizado `fontSize.xl` (era `fontSize.lg`=18):
+  // unifica com o mesmo papel "número grande" do `StatCard.tsx`
+  // (carrossel do perfil público), que já usa `fontSize.xl`(22).
   value: {
-    fontSize: fontSize.lg,
+    fontSize: fontSize.xl,
     fontWeight: "700",
     color: colors.text,
   },

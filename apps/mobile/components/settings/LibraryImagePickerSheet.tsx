@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, Modal, TextInput, Pressable, FlatList, ActivityIndicator, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { fetchLibraryItems, tmdbImageUrl } from "@/lib/library";
 import { fetchSeriesDetails } from "@/lib/seriesDetails";
 import { fetchMovieDetails } from "@/lib/movieDetails";
+import { textoCasaComBusca } from "@/lib/fuzzyMatch";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -51,6 +53,25 @@ interface PickOption {
  */
 export function LibraryImagePickerSheet({ onSelect, onClose }: { onSelect: (url: string) => void; onClose: () => void }) {
   const { t } = useTranslation();
+  /**
+   * CAUSA RAIZ (2026-09-24, a pedido — "a seta/o X estão muito lá em
+   * cima, dificultando de usar") — este componente usa `<Modal>` nativo
+   * direto (não a rota do expo-router, nem o `<Screen>` compartilhado
+   * do resto do app), então NUNCA recebia a área segura do topo
+   * (status bar / notch / Dynamic Island): `styles.header` tinha um
+   * `paddingTop: spacing.lg` FIXO (24px), enquanto o inset real de
+   * topo passa de 44-59px na maioria dos iPhones modernos — por isso o
+   * botão (seta OU X, mesmo header pros dois passos "Escolher um
+   * título"/"Escolher uma cena") ficava sobreposto/perto demais da
+   * barra de status.
+   *
+   * Fix: `useSafeAreaInsets()` (MESMO padrão do `<Screen>` — NUNCA usar
+   * `<SafeAreaView>` nativo, já travou o app com SIGSEGV nesta base de
+   * código antes, ver comentário em `Screen.tsx`) + `insets.top` somado
+   * ao respiro visual que já existia (`spacing.sm`), no lugar do
+   * `spacing.lg` fixo.
+   */
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<LibraryItem[] | null>(null);
   const [search, setSearch] = useState("");
   const [selectedTitle, setSelectedTitle] = useState<LibraryItem | null>(null);
@@ -64,11 +85,35 @@ export function LibraryImagePickerSheet({ onSelect, onClose }: { onSelect: (url:
       .catch(() => setItems([]));
   }, []);
 
+  /*
+   * CORREÇÃO (a pedido, 2026-09-27 — "quero que a pesquisa funcione
+   * independente de idioma e mesmo com erro de digitação") — antes,
+   * `item.title.toLowerCase().includes(query)`: exigia substring EXATA
+   * (com acento certo) só do título já localizado (pt-BR aqui). Trocado
+   * por `textoCasaComBusca` (lib/fuzzyMatch.ts) — ignora acento/caixa e
+   * tolera pequenos erros de digitação por palavra.
+   *
+   * "Independente de idioma" bate também contra `item.originalTitle`
+   * (título original da TMDB) — chegou a existir aqui uma versão que
+   * buscava esse título item por item, em segundo plano
+   * (`fetchMovieDetails`/`fetchSeriesDetails`), mas achado real numa
+   * Biblioteca de 1428 itens mostrou que isso não escala (teto de 80
+   * buscas deixava a maioria — inclusive séries inteiras — sem título
+   * original, busca falhando em silêncio). Resolvido na RAIZ: o título
+   * original agora vem pronto na própria busca em lote da Biblioteca —
+   * `getMovieSummary`/`getSeriesSummary` (`apps/web/lib/tmdb/client.ts`)
+   * já buscam o resumo de cada item, e a TMDB já devolve
+   * `original_title`/`original_name` de graça NESSA MESMA resposta;
+   * agora é gravado em `media_summaries_cache` (migração
+   * `20260927000000_media_summaries_cache_original_title.sql`) e
+   * propagado até `LibraryItem.originalTitle` (packages/types) — zero
+   * chamada nova, funciona pra biblioteca de qualquer tamanho.
+   */
   const filteredItems = useMemo(() => {
     if (!items) return items;
-    const query = search.trim().toLowerCase();
+    const query = search.trim();
     if (!query) return items;
-    return items.filter((item) => item.title.toLowerCase().includes(query));
+    return items.filter((item) => textoCasaComBusca(item.title, query) || textoCasaComBusca(item.originalTitle ?? "", query));
   }, [items, search]);
 
   async function handlePickTitle(item: LibraryItem) {
@@ -116,7 +161,7 @@ export function LibraryImagePickerSheet({ onSelect, onClose }: { onSelect: (url:
   return (
     <Modal visible animationType="slide" onRequestClose={selectedTitle ? handleBack : onClose}>
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
           <Pressable onPress={selectedTitle ? handleBack : onClose} hitSlop={8} style={styles.headerButton}>
             <Feather name={selectedTitle ? "arrow-left" : "x"} size={20} color={colors.text} />
           </Pressable>
@@ -217,11 +262,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    // `paddingTop` saiu daqui — virou dinâmico (`insets.top + spacing.sm`) no `<View>`, ver comentário no componente acima.
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
   headerButton: {

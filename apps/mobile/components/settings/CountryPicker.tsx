@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { View, Modal, TextInput, Pressable, FlatList, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { COUNTRIES } from "@/lib/countries";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -38,7 +38,13 @@ export function CountryPicker({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+        {/* FASE 2 (consistência visual sistêmica, 2026-09-26) — `backgroundColor`
+          * sólido saiu (vira `<Glass variant="dark">`, mesmo padrão dos outros
+          * sheets do app); o `Pressable` que segura "tocar dentro não fecha"
+          * continua por fora, sem estilo próprio (o visual do cartão agora
+          * mora todo no `Glass`). */}
+        <Pressable onPress={(e) => e.stopPropagation()}>
+        <Glass style={styles.sheet} variant="dark">
           <View style={styles.header}>
             <Text variant="subtitle">{t("settings.selectCountry")}</Text>
             <Pressable onPress={onClose} hitSlop={8}>
@@ -79,6 +85,7 @@ export function CountryPicker({
               );
             }}
           />
+        </Glass>
         </Pressable>
       </Pressable>
     </Modal>
@@ -93,7 +100,6 @@ const styles = StyleSheet.create({
   },
   sheet: {
     maxHeight: "75%",
-    backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     paddingTop: spacing.md,

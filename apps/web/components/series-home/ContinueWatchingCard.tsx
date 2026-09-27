@@ -15,6 +15,7 @@ import { tmdbImage } from "@/lib/tmdb/image";
 import { hapticTick } from "@/lib/haptics";
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { formatStaleSince } from "@/lib/relativeTime";
 import { EpisodeWatchedButton } from "../series/EpisodeWatchedButton";
 
 const BADGE_LABEL_KEY: Record<Exclude<UpcomingBadge, null>, string> = {
@@ -317,11 +318,27 @@ export interface ContinueWatchingCardProps {
   layoutActive?: boolean;
   /** Usado junto com `layoutActive` acima — avisa o componente-pai quando ESTE card entra/sai do meio da animação de marcar assistido, pra ele saber quando ligar/desligar `layoutActive` pros 8 cards. */
   onTransitionActiveChange?: (active: boolean) => void;
+  /**
+   * A PEDIDO (2026-09-22, "Há quanto tempo é uma ideia boa, vamos
+   * implementar") — data ISO de `lastActivityAt`, só passada pelas
+   * séries da seção "Continue de onde parou" (mesmo componente
+   * reaproveitado ali, ver comentário de `priorityIndex` acima).
+   * `undefined` nas séries de "Continue assistindo" = sem label
+   * nenhuma (mesma regra do mobile, `ContinueWatchingListRow.tsx`).
+   */
+  staleSince?: string;
 }
 
-export function ContinueWatchingCard({ item, priorityIndex, layoutActive = false, onTransitionActiveChange }: ContinueWatchingCardProps) {
+export function ContinueWatchingCard({
+  item,
+  priorityIndex,
+  layoutActive = false,
+  onTransitionActiveChange,
+  staleSince,
+}: ContinueWatchingCardProps) {
   const accentOpacity = getPriorityAccentOpacity(priorityIndex);
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const staleSinceLabel = staleSince ? formatStaleSince(staleSince, Date.now(), locale) : null;
   const router = useRouter();
   const { data: episodes } = useSeriesEpisodesLight(item.id);
   const { data: watched } = useWatchedEpisodes(item.id);
@@ -681,6 +698,14 @@ export function ContinueWatchingCard({ item, priorityIndex, layoutActive = false
             )}
           </p>
           <p className="truncate text-xs text-muted/85">{episode.name}</p>
+          {/*
+            A PEDIDO (2026-09-22, "Há quanto tempo é uma ideia boa") —
+            só aparece nos cards de "Continue de onde parou"
+            (`staleSinceLabel` vem de `formatStaleSince`, ver import
+            acima). Mostra concretamente há quanto tempo a série está
+            parada, em vez de deixar a pessoa adivinhar.
+          */}
+          {staleSinceLabel && <p className="truncate text-xs text-muted/60">{staleSinceLabel}</p>}
           {/*
            * A PEDIDO (2026-08-25, fidelidade à referência) — durante a
            * confirmação, o selo NOVO/MAIS RECENTE/PREMIERE dá lugar a

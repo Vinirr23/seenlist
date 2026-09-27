@@ -813,6 +813,14 @@ export async function getMovieDetails(movieId: string, language = "pt-BR"): Prom
 export interface MediaSummary {
   id: number;
   title: string;
+  /**
+   * NOVO (a pedido, 2026-09-27 — "quero que a pesquisa [do seletor de
+   * banner] funcione independente de idioma") — título ORIGINAL da
+   * TMDB (`original_title`/`original_name`), pra buscar um item
+   * digitando em outro idioma. Vem do MESMO request que já busca o
+   * resto do resumo — nenhuma chamada nova ao TMDB.
+   */
+  originalTitle?: string;
   year: number | null;
   posterPath: string | null;
   /** Só preenchido pra séries. */
@@ -849,6 +857,8 @@ export interface MediaSummary {
 interface TmdbMovieSummaryResponse {
   id: number;
   title: string;
+  /** NOVO (a pedido, 2026-09-27 — busca do seletor de banner independente de idioma) — a TMDB já devolve isso de graça na mesma resposta, nunca variando por `language`. */
+  original_title: string;
   release_date: string | null;
   poster_path: string | null;
   runtime: number | null;
@@ -860,6 +870,7 @@ export async function getMovieSummary(movieId: number, language = "pt-BR"): Prom
   return {
     id: data.id,
     title: data.title,
+    originalTitle: data.original_title,
     year: data.release_date ? Number(data.release_date.slice(0, 4)) || null : null,
     posterPath: data.poster_path,
     runtimeMinutes: data.runtime ?? undefined,
@@ -871,6 +882,8 @@ export async function getMovieSummary(movieId: number, language = "pt-BR"): Prom
 interface TmdbSeriesSummaryResponse {
   id: number;
   name: string;
+  /** NOVO (a pedido, 2026-09-27 — busca do seletor de banner independente de idioma) — a TMDB já devolve isso de graça na mesma resposta, nunca variando por `language`. */
+  original_name: string;
   first_air_date: string | null;
   poster_path: string | null;
   number_of_episodes: number;
@@ -908,6 +921,7 @@ export async function getSeriesSummary(seriesId: number, language = "pt-BR"): Pr
   return {
     id: data.id,
     title: data.name,
+    originalTitle: data.original_name,
     year: data.first_air_date ? Number(data.first_air_date.slice(0, 4)) || null : null,
     posterPath: data.poster_path,
     totalEpisodes: totalEpisodesExcludingSpecials || data.number_of_episodes,

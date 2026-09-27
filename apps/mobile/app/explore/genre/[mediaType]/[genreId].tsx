@@ -30,7 +30,7 @@ export default function ExploreGenreScreen() {
   }, [isValid, router]);
 
   const kind: GenreDiscoverKey = mediaType === "series" ? "genre_series" : "genre_movies";
-  const { items, genreMap, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useDiscoverByGenreInfinite(
+  const { items, genreMap, isLoading, isError, retry, isFetchingNextPage, hasNextPage, fetchNextPage } = useDiscoverByGenreInfinite(
     kind,
     isValid ? parsedGenreId : null
   );
@@ -42,6 +42,8 @@ export default function ExploreGenreScreen() {
       title={genreMap?.[parsedGenreId] ?? "…"}
       items={items}
       isLoading={isLoading}
+      isError={isError}
+      onRetry={retry}
       isFetchingNextPage={isFetchingNextPage}
       hasNextPage={hasNextPage}
       fetchNextPage={fetchNextPage}

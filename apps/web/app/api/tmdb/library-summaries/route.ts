@@ -84,6 +84,8 @@ interface CacheRow {
   tmdb_id: number;
   media_type: MediaType;
   title: string;
+  /** NOVO (a pedido, 2026-09-27 — busca do seletor de banner independente de idioma, ver migração `20260927000000_media_summaries_cache_original_title.sql`). */
+  original_title: string | null;
   year: number | null;
   poster_path: string | null;
   total_episodes: number | null;
@@ -109,6 +111,7 @@ function rowToSummary(row: CacheRow, language: string): MediaSummary {
   return {
     id: row.tmdb_id,
     title: row.title,
+    originalTitle: row.original_title ?? undefined,
     year: row.year,
     posterPath: row.poster_path,
     totalEpisodes: row.total_episodes ?? undefined,
@@ -169,7 +172,7 @@ async function readCacheCombined(
 
   const { data, error } = await admin
     .from("media_summaries_cache")
-    .select("tmdb_id, media_type, title, year, poster_path, total_episodes, ended, runtime_minutes, release_date, genres")
+    .select("tmdb_id, media_type, title, original_title, year, poster_path, total_episodes, ended, runtime_minutes, release_date, genres")
     .eq("language", language)
     .gte("fetched_at", cutoff)
     .or(orParts.join(","));
@@ -212,6 +215,7 @@ async function writeCache(
     tmdb_id: summary.id,
     language,
     title: summary.title,
+    original_title: summary.originalTitle ?? null,
     year: summary.year,
     poster_path: summary.posterPath,
     total_episodes: summary.totalEpisodes ?? null,

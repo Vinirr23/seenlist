@@ -75,9 +75,26 @@ export function AddToLibraryButton({
         * então a perda visual é mínima e ganha-se confiabilidade nas
         * duas plataformas.
         */}
-      <View style={styles.button}>
+      <View style={[styles.button, isAdded && styles.buttonAdded]}>
         <View pointerEvents="none">
-          <Feather name={isAdded ? "check" : "plus"} size={16} color={colors.primary} />
+          {/*
+            * CORREÇÃO (bug real, reportado — "esse (v) nos cards, fiquem
+            * preenchido em ambar pra o usuário perceber que está
+            * marcado, do jeito que está fica muito parecido com (+)") —
+            * as duas badges (adicionar/já adicionado) usavam o MESMO
+            * fundo escuro semi-transparente com só o ícone/borda em
+            * âmbar, então de longe pareciam a mesma coisa. Mesmo par
+            * já usado em `FollowButton.tsx` pro estado "preenchido"
+            * (`notFollowing`): fundo sólido `colors.primary`, ícone/texto
+            * em `colors.background` (a cor escura de fundo do app) pra
+            * contrastar — aqui vira o "✓" preenchido, contra o "+" que
+            * continua no estilo de contorno de antes.
+            */}
+          <Feather
+            name={isAdded ? "check" : "plus"}
+            size={16}
+            color={isAdded ? colors.background : colors.primary}
+          />
         </View>
       </View>
     </PressableScale>
@@ -99,5 +116,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(11,14,20,0.55)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  buttonAdded: {
+    backgroundColor: colors.primary,
   },
 });

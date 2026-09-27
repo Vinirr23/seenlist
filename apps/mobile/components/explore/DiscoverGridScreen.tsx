@@ -7,6 +7,7 @@ import type { DiscoverItem } from "@/lib/discover";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { tmdbImageUrl } from "@/lib/library";
 import { AddToLibraryButton } from "./AddToLibraryButton";
+import { PageError } from "@/components/media/PageError";
 import { Screen, Text, Glass, PressableScale } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -59,6 +60,8 @@ export function DiscoverGridScreen({
   title,
   items,
   isLoading,
+  isError,
+  onRetry,
   isFetchingNextPage,
   hasNextPage,
   fetchNextPage,
@@ -74,6 +77,16 @@ export function DiscoverGridScreen({
   title: ReactNode;
   items: DiscoverItem[];
   isLoading: boolean;
+  /**
+   * CORREÇÃO (Fase 3, achado crítico — falha de rede indistinguível de
+   * "sem resultados") — antes, uma falha na 1ª página não tinha nenhum
+   * estado próprio: a tela simplesmente mostrava a grade vazia, igual a
+   * "não há itens de verdade". Agora `isError` (exposto pelos 3 hooks
+   * `useDiscover*Infinite`) separa os dois casos e usa o mesmo
+   * `PageError`+retry já aprovado no resto do app.
+   */
+  isError: boolean;
+  onRetry: () => void;
   isFetchingNextPage: boolean;
   hasNextPage: boolean;
   fetchNextPage: () => void;
@@ -127,7 +140,19 @@ export function DiscoverGridScreen({
           * `active:scale` nenhum.
           */}
         <PressableScale onPress={() => router.back()} hitSlop={8}>
-          <Glass style={styles.backButton}>
+          {/*
+            * CORREÇÃO (FASE 2, consistência visual sistêmica, 2026-09-26
+            * — "ícones de voltar em Glass") — faltava `variant="icon"`:
+            * sem ele o `Glass` cai no padrão `"card"` (receita pensada
+            * pra cartão grande de conteúdo, base azulada 0.10), não na
+            * receita pensada pra botão-ícone circular (base neutra
+            * branca 0.10/brilho 0.26) que `MovieHeader.tsx`/
+            * `SeriesHeader.tsx` usam pro mesmo papel (botão de voltar
+            * circular 36px). Tamanho, ícone e cor já batiam — só a
+            * receita de vidro embaixo divergia, sem nenhum comentário
+            * explicando por quê.
+            */}
+          <Glass style={styles.backButton} variant="icon">
             <Feather name="arrow-left" size={16} color={colors.text} />
           </Glass>
         </PressableScale>
@@ -141,6 +166,14 @@ export function DiscoverGridScreen({
           {Array.from({ length: 9 }).map((_, i) => (
             <View key={i} style={styles.skeletonCard} />
           ))}
+        </View>
+      ) : isError ? (
+        // Mesmo padrão `PageError`+retry já usado no resto do app (ex.:
+        // `app/movies/[id].tsx`, `app/discover-people.tsx`) — reaproveita
+        // `error.loadGeneric`, já usado por outras telas de Explorar/
+        // seguidores pra esse mesmo tipo de falha genérica de listagem.
+        <View style={styles.errorWrapper}>
+          <PageError message={t("error.loadGeneric")} onRetry={onRetry} />
         </View>
       ) : (
         <FlatList
@@ -201,9 +234,14 @@ function GridCard({ item, showTitle }: { item: DiscoverItem; showTitle: boolean 
 }
 
 const styles = StyleSheet.create({
+  // CORREÇÃO (Fase 3) — mesmo `paddingHorizontal` do `grid`/`skeletonGrid`
+  // abaixo, pro `PageError` não colar nas bordas da tela.
+  errorWrapper: {
+    paddingHorizontal: spacing.md,
+  },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24) em
-  // `header`/`grid`/`skeletonGrid`; web usa `px-4` (`spacing.md`=16)
+  // `header`/`skeletonGrid`; web usa `px-4` (`spacing.md`=16)
   // como borda de tela.
   header: {
     flexDirection: "row",
@@ -238,11 +276,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: GRID_GAP,
   },
+  // CORREÇÃO (FASE 2, consistência visual, 2026-09-26) — era
+  // `radius.md`(10); confirmado no web (`DiscoverAllView.tsx`,
+  // `GenreAllView.tsx`, `SimilarAllView.tsx`, todos rodam este mesmo
+  // componente) que o pôster usa `rounded-lg`=8, igual a
+  // `PosterGrid.tsx`/`DiscoverCarousel.tsx` — mesmo papel visual
+  // (pôster numa grade), agora com o token formalizado `radius.poster`.
   skeletonCard: {
     flexBasis: `${100 / NUM_COLUMNS}%`,
     flexGrow: 0,
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    borderRadius: radius.poster,
     backgroundColor: colors.surface,
   },
   card: {
@@ -252,7 +296,7 @@ const styles = StyleSheet.create({
     position: "relative",
     width: "100%",
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    borderRadius: radius.poster,
   },
   poster: {
     width: "100%",

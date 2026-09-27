@@ -56,6 +56,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.following": "Seguindo",
     "profile.follow": "Seguir",
     "profile.followers": "Seguidores",
+    // FASE 2 (correção de string hardcoded, 2026-09-26) — estava
+    // literal em `FollowListRow.tsx` ("Segue você"), sem passar por `t()`.
+    "profile.followsYou": "Segue você",
     "profile.notFollowingAnyone": "Ainda não segue ninguém.",
     "profile.noFollowersYet": "Ainda não tem seguidores.",
     "profile.createNewList": "Criar nova lista",
@@ -71,9 +74,23 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.edit": "Editar",
     "common.delete": "Excluir",
     "common.remove": "Remover",
+    "movie.whereToWatch": "Onde assistir",
     "movie.removeThisMovie": "Remover este filme?",
     "movie.removeMovieMessage": "Isso apaga o status de \"{title}\" — não dá pra desfazer.",
     "common.removing": "Removendo...",
+    "common.deleting": "Apagando...",
+    "episode.mood.shocked": "Chocado",
+    "episode.mood.frustrated": "Frustrado",
+    "episode.mood.sad": "Triste",
+    "episode.mood.thoughtful": "Reflexivo",
+    "episode.mood.touched": "Comovido",
+    "episode.mood.entertained": "Entretido",
+    "episode.mood.scared": "Assustado",
+    "episode.mood.bored": "Entediado",
+    "episode.mood.content": "Compreensivo",
+    "episode.mood.hyped": "Empolgado",
+    "episode.mood.confused": "Confuso",
+    "episode.mood.tense": "Tenso",
     "movie.addToListTitle": "Adicionar \"{title}\" a uma lista",
     "movie.noListsYet": "Você ainda não tem nenhuma lista.",
     "movie.addToList": "Adicionar a lista",
@@ -167,6 +184,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "auth.signIn": "Entrar",
     "auth.signInSubtitle": "Acesse sua conta do SeenList.",
     "auth.continueWithGoogle": "Continuar com Google",
+    "auth.continueWithApple": "Continuar com Apple",
+    "auth.appleSignInError": "Não foi possível entrar com a Apple. Tente novamente.",
     "auth.or": "ou",
     "auth.forgotPassword": "Esqueceu a senha?",
     "auth.createAccount": "Criar conta",
@@ -196,8 +215,37 @@ export const translations: Record<Locale, Record<string, string>> = {
     "lang.pt": "Português",
     "lang.es": "Espanhol",
 
-    "seriesHome.continueWatching": "Continue assistindo",
+    /**
+     * A PEDIDO (2026-09-25 — "em séries/filmes/home, tem 'assistir
+     * depois' e 'continue assistindo' muda os 2 pra 'assistir a
+     * seguir'") — confirmado com o usuário: só os 2 TÍTULOS DE SEÇÃO
+     * (este, o carrossel "Continue assistindo" da Home de Séries, e
+     * `moviesHome.watchlist`, o título "Assistir depois" da Home de
+     * Filmes) — NÃO inclui a categoria/status "quero assistir"
+     * (`seriesCategory.wantToWatch`, usada em filtros/sheets em outras
+     * telas) nem a label do Perfil > Estatísticas
+     * (`profile.stats.watchLater`), que o usuário optou por deixar como
+     * estavam.
+     */
+    "seriesHome.continueWatching": "Assistir a seguir",
     "seriesHome.viewAllContinueWatching": "Ver tudo",
+    /**
+     * A PEDIDO (2026-09-22, "Continue de onde parou" — tornar a seção
+     * "Faz um tempo que você não assiste" mais convidativa, menos
+     * cobrança) — nasce como chave de tradução de propósito: o título
+     * dessa seção nunca teve `t()` antes (era texto literal, igual nos
+     * dois lados web/mobile, decisão documentada na época) — corrigido
+     * junto, já que estava mexendo aqui mesmo.
+     */
+    "seriesHome.continueWhereYouLeftOff": "Continue de onde parou",
+    /**
+     * ETAPA 1B (2026-09-27, auditoria de performance, item 5 —
+     * "staleSeries sem limite") — igual a `viewAllContinueWatching`
+     * acima: rótulo do botão "Ver tudo" novo desta seção, que agora
+     * também ganhou limite na Home + rota própria pra ver o resto (ver
+     * `app/(tabs)/series/continue-de-onde-parou.tsx`).
+     */
+    "seriesHome.viewAllStaleSeries": "Ver tudo",
     "seriesHome.popularSeries": "Populares no SeenList",
     "seriesHome.errorLoadLibrary": "Não foi possível carregar sua biblioteca agora. Tente de novo em instantes.",
     "seriesHome.emptyLibrary": "Você ainda não está acompanhando nenhuma série.",
@@ -250,7 +298,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "duration.days": "{n} dias",
     "duration.hour": "{n} hora",
     "duration.hours": "{n} horas",
-    "profile.statistics": "Estatísticas",
+    /** RENOMEADO (2026-09-24, a pedido — "mude 'estatísticas' para 'minha jornada'") — era "Estatísticas". Chave compartilhada pelo Perfil próprio (`StatisticsCard.tsx`) e pelo Perfil público (`StatsCarousel.tsx`), então a troca já sai padronizada nos dois sem precisar de edição separada. */
+    "profile.statistics": "Minha Jornada",
     "profile.errorLoadStats": "Não foi possível carregar suas estatísticas agora.",
     "profile.errorLoadStatsOther": "Não foi possível carregar as estatísticas deste perfil agora.",
     "profile.viewDetails": "Ver detalhes",
@@ -293,6 +342,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     "media.gallery": "Galeria",
     /* O `SeriesHeader` escrevia "avaliações" à mão; o web usa `series.ratingsCount`. */
     "media.ratingsCount": "{count} avaliações",
+    /* NOVO (redesenho da tela de Filme, mockup aprovado 2026-09-25) — "Este filme foi adicionado por X usuário(s)". */
+    "media.addedByCount": "Este filme foi adicionado por {count} usuário(s)",
+    /* NOVO — mesmo padrão de `series.overviewTitle`/`readMore`/`readLess`, mas pro filme (3 linhas, não 5). RENOMEADO (2026-09-25, a pedido — "muda o nome sinopse pra: informações do filme", igual referência) — a chave continua a mesma, só o texto mudou; agora a seção também ganhou a nota (ver `movies/[id].tsx`). */
+    "movie.overviewTitle": "Informações do filme",
+    "movie.readMore": "Ler mais",
+    "movie.readLess": "Ler menos",
+    "movie.technicalDetails": "Ficha técnica",
     "episode.noPhoto": "Sem foto",
     "media.noPoster": "Sem pôster",
     "media.similarMovies": "Filmes parecidos",
@@ -341,8 +397,55 @@ export const translations: Record<Locale, Record<string, string>> = {
     "episode.markSeasonTitle": "Marcar temporada como assistida?",
     "episode.unmarkSeasonMessage": "Todos os episódios desta temporada voltarão para não assistido.",
     "episode.markSeasonMessage": "Todos os episódios desta temporada serão marcados como assistidos.",
+    /**
+     * A PEDIDO (2026-09-25 — "adiciona 'todos os episódios' e o botão
+     * pra selecionar tudo de uma vez", referência com o círculo de
+     * check ao lado do título) — mesmo sheet de confirmação usado por
+     * temporada (`episode.markSeasonTitle`/`unmarkSeasonAction`), só
+     * que pra SÉRIE INTEIRA.
+     */
+    "series.allEpisodesTitle": "Todos os episódios",
+    "episode.markSeriesTitle": "Marcar série inteira como assistida?",
+    "episode.markSeriesMessage": "Todos os episódios desta série serão marcados como assistidos.",
+    "episode.unmarkSeriesTitle": "Desmarcar toda a série?",
+    "episode.unmarkSeriesMessage": "Todos os episódios desta série voltarão para não assistido.",
+    /*
+     * NOVO (2026-09-24, a pedido — "quando seleciono o botão pra marcar
+     * toda a temporada aparece 'desmarcar toda temporada', quero que
+     * seja um sheet que tenha 'desmarcar' e 'reassistido'") — quando a
+     * temporada JÁ está 100% assistida e o usuário toca no círculo de
+     * novo, em vez de um único botão "Confirmar" (que só desmarcava),
+     * o sheet agora oferece as duas opções.
+     */
+    "episode.seasonActionsTitle": "O que você quer fazer com esta temporada?",
+    "episode.unmarkSeasonAction": "Desmarcar",
+    "episode.rewatchSeasonAction": "Reassistir",
+    /**
+     * A PEDIDO (2026-09-24 — redesenho dos cards horizontais do
+     * carrossel "Continuar acompanhando", referência: card de episódio
+     * "T09 | E01" de outro app) — o usuário foi explícito: "S se refere
+     * a Season que é em inglês T é temporada que é em português, então
+     * isso a linguagem que deve definir." Por isso a letra do código
+     * (T09 | E24) vem do idioma ativo, não fixa — ver uso em
+     * `EpisodeCarousel.tsx` (`code = t("episode.seasonAbbrev") + ... `).
+     */
+    "episode.seasonAbbrev": "T",
+    "episode.episodeAbbrev": "E",
     "error.loadSeriesFailed": "Não foi possível carregar esta série agora.",
     "seriesHome.episodesTab": "Episódios",
+    /**
+     * A PEDIDO (2026-09-25 — redesenho do header da tela de Série,
+     * mockup aprovado v3, "'Continuar acompanhando' — troquei o
+     * título que fica logo abaixo das abas (hoje 'Episódios')") —
+     * chave NOVA e SEPARADA de `seriesHome.episodesTab` de propósito:
+     * essa outra chave é COMPARTILHADA pela aba "Episódios"
+     * (`app/series/[id].tsx`) e pela linha "Episódios: 24" da aba
+     * Sobre (`MetaRow`) — trocar o texto dela também mudaria essas
+     * duas, que devem continuar "Episódios". Esta chave nova é só pro
+     * título do carrossel (`EpisodeCarousel.tsx`, logo abaixo das
+     * abas), pra bater com a referência.
+     */
+    "seriesHome.continueWatchingCarousel": "Continuar acompanhando",
     "media.similarSeries": "Séries semelhantes", // o web (`series.similarSeries`) usa "semelhantes"
     "social.recommendTitle": "Recomendar \"{title}\"",
     "social.searchFollowing": "Buscar entre quem você segue...",
@@ -350,6 +453,24 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.messagePlaceholder": "Escreva uma mensagem (opcional)",
     "common.sending": "Enviando...",
     "social.sendRecommendation": "Enviar recomendação",
+    /**
+     * FASE 2 (correção de strings hardcoded, 2026-09-26) — estavam
+     * literais em `RecommendPromptSheet.tsx` (convite pra recomendar
+     * depois de uma avaliação de 4-5 estrelas).
+     */
+    "social.recommendPromptTitle": "Você gostou de {mediaTitle}!",
+    "social.recommendPromptSubtitle": "Tem alguém que também ia gostar?",
+    "social.recommendPromptDismiss": "Agora não",
+    "social.recommendPromptCta": "Recomendar",
+    /**
+     * FASE 2 (correção de strings hardcoded, 2026-09-26) — estavam
+     * literais em `RecommendationQuickActionsSheet.tsx`. "Assistir
+     * depois" NÃO ganhou chave nova: reaproveita `seriesCategory.wantToWatch`
+     * (mesmo texto, mesmo papel — o comentário da linha ~222 já
+     * documenta esse uso em "filtros/sheets em outras telas").
+     */
+    "social.quickActionStartWatching": "Começar a assistir",
+    "social.quickActionIgnore": "Ignorar",
     "profile.stats.likes": "Curtidas",
     "profile.comments": "Comentários",
 
@@ -357,7 +478,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.releasesTomorrow": "Estreia amanhã",
     "moviesHome.releasesInDays": "Estreia em {days} dias",
     "moviesHome.releasesOn": "Estreia em {date}",
-    "moviesHome.watchlist": "Assistir depois",
+    /** A PEDIDO (2026-09-25) — mesmo rename de `seriesHome.continueWatching`, ver comentário lá. */
+    "moviesHome.watchlist": "Assistir a seguir",
     "moviesHome.emptyWatchlist": "Sua lista está vazia.",
     "moviesHome.emptyWatchlistTitle": "Sua lista está esperando por você.",
     "moviesHome.emptyWatchlistSubtitle": "Adicione filmes que você quer assistir.",
@@ -383,16 +505,28 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.errorEditComment": "Não foi possível editar",
     "common.tryAgainShortly": "Tente de novo em instantes.",
     "social.commentSingularTitle": "Comentário",
+    "social.commentsTitle": "Comentários",
     "social.commentNoLongerExists": "Este comentário não existe mais.",
     "social.containsSpoilerLabel": "Contém spoiler",
     "social.noCommentsYetFull": "Nenhum comentário ainda. Seja o primeiro a comentar.",
+    // A PEDIDO (auditoria de consistência, 2026-09-25) — faltava esta
+    // chave; "Nenhuma resposta ainda." estava hardcoded em português
+    // nas telas de comentário de episódio e de post.
+    "social.noRepliesYet": "Nenhuma resposta ainda.",
+    // FASE 1 (paridade Post × Episódio, 2026-09-26) — "Escreva uma
+    // resposta..." estava hardcoded em português no composer das duas
+    // telas de comentário-em-destaque (episódio e post).
+    "social.replyPlaceholder": "Escreva uma resposta...",
     "episode.ratingBad": "RUIM",
     "episode.ratingOk": "OK",
     "episode.ratingGood": "BOM",
     "episode.ratingGreat": "ÓTIMO",
     "episode.ratingWow": "UAU",
     "episode.seriesEnded": "Série encerrada",
+    "episode.seriesEndedSubtitle": "Você viu tudo!",
     "episode.upToDateMoreComing": "Em dia! Mais episódios a caminho",
+    "episode.upToDateTitle": "Em dia",
+    "episode.upToDateSubtitle": "Mais episódios a caminho!",
     "episode.platformOther": "Outro",
     "episode.platformUnofficial": "Não oficial",
     "social.reply": "Responder",
@@ -567,9 +701,33 @@ export const translations: Record<Locale, Record<string, string>> = {
     "review.reviewPlaceholder": "Escreva uma review (opcional)...",
     "review.saveReview": "Salvar avaliação",
     "review.removeMyReview": "Remover minha avaliação",
+    "review.confirmDeleteReviewTitle": "Remover esta avaliação?",
+    "review.confirmDeleteReviewMessage": "Não dá pra desfazer.",
+    "review.errorDeleteReview": "Não foi possível remover",
     "review.noOtherReviewsYet": "Nenhuma outra avaliação ainda.",
     "media.aboutTab": "Sobre",
+    /* NOVO (redesenho da tela de Filme, mockup aprovado 2026-09-25) — segunda aba. */
+    "media.moreTab": "Mais",
+    /* CORREÇÃO (2026-09-25 — "adiciona essa mesma tela dentro de 'mais' em filme que tinhamos deixado pra depois") — texto mudou de "em breve" pra convite: a aba já tem conteúdo (onde assistiu/nota/humor), só aparece depois de marcar assistido. */
+    "media.moreTabComingSoon": "Marque este filme como assistido pra avaliar, dizer onde assistiu e como se sentiu.",
     "media.status": "Status",
+    /*
+     * CORREÇÃO (bug real, reportado — "status está ended ao invés de em
+     * português... também aparece: returning series em outra série") —
+     * `series.status` vem cru da TMDB (`Ended`/`Returning Series`/
+     * `Canceled`/`In Production`/`Planned`/`Pilot`, sempre em inglês,
+     * nunca traduzido antes) e era jogado direto no `MetaRow`, sem
+     * passar por `t()`. O mesmo bug existe também no web
+     * (`SeriesDetailsView.tsx`, mesmo `value={series.status}` cru) —
+     * fora do escopo desta correção (só mobile foi pedido), mas
+     * documentado aqui pra não ser esquecido.
+     */
+    "media.seriesStatus.Ended": "Encerrada",
+    "media.seriesStatus.Returning Series": "Em andamento",
+    "media.seriesStatus.Canceled": "Cancelada",
+    "media.seriesStatus.In Production": "Em produção",
+    "media.seriesStatus.Planned": "Planejada",
+    "media.seriesStatus.Pilot": "Piloto",
     "media.premiere": "Estreia",
     "media.seasons": "Temporadas",
     "media.network": "Rede",
@@ -586,6 +744,37 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.emptyFavoriteMovies": "Você ainda não favoritou nenhum filme.",
     "profile.emptyFavoriteSeries": "Você ainda não favoritou nenhuma série.",
     "offline.banner": "Você está offline. Algumas coisas podem não funcionar até a conexão voltar.",
+    // Tela real do Week Review (2026-09-23, rodada 26) — porta as
+    // strings que na tela de teste (`week-review-test.tsx`) eram
+    // texto fixo em português, pra bater com o resto do app (pt/en/es).
+    "weekReview.eyebrow": "SUA SEMANA NO SEENLIST",
+    "weekReview.badge": "🏆 Destaque da semana",
+    "weekReview.seasonLabel": "Temporada {n}",
+    // "Recorde pessoal" + selo de sequência (rodada 31) — substituem as
+    // 4 chaves do seletor de humor (whichIsYourWeek/regenerate/
+    // regenerating/fallbackNote) e as 3 fallbackPhrase*, removidas por
+    // completo junto da geração de frase por IA. Ver comentário grande
+    // no topo de `app/week-review.tsx`.
+    "weekReview.recordLabel": "SEU RECORDE DA SEMANA",
+    "weekReview.streakLabel": "{n}ª semana seguida com {title}",
+    // Chamada no rodapé do card exportado (2026-09-24, rodada 34) —
+    // até aqui era texto fixo em português direto em ShareCardExport.tsx,
+    // junto de eyebrow/badge que já eram traduzidos há tempo; só faltava
+    // essa chave existir pra fechar os 3.
+    "weekReview.shareCta": "E a sua semana?",
+    "weekReview.share": "Compartilhar",
+    "weekReview.sharing": "Gerando imagem…",
+    "weekReview.episodeSingular": "episódio",
+    "weekReview.episodePlural": "episódios",
+    "weekReview.movieSingular": "filme",
+    "weekReview.moviePlural": "filmes",
+    "weekReview.seriesSingular": "série",
+    "weekReview.seriesPlural": "séries",
+    "weekReview.loadErrorText": "Não consegui buscar o backdrop real agora.",
+    "weekReview.emptyMessage": "Marque um episódio ou filme como assistido pra ver o destaque da sua semana aqui.",
+    "weekReview.errorMessage": "Não consegui carregar sua semana agora.",
+    "weekReview.retry": "Tentar de novo",
+    "profile.weekReviewButton": "Sua semana",
   },
   en: {
     "nav.series": "Shows",
@@ -602,6 +791,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.following": "Following",
     "profile.follow": "Follow",
     "profile.followers": "Followers",
+    "profile.followsYou": "Follows you",
     "profile.notFollowingAnyone": "Not following anyone yet.",
     "profile.noFollowersYet": "No followers yet.",
     "profile.createNewList": "Create new list",
@@ -617,9 +807,23 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.edit": "Edit",
     "common.delete": "Delete",
     "common.remove": "Remove",
+    "movie.whereToWatch": "Where to watch",
     "movie.removeThisMovie": "Remove this movie?",
     "movie.removeMovieMessage": "This erases the status of \"{title}\" — this can't be undone.",
     "common.removing": "Removing...",
+    "common.deleting": "Deleting...",
+    "episode.mood.shocked": "Shocked",
+    "episode.mood.frustrated": "Frustrated",
+    "episode.mood.sad": "Sad",
+    "episode.mood.thoughtful": "Thoughtful",
+    "episode.mood.touched": "Touched",
+    "episode.mood.entertained": "Entertained",
+    "episode.mood.scared": "Scared",
+    "episode.mood.bored": "Bored",
+    "episode.mood.content": "Content",
+    "episode.mood.hyped": "Hyped",
+    "episode.mood.confused": "Confused",
+    "episode.mood.tense": "Tense",
     "movie.addToListTitle": "Add \"{title}\" to a list",
     "movie.noListsYet": "You don't have any lists yet.",
     "movie.addToList": "Add to list",
@@ -704,6 +908,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "auth.signIn": "Sign in",
     "auth.signInSubtitle": "Access your SeenList account.",
     "auth.continueWithGoogle": "Continue with Google",
+    "auth.continueWithApple": "Continue with Apple",
+    "auth.appleSignInError": "Couldn't sign in with Apple. Please try again.",
     "auth.or": "or",
     "auth.forgotPassword": "Forgot your password?",
     "auth.createAccount": "Create account",
@@ -733,8 +939,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "lang.pt": "Portuguese",
     "lang.es": "Spanish",
 
-    "seriesHome.continueWatching": "Continue watching",
+    "seriesHome.continueWatching": "Watch next",
     "seriesHome.viewAllContinueWatching": "View all",
+    "seriesHome.continueWhereYouLeftOff": "Pick up where you left off",
+    "seriesHome.viewAllStaleSeries": "View all",
     "seriesHome.popularSeries": "Popular on SeenList",
     "seriesHome.errorLoadLibrary": "Couldn't load your library right now. Try again shortly.",
     "seriesHome.emptyLibrary": "You're not tracking any shows yet.",
@@ -787,7 +995,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "duration.days": "{n} days",
     "duration.hour": "{n} hour",
     "duration.hours": "{n} hours",
-    "profile.statistics": "Statistics",
+    /** RENAMED (2026-09-24, requested alongside the pt-BR change) — was "Statistics". */
+    "profile.statistics": "My Journey",
     "profile.errorLoadStats": "Couldn't load your stats right now.",
     "profile.errorLoadStatsOther": "Couldn't load this profile's stats right now.",
     "profile.viewDetails": "View details",
@@ -828,6 +1037,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "media.mainCast": "Main cast",
     "media.gallery": "Gallery",
     "media.ratingsCount": "{count} ratings",
+    "media.addedByCount": "This movie was added by {count} user(s)",
+    "movie.overviewTitle": "Movie information",
+    "movie.readMore": "Read more",
+    "movie.readLess": "Read less",
+    "movie.technicalDetails": "Technical details",
     "episode.noPhoto": "No photo",
     "media.noPoster": "No poster",
     "media.similarMovies": "Similar movies",
@@ -875,8 +1089,19 @@ export const translations: Record<Locale, Record<string, string>> = {
     "episode.markSeasonTitle": "Mark season as watched?",
     "episode.unmarkSeasonMessage": "All episodes in this season will go back to unwatched.",
     "episode.markSeasonMessage": "All episodes in this season will be marked as watched.",
+    "series.allEpisodesTitle": "All episodes",
+    "episode.markSeriesTitle": "Mark the entire series as watched?",
+    "episode.markSeriesMessage": "All episodes in this series will be marked as watched.",
+    "episode.unmarkSeriesTitle": "Unmark the entire series?",
+    "episode.unmarkSeriesMessage": "All episodes in this series will go back to unwatched.",
+    "episode.seasonActionsTitle": "What do you want to do with this season?",
+    "episode.unmarkSeasonAction": "Unmark",
+    "episode.rewatchSeasonAction": "Rewatch",
+    "episode.seasonAbbrev": "S",
+    "episode.episodeAbbrev": "E",
     "error.loadSeriesFailed": "Couldn't load this show right now.",
     "seriesHome.episodesTab": "Episodes",
+    "seriesHome.continueWatchingCarousel": "Keep watching",
     "media.similarSeries": "Similar shows",
     "social.recommendTitle": "Recommend \"{title}\"",
     "social.searchFollowing": "Search among who you follow...",
@@ -884,6 +1109,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.messagePlaceholder": "Write a message (optional)",
     "common.sending": "Sending...",
     "social.sendRecommendation": "Send recommendation",
+    "social.recommendPromptTitle": "You liked {mediaTitle}!",
+    "social.recommendPromptSubtitle": "Is there someone who'd like it too?",
+    "social.recommendPromptDismiss": "Not now",
+    "social.recommendPromptCta": "Recommend",
+    "social.quickActionStartWatching": "Start watching",
+    "social.quickActionIgnore": "Ignore",
     "profile.stats.likes": "Likes",
     "profile.comments": "Comments",
 
@@ -891,7 +1122,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.releasesTomorrow": "Releases tomorrow",
     "moviesHome.releasesInDays": "Releases in {days} days",
     "moviesHome.releasesOn": "Releases on {date}",
-    "moviesHome.watchlist": "Watch later",
+    "moviesHome.watchlist": "Watch next",
     "moviesHome.emptyWatchlist": "Your list is empty.",
     "moviesHome.emptyWatchlistTitle": "Your list is waiting for you.",
     "moviesHome.emptyWatchlistSubtitle": "Add movies you want to watch.",
@@ -917,16 +1148,22 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.errorEditComment": "Couldn't edit it",
     "common.tryAgainShortly": "Try again in a moment.",
     "social.commentSingularTitle": "Comment",
+    "social.commentsTitle": "Comments",
     "social.commentNoLongerExists": "This comment no longer exists.",
     "social.containsSpoilerLabel": "Contains spoiler",
     "social.noCommentsYetFull": "No comments yet. Be the first to comment.",
+    "social.noRepliesYet": "No replies yet.",
+    "social.replyPlaceholder": "Write a reply...",
     "episode.ratingBad": "BAD",
     "episode.ratingOk": "OK",
     "episode.ratingGood": "GOOD",
     "episode.ratingGreat": "GREAT",
     "episode.ratingWow": "WOW",
     "episode.seriesEnded": "Series ended",
+    "episode.seriesEndedSubtitle": "You've seen it all!",
     "episode.upToDateMoreComing": "All caught up! More episodes coming",
+    "episode.upToDateTitle": "All caught up",
+    "episode.upToDateSubtitle": "More episodes coming!",
     "episode.platformOther": "Other",
     "episode.platformUnofficial": "Unofficial",
     "social.reply": "Reply",
@@ -1089,9 +1326,20 @@ export const translations: Record<Locale, Record<string, string>> = {
     "review.reviewPlaceholder": "Write a review (optional)...",
     "review.saveReview": "Save rating",
     "review.removeMyReview": "Remove my review",
+    "review.confirmDeleteReviewTitle": "Remove this review?",
+    "review.confirmDeleteReviewMessage": "This can't be undone.",
+    "review.errorDeleteReview": "Couldn't remove",
     "review.noOtherReviewsYet": "No other reviews yet.",
     "media.aboutTab": "About",
+    "media.moreTab": "More",
+    "media.moreTabComingSoon": "Mark this movie as watched to rate it, say where you watched it, and how it made you feel.",
     "media.status": "Status",
+    "media.seriesStatus.Ended": "Ended",
+    "media.seriesStatus.Returning Series": "Returning series",
+    "media.seriesStatus.Canceled": "Canceled",
+    "media.seriesStatus.In Production": "In production",
+    "media.seriesStatus.Planned": "Planned",
+    "media.seriesStatus.Pilot": "Pilot",
     "media.premiere": "Premiere",
     "media.seasons": "Seasons",
     "media.network": "Network",
@@ -1108,6 +1356,25 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.emptyFavoriteMovies": "You haven't favorited any movies yet.",
     "profile.emptyFavoriteSeries": "You haven't favorited any shows yet.",
     "offline.banner": "You're offline. Some things may not work until your connection comes back.",
+    "weekReview.eyebrow": "YOUR WEEK ON SEENLIST",
+    "weekReview.badge": "🏆 Highlight of the week",
+    "weekReview.seasonLabel": "Season {n}",
+    "weekReview.recordLabel": "YOUR RECORD OF THE WEEK",
+    "weekReview.streakLabel": "{n} weeks in a row with {title}",
+    "weekReview.shareCta": "And your week?",
+    "weekReview.share": "Share",
+    "weekReview.sharing": "Generating image…",
+    "weekReview.episodeSingular": "episode",
+    "weekReview.episodePlural": "episodes",
+    "weekReview.movieSingular": "movie",
+    "weekReview.moviePlural": "movies",
+    "weekReview.seriesSingular": "show",
+    "weekReview.seriesPlural": "shows",
+    "weekReview.loadErrorText": "Couldn't load the real backdrop right now.",
+    "weekReview.emptyMessage": "Mark an episode or movie as watched to see your week's highlight here.",
+    "weekReview.errorMessage": "Couldn't load your week right now.",
+    "weekReview.retry": "Try again",
+    "profile.weekReviewButton": "Your week",
   },
   es: {
     "nav.series": "Series",
@@ -1124,6 +1391,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.following": "Siguiendo",
     "profile.follow": "Seguir",
     "profile.followers": "Seguidores",
+    "profile.followsYou": "Te sigue",
     "profile.notFollowingAnyone": "Aún no sigue a nadie.",
     "profile.noFollowersYet": "Aún no tiene seguidores.",
     "profile.createNewList": "Crear nueva lista",
@@ -1139,9 +1407,23 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.edit": "Editar",
     "common.delete": "Eliminar",
     "common.remove": "Quitar",
+    "movie.whereToWatch": "Dónde ver",
     "movie.removeThisMovie": "¿Eliminar esta película?",
     "movie.removeMovieMessage": "Esto borra el estado de \"{title}\" — no se puede deshacer.",
     "common.removing": "Eliminando...",
+    "common.deleting": "Eliminando...",
+    "episode.mood.shocked": "Conmocionado",
+    "episode.mood.frustrated": "Frustrado",
+    "episode.mood.sad": "Triste",
+    "episode.mood.thoughtful": "Reflexivo",
+    "episode.mood.touched": "Conmovido",
+    "episode.mood.entertained": "Entretenido",
+    "episode.mood.scared": "Asustado",
+    "episode.mood.bored": "Aburrido",
+    "episode.mood.content": "Satisfecho",
+    "episode.mood.hyped": "Emocionado",
+    "episode.mood.confused": "Confundido",
+    "episode.mood.tense": "Tenso",
     "movie.addToListTitle": "Agregar \"{title}\" a una lista",
     "movie.noListsYet": "Aún no tienes ninguna lista.",
     "movie.addToList": "Agregar a lista",
@@ -1226,6 +1508,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "auth.signIn": "Iniciar sesión",
     "auth.signInSubtitle": "Accede a tu cuenta de SeenList.",
     "auth.continueWithGoogle": "Continuar con Google",
+    "auth.continueWithApple": "Continuar con Apple",
+    "auth.appleSignInError": "No se pudo iniciar sesión con Apple. Inténtalo de nuevo.",
     "auth.or": "o",
     "auth.forgotPassword": "¿Olvidaste tu contraseña?",
     "auth.createAccount": "Crear cuenta",
@@ -1255,8 +1539,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "lang.pt": "Portugués",
     "lang.es": "Español",
 
-    "seriesHome.continueWatching": "Continuar viendo",
+    "seriesHome.continueWatching": "Ver a continuación",
     "seriesHome.viewAllContinueWatching": "Ver todo",
+    "seriesHome.continueWhereYouLeftOff": "Retoma donde lo dejaste",
+    "seriesHome.viewAllStaleSeries": "Ver todo",
     "seriesHome.popularSeries": "Populares en SeenList",
     "seriesHome.errorLoadLibrary": "No se pudo cargar tu biblioteca ahora. Inténtalo de nuevo en un momento.",
     "seriesHome.emptyLibrary": "Todavía no estás siguiendo ninguna serie.",
@@ -1309,7 +1595,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "duration.days": "{n} días",
     "duration.hour": "{n} hora",
     "duration.hours": "{n} horas",
-    "profile.statistics": "Estadísticas",
+    /** RENOMBRADO (2026-09-24, junto con el cambio en pt-BR) — antes "Estadísticas". */
+    "profile.statistics": "Mi Trayectoria",
     "profile.errorLoadStats": "No se pudieron cargar tus estadísticas ahora.",
     "profile.errorLoadStatsOther": "No se pudieron cargar las estadísticas de este perfil ahora.",
     "profile.viewDetails": "Ver detalles",
@@ -1350,6 +1637,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "media.mainCast": "Reparto principal",
     "media.gallery": "Galería",
     "media.ratingsCount": "{count} valoraciones",
+    "media.addedByCount": "Esta película fue añadida por {count} usuario(s)",
+    "movie.overviewTitle": "Información de la película",
+    "movie.readMore": "Leer más",
+    "movie.readLess": "Leer menos",
+    "movie.technicalDetails": "Ficha técnica",
     "episode.noPhoto": "Sin foto",
     "media.noPoster": "Sin póster",
     "media.similarMovies": "Películas similares",
@@ -1397,8 +1689,19 @@ export const translations: Record<Locale, Record<string, string>> = {
     "episode.markSeasonTitle": "¿Marcar temporada como vista?",
     "episode.unmarkSeasonMessage": "Todos los episodios de esta temporada volverán a no vistos.",
     "episode.markSeasonMessage": "Todos los episodios de esta temporada se marcarán como vistos.",
+    "series.allEpisodesTitle": "Todos los episodios",
+    "episode.markSeriesTitle": "¿Marcar toda la serie como vista?",
+    "episode.markSeriesMessage": "Todos los episodios de esta serie se marcarán como vistos.",
+    "episode.unmarkSeriesTitle": "¿Desmarcar toda la serie?",
+    "episode.unmarkSeriesMessage": "Todos los episodios de esta serie volverán a no vistos.",
+    "episode.seasonActionsTitle": "¿Qué quieres hacer con esta temporada?",
+    "episode.unmarkSeasonAction": "Desmarcar",
+    "episode.rewatchSeasonAction": "Volver a ver",
+    "episode.seasonAbbrev": "T",
+    "episode.episodeAbbrev": "E",
     "error.loadSeriesFailed": "No se pudo cargar esta serie ahora.",
     "seriesHome.episodesTab": "Episodios",
+    "seriesHome.continueWatchingCarousel": "Continuar viendo",
     "media.similarSeries": "Series similares",
     "social.recommendTitle": "Recomendar \"{title}\"",
     "social.searchFollowing": "Buscar entre quien sigues...",
@@ -1406,6 +1709,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.messagePlaceholder": "Escribe un mensaje (opcional)",
     "common.sending": "Enviando...",
     "social.sendRecommendation": "Enviar recomendación",
+    "social.recommendPromptTitle": "¡Te gustó {mediaTitle}!",
+    "social.recommendPromptSubtitle": "¿Hay alguien más a quien también le gustaría?",
+    "social.recommendPromptDismiss": "Ahora no",
+    "social.recommendPromptCta": "Recomendar",
+    "social.quickActionStartWatching": "Empezar a ver",
+    "social.quickActionIgnore": "Ignorar",
     "profile.stats.likes": "Me gusta",
     "profile.comments": "Comentarios",
 
@@ -1413,7 +1722,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.releasesTomorrow": "Se estrena mañana",
     "moviesHome.releasesInDays": "Se estrena en {days} días",
     "moviesHome.releasesOn": "Se estrena el {date}",
-    "moviesHome.watchlist": "Ver más tarde",
+    "moviesHome.watchlist": "Ver a continuación",
     "moviesHome.emptyWatchlist": "Tu lista está vacía.",
     "moviesHome.emptyWatchlistTitle": "Tu lista te está esperando.",
     "moviesHome.emptyWatchlistSubtitle": "Agrega películas que quieras ver.",
@@ -1439,16 +1748,22 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.errorEditComment": "No se pudo editar",
     "common.tryAgainShortly": "Intenta de nuevo en un momento.",
     "social.commentSingularTitle": "Comentario",
+    "social.commentsTitle": "Comentarios",
     "social.commentNoLongerExists": "Este comentario ya no existe.",
     "social.containsSpoilerLabel": "Contiene spoiler",
     "social.noCommentsYetFull": "Aún no hay comentarios. Sé el primero en comentar.",
+    "social.noRepliesYet": "Aún no hay respuestas.",
+    "social.replyPlaceholder": "Escribe una respuesta...",
     "episode.ratingBad": "MALO",
     "episode.ratingOk": "OK",
     "episode.ratingGood": "BUENO",
     "episode.ratingGreat": "GENIAL",
     "episode.ratingWow": "GUAU",
     "episode.seriesEnded": "Serie terminada",
+    "episode.seriesEndedSubtitle": "¡Ya viste todo!",
     "episode.upToDateMoreComing": "¡Al día! Vienen más episodios",
+    "episode.upToDateTitle": "Al día",
+    "episode.upToDateSubtitle": "¡Vienen más episodios!",
     "episode.platformOther": "Otro",
     "episode.platformUnofficial": "No oficial",
     "social.reply": "Responder",
@@ -1611,9 +1926,20 @@ export const translations: Record<Locale, Record<string, string>> = {
     "review.reviewPlaceholder": "Escribe una reseña (opcional)...",
     "review.saveReview": "Guardar calificación",
     "review.removeMyReview": "Eliminar mi reseña",
+    "review.confirmDeleteReviewTitle": "¿Eliminar esta reseña?",
+    "review.confirmDeleteReviewMessage": "No se puede deshacer.",
+    "review.errorDeleteReview": "No se pudo eliminar",
     "review.noOtherReviewsYet": "Aún no hay otras reseñas.",
     "media.aboutTab": "Acerca de",
+    "media.moreTab": "Más",
+    "media.moreTabComingSoon": "Marca esta película como vista para valorarla, decir dónde la viste y cómo te sentiste.",
     "media.status": "Estado",
+    "media.seriesStatus.Ended": "Finalizada",
+    "media.seriesStatus.Returning Series": "En emisión",
+    "media.seriesStatus.Canceled": "Cancelada",
+    "media.seriesStatus.In Production": "En producción",
+    "media.seriesStatus.Planned": "Planeada",
+    "media.seriesStatus.Pilot": "Piloto",
     "media.premiere": "Estreno",
     "media.seasons": "Temporadas",
     "media.network": "Cadena",
@@ -1630,5 +1956,24 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.emptyFavoriteMovies": "Aún no has marcado ninguna película como favorita.",
     "profile.emptyFavoriteSeries": "Aún no has marcado ninguna serie como favorita.",
     "offline.banner": "Estás sin conexión. Algunas cosas pueden no funcionar hasta que vuelva la conexión.",
+    "weekReview.eyebrow": "TU SEMANA EN SEENLIST",
+    "weekReview.badge": "🏆 Destacado de la semana",
+    "weekReview.seasonLabel": "Temporada {n}",
+    "weekReview.recordLabel": "TU RÉCORD DE LA SEMANA",
+    "weekReview.streakLabel": "{n}ª semana seguida con {title}",
+    "weekReview.shareCta": "¿Y tu semana?",
+    "weekReview.share": "Compartir",
+    "weekReview.sharing": "Generando imagen…",
+    "weekReview.episodeSingular": "episodio",
+    "weekReview.episodePlural": "episodios",
+    "weekReview.movieSingular": "película",
+    "weekReview.moviePlural": "películas",
+    "weekReview.seriesSingular": "serie",
+    "weekReview.seriesPlural": "series",
+    "weekReview.loadErrorText": "No pude cargar el fondo real ahora.",
+    "weekReview.emptyMessage": "Marca un episodio o película como visto para ver el destacado de tu semana aquí.",
+    "weekReview.errorMessage": "No pude cargar tu semana ahora.",
+    "weekReview.retry": "Intentar de nuevo",
+    "profile.weekReviewButton": "Tu semana",
   },
 };

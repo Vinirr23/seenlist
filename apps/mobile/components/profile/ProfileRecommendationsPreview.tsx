@@ -307,12 +307,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-  },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
   avatarInitial: {
-    fontSize: 10,
+    fontSize: fontSize.micro,
     fontWeight: "700",
     color: colors.muted,
   },

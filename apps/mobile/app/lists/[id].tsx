@@ -5,8 +5,9 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyLists, fetchListItems, removeFromList, deleteList, type UserList, type ListItem } from "@/lib/lists";
 import { usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
-import { Screen, Text, Skeleton, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
+import { Screen, Text, Skeleton, GlassTargetProvider, Glass, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
+import { hapticTick } from "@/lib/haptics";
 import { colors, radius, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
@@ -44,8 +45,23 @@ export default function ListDetailScreen() {
   useEffect(reload, [reload]);
   useFocusEffect(reload);
 
+  /**
+   * FASE 2 (consistência visual sistêmica, Task 9 "ações e feedback",
+   * 2026-09-26) — achado real: sem haptic e sem tratamento de erro —
+   * uma falha na rede não avisava nada, o item só continuava ali sem
+   * explicação. Critério do próprio usuário ("ação reversível e de
+   * baixo impacto → feedback imediato"): continua SEM confirmação (é
+   * reversível, dá pra adicionar de novo) — só ganhou o haptic que
+   * toda outra ação rápida do app já tem, e um aviso quando falha.
+   */
   function handleRemove(itemId: string) {
-    removeFromList(itemId).then(reload);
+    hapticTick();
+    removeFromList(itemId)
+      .then(reload)
+      .catch((error) => {
+        console.error("[ListDetailScreen] Falha ao remover item da lista", error);
+        Alert.alert(t("error.generic"), t("common.tryAgainShortly"));
+      });
   }
 
   function handleDeleteList() {
@@ -61,17 +77,14 @@ export default function ListDetailScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle" style={{ flex: 1 }} numberOfLines={1}>
-          {list?.name ?? t("profile.listFallbackName")}
-        </Text>
-        <Pressable onPress={handleDeleteList} hitSlop={8}>
-          <Feather name="trash-2" size={20} color={colors.muted} />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title={list?.name ?? t("profile.listFallbackName")}
+        right={
+          <Pressable onPress={handleDeleteList} hitSlop={8}>
+            <Feather name="trash-2" size={20} color={colors.muted} />
+          </Pressable>
+        }
+      />
 
       {/* PORTE DO WEB (2026-09-04, "vidro que falta") — campo de manchas das sub-telas (ver `lib/glowBlobs.ts`). */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
@@ -126,17 +139,6 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
@@ -157,9 +159,15 @@ const styles = StyleSheet.create({
   // CORREÇÃO (2026-09-04, "vidro que falta") — `backgroundColor` sólido
   // saiu (vira `<Glass>`, que já desenha borda + blur + gradiente);
   // `overflow: "hidden"` também não precisa mais (o `Glass` já tem).
+  //
+  // CORREÇÃO (FASE 2, consistência visual, 2026-09-26) — era
+  // `radius.md`(10); o web (`ListDetailView.tsx`) usa `rounded-lg`=8
+  // pro pôster, igual a todo outro cartão de pôster do app
+  // (`PosterGrid.tsx`, `DiscoverCarousel.tsx`) — mesmo papel visual,
+  // agora usando o token formalizado `radius.poster`.
   poster: {
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    borderRadius: radius.poster,
   },
   posterImage: { width: "100%", height: "100%" },
   removeButtonWrap: {

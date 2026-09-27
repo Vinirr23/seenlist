@@ -12,6 +12,17 @@ export interface ReviewComposerProps {
   hasExistingReview?: boolean;
   isPending?: boolean;
   canShareToFeed?: boolean;
+  /**
+   * A PEDIDO (2026-09-25, filme — "a avaliação na tab 'sobre' e a tab
+   * 'mais' estão ficando duplicadas") — filme agora avalia (nota) pela
+   * aba "Mais" (`app/movies/[id].tsx`), que já escreve na mesma linha
+   * de `reviews`. Esta tela ("Ver todas as avaliações") virou lugar só
+   * de TECER COMENTÁRIO — `false` esconde as estrelas e destrava
+   * salvar com base no texto, não na nota (que já existe/veio de lá,
+   * `initialRating`, e segue junto sem mudar). Default `true` — série
+   * continua igual, não tem esse componente duplicado em lugar nenhum.
+   */
+  showRating?: boolean;
   onSubmit: (rating: number, reviewText: string | null, shareToFeed: boolean) => void;
   /**
    * PORTE DO WEB (2026-09-09, comparado no print) — "Remover minha
@@ -54,6 +65,7 @@ export function ReviewComposer({
   hasExistingReview = false,
   isPending,
   canShareToFeed = false,
+  showRating = true,
   onSubmit,
   onDelete,
   isDeleting,
@@ -62,12 +74,13 @@ export function ReviewComposer({
   const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState(initialText ?? "");
   const [shareToFeed, setShareToFeed] = useState(!hasExistingReview);
-  const naoPodeSalvar = rating === 0 || Boolean(isPending);
+  // Sem estrelas nesta tela (`showRating: false`), a nota não é editada aqui — segue a que já existe (`initialRating`, vinda da aba "Mais"); só o texto trava/destrava salvar.
+  const naoPodeSalvar = Boolean(isPending) || (showRating ? rating === 0 : text.trim().length === 0);
 
   return (
     <Glass style={styles.card}>
       {/* As estrelas ficavam CENTRALIZADAS; no web elas nascem no canto esquerdo do card, como qualquer outra linha do formulário. */}
-      <StarRating value={rating} onChange={setRating} />
+      {showRating && <StarRating value={rating} onChange={setRating} />}
 
       <TextInput
         value={text}
@@ -156,8 +169,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   /** `text-xs font-medium text-danger`. */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
   removeLabel: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     fontWeight: "500",
     color: colors.danger,
   },
@@ -171,8 +185,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 28,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
   saveLabel: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     fontWeight: "600",
     color: colors.background,
   },
@@ -198,7 +213,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
   checkboxLabel: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
 });

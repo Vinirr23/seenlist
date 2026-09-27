@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import * as WebBrowser from "expo-web-browser";
+import * as AppleAuthentication from "expo-apple-authentication";
 import * as Linking from "expo-linking";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
@@ -15,6 +16,18 @@ type AuthContextValue = {
   signInWithEmail: (email: string, password: string) => Promise<AuthResult>;
   signUpWithEmail: (email: string, password: string, confirmPassword: string) => Promise<AuthResult>;
   signInWithGoogle: () => Promise<AuthResult>;
+  /**
+   * REQUISITO DA APP STORE (2026-09-22, rejeição real — App Review,
+   * Guideline 4.8 "Login Services") — a Apple exige que todo app que
+   * ofereça login de terceiro (aqui, Google) ofereça também "Sign in
+   * with Apple" como alternativa equivalente, com as mesmas garantias
+   * de privacidade (nome/e-mail só, e-mail oculto opcional, sem coleta
+   * de interação sem consentimento). `null` em telas que só existem no
+   * Android (nenhuma agora, mas mantém o tipo explícito) — quem chama
+   * decide se mostra o botão via `AppleAuthentication.isAvailableAsync()`/
+   * `Platform.OS === "ios"`, não este método.
+   */
+  signInWithApple: () => Promise<AuthResult>;
   signOut: () => Promise<void>;
 };
 
@@ -116,7 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     registerForPushNotifications(supabase).catch((error) => {
       console.warn("[AuthProvider] Falha ao registrar push notifications", error);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user.id]);
 
   const value = useMemo<AuthContextValue>(
@@ -195,6 +207,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         return { error: null };
+      },
+
+      /**
+       * REQUISITO DA APP STORE (2026-09-22, ver comentário grande no
+       * tipo `AuthContextValue.signInWithApple`, acima) — fluxo NATIVO
+       * (`expo-apple-authentication`, painel de sistema da Apple, sem
+       * navegador), diferente do Google acima (que abre uma aba externa
+       * e volta via deep link): a própria Apple entrega um
+       * `identityToken` (JWT assinado pela Apple) que o Supabase aceita
+       * direto via `signInWithIdToken` — sem passar pelo
+       * `WebBrowser.openAuthSessionAsync`/bridge de URL que o Google
+       * precisa. Exemplo oficial do Supabase pra Expo/React Native não
+       * usa `nonce` neste método (diferente do fluxo web/OAuth) — https://supabase.com/docs/guides/auth/social-login/auth-apple.
+       *
+       * VINCULAÇÃO DE CONTA (dúvida real, levantada ao pedir ajuda com
+       * a rejeição) — o Supabase já vincula automaticamente uma nova
+       * identidade (Apple) a uma conta existente com o MESMO e-mail
+       * verificado (Google, e-mail/senha) por padrão — não precisa de
+       * coluna própria tipo `apple_account_id`/`google_account_id` pra
+       * evitar conta duplicada. Isso vale inclusive pro e-mail de relay
+       * da Apple (`@privaterelay.appleid.com`): a Apple devolve o MESMO
+       * endereço de relay pra esse app em todo login futuro com o mesmo
+       * Apple ID, então a vinculação por e-mail continua funcionando
+       * normalmente. Ver `auth-identity-linking` na doc do Supabase.
+       */
+      async signInWithApple() {
+        try {
+          const credential = await AppleAuthentication.signInAsync({
+            requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL],
+          });
+
+          if (!credential.identityToken) {
+            return { error: t("auth.appleSignInError") };
+          }
+
+          const { error } = await supabase.auth.signInWithIdToken({
+            provider: "apple",
+            token: credential.identityToken,
+          });
+          if (error) return { error: t("auth.appleSignInError") };
+          return { error: null };
+        } catch (error) {
+          // Usuário cancelou o painel nativo — não é um erro pra mostrar (mesma regra do Google acima, `result.type === "cancel"`).
+          if (error && typeof error === "object" && "code" in error && error.code === "ERR_REQUEST_CANCELED") {
+            return { error: null };
+          }
+          console.error("[AuthProvider] Falha ao entrar com a Apple", error);
+          return { error: t("auth.appleSignInError") };
+        }
       },
 
       async signOut() {

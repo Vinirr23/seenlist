@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { Text } from "@/components/ui";
-import { colors, spacing } from "@/lib/theme";
+import { colors, spacing, fontSize } from "@/lib/theme";
 
 /**
  * Fica no topo do fluxo normal (não `position: absolute`) — mesma
@@ -46,8 +46,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "rgba(240, 180, 41, 0.4)",
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   text: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     fontWeight: "500",
     color: colors.text,
     textAlign: "center",

@@ -107,6 +107,8 @@ export default function EpisodeDetailScreen() {
   const [animeSearchFailed, setAnimeSearchFailed] = useState(false);
 
   const [watched, setWatched] = useState(false);
+  /** CORREÇÃO (2026-09-25 — "tira o 'assistido', mostra a data real") — ver `isEpisodeWatched` em `seriesDetails.ts`. Null quando não assistido ou enquanto carrega. */
+  const [watchedAt, setWatchedAt] = useState<string | null>(null);
   const [showUnwatchedCommentWarning, setShowUnwatchedCommentWarning] = useState(false);
   const [watchedLoading, setWatchedLoading] = useState(true);
 
@@ -135,7 +137,8 @@ export default function EpisodeDetailScreen() {
         isEpisodeWatched(seriesIdNum, seasonNumber, episodeNumber, result.episode.id)
           .then((value) => {
             if (!cancelled) {
-              setWatched(value);
+              setWatched(value.watched);
+              setWatchedAt(value.watchedAt);
               setWatchedLoading(false);
             }
           })
@@ -228,13 +231,17 @@ export default function EpisodeDetailScreen() {
   async function handleToggleWatched() {
     hapticTick();
     const previousValue = watched;
+    const previousWatchedAt = watchedAt;
     setWatched(!previousValue);
+    // Otimista, igual ao resto da tela: ao marcar, `watched_episodes.watched_at` grava `now()` no banco (ver `toggleEpisodeWatched`) — espelha isso aqui na hora, sem esperar o round-trip. Ao desmarcar, some.
+    setWatchedAt(previousValue ? null : new Date().toISOString());
     try {
       // CORREÇÃO (2026-08-26 — "motor resistente", ver seriesDetails.ts) — `data.episode.id` é o ID fixo da TMDB pra este episódio específico.
       await toggleEpisodeWatched(seriesIdNum, seasonNumber, episodeNumber, previousValue, data?.episode.id);
     } catch (error) {
       console.error("[EpisodeDetailScreen] Falha ao marcar/desmarcar", error);
       setWatched(previousValue);
+      setWatchedAt(previousWatchedAt);
     }
   }
 
@@ -440,9 +447,10 @@ export default function EpisodeDetailScreen() {
                 <View style={styles.metaItem}>
                   <Feather name="calendar" size={14} color={colors.muted} />
                   <Text variant="muted" style={styles.metaText}>
+                    {/* CORREÇÃO (2026-09-25, "as datas tão quebrando em 2 linhas... encurtou o nome do mês" — causa raiz apontada pelo usuário) — `month: "long"` ("setembro") é o que estourava a linha; `MovieHeader.tsx` já usa mês abreviado ("set."), replicado aqui pelo mesmo motivo. */}
                     {new Date(ep.airDate).toLocaleDateString(INTL_LOCALES[locale], {
-                      day: "numeric",
-                      month: "long",
+                      day: "2-digit",
+                      month: "short",
                       year: "numeric",
                     })}
                   </Text>
@@ -451,7 +459,12 @@ export default function EpisodeDetailScreen() {
               <View style={styles.metaItem}>
                 <Feather name={watched ? "eye" : "eye-off"} size={14} color={colors.muted} />
                 <Text variant="muted" style={styles.metaText}>
-                  {watched ? t("episode.watched") : t("episode.notWatched")}
+                  {/* A PEDIDO (2026-09-25, "tira o 'assistido' e adiciona a data real que foi assistido") — mesmo formato de `MovieHeader.tsx` (`watchedDateLabel`). Sem `watchedAt` ainda (carregando) mantém o texto fixo pra não piscar um estado errado. */}
+                  {watched
+                    ? watchedAt
+                      ? new Date(watchedAt).toLocaleDateString(INTL_LOCALES[locale], { day: "2-digit", month: "short", year: "numeric" })
+                      : t("episode.watched")
+                    : t("episode.notWatched")}
                 </Text>
               </View>
             </View>
@@ -466,7 +479,9 @@ export default function EpisodeDetailScreen() {
               <Text variant="subtitle" style={styles.sectionTitle}>
                 {t("episode.whereDidYouWatch")}
               </Text>
-              <EpisodeWatchedPlatformPicker providers={watchProviders} value={myReview?.watchedPlatform ?? null} onChange={handleSetPlatform} />
+              <View style={styles.platformPickerWrap}>
+                <EpisodeWatchedPlatformPicker providers={watchProviders} value={myReview?.watchedPlatform ?? null} onChange={handleSetPlatform} />
+              </View>
             </View>
           )}
 
@@ -673,7 +688,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   seriesPillText: {
-    fontSize: 12,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
+    fontSize: fontSize.xs,
     fontWeight: "700",
     fontFamily: fontFamily[700],
     letterSpacing: 0.3,
@@ -702,8 +718,9 @@ const styles = StyleSheet.create({
     bottom: 12,
   },
   /** `text-xl font-bold text-white` = 20/700 (era 12 e apagado). */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.lgPlus` (era literal 20, mesmo valor).
   code: {
-    fontSize: 20,
+    fontSize: fontSize.lgPlus,
     fontWeight: "700",
     fontFamily: fontFamily[700],
     color: "#FFFFFF",
@@ -711,7 +728,8 @@ const styles = StyleSheet.create({
   /** `mt-0.5 text-sm text-white/90` = 2 de respiro, 14px (era `variant="title"`). */
   episodeName: {
     marginTop: 2,
-    fontSize: 14,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
+    fontSize: fontSize.sm,
     color: "rgba(255,255,255,0.9)",
   },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
@@ -752,14 +770,46 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   /** `text-xs` = 12. */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
   metaText: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
+  /**
+   * A PEDIDO (2026-09-25, referência de outro app — "separa com as
+   * linhas, deixa tudo no meio igual a referencia, atualmente é tudo
+   * pra esquerda") — as 4 seções que usam este estilo ("Onde você
+   * assistiu?", "Sua nota", "Como você se sentiu?",
+   * "Personagem favorito") não tinham linha divisória nenhuma entre
+   * elas, e o TÍTULO de cada uma era alinhado à esquerda.
+   *
+   * `alignItems: "center"` NÃO entrou aqui (tentativa inicial,
+   * revertida) — `EpisodeStarRatingRow`/`EpisodeMoodPicker` dependem
+   * da seção esticar a largura TOTAL (`flex: 1` nos botões de estrela,
+   * `width: "23%"` nos cards de humor): encolher o contêiner pro
+   * tamanho do conteúdo (o que `alignItems: "center"` faz) quebraria
+   * os dois. Eles já nascem "centralizados" visualmente por dividirem
+   * a largura inteira de forma simétrica (`justifyContent:
+   * "space-between"`) — só o título e o picker de plataforma (uma
+   * `ScrollView` horizontal, que sozinha fica colada à esquerda)
+   * precisavam de ajuste; ver `platformPickerWrap` abaixo.
+   *
+   * Linha divisória (`borderBottomColor: colors.border`) é o mesmo
+   * padrão já usado nas seções da aba "Sobre" de Filme
+   * (`app/movies/[id].tsx`, `styles.section`).
+   */
   section: {
     gap: spacing.sm,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   sectionTitle: {
     marginBottom: 2,
+    textAlign: "center",
+  },
+  /** Só o picker de plataforma precisa disso — é uma `ScrollView` horizontal, que por padrão fica colada à esquerda quando tem menos itens que a largura da tela. */
+  platformPickerWrap: {
+    alignItems: "center",
   },
   /** `rounded-lg p-4` do web (8 e 16); o título é `mb-3 text-sm font-semibold`. */
   infoCard: {
@@ -790,8 +840,9 @@ const styles = StyleSheet.create({
   communityCaption: {
     fontSize: fontSize.xs,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
   overview: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     lineHeight: 20,
     color: colors.text,
   },

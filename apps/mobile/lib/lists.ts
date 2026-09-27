@@ -7,6 +7,33 @@ export interface UserList {
   createdAt: string;
 }
 
+/**
+ * CACHE DE MÓDULO (2026-09-27, Etapa 3 — bug real reportado: "quando
+ * entro nas bibliotecas... minhas listas... recarrega") — `app/lists/
+ * index.tsx` é uma rota de PRIMEIRO NÍVEL (fora de `(tabs)`), então
+ * desmonta de verdade sempre que você sai e volta — sem cache nenhum,
+ * `useMyLists` refazia a busca do zero (com esqueleto) toda vez.
+ *
+ * Mesmo padrão já validado nesta auditoria pra `movieDetails.ts`/
+ * `seriesDetails.ts` (`peekCachedMovieDetails`/`peekCachedSeriesDetails`):
+ * TTL curto (5 min — as próprias listas mudam pouco, e criar/remover
+ * lista já chama `refetch()` explicitamente, então não depende do TTL
+ * pra ficar em dia), e o hook consumidor decide ANTES de mostrar
+ * esqueleto se já tem algo em cache pra mostrar na hora.
+ *
+ * Chave por `userId` (não é dado global como `useDiscoverList` — é a
+ * lista de UMA pessoa) — sem isso, trocar de conta no mesmo aparelho
+ * sem reiniciar o app poderia mostrar as listas da conta anterior.
+ */
+const MY_LISTS_CACHE_TTL_MS = 5 * 60 * 1000;
+let myListsCache: { userId: string; data: UserList[]; expiresAt: number } | null = null;
+
+export function peekCachedMyLists(userId: string): UserList[] | null {
+  return myListsCache && myListsCache.userId === userId && myListsCache.expiresAt > Date.now()
+    ? myListsCache.data
+    : null;
+}
+
 export interface ListItem {
   id: string;
   mediaType: "movie" | "series";
@@ -24,7 +51,16 @@ export interface ListWithPreview extends UserList {
 export async function fetchMyLists(): Promise<UserList[]> {
   const { data, error } = await supabase.from("lists").select("id, name, created_at").order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((row) => ({ id: row.id, name: row.name, createdAt: row.created_at }));
+  const result = (data ?? []).map((row) => ({ id: row.id, name: row.name, createdAt: row.created_at }));
+
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (user) {
+    myListsCache = { userId: user.id, data: result, expiresAt: Date.now() + MY_LISTS_CACHE_TTL_MS };
+  }
+
+  return result;
 }
 
 /** Idêntico a useCreateList do web. */

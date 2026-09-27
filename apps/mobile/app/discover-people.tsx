@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { View, FlatList, TextInput, Pressable, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { View, FlatList, TextInput, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useUserSearch } from "@/lib/useUserSearch";
-import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowListRow } from "@/components/profile/FollowListRow";
@@ -26,19 +25,14 @@ export default function DiscoverPeopleScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
-  const router = useRouter();
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const { users, isLoading, isError, refetch } = useUserSearch(search);
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("social.discoverPeople")}</Text>
-      </View>
+      {/* CORREÇÃO (Fase 3, achado alto — ScreenHeader não chegou a esta tela) — era um cabeçalho manual, divergente das ~24 telas já convertidas na Fase 2. */}
+      <ScreenHeader title={t("social.discoverPeople")} />
 
       {/*
         * PORTE DO WEB (2026-09-04, "vidro que falta") — mesma tela-irmã
@@ -95,17 +89,6 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
   searchArea: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
@@ -136,7 +119,8 @@ const styles = StyleSheet.create({
   suggestionsLabel: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
-    fontSize: 11,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+    fontSize: fontSize.xxs,
     fontWeight: "700",
     letterSpacing: 0.5,
   },

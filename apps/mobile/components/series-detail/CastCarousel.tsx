@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View, StyleSheet } from "react-native";
+import { FlatList, View, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import type { CastMember } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { getAnimeCharacters, type AnimeCharacter } from "@/lib/animeCharacters";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { Text, Glass } from "@/components/ui";
-import { colors, fontSize } from "@/lib/theme";
+import { colors, fontSize, radius } from "@/lib/theme";
 
 /** Idêntico a `normalizeCharacterName` do web — minúsculas, sem acento, sem "(voice)"/pontuação, só pra COMPARAR, nunca pra exibir. */
 function normalizeCharacterName(name: string): string {
@@ -69,15 +69,34 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
   const imageByCharacterName = new Map(characters.map((c) => [normalizeCharacterName(c.name), c.imageUrl]));
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-      {/*
-        PORTE DO WEB (2026-09-09) — o corte em 15 saiu: o
-        `CastCarousel.tsx` do web percorre `cast` inteiro
-        (`cast.map`), sem limite nenhum. Como a fileira rola na
-        horizontal, o corte não economizava espaço — só escondia
-        parte do elenco que existe no web.
-      */}
-      {cast.map((member) => {
+    /*
+     * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance —
+     * item 6.1: "Cast/Similar → FlatList") — era `ScrollView` +
+     * `.map()`, o MESMO padrão já corrigido em `EpisodeCarousel.tsx`
+     * (TASK-162) e `DiscoverCarousel.tsx`: desenha TODOS os cards de
+     * uma vez, não importa quantos atores o elenco tenha (o corte em
+     * 15 já tinha sido removido de propósito — ver comentário acima —
+     * então um elenco grande monta dezenas de cards `Glass` de uma
+     * só vez). `FlatList` só desenha o que está perto da área visível
+     * (virtualização); `getItemLayout` (todo card tem a mesma largura)
+     * evita medir nada. Nenhuma mudança visual: mesmos estilos, mesma
+     * ordem, mesmo conteúdo por card.
+     */
+    <FlatList
+      data={cast}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyExtractor={(member) => String(member.id)}
+      contentContainerStyle={styles.row}
+      getItemLayout={(_, index) => ({
+        length: CARD_WIDTH + ROW_GAP,
+        offset: (CARD_WIDTH + ROW_GAP) * index,
+        index,
+      })}
+      initialNumToRender={6}
+      windowSize={5}
+      maxToRenderPerBatch={8}
+      renderItem={({ item: member }) => {
         const characterImage = findCharacterImage(imageByCharacterName, member.character);
         /*
          * CORREÇÃO (bug real, reportado com print) — quando a série É
@@ -96,7 +115,7 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
         const isAnime = imageByCharacterName.size > 0;
         const photoUrl = isAnime ? characterImage : tmdbImageUrl(member.profilePath, "w185");
         return (
-          <View key={member.id} style={styles.card}>
+          <View style={styles.card}>
             {/*
               PORTE DO WEB (2026-09-09) — a caixa da foto era um
               retângulo SÓLIDO (`colors.surface`). No web ela é vidro:
@@ -123,21 +142,30 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
             </Text>
           </View>
         );
-      })}
-    </ScrollView>
+      }}
+    />
   );
 }
+
+/**
+ * CORREÇÃO DE DESEMPENHO (2026-09-27) — extraídas do `StyleSheet`
+ * abaixo (`row.gap`/`card.width`) só para alimentar `getItemLayout`
+ * da `FlatList`; os valores continuam os mesmos de sempre, nada
+ * mudou visualmente.
+ */
+const CARD_WIDTH = 112; // `w-28` (era 96) — mesmo valor de `styles.card.width`.
+const ROW_GAP = 12; // `flex gap-3` — mesmo valor de `styles.row.gap`.
 
 const styles = StyleSheet.create({
   /** `flex gap-3 ... pb-1` = 12 entre os cards, 4 de folga embaixo (era `spacing.sm` = 8, sem folga). */
   row: {
     flexDirection: "row",
-    gap: 12,
+    gap: ROW_GAP,
     paddingBottom: 4,
   },
   /** `w-28` = 112 (era 96). */
   card: {
-    width: 112,
+    width: CARD_WIDTH,
   },
   /**
    * `aspect-[2/3] w-full ... rounded-xl` = 112 × 168, canto 12.
@@ -147,7 +175,7 @@ const styles = StyleSheet.create({
   photo: {
     width: 112,
     aspectRatio: 2 / 3,
-    borderRadius: 12, // `rounded-xl`
+    borderRadius: radius.card, // `rounded-xl` (FASE 2, 2026-09-26 — token formalizado)
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -157,8 +185,9 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   /** `text-[10px] text-muted` centralizado. */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
   noPhoto: {
-    fontSize: 10,
+    fontSize: fontSize.micro,
     textAlign: "center",
   },
   /** `mt-1.5 text-xs font-semibold` = 6 de topo (era 4). */
@@ -168,7 +197,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.text,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   name: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
   },
 });

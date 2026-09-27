@@ -6,7 +6,7 @@ import { useReviewAggregate } from "@/lib/social/useReviewAggregate";
 import { Text, Glass } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { ReviewSummary } from "./ReviewSummary";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 export interface ReviewsSectionProps {
   target: ReviewTarget;
@@ -87,8 +87,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   /** `text-sm font-medium` = 14/500 (era 600). */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
   linkText: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "500",
   },
 });

@@ -44,7 +44,7 @@ export default function ExploreSimilarScreen() {
   }, [isValid, router]);
 
   const kind: SimilarDiscoverKey = mediaType === "series" ? "similar_series" : "similar_movies";
-  const { items, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useDiscoverSimilarInfinite(
+  const { items, isLoading, isError, retry, isFetchingNextPage, hasNextPage, fetchNextPage } = useDiscoverSimilarInfinite(
     kind,
     isValid ? parsedAnchorId : null
   );
@@ -58,6 +58,8 @@ export default function ExploreSimilarScreen() {
       title={anchorTitle ? highlightTitle(t("explore.discover.becauseYouWatched"), anchorTitle) : "…"}
       items={items}
       isLoading={isLoading}
+      isError={isError}
+      onRetry={retry}
       isFetchingNextPage={isFetchingNextPage}
       hasNextPage={hasNextPage}
       fetchNextPage={fetchNextPage}

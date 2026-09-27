@@ -1,0 +1,27 @@
+-- NOVO (a pedido, 2026-09-27 — "na escolha de banner ... quero que a
+-- pesquisa funcione independente de idioma") — adiciona o título
+-- ORIGINAL da TMDB (`original_title`/`original_name`) ao cache
+-- compartilhado que `/api/tmdb/library-summaries` já mantém (ver
+-- migração `20260905000000_media_summaries_cache.sql`).
+--
+-- POR QUE AQUI, E NÃO BUSCANDO TÍTULO A TÍTULO DO LADO DO APP —
+-- investigação real (mobile): buscar o título original item por item,
+-- via `fetchMovieDetails`/`fetchSeriesDetails` (endpoints "pesados",
+-- com elenco/galeria/trailer), não escala pra uma Biblioteca grande —
+-- achado real, um usuário com 1428 itens: um teto de 80 buscas em
+-- segundo plano deixou a maioria dos itens (inclusive séries inteiras,
+-- por causa da ordenação por id) sem título original nenhum, e a busca
+-- por idioma falhava silenciosamente pra eles. `getMovieSummary`/
+-- `getSeriesSummary` (lib/tmdb/client.ts) já fazem UMA chamada por
+-- item pra montar o resumo (título/pôster/ano) que a Biblioteca
+-- inteira usa — a TMDB já devolve `original_title`/`original_name` de
+-- graça NESSA MESMA resposta, então gravar aqui não custa nenhuma
+-- chamada nova ao TMDB nem ao Postgres, pra biblioteca de qualquer
+-- tamanho.
+--
+-- `null` (não `not null`) de propósito — linhas já existentes em cache
+-- (gravadas antes desta coluna existir) ficam `null` até expirarem
+-- naturalmente (`CACHE_TTL_HOURS`, na própria rota) e serem
+-- regravadas com o campo novo; não precisa de backfill.
+alter table media_summaries_cache
+  add column if not exists original_title text;

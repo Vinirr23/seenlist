@@ -1,11 +1,11 @@
 import { useMemo } from "react";
-import { View, Pressable, StyleSheet, SectionList } from "react-native";
+import { View, StyleSheet, SectionList } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
 import { usePublicProfile, usePublicLibraryItems } from "@/lib/usePublicProfile";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { SERIES_CATEGORIES } from "@/lib/seriesCategories";
-import { Screen, Text } from "@/components/ui";
+import { Screen, ScreenHeader } from "@/components/ui";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
 import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
@@ -13,7 +13,7 @@ import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { SectionTitle } from "@/components/media/SectionTitle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
-import { colors, spacing } from "@/lib/theme";
+import { spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -79,12 +79,7 @@ export default function PublicSeriesScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("nav.series")}</Text>
-      </View>
+      <ScreenHeader title={t("nav.series")} />
 
       <View style={styles.toggleRow}>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
@@ -105,10 +100,18 @@ export default function PublicSeriesScreen() {
           <PageError message={t("error.loadLibraryFailed")} onRetry={() => refetch()} />
         </View>
       ) : nonEmptyCategories.length === 0 ? (
+        /*
+         * CORREÇÃO (FASE 2, consistência visual sistêmica, 2026-09-26
+         * — "empty states do perfil público") — mesmo achado de
+         * `movies.tsx` deste mesmo diretório: `<Text variant="muted">`
+         * cru em vez do padrão `EmptyShelf` que `app/profile/series.tsx`
+         * (Perfil PRÓPRIO) já usa pro mesmo estado conceitual (nenhuma
+         * série em nenhuma categoria). Sem `actionLabel`/`actionHref`
+         * pelo mesmo motivo: biblioteca de outra pessoa, sem ação de
+         * "adicionar" que faça sentido aqui.
+         */
         <View style={styles.content}>
-          <Text variant="muted" style={styles.emptyText}>
-            {t("profile.publicLibraryEmpty")}
-          </Text>
+          <EmptyShelf message={t("profile.publicLibraryEmpty")} />
         </View>
       ) : (
         <SectionList
@@ -151,27 +154,6 @@ export default function PublicSeriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    /**
-     * CORREÇÃO (2026-09-16, print real — "botão de voltar, título e o
-     * que vem depois estão tudo junto") — `paddingBottom` era
-     * `spacing.sm` (8). No web (`SectionPageHeader.tsx`, componente
-     * compartilhado por TODAS essas telas lá — aqui cada tela reimplementa
-     * o próprio cabeçalho, sem componente comum), o espaço entre a linha
-     * voltar+título e o que vem a seguir é `mb-4` = 16 = `spacing.md`, o
-     * dobro do que o mobile tinha. Alinhado ao valor real do web, não a um
-     * chute.
-     */
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-  },
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
@@ -197,8 +179,5 @@ const styles = StyleSheet.create({
   },
   listRowWrapper: {
     marginBottom: spacing.sm,
-  },
-  emptyText: {
-    fontSize: 13,
   },
 });

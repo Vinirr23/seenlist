@@ -23,6 +23,7 @@ import { DockNavegacao } from "@/components/layout/DockNavegacao";
 import { colors } from "@/lib/theme";
 import { markFontsReady } from "@/lib/appReady";
 import { useInAppUpdateCheck } from "@/lib/inAppUpdate";
+import { useOtaUpdateCheck } from "@/lib/otaUpdate";
 
 /**
  * TASK-165 (splash, retomada) — sem isso, a splash NATIVA (a que o
@@ -82,15 +83,59 @@ Notifications.setNotificationHandler({
  * `pushNotifications.ts` ("colar isso no _layout.tsx quando o app
  * tiver rotas de produto"): toca numa notificação, abre a tela que a
  * Edge Function `send-push-notifications` mandou em `data.deepLink`.
+ *
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-25, bug real reportado — "quando
+ * chega notificações, quando aperto, ao invés de ir pra tela de
+ * referência da notificação, aparece" a tela "Unmatched Route" /
+ * "seenlist:///") — `addNotificationResponseReceivedListener`
+ * (abaixo) só recebe o toque numa notificação enquanto o app JÁ
+ * ESTÁ RODANDO (primeiro ou segundo plano) — é o comportamento
+ * documentado do próprio `expo-notifications`. Com o app TOTALMENTE
+ * FECHADO, o toque que ABRE o app não passa por esse listener: o
+ * `Linking` que o expo-router usa pra resolver a rota inicial recebe
+ * só o esquema puro (`seenlist://`, sem nenhum caminho), porque
+ * `data.deepLink` é uma chave nossa (inventada pela Edge Function),
+ * não algo que o sistema operacional/`Linking` sabe interpretar
+ * sozinho — daí "Unmatched Route" antes mesmo do JS reagir.
+ *
+ * Fix: `getLastNotificationResponseAsync()` — API do próprio
+ * `expo-notifications` feita exatamente pra esse caso ("app abriu
+ * por causa de uma notificação, mas eu perdi o evento porque ainda
+ * nem tinha subido") — devolve a notificação que abriu o app, se
+ * houver, pra então navegar também. Usa `router.replace` (não
+ * `push`) aqui, porque está substituindo a tela errada
+ * ("Unmatched Route") que já ficou no topo da pilha, não empilhando
+ * por cima dela.
+ *
+ * `handledIds` evita o mesmo toque navegar DUAS vezes — em algumas
+ * versões/plataformas o listener normal também dispara pro mesmo
+ * toque que abriu o app (a ordem entre os dois não é garantida, por
+ * isso o `Set` funciona nos dois sentidos).
  */
 function useNotificationDeepLinks() {
   const router = useRouter();
+  const handledIds = useRef(new Set<string>());
 
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    function navigateToDeepLink(response: Notifications.NotificationResponse, options: { replace: boolean }) {
+      const id = response.notification.request.identifier;
+      if (handledIds.current.has(id)) return;
+      handledIds.current.add(id);
+
       const deepLink = response.notification.request.content.data?.deepLink;
-      if (typeof deepLink === "string") router.push(deepLink as never);
+      if (typeof deepLink !== "string" || deepLink.length === 0) return;
+      if (options.replace) router.replace(deepLink as never);
+      else router.push(deepLink as never);
+    }
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) =>
+      navigateToDeepLink(response, { replace: false })
+    );
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) navigateToDeepLink(response, { replace: true });
     });
+
     return () => subscription.remove();
   }, [router]);
 }
@@ -152,11 +197,24 @@ function useFontsReady() {
  * recomendações não lidas que ele faz (a cada 30s) não roda na tela de
  * login — o que aconteceria se ele montasse sempre e só retornasse
  * `null` no fim.
+ *
+ * TERCEIRA EXCEÇÃO (2026-09-23, a pedido — "a barra inferior está
+ * competindo com a feature... se essa tela for modal/fullscreen, eu
+ * consideraria esconder a bottom tab enquanto o Week Review estiver
+ * aberto. Isso deixaria a experiência mais 'evento' e menos 'mais uma
+ * tela do app'") — `week-review` (`app/week-review.tsx`, a tela REAL de
+ * produção, rodada 26) some da mesma lista.
+ *
+ * CORREÇÃO (2026-09-24, a pedido — "remover a tela de teste") — a
+ * exceção pra `week-review-test` (rota temporária de teste,
+ * `app/week-review-test.tsx`) foi removida junto com o arquivo da
+ * rota em si, que não existe mais.
  */
 function ChromeDeNavegacao({ alvoDaTela }: { alvoDaTela: React.RefObject<View | null> }) {
   const segmentos = useSegments();
   const primeiro = segmentos[0];
-  if (primeiro === undefined || primeiro === "(auth)") return null;
+  if (primeiro === undefined || primeiro === "(auth)" || primeiro === "week-review")
+    return null;
   return <DockNavegacao alvoDaTela={alvoDaTela} />;
 }
 
@@ -170,6 +228,15 @@ export default function RootLayout() {
    * existir em toda tela, não só dentro de `(tabs)`/`(auth)`.
    */
   useInAppUpdateCheck();
+  /**
+   * ATUALIZAÇÃO OTA AUTOMÁTICA (a pedido, 2026-09-22 — "como faço para
+   * TODOS os usuários receberem o update?", ver comentário completo em
+   * `lib/otaUpdate.ts`) — DIFERENTE do `useInAppUpdateCheck()` acima
+   * (aquele é o binário nativo via Play Store; este é o JS via EAS
+   * Update). Checa ao montar e a cada retomada de primeiro plano;
+   * mesmo motivo de morar no layout raiz — precisa rodar em toda tela.
+   */
+  useOtaUpdateCheck();
   /**
    * O ALVO DE DESFOQUE DA BARRA subiu junto com ela (estava em
    * `app/(tabs)/_layout.tsx`). Os dois precisam andar juntos: o

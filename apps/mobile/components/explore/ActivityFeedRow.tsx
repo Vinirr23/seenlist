@@ -70,12 +70,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-  },
+  // FASE 2 (consistência visual sistêmica, Bucket C, 2026-09-26, decisão do
+  // usuário) — token formalizado `fontSize.xs` (era `fontSize.xxs`=11):
+  // unifica com o mesmo papel (iniciais em avatar de 36px) do
+  // `PostCommentItem.tsx`/`EpisodeCommentItem.tsx`, que já usam `fontSize.xs`(12).
   avatarInitials: {
-    fontSize: 11,
+    fontSize: fontSize.xs,
     fontWeight: "700",
     color: colors.muted,
   },
@@ -92,7 +92,8 @@ const styles = StyleSheet.create({
   },
   time: {
     marginTop: 2,
-    fontSize: 11,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+    fontSize: fontSize.xxs,
   },
   posterWrapper: {
     width: 32,

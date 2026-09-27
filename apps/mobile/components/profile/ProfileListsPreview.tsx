@@ -35,7 +35,7 @@ const CARD_SIZE = 112;
  */
 export const ProfileListsPreview = memo(function ProfileListsPreview() {
   const router = useRouter();
-  const { locale } = useTranslation();
+  const { t, locale } = useTranslation();
   const [lists, setLists] = useState<ListWithPreview[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -74,7 +74,7 @@ export const ProfileListsPreview = memo(function ProfileListsPreview() {
             * `ListChecks` do lucide que o web usa; trocado por
             * `format-list-checks`). */}
           <MaterialCommunityIcons name="format-list-checks" size={16} color={colors.primary} />
-          <Text style={styles.sectionTitleText}>Minhas listas</Text>
+          <Text style={styles.sectionTitleText}>{t("profile.myLists")}</Text>
         </View>
         <Feather name="chevron-right" size={16} color={colors.muted} />
       </Pressable>
@@ -207,8 +207,8 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-lg` = 8. */
-    borderRadius: 8,
+    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-lg` = 8. ATUALIZADO (FASE 2, 2026-09-26) — token formalizado `radius.poster`, mesmo papel de pôster do resto do app. */
+    borderRadius: radius.poster,
     backgroundColor: colors.surface,
   },
   deckPoster: {
@@ -218,8 +218,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     overflow: "hidden",
-    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-lg` = 8. */
-    borderRadius: 8,
+    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-lg` = 8. ATUALIZADO (FASE 2, 2026-09-26) — token formalizado `radius.poster`. */
+    borderRadius: radius.poster,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.background,
@@ -235,7 +235,8 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: colors.text,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   listCount: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
   },
 });

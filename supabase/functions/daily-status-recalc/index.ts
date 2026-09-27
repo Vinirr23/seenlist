@@ -395,6 +395,110 @@ async function dailyStatusRecalc(): Promise<void> {
       `seriesWithTmdbData=${liveDataBySeriesId.size} skippedNoTmdbData=${skippedNoTmdbData} ` +
       `candidatesToWrite=${toWrite.length} written=${written} writeErrors=${writeErrors}`
   );
+
+  await autoPauseInactiveSeries(supabase);
+}
+
+// ============================================================
+// 6. Auto-pause silencioso — "Continue de onde parou" -> "Pausada"
+// ============================================================
+//
+// A PEDIDO (2026-09-22, decisão do usuário — "depois de 1 mês que a
+// série estiver em 'continue de onde parou' ela automaticamente vira:
+// pausada/assistir depois", confirmado com "isso" depois de eu
+// explicar as 5 categorias e recomendar 'paused' como o encaixe
+// semântico certo: 'want_to_watch' significa "nunca começou", e essas
+// séries já foram começadas — só pararam. Notificação: "Silencioso,
+// sem aviso", resposta direta à pergunta).
+//
+// PRIMEIRA vez que este motor escreve automaticamente em 'paused' —
+// `shouldWriteSeriesCategory` (acima) NUNCA faz isso, por decisão
+// explícita anterior ("Bug 1 — Primal": 'paused'/'want_to_watch' são
+// 100% controlados pela pessoa, protegidos contra sobrescrita
+// automática). Esta função é um caminho de escrita SEPARADO, só pra
+// este caso específico — não toca em `shouldWriteSeriesCategory` nem
+// nas linhas que ele já decidiu escrever acima.
+//
+// Roda DEPOIS do recálculo principal, de propósito: uma série que
+// acabou de voltar a "watching" nesta mesma execução (porque alguém
+// assistiu recentemente e o recálculo confirmou) já teve seu
+// `last_activity_at` atualizado pelo gatilho `trg_series_status_bump_last_activity`
+// no momento da gravação — então ela sai da consulta abaixo sozinha,
+// sem precisar de nenhuma lógica extra aqui pra "proteger" quem acabou
+// de ser reconfirmado como "watching".
+//
+// `last_activity_at` é uma coluna real (migration
+// `20260922000000_series_status_last_activity_and_auto_pause.sql`),
+// mantida por gatilho — espelha a MESMA fórmula que a tela já usa
+// (`lastActivityAt` em `library-state.ts`: max(series_status.updated_at,
+// watched_episodes.watched_at mais recente da série)), sem precisar
+// replicar essa fórmula aqui (já é a quarta cópia da lógica de
+// CATEGORIA neste arquivo — ver aviso grande no topo; esta é uma
+// fórmula diferente, e não precisou virar uma quinta cópia porque
+// agora mora no banco).
+const AUTO_PAUSE_AFTER_DAYS = 30;
+
+async function autoPauseInactiveSeries(
+  // deno-lint-ignore no-explicit-any
+  supabase: any
+): Promise<void> {
+  const cutoffIso = new Date(Date.now() - AUTO_PAUSE_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: staleRows, error: staleError } = await supabase
+    .from("series_status")
+    .select("user_id, series_id")
+    .eq("status", "watching")
+    .lt("last_activity_at", cutoffIso);
+
+  if (staleError) {
+    console.error("[daily-status-recalc] Falha ao buscar séries 'watching' inativas há 30+ dias", staleError);
+    return;
+  }
+
+  const toPause = (staleRows ?? []) as { user_id: string; series_id: number }[];
+  if (toPause.length === 0) {
+    console.log("[daily-status-recalc] auto-pause 30d — nenhuma série inativa encontrada.");
+    return;
+  }
+
+  let paused = 0;
+  let pauseErrors = 0;
+  for (let i = 0; i < toPause.length; i += WRITE_CONCURRENCY) {
+    const batch = toPause.slice(i, i + WRITE_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map((row) =>
+        supabase.rpc("set_series_status_with_history", {
+          p_user_id: row.user_id,
+          p_series_id: row.series_id,
+          p_status: "paused",
+          // `p_source` já existe pra distinguir 'daily_job' de
+          // 'auto_recalc'/'admin_repair'/manual — mas o auto-pause é um
+          // MOTIVO diferente de escrita dentro do mesmo job (recálculo
+          // de categoria vs. inatividade). Sem um quinto valor de
+          // `source` só pra isso (mudaria o formato já usado em todo
+          // lugar que lê `series_status_history.source`), mas fica
+          // registrado: toda linha de histórico com
+          // `old_status = 'watching' and new_status = 'paused' and
+          // source = 'daily_job'` só pode ter vindo daqui — o
+          // recálculo de categoria (`shouldWriteSeriesCategory`) nunca
+          // escreve 'paused', em nenhuma circunstância.
+          p_source: "daily_job",
+        })
+      )
+    );
+    for (const result of results) {
+      // deno-lint-ignore no-explicit-any
+      if ((result as any).error) {
+        pauseErrors++;
+        // deno-lint-ignore no-explicit-any
+        console.error("[daily-status-recalc] Falha ao pausar série inativa via RPC", (result as any).error);
+      } else {
+        paused++;
+      }
+    }
+  }
+
+  console.log(`[daily-status-recalc] auto-pause 30d — candidatas=${toPause.length} pausadas=${paused} erros=${pauseErrors}`);
 }
 
 Deno.serve(() => {

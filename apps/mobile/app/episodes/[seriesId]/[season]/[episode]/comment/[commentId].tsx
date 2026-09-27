@@ -5,7 +5,14 @@ import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { buildCommentTree, fetchMediaComments, findCommentNode, postMediaComment, type MediaTarget } from "@/lib/social/mediaComments";
+import {
+  buildCommentTree,
+  fetchMediaComments,
+  findCommentNode,
+  postMediaComment,
+  type CommentNode,
+  type MediaTarget,
+} from "@/lib/social/mediaComments";
 import { useEpisodeComments } from "@/lib/social/useEpisodeComments";
 import { pickImageFromLibrary, uploadCommentImage } from "@/lib/imageUpload";
 import { EpisodeCommentItem } from "@/components/episode/EpisodeCommentItem";
@@ -17,8 +24,16 @@ import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+
+/** Conta todas as respostas (em qualquer nível), igual ao helper de mesmo nome em `EpisodeCommentItem.tsx`. */
+function countDescendants(node: CommentNode): number {
+  let total = node.children.length;
+  for (const child of node.children) total += countDescendants(child);
+  return total;
+}
 
 function initials(name: string): string {
   return name
@@ -56,6 +71,7 @@ export default function EpisodeCommentDetailScreen() {
   );
 
   const { edit, remove } = useEpisodeComments(target);
+  const espacoDoDock = useTabBarClearance();
 
   const [comment, setComment] = useState<ReturnType<typeof findCommentNode>>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,6 +97,7 @@ export default function EpisodeCommentDetailScreen() {
       .finally(() => setIsLoading(false));
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- proposital: depende só dos campos primitivos de `target`, não do objeto inteiro, pra não reexecutar toda vez que o chamador recriar `target` sem memoizar (mesmo padrão de `useReviews.ts`/`useReviewAggregate.ts`).
   useEffect(load, [target.mediaId, target.seasonNumber, target.episodeNumber, commentId]);
 
   async function handlePickImage() {
@@ -171,6 +188,7 @@ export default function EpisodeCommentDetailScreen() {
   const isOwn = session?.user.id === comment?.author.userId;
   const displayName = comment ? comment.author.displayName ?? comment.author.username : "";
   const busy = sending || uploadingImage;
+  const replyCount = comment ? countDescendants(comment) : 0;
 
   return (
     <Screen padded={false}>
@@ -188,7 +206,7 @@ export default function EpisodeCommentDetailScreen() {
         */}
       <GlassTargetProvider style={styles.flex} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
         {isLoading ? (
           <AvatarRowSkeleton count={1} />
         ) : !comment ? (
@@ -197,89 +215,15 @@ export default function EpisodeCommentDetailScreen() {
           </Text>
         ) : (
           <>
-            {/* PORTE DO WEB (2026-09-04) — o comentário em destaque vira cartão de vidro, igual ao comentário-raiz de `EpisodeCommentItem`. */}
-            <Glass style={styles.commentCard}>
-              {editingTop ? (
-                <View>
-                  <TextInput value={editTopBody} onChangeText={setEditTopBody} multiline autoFocus style={styles.editInput} />
-                  <View style={styles.editButtons}>
-                    <Pressable onPress={() => setEditingTop(false)} style={styles.editCancelButton}>
-                      <Text variant="muted">Cancelar</Text>
-                    </Pressable>
-                    <View style={styles.editSaveButton}>
-                      <Button onPress={handleSaveEditTop} loading={savingTop} disabled={!editTopBody.trim()}>
-                        Salvar
-                      </Button>
-                    </View>
-                  </View>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.commentHeader}>
-                    <Pressable style={styles.authorRow} onPress={() => router.push(`/u/${comment.author.username}`)}>
-                      <View style={styles.avatar}>
-                        {comment.author.avatarUrl ? (
-                          <Image source={{ uri: comment.author.avatarUrl }} style={styles.avatarImage} />
-                        ) : (
-                          <Text style={styles.avatarInitials}>{initials(displayName)}</Text>
-                        )}
-                      </View>
-                      <Text style={styles.authorName}>{displayName}</Text>
-                    </Pressable>
-                    <Text variant="muted" style={styles.date}>
-                      {dateFormatter.format(new Date(comment.createdAt))}
-                    </Text>
-                  </View>
-                  <SpoilerGate hidden={comment.containsSpoiler}>
-                    <View>
-                      {!!comment.body && <Text style={styles.body}>{comment.body}</Text>}
-                      {!!comment.imageUrl && <AdaptiveImage uri={comment.imageUrl} maxHeight={320} />}
-                    </View>
-                  </SpoilerGate>
-                  <View style={styles.ownActionsRow}>
-                    <LikeButton targetType="comment" targetId={comment.id} />
-                    {isOwn && (
-                      <>
-                        <Pressable
-                          onPress={() => {
-                            setEditTopBody(comment.body ?? "");
-                            setEditingTop(true);
-                          }}
-                        >
-                          <Text variant="muted" style={styles.editLabel}>
-                            Editar
-                          </Text>
-                        </Pressable>
-                        <Pressable onPress={handleDeleteTop}>
-                          <Text style={styles.deleteLabel}>Apagar</Text>
-                        </Pressable>
-                      </>
-                    )}
-                  </View>
-                </>
-              )}
-            </Glass>
-
-            <View style={styles.repliesArea}>
-              {comment.children.length === 0 ? (
-                <Text variant="muted" style={styles.centerText}>
-                  Nenhuma resposta ainda.
-                </Text>
-              ) : (
-                comment.children.map((child) => (
-                  <EpisodeCommentItem
-                    key={child.id}
-                    comment={child}
-                    depth={0}
-                    commentsBaseHref={commentsBaseHref}
-                    onDelete={handleDelete}
-                    onEdit={handleEdit}
-                  />
-                ))
-              )}
-            </View>
-
-            {/* PORTE DO WEB (2026-09-04) — composer vira cartão de vidro (mesmo de `EpisodeCommentsSection`); o `TextInput` por dentro segue sem vidro. */}
+            {/*
+              * CORREÇÃO (mockup 2026-09-25, aprovado — "ficou certo") — o
+              * composer estava DEPOIS da lista de respostas; a tela de
+              * lista principal (`EpisodeCommentsSection.tsx`) já mostra o
+              * composer no TOPO, então esta tela ficava com um
+              * comportamento diferente sem motivo. Composer movido pra
+              * cá, antes do comentário em destaque — resto do fluxo
+              * (comentário + respostas) sem mudança de comportamento.
+              */}
             <Glass style={styles.composerArea}>
               <TextInput
                 value={body}
@@ -326,6 +270,109 @@ export default function EpisodeCommentDetailScreen() {
                 </Pressable>
               </View>
             </Glass>
+
+            {/* PORTE DO WEB (2026-09-04) — o comentário em destaque vira cartão de vidro, igual ao comentário-raiz de `EpisodeCommentItem`. */}
+            <Glass style={styles.commentCard}>
+              {editingTop ? (
+                <View>
+                  <TextInput value={editTopBody} onChangeText={setEditTopBody} multiline autoFocus style={styles.editInput} />
+                  <View style={styles.editButtons}>
+                    <Pressable onPress={() => setEditingTop(false)} style={styles.editCancelButton}>
+                      <Text variant="muted">Cancelar</Text>
+                    </Pressable>
+                    <View style={styles.editSaveButton}>
+                      <Button onPress={handleSaveEditTop} loading={savingTop} disabled={!editTopBody.trim()}>
+                        Salvar
+                      </Button>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <Pressable style={styles.commentHeader} onPress={() => router.push(`/u/${comment.author.username}`)}>
+                    <View style={styles.avatar}>
+                      {comment.author.avatarUrl ? (
+                        <Image source={{ uri: comment.author.avatarUrl }} style={styles.avatarImage} />
+                      ) : (
+                        <Text style={styles.avatarInitials}>{initials(displayName)}</Text>
+                      )}
+                    </View>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.authorName}>{displayName}</Text>
+                      <Text variant="muted" style={styles.date}>
+                        {dateFormatter.format(new Date(comment.createdAt))}
+                      </Text>
+                    </View>
+                  </Pressable>
+                  <SpoilerGate hidden={comment.containsSpoiler}>
+                    <View>
+                      {!!comment.body && <Text style={styles.body}>{comment.body}</Text>}
+                      {!!comment.imageUrl && <AdaptiveImage uri={comment.imageUrl} maxHeight={320} />}
+                    </View>
+                  </SpoilerGate>
+                  {/* A PEDIDO (mockup 2026-09-25, "bem melhor, pode aplicar") — linha fina separando o texto das ações, igual à referência. */}
+                  <View style={styles.actionsDivider} />
+                  {/*
+                    * CORREÇÃO (a pedido — "coração+contador,
+                    * comentário+contador, Editar e Apagar devem
+                    * compartilhar exatamente o mesmo centro
+                    * vertical") — container único
+                    * (`ownActionsRow`, `alignItems: "center"`), ícone
+                    * de resposta com o mesmo `gap` do `LikeButton`
+                    * (`spacing.xs`) e dentro de uma caixa fixa 18×18
+                    * (`actionIconBox`), igual ao `EpisodeCommentItem`.
+                    */}
+                  <View style={styles.ownActionsRow}>
+                    <LikeButton targetType="comment" targetId={comment.id} />
+                    {/* A PEDIDO (mockup 2026-09-25, da referência) — contador de respostas ao lado do curtir. */}
+                    <View style={styles.replyCountDisplay}>
+                      <View style={styles.actionIconBox}>
+                        <Feather name="message-circle" size={22} color={colors.muted} />
+                      </View>
+                      <Text variant="muted" style={styles.replyCountLabel}>
+                        {replyCount}
+                      </Text>
+                    </View>
+                    {isOwn && (
+                      <>
+                        <Pressable
+                          onPress={() => {
+                            setEditTopBody(comment.body ?? "");
+                            setEditingTop(true);
+                          }}
+                        >
+                          <Text variant="muted" style={styles.editLabel}>
+                            Editar
+                          </Text>
+                        </Pressable>
+                        <Pressable onPress={handleDeleteTop}>
+                          <Text style={styles.deleteLabel}>Apagar</Text>
+                        </Pressable>
+                      </>
+                    )}
+                  </View>
+                </>
+              )}
+            </Glass>
+
+            <View style={styles.repliesArea}>
+              {comment.children.length === 0 ? (
+                <Text variant="muted" style={styles.centerText}>
+                  {t("social.noRepliesYet")}
+                </Text>
+              ) : (
+                comment.children.map((child) => (
+                  <EpisodeCommentItem
+                    key={child.id}
+                    comment={child}
+                    depth={0}
+                    commentsBaseHref={commentsBaseHref}
+                    onDelete={handleDelete}
+                    onEdit={handleEdit}
+                  />
+                ))
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -335,7 +382,10 @@ export default function EpisodeCommentDetailScreen() {
   );
 }
 
-const AVATAR_SIZE = 28;
+// A PEDIDO (mockup "Opção B", 2026-09-25 — "achando a fonte nos
+// comentários muito pequenas e os botões também", comparado à
+// referência) — 28 → 36, mesma proporção de `EpisodeCommentItem.tsx`.
+const AVATAR_SIZE = 36;
 
 const styles = StyleSheet.create({
   flex: {
@@ -359,6 +409,16 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.md,
+    /**
+     * CORREÇÃO (2026-09-25, bug reportado — "dentro de responder um
+     * comentário, quando respondi ficou por trás da barra de
+     * navegação") — esta tela nunca chamava `useTabBarClearance()`, só
+     * tinha o `paddingBottom` estático abaixo (`spacing.xl`),
+     * insuficiente pra reservar espaço pro dock flutuante (`position:
+     * absolute`, não reserva espaço sozinho — mesma causa raiz e mesma
+     * correção de `comments.tsx`, irmã). O valor dinâmico é aplicado no
+     * array de estilo do `ScrollView` acima e substitui este fallback.
+     */
     paddingBottom: spacing.xl,
   },
   centerText: {
@@ -373,16 +433,19 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.sm,
   },
+  // CORREÇÃO (mockup 2026-09-25, "a data fica embaixo do nome de
+  // usuário na tela de referência") — era `row` + `justify-content:
+  // space-between` (avatar+nome à esquerda, data à direita, mesma
+  // linha); agora avatar de um lado e nome+data empilhados do outro
+  // (`metaCol`), igual à referência.
   commentHeader: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  authorRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: spacing.xs,
-    flexShrink: 1,
+  },
+  metaCol: {
+    flexDirection: "column",
+    gap: 1,
   },
   avatar: {
     width: AVATAR_SIZE,
@@ -397,35 +460,77 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  // A PEDIDO (mockup "Opção B", 2026-09-25) — 10 → 12, mesma proporção de `EpisodeCommentItem.tsx`.
   avatarInitials: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "700",
     color: colors.muted,
   },
+  // A PEDIDO (mockup "Opção B", 2026-09-25) — sm(14) → 16.
   authorName: {
-    fontSize: fontSize.sm,
+    fontSize: 16,
     fontWeight: "700",
     color: colors.text,
   },
+  // A PEDIDO (mockup "Opção B", 2026-09-25) — 11 → 13.
   date: {
-    fontSize: 11,
+    fontSize: 13,
   },
+  // A PEDIDO (mockup "Opção B", 2026-09-25) — sm(14) → 16.
   body: {
     marginTop: spacing.xs,
-    fontSize: fontSize.sm,
+    fontSize: 16,
     color: colors.text,
   },
-  ownActionsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
+  // A PEDIDO (mockup 2026-09-25) — linha fina entre o corpo do
+  // comentário e a linha de ações, igual à referência.
+  actionsDivider: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
     marginTop: spacing.sm,
   },
-  editLabel: {
-    fontSize: 12,
+  // A PEDIDO (mockup 2026-09-25, "alinha os botões dentro do espaço
+  // que eles estão") — `flexWrap` evita que Editar/Apagar estourem o
+  // card; gap menor dá mais folga antes de precisar quebrar linha.
+  ownActionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    rowGap: spacing.xs,
+    columnGap: spacing.md,
+    marginTop: spacing.sm,
   },
+  // A PEDIDO (mockup 2026-09-25, "os botões de like | comentários
+  // estão muito pequenos") — 12px → 13px com peso, ícone do balão
+  // 13px → 18px, pra bater com o `LikeButton` (ícone 18px).
+  // A PEDIDO (mockup "Opção B", 2026-09-25) — 13 → 15.
+  editLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  // Mesmo `gap` do `LikeButton` (`spacing.xs`) — grupos consistentes.
+  replyCountDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  // A PEDIDO (mockup "Opção B", 2026-09-25) — 12 → 15, acompanha `editLabel`/`deleteLabel`.
+  replyCountLabel: {
+    fontSize: 15,
+  },
+  // Caixa fixa — mesmo box/touch target do ícone de curtir, pra
+  // alinhamento não depender do desenho interno do glifo. 18×18 →
+  // 22×22 (mockup "Opção B", 2026-09-25), acompanhando o `LikeButton`.
+  actionIconBox: {
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // A PEDIDO (mockup "Opção B", 2026-09-25) — 13 → 15.
   deleteLabel: {
-    fontSize: 12,
+    fontSize: 15,
+    fontWeight: "600",
     color: colors.danger,
   },
   editInput: {
@@ -460,9 +565,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   // CORREÇÃO (2026-09-04, "vidro que falta") — mesma conversão do
-  // composer de `EpisodeCommentsSection.tsx`.
+  // composer de `EpisodeCommentsSection.tsx`. `marginTop` → `marginBottom`
+  // (mockup 2026-09-25, aprovado) — o composer virou o primeiro elemento
+  // da tela (antes ficava depois das respostas), mesma posição/
+  // comportamento que a tela de lista principal já usa.
   composerArea: {
-    marginTop: spacing.md,
+    marginBottom: spacing.md,
     borderRadius: radius.lg,
     padding: spacing.sm,
     gap: spacing.xs,

@@ -29,7 +29,7 @@ export default function PrivacyPage() {
       <h2>1. Quem somos</h2>
 
       <p>
-        O SeenList é operado por Vinicius Ribeiro, CPF 110.617.984-61. Em caso de dúvida sobre
+        O SeenList é operado por Vinicius Ribeiro. Em caso de dúvida sobre
         esta política ou sobre seus dados, entre em contato pelo e-mail{" "}
         <strong>contato@seenlist.app</strong>.
       </p>

@@ -391,8 +391,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.text,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   pollHint: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     marginTop: spacing.xs,
   },
   textArea: {
@@ -408,7 +409,8 @@ const styles = StyleSheet.create({
   },
   counter: {
     textAlign: "right",
-    fontSize: 11,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+    fontSize: fontSize.xxs,
   },
   imagePreviewWrapper: {
     alignSelf: "flex-start",
@@ -439,6 +441,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   attachButtonText: {
-    fontSize: 12,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
+    fontSize: fontSize.xs,
   },
 });

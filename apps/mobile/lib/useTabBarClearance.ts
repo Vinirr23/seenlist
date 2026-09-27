@@ -7,14 +7,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * flutuante, com sua PRÓPRIA margem até a borda de baixo da tela
  * (`DOCK_FLOATING_GAP`, 12px, antes de somar a área segura). O espaço
  * total ocupado por baixo do conteúdo agora é maior: a margem
- * flutuante (12px) + a altura de verdade do dock (~60px: 10px de
- * padding vertical de cada lado + caixa do ícone 24px + 2px de gap +
- * ~14px da legenda). Sem atualizar este número, o último item de
- * lista voltaria a ficar parcialmente atrás do dock (o mesmo bug que
- * esta tela já resolvia antes).
+ * flutuante (12px) + a altura de verdade do dock.
+ *
+ * ATUALIZADO (2026-09-22, dock aumentado ~15% — ver `DOCK_SCALE` em
+ * `DockNavegacao.tsx`, mesma sessão, "quero só aumentar um pouco o
+ * tamanho da barra") — a conta é a MESMA de sempre (padding vertical
+ * de cada lado + caixa do ícone + gap + legenda), só com os números já
+ * escalados de lá: 12px de padding × 2 + caixa do ícone 28px + 2px de
+ * gap + ~16px da legenda (fonte 12px agora, era 10px) ≈ 70px. Se
+ * `DOCK_SCALE` mudar de novo, este número precisa acompanhar — senão
+ * volta o bug do último item de lista escondido atrás do dock.
  */
 const DOCK_FLOATING_GAP = 12;
-const DOCK_HEIGHT = 60;
+const DOCK_HEIGHT = 70;
 const EXTRA_GAP = 16;
 
 /**

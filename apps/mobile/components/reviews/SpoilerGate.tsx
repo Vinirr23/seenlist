@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text, Glass } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
  * PORTE DO WEB (2026-09-04, "vidro que falta") — web (`SpoilerGate.tsx`)
@@ -39,7 +39,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
   text: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
 });

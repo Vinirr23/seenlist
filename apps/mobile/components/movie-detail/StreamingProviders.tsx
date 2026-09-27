@@ -3,15 +3,17 @@ import { Image } from "expo-image";
 import type { WatchProvider } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, Glass } from "@/components/ui";
-import { radius, spacing } from "@/lib/theme";
+import { radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function StreamingProviders({ providers }: { providers: WatchProvider[] }) {
+  const { t } = useTranslation();
   if (providers.length === 0) return null;
 
   return (
     <View>
       <Text variant="subtitle" style={styles.title}>
-        Onde assistir
+        {t("movie.whereToWatch")}
       </Text>
       <View style={styles.row}>
         {providers.map((provider) => {
@@ -68,7 +70,8 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   name: {
-    fontSize: 10,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
+    fontSize: fontSize.micro,
     textAlign: "center",
   },
 });

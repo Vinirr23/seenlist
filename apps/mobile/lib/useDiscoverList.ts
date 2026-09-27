@@ -156,14 +156,21 @@ export function useDiscoverListInfinite(list: DiscoverListKey) {
   const { locale } = useTranslation();
   const [items, setItems] = useState<DiscoverItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  // CORREÇÃO (Fase 3, achado crítico C — falha de rede indistinguível de
+  // "sem resultados") — bump manual pra forçar o efeito abaixo a rodar de
+  // novo no "Tentar de novo" do `PageError`, mesmo padrão de `reloadToken`
+  // já usado em `app/episodes/[seriesId]/[season]/[episode].tsx`.
+  const [reloadToken, setReloadToken] = useState(0);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
     const requestId = ++requestIdRef.current;
     setIsLoading(true);
+    setIsError(false);
     setItems([]);
     setPage(1);
     setTotalPages(1);
@@ -176,11 +183,12 @@ export function useDiscoverListInfinite(list: DiscoverListKey) {
       })
       .catch((error) => {
         console.error(`[useDiscoverListInfinite] Falha ao buscar "${list}" (página 1)`, error);
+        if (requestIdRef.current === requestId) setIsError(true);
       })
       .finally(() => {
         if (requestIdRef.current === requestId) setIsLoading(false);
       });
-  }, [list, locale]);
+  }, [list, locale, reloadToken]);
 
   function fetchNextPage() {
     if (isFetchingNextPage || page >= totalPages) return;
@@ -194,6 +202,10 @@ export function useDiscoverListInfinite(list: DiscoverListKey) {
         setTotalPages(data.totalPages);
       })
       .catch((error) => {
+        // Falha só na página seguinte (não na 1ª carga) — o botão "Carregar
+        // mais"/`onEndReached` continuam disponíveis (página/totalPages não
+        // avançam), então tentar de novo é só repetir a mesma ação; não
+        // precisa de um segundo estado de erro pra isso.
         console.error(`[useDiscoverListInfinite] Falha ao buscar "${list}" (página ${page + 1})`, error);
       })
       .finally(() => {
@@ -201,7 +213,11 @@ export function useDiscoverListInfinite(list: DiscoverListKey) {
       });
   }
 
-  return { items, isLoading, isFetchingNextPage, hasNextPage: page < totalPages, fetchNextPage };
+  function retry() {
+    setReloadToken((n) => n + 1);
+  }
+
+  return { items, isLoading, isError, isFetchingNextPage, hasNextPage: page < totalPages, fetchNextPage, retry };
 }
 
 /** Versão paginada de `useDiscoverByGenre`, só pra tela "ver todos" de um gênero (`app/explore/genre/[mediaType]/[genreId].tsx`) — mesmo raciocínio de `useDiscoverListInfinite` acima. Também expõe `genreMap` (a própria resposta já traz o mapa de nomes, ver `route.ts`) — a tela usa pra montar o título da página. */
@@ -210,9 +226,12 @@ export function useDiscoverByGenreInfinite(kind: GenreDiscoverKey, genreId: numb
   const [items, setItems] = useState<DiscoverItem[]>([]);
   const [genreMap, setGenreMap] = useState<Record<number, string> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  // Ver comentário completo em `useDiscoverListInfinite` acima.
+  const [reloadToken, setReloadToken] = useState(0);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -221,10 +240,12 @@ export function useDiscoverByGenreInfinite(kind: GenreDiscoverKey, genreId: numb
       setItems([]);
       setGenreMap(null);
       setIsLoading(false);
+      setIsError(false);
       return;
     }
     const requestId = ++requestIdRef.current;
     setIsLoading(true);
+    setIsError(false);
     setItems([]);
     setPage(1);
     setTotalPages(1);
@@ -238,11 +259,12 @@ export function useDiscoverByGenreInfinite(kind: GenreDiscoverKey, genreId: numb
       })
       .catch((error) => {
         console.error(`[useDiscoverByGenreInfinite] Falha ao buscar "${kind}" (gênero ${genreId}, página 1)`, error);
+        if (requestIdRef.current === requestId) setIsError(true);
       })
       .finally(() => {
         if (requestIdRef.current === requestId) setIsLoading(false);
       });
-  }, [kind, genreId, locale]);
+  }, [kind, genreId, locale, reloadToken]);
 
   function fetchNextPage() {
     if (genreId == null || isFetchingNextPage || page >= totalPages) return;
@@ -263,7 +285,11 @@ export function useDiscoverByGenreInfinite(kind: GenreDiscoverKey, genreId: numb
       });
   }
 
-  return { items, genreMap, isLoading, isFetchingNextPage, hasNextPage: page < totalPages, fetchNextPage };
+  function retry() {
+    setReloadToken((n) => n + 1);
+  }
+
+  return { items, genreMap, isLoading, isError, isFetchingNextPage, hasNextPage: page < totalPages, fetchNextPage, retry };
 }
 
 export function useDiscoverSimilar(kind: SimilarDiscoverKey, anchorId: number | null) {
@@ -312,9 +338,12 @@ export function useDiscoverSimilarInfinite(kind: SimilarDiscoverKey, anchorId: n
   const { locale } = useTranslation();
   const [items, setItems] = useState<DiscoverItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  // Ver comentário completo em `useDiscoverListInfinite` acima.
+  const [reloadToken, setReloadToken] = useState(0);
   const requestIdRef = useRef(0);
   const sourceRef = useRef<SimilarSource | undefined>(undefined);
 
@@ -323,11 +352,13 @@ export function useDiscoverSimilarInfinite(kind: SimilarDiscoverKey, anchorId: n
       requestIdRef.current += 1;
       setItems([]);
       setIsLoading(false);
+      setIsError(false);
       return;
     }
     const requestId = ++requestIdRef.current;
     sourceRef.current = undefined;
     setIsLoading(true);
+    setIsError(false);
     setItems([]);
     setPage(1);
     setTotalPages(1);
@@ -341,11 +372,12 @@ export function useDiscoverSimilarInfinite(kind: SimilarDiscoverKey, anchorId: n
       })
       .catch((error) => {
         console.error(`[useDiscoverSimilarInfinite] Falha ao buscar "${kind}" (âncora ${anchorId}, página 1)`, error);
+        if (requestIdRef.current === requestId) setIsError(true);
       })
       .finally(() => {
         if (requestIdRef.current === requestId) setIsLoading(false);
       });
-  }, [kind, anchorId, locale]);
+  }, [kind, anchorId, locale, reloadToken]);
 
   function fetchNextPage() {
     if (anchorId == null || isFetchingNextPage || page >= totalPages) return;
@@ -366,5 +398,9 @@ export function useDiscoverSimilarInfinite(kind: SimilarDiscoverKey, anchorId: n
       });
   }
 
-  return { items, isLoading, isFetchingNextPage, hasNextPage: page < totalPages, fetchNextPage };
+  function retry() {
+    setReloadToken((n) => n + 1);
+  }
+
+  return { items, isLoading, isError, isFetchingNextPage, hasNextPage: page < totalPages, fetchNextPage, retry };
 }

@@ -1,17 +1,17 @@
 import { useMemo } from "react";
-import { View, Pressable, StyleSheet, FlatList } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
 import { usePublicProfile, usePublicLibraryItems } from "@/lib/usePublicProfile";
 import { useViewModePreference } from "@/lib/useViewModePreference";
-import { Screen, Text } from "@/components/ui";
+import { Screen, ScreenHeader } from "@/components/ui";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
 import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
-import { colors, spacing } from "@/lib/theme";
+import { spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -55,12 +55,7 @@ export default function PublicMoviesScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("nav.movies")}</Text>
-      </View>
+      <ScreenHeader title={t("nav.movies")} />
 
       <View style={styles.toggleRow}>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
@@ -81,10 +76,21 @@ export default function PublicMoviesScreen() {
           <PageError message={t("error.loadLibraryFailed")} onRetry={() => refetch()} />
         </View>
       ) : watchedMovies.length === 0 ? (
+        /*
+         * CORREÇÃO (FASE 2, consistência visual sistêmica, 2026-09-26
+         * — "empty states do perfil público") — era um `<Text
+         * variant="muted">` cru, sem cartão de vidro, sem borda
+         * tracejada, sem centralização própria — o único vazio do app
+         * fora do padrão `EmptyShelf`. Mesmo estado conceitual (biblioteca
+         * de filmes assistidos vazia) do `app/profile/movies.tsx` (Perfil
+         * PRÓPRIO), que já usa `EmptyShelf`. Preservada a ausência de
+         * `actionLabel`/`actionHref`: lá o botão leva a Explorar porque é
+         * A SUA biblioteca vazia; aqui é a biblioteca de OUTRA pessoa —
+         * não existe ação de "adicionar" que faça sentido pra quem só
+         * está visitando.
+         */
         <View style={styles.content}>
-          <Text variant="muted" style={styles.emptyText}>
-            {t("profile.publicLibraryEmpty")}
-          </Text>
+          <EmptyShelf message={t("profile.publicLibraryEmpty")} />
         </View>
       ) : viewMode === "grid" ? (
         <FlatList
@@ -112,27 +118,6 @@ export default function PublicMoviesScreen() {
 }
 
 const styles = StyleSheet.create({
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    /**
-     * CORREÇÃO (2026-09-16, print real — "botão de voltar, título e o
-     * que vem depois estão tudo junto") — `paddingBottom` era
-     * `spacing.sm` (8). No web (`SectionPageHeader.tsx`, componente
-     * compartilhado por TODAS essas telas lá — aqui cada tela reimplementa
-     * o próprio cabeçalho, sem componente comum), o espaço entre a linha
-     * voltar+título e o que vem a seguir é `mb-4` = 16 = `spacing.md`, o
-     * dobro do que o mobile tinha. Alinhado ao valor real do web, não a um
-     * chute.
-     */
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-  },
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
@@ -148,8 +133,5 @@ const styles = StyleSheet.create({
   },
   listRows: {
     gap: spacing.sm,
-  },
-  emptyText: {
-    fontSize: 13,
   },
 });

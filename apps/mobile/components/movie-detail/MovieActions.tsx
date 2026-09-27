@@ -7,7 +7,7 @@ import { incrementMovieRewatch } from "@/lib/movieDetails";
 import { hapticTick } from "@/lib/haptics";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { Text, Glass } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
@@ -137,13 +137,14 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: "rgba(232,163,61,0.1)",
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (eram literais 11, mesmo valor).
   label: {
     color: colors.muted,
-    fontSize: 11,
+    fontSize: fontSize.xxs,
   },
   labelActive: {
     color: colors.primary,
-    fontSize: 11,
+    fontSize: fontSize.xxs,
   },
   iconButton: {
     width: 40,

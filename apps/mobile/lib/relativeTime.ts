@@ -46,6 +46,53 @@ const LABELS: Record<Locale, { minute: (n: number) => string; hour: (n: number) 
   },
 };
 
+/**
+ * A PEDIDO (2026-09-22, "Continue de onde parou" — indicador de "há
+ * quanto tempo" na seção "Faz um tempo que você não assiste") — função
+ * NOVA, separada de `formatRelativeTime` acima de propósito: aquela
+ * função corta em 7 dias e devolve `null` por decisão explícita já
+ * documentada (ver comentário dela e o espelho em
+ * `apps/web/lib/relativeTime.ts`: "não faz sentido dizer 'há 23 dias',
+ * uma data vira mais clara") — pensada pro Feed, onde os posts raramente
+ * passam de alguns dias. Reaproveitar/alargar aquele corte quebraria
+ * esse comportamento já calibrado em todo lugar que já usa a função.
+ *
+ * Esta série de itens, por definição, NUNCA aparece antes de 14 dias
+ * (é o próprio corte que a separa de "Continue assistindo" —
+ * `STALE_AFTER_DAYS` em `series/index.tsx`) e sai da lista de vez
+ * depois de 30 dias (vira "Pausada" sozinha, ver `daily-status-
+ * recalc`) — a faixa de uso real é só semanas, quase nunca meses.
+ * Arredondado pra semana/mês (não dia) de propósito: "há 3 semanas" é
+ * uma frase natural; "há 23 dias" não é — mesmo raciocínio da função
+ * acima, só que a granularidade certa pra ESTA faixa de tempo é
+ * diferente.
+ */
+const STALE_LABELS: Record<Locale, { week: (n: number) => string; month: (n: number) => string }> = {
+  "pt-BR": {
+    week: (n) => `há ${n} ${n === 1 ? "semana" : "semanas"}`,
+    month: (n) => `há ${n} ${n === 1 ? "mês" : "meses"}`,
+  },
+  en: {
+    week: (n) => `${n}w ago`,
+    month: (n) => `${n}mo ago`,
+  },
+  es: {
+    week: (n) => `hace ${n} ${n === 1 ? "semana" : "semanas"}`,
+    month: (n) => `hace ${n} ${n === 1 ? "mes" : "meses"}`,
+  },
+};
+
+export function formatStaleSince(dateIso: string, now: number, locale: Locale): string {
+  const diffMs = Math.max(0, now - new Date(dateIso).getTime());
+  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  const labels = STALE_LABELS[locale] ?? STALE_LABELS["pt-BR"];
+
+  if (diffDays < 30) {
+    return labels.week(Math.max(1, Math.round(diffDays / 7)));
+  }
+  return labels.month(Math.max(1, Math.round(diffDays / 30)));
+}
+
 export function formatRelativeTime(dateIso: string, now: number, locale: Locale, justNowLabel: string): string | null {
   const diffMs = now - new Date(dateIso).getTime();
   const diffSeconds = Math.round(diffMs / 1000);

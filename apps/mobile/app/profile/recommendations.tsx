@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { View, Pressable, Alert, FlatList, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -13,8 +13,9 @@ import {
   type ReceivedRecommendation,
   type BlockedUser,
 } from "@/lib/recommendations";
-import { Screen, Text, Skeleton } from "@/components/ui";
-import { colors, radius, spacing, tint } from "@/lib/theme";
+import { Screen, Text, Skeleton, ScreenHeader, GlassTargetProvider, AmbientGlow } from "@/components/ui";
+import { colors, radius, spacing, tint, fontSize } from "@/lib/theme";
+import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
@@ -49,13 +50,34 @@ export default function RecommendationsScreen() {
   const [recommendations, setRecommendations] = useState<ReceivedRecommendation[] | null>(null);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [showBlocked, setShowBlocked] = useState(false);
+  // CORREÇÃO (Fase 3, achado alto — "Ignorar" sem tratamento de erro nem
+  // proteção contra toque duplo) — igual ao "Bloquear" ao lado (que já
+  // tem seu próprio guard implícito pelo `Alert.alert` de confirmação),
+  // "Ignorar" continua SEM confirmação (ação leve, por decisão do
+  // usuário) — só ganha guard contra chamada em duplicidade + feedback
+  // se a chamada falhar, mesmo padrão de `Alert.alert(t("error.generic"),
+  // t("common.tryAgainShortly"))` já usado em `app/lists/[id].tsx`.
+  const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
 
   const reload = useCallback(() => {
     fetchReceivedRecommendations(locale).then(setRecommendations);
     fetchBlockedUsers().then(setBlockedUsers);
   }, [locale]);
 
-  useEffect(reload, [reload]);
+  // CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance —
+  // item 4 da Etapa 1B: "Recomendações — useEffect + useFocusEffect")
+  // — mesma classe de bug já corrigida em Detalhes da Série na Etapa
+  // 1A: `useFocusEffect` (do próprio `expo-router`) já dispara na
+  // MONTAGEM inicial da tela e em todo refoco — o `useEffect(reload,
+  // [reload])` ao lado disparava de novo na mesma montagem (2 buscas
+  // completas — `fetchReceivedRecommendations` + `fetchBlockedUsers` —
+  // 2x cada, 4 chamadas de rede só pra abrir a tela). Removido o
+  // `useEffect`; `useFocusEffect` sozinho já cobre tanto a montagem
+  // quanto voltar pra esta tela depois de sair dela (comportamento de
+  // atualização ao focar, preservado). Troca de idioma com a tela já
+  // aberta não passa por aqui de propósito: esta tela não tem seletor
+  // de idioma próprio — mudar o idioma sempre exige navegar até
+  // Configurações e voltar, o que já é, em si, um evento de foco.
   useFocusEffect(reload);
 
   function handleOpen(rec: ReceivedRecommendation) {
@@ -67,7 +89,21 @@ export default function RecommendationsScreen() {
   }
 
   function handleDismiss(id: string) {
-    dismissRecommendation(id).then(reload);
+    if (dismissingIds.has(id)) return;
+    setDismissingIds((prev) => new Set(prev).add(id));
+    dismissRecommendation(id)
+      .then(reload)
+      .catch((error) => {
+        console.error("[RecommendationsScreen] Falha ao ignorar recomendação", error);
+        Alert.alert(t("error.generic"), t("common.tryAgainShortly"));
+      })
+      .finally(() => {
+        setDismissingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      });
   }
 
   function handleBlock(rec: ReceivedRecommendation) {
@@ -83,13 +119,15 @@ export default function RecommendationsScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("profile.recommendationsTitle")}</Text>
-      </View>
+      <ScreenHeader title={t("profile.recommendationsTitle")} />
 
+      {/*
+        * CORREÇÃO (bug real, reportado — "nenhuma dessas telas tem as
+        * manchas azuis de fundo") — mesma correção de `favorite-series.tsx`
+        * (ver comentário lá): `SUBPAGE_GLOW_BLOBS`, já usada em
+        * `comments.tsx`/`edit-profile.tsx`.
+        */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       {recommendations === null ? (
         <View style={[styles.content, { gap: spacing.sm }]}>
           {[0, 1, 2].map((i) => (
@@ -137,7 +175,7 @@ export default function RecommendationsScreen() {
               </Pressable>
 
               <View style={styles.cardActions}>
-                <Pressable onPress={() => handleDismiss(rec.id)} hitSlop={8}>
+                <Pressable onPress={() => handleDismiss(rec.id)} disabled={dismissingIds.has(rec.id)} hitSlop={8}>
                   <Feather name="x" size={16} color={colors.muted} />
                 </Pressable>
                 <Pressable onPress={() => handleBlock(rec)} hitSlop={8}>
@@ -171,6 +209,7 @@ export default function RecommendationsScreen() {
           }
         />
       )}
+      </GlassTargetProvider>
     </Screen>
   );
 }
@@ -205,24 +244,8 @@ function EmptyState({ message }: { message: string }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    // CORREÇÃO (auditoria de consistência) — esta era a ÚNICA tela,
-    // entre 21 com cabeçalho de voltar+título, com espaçamento
-    // diferente (md em vez de lg na horizontal, md em vez de sm em
-    // cima). Alinhada com as outras 20: lado a lado, o título e a
-    // seta ficavam em posições ligeiramente diferentes ao navegar
-    // entre telas.
-    //
-    // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de
-    // tela em 16px app-wide) — as 21 telas foram todas atualizadas
-    // juntas de `spacing.lg` (24) pra `spacing.md` (16) na horizontal,
-    // pra bater com o `px-4` do web; continuam consistentes entre si.
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+  glassFill: {
+    flex: 1,
   },
   content: {
     padding: spacing.md,
@@ -253,11 +276,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   posterImage: { width: "100%", height: "100%" },
-  senderLine: { fontSize: 12 },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — tokens formalizados `fontSize.xs`/`fontSize.sm`/`fontSize.micro` (eram literais 12/14/10, mesmos valores).
+  senderLine: { fontSize: fontSize.xs },
   senderName: { fontWeight: "700", color: colors.text },
-  mediaTitle: { fontSize: 14, fontWeight: "600", color: colors.text, marginTop: 2 },
-  message: { fontSize: 12, marginTop: 2 },
-  date: { fontSize: 10, marginTop: spacing.xs },
+  mediaTitle: { fontSize: fontSize.sm, fontWeight: "600", color: colors.text, marginTop: 2 },
+  message: { fontSize: fontSize.xs, marginTop: 2 },
+  date: { fontSize: fontSize.micro, marginTop: spacing.xs },
   cardActions: {
     justifyContent: "space-between",
     alignItems: "center",
@@ -269,7 +293,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  blockedToggleText: { fontSize: 12, fontWeight: "500" },
+  blockedToggleText: { fontSize: fontSize.xs, fontWeight: "500" },
   blockedRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -282,8 +306,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     marginTop: spacing.xs,
   },
-  blockedName: { fontSize: 14, color: colors.text },
-  unblockText: { fontSize: 12, fontWeight: "600", color: colors.primary },
+  blockedName: { fontSize: fontSize.sm, color: colors.text },
+  unblockText: { fontSize: fontSize.xs, fontWeight: "600", color: colors.primary },
   /** Web (`EmptyState.tsx`): `flex flex-col items-center justify-center gap-1 py-16 text-center` — py-16=64, gap-1=4. */
   emptyState: {
     alignItems: "center",

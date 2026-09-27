@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, Alert, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import type { ReviewTarget } from "@/lib/social/reviews";
 import { useReviews } from "@/lib/social/useReviews";
 import { createReviewPost } from "@/lib/posts";
@@ -12,16 +12,18 @@ import {
 import { RecommendPromptSheet } from "@/components/social/RecommendPromptSheet";
 import { RecommendSheet } from "@/components/social/RecommendSheet";
 import { fetchLikeInfoFor } from "@/lib/social/likes";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { ReviewComposer } from "./ReviewComposer";
 import { ReviewCard } from "./ReviewCard";
-import { colors, spacing } from "@/lib/theme";
+import { colors, fontSize, radius, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export interface ReviewsFullViewProps {
   target: ReviewTarget;
   media: { title: string; posterPath: string | null };
+  /** A PEDIDO (2026-09-25, filme — ver comentário em `ReviewComposer.tsx`) — repassado pro composer; default `true` mantém série como está. */
+  showRating?: boolean;
 }
 
 /**
@@ -36,9 +38,9 @@ export interface ReviewsFullViewProps {
  * também no Feed" estiver marcado, publica depois — se o post
  * falhar, a avaliação já está salva de qualquer forma.
  */
-export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
+export function ReviewsFullView({ target, media, showRating = true }: ReviewsFullViewProps) {
   const { t } = useTranslation();
-  const { othersReviews, myReview, isLoading, saving, submit, remove } = useReviews(target);
+  const { othersReviews, myReview, isLoading, saving, submit, remove, hasMore, loadingMore, loadMore } = useReviews(target);
   const [postError, setPostError] = useState<string | null>(null);
   const [promptRating, setPromptRating] = useState<number | null>(null);
   const [showRecommendSheet, setShowRecommendSheet] = useState(false);
@@ -99,6 +101,31 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
     }
   }
 
+  /**
+   * FASE 2 (consistência visual sistêmica, Task 9 "ações e feedback",
+   * 2026-09-26) — achado real na auditoria: apagar uma avaliação não
+   * tinha NENHUMA confirmação (comentário/post sempre confirmam com
+   * `Alert.alert`, mesmo texto/estilo usado aqui agora) e falha virava
+   * só um `console.error`, sem a pessoa nunca saber que não funcionou.
+   * `remove()` agora devolve `true`/`false` (ver `useReviews.ts`) —
+   * usado aqui pra reaproveitar o mesmo `postError` já existente na
+   * tela em vez de inventar um segundo mecanismo de erro.
+   */
+  function handleDeleteReview() {
+    Alert.alert(t("review.confirmDeleteReviewTitle"), t("review.confirmDeleteReviewMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("social.delete"),
+        style: "destructive",
+        onPress: async () => {
+          setPostError(null);
+          const ok = await remove();
+          if (!ok) setPostError(t("review.errorDeleteReview"));
+        },
+      },
+    ]);
+  }
+
   function handleDismissPrompt() {
     setPromptRating(null);
     markRecommendPromptDismissed();
@@ -136,9 +163,10 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
         initialText={myReview?.reviewText ?? ""}
         hasExistingReview={!!myReview}
         isPending={saving}
+        showRating={showRating}
         onSubmit={handleSubmit}
         /* PORTE DO WEB (2026-09-09) — "Remover minha avaliação" passou pra DENTRO do card, na mesma linha do botão de salvar, como no `ReviewFullComposer.tsx`. */
-        onDelete={remove}
+        onDelete={handleDeleteReview}
         isDeleting={saving}
       />
       {!!postError && (
@@ -168,6 +196,32 @@ export function ReviewsFullView({ target, media }: ReviewsFullViewProps) {
           {othersReviews.map((review) => (
             <ReviewCard key={review.id} review={review} initial={likeInfoByReviewId.get(review.id)} />
           ))}
+          {/*
+            CORREÇÃO DE DESEMPENHO (2026-09-27, Etapa 2, item 2 —
+            "Reviews: paginação") — antes `fetchReviews` trazia TODAS
+            as avaliações do título de uma vez; agora vem paginado (20
+            por vez, ver `useReviews.ts`/`reviews.ts`), e este botão
+            busca a próxima página sob demanda — mesmo padrão visual
+            (`Glass` + `explore.discover.loadMore`) já usado em
+            `DiscoverGridScreen.tsx`. Botão, não `onEndReached`: esta
+            lista já mora dentro do `ScrollView` da tela de Avaliações
+            (`app/series/[id]/reviews.tsx`/`app/movies/[id]/reviews.tsx`),
+            então não há `FlatList` próprio aqui pra disparar por
+            scroll — trocar por `FlatList` exigiria mexer nas duas
+            telas donas do `ScrollView` (risco maior, fora do escopo
+            desta etapa).
+          */}
+          {hasMore && (
+            <Pressable onPress={loadMore} disabled={loadingMore}>
+              <Glass style={[styles.loadMoreButton, loadingMore && styles.loadMoreButtonDisabled]}>
+                {loadingMore ? (
+                  <ActivityIndicator color={colors.text} />
+                ) : (
+                  <Text style={styles.loadMoreText}>{t("explore.discover.loadMore")}</Text>
+                )}
+              </Glass>
+            </Pressable>
+          )}
         </View>
       )}
     </View>
@@ -194,5 +248,21 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     textAlign: "center",
+  },
+  /** Mesmo estilo/valores de `DiscoverGridScreen.tsx` (botão "Carregar mais" já aprovado nesta etapa). */
+  loadMoreButton: {
+    marginTop: spacing.xs,
+    alignSelf: "center",
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  loadMoreButtonDisabled: {
+    opacity: 0.6,
+  },
+  loadMoreText: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.text,
   },
 });

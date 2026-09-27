@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Pressable, Animated, StyleSheet } from "react-native";
+import { Pressable, Animated, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "./Text";
 import { Glass } from "./Glass";

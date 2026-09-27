@@ -176,8 +176,11 @@ export function PostCard({
           </View>
         </Pressable>
 
+        {/* CORREÇÃO (Fase 3, achado alto — acessibilidade de botões só-ícone) — `accessibilityLabel`/`accessibilityRole` faltavam aqui. */}
         <Pressable
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("profile.moreOptions")}
           onPress={(e) => {
             e.stopPropagation();
             setMenuOpen(true);
@@ -292,10 +295,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-  },
   avatarInitials: {
     fontSize: fontSize.xs,
     fontWeight: "700",
@@ -310,8 +309,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   meta: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
   },
   reviewCard: {
     flexDirection: "row",
@@ -353,7 +353,8 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     marginLeft: spacing.xs,
-    fontSize: 11,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+    fontSize: fontSize.xxs,
     fontWeight: "600",
     color: colors.muted,
   },

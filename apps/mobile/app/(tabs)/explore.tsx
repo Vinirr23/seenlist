@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
-import { View, ScrollView, StyleSheet } from "react-native";
-import { useFocusEffect } from "expo-router";
-import { Screen, Text, GlassTargetProvider, AmbientGlow, type GlowBlob } from "@/components/ui";
+import { useEffect, useState } from "react";
+import { View, ScrollView, FlatList, StyleSheet } from "react-native";
+import { Screen, GlassTargetProvider, AmbientGlow, type GlowBlob } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { SearchBar } from "@/components/explore/SearchBar";
 import { SearchResults } from "@/components/explore/SearchResults";
@@ -14,8 +14,6 @@ import { useActivityFeed } from "@/lib/useActivityFeed";
 import { spacing } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-import { logTempoDesdeOToque } from "@/lib/perfNavStamp";
 
 /**
  * PORTE DO WEB (2026-09-02 — "vamos implementar as mudanças que
@@ -60,14 +58,57 @@ const EXPLORE_GLOW_BLOBS: GlowBlob[] = [
 ];
 
 export default function ExploreScreen() {
-  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — roda em TODO render (não só no 1º), pra ver se a tela está remontando a cada troca de aba. REMOVER junto.
-  console.log(`[PERF-DOCK] BODY Explorar renderizou em ${performance.now().toFixed(1)}ms`);
   const tabBarClearance = useTabBarClearance();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<ExploreTab>("movies");
-  const { t } = useTranslation();
-  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-  useFocusEffect(useCallback(() => { logTempoDesdeOToque("Explorar"); }, []));
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-27, Etapa 3 — bug real reportado:
+   * "ao trocar de sub abas dentro de explorar, toda vez recarrega") —
+   * antes, `{tab === "movies" ? <ExploreMoviesTab /> : <ExploreSeriesTab />}`
+   * desmontava um e montava o outro a CADA troca de sub-aba — e os
+   * hooks de "Porque você assistiu a X"/"Principais [filmes/séries]
+   * para você"/"Seus gêneros favoritos" (`useDiscoverByGenre`/
+   * `useDiscoverSimilar`/`useFavoriteGenres`) não têm cache (de
+   * propósito — são por PESSOA, ver comentário em
+   * `lib/useDiscoverList.ts`, cachear arriscaria mostrar dado
+   * desatualizado se a Biblioteca mudar), então cada remonte refazia
+   * a busca do zero, com esqueleto visível.
+   *
+   * Fix: mesmo padrão já usado pelo navegador de abas em si (monta a
+   * primeira vez que a sub-aba é visitada, depois MANTÉM montada,
+   * só escondendo com `display: "none"` — sem desmontar). Isso resolve
+   * pela raiz (a causa real era o remonte desnecessário, não falta de
+   * cache) sem contradizer a decisão deliberada de não cachear esses
+   * hooks.
+   *
+   * CORREÇÃO (mesmo dia — reportado depois: "dentro de explorar na sub
+   * aba atividade tem o mesmo bug") — a 1ª versão deste fix só cobria
+   * Filmes/Séries; a sub-aba Atividade continuava num `tab === "activity"
+   * ? <ActivityTabContent /> : <ScrollView>...</ScrollView>` no nível de
+   * cima, que desmontava a `ScrollView` (e tudo dentro, inclusive
+   * Filmes/Séries já "mantidos") toda vez que se ia pra Atividade e
+   * voltava. Unificado: as 3 sub-abas agora são irmãs sempre
+   * renderizadas (montam na 1ª visita, sem nunca desmontar de novo),
+   * cada uma só escondida com `display: "none"` quando não é a ativa.
+   *
+   * CORREÇÃO (mesmo dia, 2ª rodada — testado no aparelho: Filmes↔Séries
+   * parou de recarregar, mas ir pra Atividade e voltar pra Filmes/Séries
+   * ainda recarregava) — o bloco de Atividade só passou a existir
+   * DEPOIS da 1ª visita (`subAbasVisitadas.has("activity") && (...)`);
+   * sem uma `key` fixa, o React pode reconciliar os irmãos deste
+   * fragmento por POSIÇÃO — o bloco de Atividade aparecendo/sumindo do
+   * meio da lista de filhos deslocava a posição da `ScrollView` de
+   * Filmes/Séries logo abaixo, e o React tratava isso como um elemento
+   * novo (desmontando o antigo). `key` fixa em cada bloco ("sub-aba-
+   * activity"/"sub-aba-discover"/"sub-aba-movies"/"sub-aba-series")
+   * ancora a identidade de cada um, independente de posição.
+   */
+  const [subAbasVisitadas, setSubAbasVisitadas] = useState<Set<ExploreTab>>(() => new Set([tab]));
+  useEffect(() => {
+    if (!subAbasVisitadas.has(tab)) {
+      setSubAbasVisitadas((prev) => new Set(prev).add(tab));
+    }
+  }, [tab, subAbasVisitadas]);
 
   return (
     <Screen padded={false}>
@@ -86,11 +127,30 @@ export default function ExploreScreen() {
               <ExploreTabs active={tab} onChange={setTab} />
             </View>
 
-            {tab === "activity" ? (
-              <ActivityTabContent />
-            ) : (
-              <ScrollView contentContainerStyle={[styles.discoverContent, { paddingBottom: tabBarClearance }]}>
-                {tab === "movies" ? <ExploreMoviesTab /> : <ExploreSeriesTab />}
+            {subAbasVisitadas.has("activity") && (
+              <View
+                key="sub-aba-activity"
+                style={[styles.flexFill, tab === "activity" ? undefined : styles.subAbaEscondida]}
+              >
+                <ActivityTabContent />
+              </View>
+            )}
+            {(subAbasVisitadas.has("movies") || subAbasVisitadas.has("series")) && (
+              <ScrollView
+                key="sub-aba-discover"
+                style={tab === "activity" ? styles.subAbaEscondida : undefined}
+                contentContainerStyle={[styles.discoverContent, { paddingBottom: tabBarClearance }]}
+              >
+                {subAbasVisitadas.has("movies") && (
+                  <View key="sub-aba-movies" style={tab === "movies" ? undefined : styles.subAbaEscondida}>
+                    <ExploreMoviesTab />
+                  </View>
+                )}
+                {subAbasVisitadas.has("series") && (
+                  <View key="sub-aba-series" style={tab === "series" ? undefined : styles.subAbaEscondida}>
+                    <ExploreSeriesTab />
+                  </View>
+                )}
               </ScrollView>
             )}
           </>
@@ -121,10 +181,19 @@ function ActivityTabContent() {
   }
   if (!items || items.length === 0) {
     return (
+      // FASE 2 (consistência visual sistêmica, 2026-09-26) — era
+      // `<Text variant="muted">` solto; `EmptyShelf` já é o padrão
+      // único de estado vazio do app. A mensagem já sugere seguir
+      // gente — ganhou o `actionLabel` real que faltava, indo direto
+      // pra `discover-people` (mesma tela/rótulo do sino de "Descobrir
+      // pessoas").
       <View style={styles.emptyActivity}>
-        <Text variant="muted" style={styles.emptyActivityText}>
-          {t("explore.emptyActivityFollowSuggestion")}
-        </Text>
+        <EmptyShelf
+          icon="users"
+          message={t("explore.emptyActivityFollowSuggestion")}
+          actionLabel={t("social.discoverPeople")}
+          actionHref="/discover-people"
+        />
       </View>
     );
   }
@@ -134,15 +203,44 @@ function ActivityTabContent() {
     // respiro entre linhas moram aqui agora: cada `ActivityFeedRow`
     // virou um cartão de vidro (antes era linha crua com `border-b`, e
     // era ela mesma quem punha a borda de tela por dentro).
-    <ScrollView contentContainerStyle={[styles.activityList, { paddingBottom: tabBarClearance }]}>
-      {items.map((item) => (
-        <ActivityFeedRow key={item.id} item={item} />
-      ))}
-    </ScrollView>
+    //
+    // CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance —
+    // item 6 da Etapa 1B: "Explorar > Atividade → FlatList") — era
+    // `ScrollView` + `.map()`, montando de uma vez todo item vindo de
+    // `fetchActivityFeed` (até 40 — `.slice(0, 40)` em
+    // `lib/activityFeed.ts`; o número exato é 40, não ~60 como estimado
+    // na auditoria original). Mesmo padrão já aprovado nesta mesma
+    // etapa pro Feed principal (`app/(tabs)/feed.tsx`) e na Etapa 1A
+    // pros carrosséis — `FlatList` virtualiza, só monta o que está
+    // perto da tela. SEM `getItemLayout`: a altura da linha não é fixa
+    // (o texto de `ActivityFeedRow` — nome + ação + título — pode
+    // quebrar em mais de uma linha dependendo do conteúdo, sem
+    // `numberOfLines`), então declarar uma altura fixa aqui erraria o
+    // posicionamento em vez de ajudar. Vidro, layout, ações, navegação
+    // e os estados de carregamento/vazio/erro acima continuam
+    // exatamente iguais — só a forma de desenhar a lista mudou. Esta
+    // aba nunca teve "puxar pra atualizar" (nenhum `RefreshControl`
+    // antes da correção) — não é adicionado agora, por não fazer parte
+    // do escopo desta etapa.
+    <FlatList
+      data={items}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={[styles.activityList, { paddingBottom: tabBarClearance }]}
+      initialNumToRender={8}
+      windowSize={7}
+      maxToRenderPerBatch={8}
+      renderItem={({ item }) => <ActivityFeedRow item={item} />}
+    />
   );
 }
 
 const styles = StyleSheet.create({
+  flexFill: {
+    flex: 1,
+  },
+  subAbaEscondida: {
+    display: "none",
+  },
   glassFill: {
     flex: 1,
   },
@@ -183,8 +281,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.xl,
-  },
-  emptyActivityText: {
-    textAlign: "center",
   },
 });

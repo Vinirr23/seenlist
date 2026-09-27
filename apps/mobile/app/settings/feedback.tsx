@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
 import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { sendFeedback, fetchMyFeedback, type FeedbackType, type MyFeedbackItem } from "@/lib/settings";
-import { Screen, Text, Button, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
+import { Screen, Text, Button, GlassTargetProvider, Glass, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -18,7 +18,6 @@ export default function FeedbackScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
-  const router = useRouter();
   const { t } = useTranslation();
   const TYPES: { value: FeedbackType; label: string; icon: keyof typeof Feather.glyphMap }[] = [
     { value: "bug", label: t("feedback.typeBug"), icon: "alert-triangle" },
@@ -60,12 +59,8 @@ export default function FeedbackScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("settings.sendFeedback")}</Text>
-      </View>
+      {/* CORREÇÃO (Fase 3, achado alto — ScreenHeader não chegou a esta tela) — era um cabeçalho manual, divergente das ~24 telas já convertidas na Fase 2. */}
+      <ScreenHeader title={t("settings.sendFeedback")} />
 
       {/*
         * CORREÇÃO (auditoria — mesmo achado de `edit-profile.tsx`):
@@ -192,17 +187,6 @@ export default function FeedbackScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-  },
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
   },
   content: {
     paddingHorizontal: spacing.md,

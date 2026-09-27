@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { View, Pressable, Alert, FlatList, StyleSheet } from "react-native";
+import { View, Pressable, Alert, FlatList, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyComments, deleteMyComment, type MyComment } from "@/lib/myComments";
 import { tmdbImageUrl } from "@/lib/library";
-import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
@@ -47,6 +47,12 @@ export default function MyCommentsScreen() {
   const [comments, setComments] = useState<MyComment[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  // FASE 2 (consistência visual sistêmica, Task 9 "ações e feedback",
+  // 2026-09-26) — achado real: apagar comentário aqui não indicava
+  // exclusão em andamento nem tratava falha (só `console.error`, sem
+  // aviso pra pessoa) — guarda o id do item sendo apagado (lista tem
+  // vários itens, cada um com seu próprio botão).
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function load() {
     setIsLoading(true);
@@ -78,11 +84,15 @@ export default function MyCommentsScreen() {
         text: t("social.delete"),
         style: "destructive",
         onPress: async () => {
+          setDeletingId(comment.id);
           try {
             await deleteMyComment(comment.id);
             load();
           } catch (error) {
             console.error("[MyCommentsScreen] Falha ao apagar comentário", error);
+            Alert.alert(t("social.errorDeleteComment"), t("common.tryAgainShortly"));
+          } finally {
+            setDeletingId(null);
           }
         },
       },
@@ -123,24 +133,24 @@ export default function MyCommentsScreen() {
               </Text>
             </View>
           </Pressable>
-          <Pressable hitSlop={8} onPress={() => handleDelete(comment)}>
-            <Feather name="trash-2" size={16} color={colors.danger} />
+          <Pressable hitSlop={8} onPress={() => handleDelete(comment)} disabled={deletingId === comment.id}>
+            {deletingId === comment.id ? (
+              <ActivityIndicator size="small" color={colors.danger} />
+            ) : (
+              <Feather name="trash-2" size={16} color={colors.danger} />
+            )}
           </Pressable>
         </Glass>
       );
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleOpen/handleDelete são recriadas a cada render mas são estáveis o bastante (mesmo padrão de antes); t/dateFormatter SÃO dependências reais agora, precisam entrar na lista pra não travar num idioma antigo.
-    [t, dateFormatter]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleOpen/handleDelete são recriadas a cada render mas são estáveis o bastante (mesmo padrão de antes); t/dateFormatter/deletingId SÃO dependências reais agora, precisam entrar na lista pra não travar num idioma antigo nem esconder o spinner do item certo.
+    [t, dateFormatter, deletingId]
   );
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("profile.commentsTitle")}</Text>
-      </View>
+      {/* CORREÇÃO (Fase 3, achado alto — ScreenHeader não chegou a esta tela) — era um cabeçalho manual, divergente das ~24 telas já convertidas na Fase 2. */}
+      <ScreenHeader title={t("profile.commentsTitle")} />
 
       {/* PORTE DO WEB (2026-09-04, "vidro que falta") — mesmo campo de manchas de `MyCommentsPageView.tsx` do web (ver `lib/glowBlobs.ts`). */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
@@ -172,17 +182,6 @@ export default function MyCommentsScreen() {
 const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
-  },
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
   },
   content: {
     paddingHorizontal: spacing.md,
@@ -225,12 +224,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (eram literais 11, mesmo valor).
   mediaTitle: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     fontWeight: "600",
   },
   date: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     marginTop: 1,
   },
   body: {

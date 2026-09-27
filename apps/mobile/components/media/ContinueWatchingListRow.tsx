@@ -34,6 +34,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Text, Glass } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize, fontFamily } from "@/lib/theme";
+import { formatStaleSince } from "@/lib/relativeTime";
 
 const BADGE_LABEL_KEY: Record<"premiere" | "novo" | "mais-recente" | "em-breve", string> = {
   premiere: "seriesHome.badge.premiere",
@@ -179,6 +180,7 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
   layoutActive = false,
   onTransitionActiveChange,
   priorityIndex,
+  staleSince,
 }: {
   item: LibraryItem;
   nextEpisode: NextEpisodeToWatch | null;
@@ -195,10 +197,19 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
   onTransitionActiveChange?: (active: boolean) => void;
   /** Posição na lista (0 = primeiro). Decide a força do destaque âmbar — ver `OPACIDADE_DESTAQUE`. */
   priorityIndex?: number;
+  /**
+   * A PEDIDO (2026-09-22, "Continue de onde parou" — indicador de "há
+   * quanto tempo") — só passado pelas linhas de "Faz um tempo que você
+   * não assiste" (`item.lastActivityAt`, ver `series/index.tsx`);
+   * `undefined` (o caso de "Continue assistindo") não mostra nada —
+   * série recente não precisa desse lembrete.
+   */
+  staleSince?: string;
 }) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const posterUrl = tmdbImageUrl(item.posterPath, "w185");
+  const staleSinceLabel = staleSince ? formatStaleSince(staleSince, Date.now(), locale) : null;
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [pulseKey, setPulseKey] = useState(0);
@@ -472,6 +483,21 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
             </Text>
           </Pressable>
 
+          {/*
+            A PEDIDO (2026-09-22, "Continue de onde parou") — só
+            aparece nas linhas de "Faz um tempo que você não assiste"
+            (`staleSinceLabel` vem de `formatStaleSince`, ver import
+            acima). Mostra concretamente há quanto tempo a série está
+            parada, em vez de deixar a pessoa adivinhar — é a mesma
+            informação que já decide a ordenação da seção
+            (`lastActivityAt`), só que agora visível.
+          */}
+          {!!staleSinceLabel && (
+            <Text numberOfLines={1} variant="muted" style={styles.staleSince}>
+              {staleSinceLabel}
+            </Text>
+          )}
+
           {/* A PEDIDO (2026-09-04, fidelidade ao web — mesma decisão
               documentada em ContinueWatchingCard.tsx) — durante a
               confirmação, o selo NOVO/MAIS RECENTE/PREMIERE dá lugar a
@@ -597,7 +623,8 @@ const styles = StyleSheet.create({
   },
   seriesPillText: {
     /* `text-[11px] font-bold`; `tracking-wide` = 0.025em ≈ 0.275 em 11px. */
-    fontSize: 11,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+    fontSize: fontSize.xxs,
     fontWeight: "700",
     fontFamily: fontFamily[700],
     letterSpacing: 0.275,
@@ -639,13 +666,25 @@ const styles = StyleSheet.create({
   },
   plusBadge: {
     /* `text-[10px]` no web; estava 11. */
-    fontSize: 10,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
+    fontSize: fontSize.micro,
     fontWeight: "700",
     fontFamily: fontFamily[700],
     color: colors.primary,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
   episodeName: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
+    marginTop: 1,
+  },
+  /**
+   * A PEDIDO (2026-09-22, "Continue de onde parou") — rótulo de "há
+   * quanto tempo", ver `formatStaleSince`. Mesmo tratamento visual do
+   * `episodeName` acima (a linha logo em cima), um degrau abaixo dele.
+   */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+  staleSince: {
+    fontSize: fontSize.xxs,
     marginTop: 1,
   },
   /**

@@ -1,11 +1,26 @@
 import { useState } from "react";
-import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet } from "react-native";
+import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet, Image } from "react-native";
 import { Link, useRouter } from "expo-router";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Screen, Text, Input, Button } from "@/components/ui";
 import { AuthBrand } from "@/components/auth/AuthBrand";
-import { colors, spacing, fontSize } from "@/lib/theme";
+import { colors, spacing, fontSize, radius } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+
+/**
+ * PARIDADE COM O WEB (2026-09-22, reportado — "porque o do Google não
+ * tem esse destaque com símbolo também?") — o botão da Apple usa o
+ * componente NATIVO oficial (`AppleAuthenticationButton`, já vem com
+ * logo embutido); o do Google aqui nunca teve o logo do
+ * `GoogleButton.tsx` do web (`<GoogleIcon />`, SVG de 4 cores) — só o
+ * texto foi portado. PNG estático (não `react-native-svg`) de
+ * propósito: `react-native-svg` é dependência nativa nova, exigiria
+ * gerar build novo pra funcionar; um PNG é só asset, entra até por
+ * `eas update`. Mesmas cores oficiais do Google (`#4285F4`/`#34A853`/
+ * `#FBBC05`/`#EA4335`), gerado a partir do MESMO path SVG do web.
+ */
+const GOOGLE_ICON = require("../../assets/images/google-icon.png");
 
 /**
  * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
@@ -18,7 +33,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  */
 export default function LoginScreen() {
   const router = useRouter();
-  const { signInWithEmail, signInWithGoogle } = useAuth();
+  const { signInWithEmail, signInWithGoogle, signInWithApple } = useAuth();
   const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
@@ -26,6 +41,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   async function handleEmailLogin() {
     setError(null);
@@ -51,7 +67,20 @@ export default function LoginScreen() {
     router.replace("/(tabs)/series");
   }
 
-  const busy = loading || googleLoading;
+  /** REQUISITO DA APP STORE (2026-09-22) — ver comentário grande em `AuthProvider.tsx`, `signInWithApple`. */
+  async function handleAppleLogin() {
+    setError(null);
+    setAppleLoading(true);
+    const result = await signInWithApple();
+    setAppleLoading(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    router.replace("/(tabs)/series");
+  }
+
+  const busy = loading || googleLoading || appleLoading;
 
   return (
     <Screen bottomInset padded={false}>
@@ -68,7 +97,52 @@ export default function LoginScreen() {
               </Text>
             </View>
 
-            <Button variant="outline" onPress={handleGoogleLogin} loading={googleLoading} disabled={busy && !googleLoading}>
+            {/*
+              REQUISITO DA APP STORE (2026-09-22, rejeição real —
+              Guideline 4.8) — botão NATIVO da Apple (não o `Button`
+              genérico do app): a própria Apple exige o componente
+              oficial (`AppleAuthenticationButton`), com aparência e
+              proeminência já dentro das regras deles — desenhar um
+              botão "parecido" à mão é desaconselhado pela documentação
+              deles. Só em iOS (não existe em Android); tamanho igual ao
+              `Button` (`minHeight: 48`, `radius.md`) pra ficar alinhado
+              visualmente com o de Google logo abaixo.
+            */}
+            {Platform.OS === "ios" && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={radius.md}
+                style={[styles.appleButton, busy && !appleLoading && styles.appleButtonDisabled]}
+                /**
+                 * BUG REAL CORRIGIDO (achado por `npx tsc --noEmit`,
+                 * 2026-09-22) — antes era
+                 * `onPress={busy && !appleLoading ? undefined : handleAppleLogin}`.
+                 * Erro de tipo, não estilo: `onPress` do
+                 * `AppleAuthenticationButton` é `() => void`
+                 * OBRIGATÓRIO (`expo-apple-authentication`, ao
+                 * contrário do `Button` próprio do app, que aceita
+                 * `onPress` opcional) — passar `undefined` pra
+                 * "desabilitar" o toque nunca deveria ter compilado.
+                 * A `style` já disabled (opacity 0.5) deixava
+                 * parecer que funcionava. Correção pela raiz: sempre
+                 * passa uma função; o "desabilitado" vira um early
+                 * return DENTRO dela, não a ausência da prop.
+                 */
+                onPress={() => {
+                  if (busy && !appleLoading) return;
+                  handleAppleLogin();
+                }}
+              />
+            )}
+
+            <Button
+              variant="outline"
+              onPress={handleGoogleLogin}
+              loading={googleLoading}
+              disabled={busy && !googleLoading}
+              icon={<Image source={GOOGLE_ICON} style={styles.googleIcon} />}
+            >
               {t("auth.continueWithGoogle")}
             </Button>
 
@@ -135,6 +209,18 @@ const styles = StyleSheet.create({
   // campos do formulário, não borda de tela; fora do escopo.
   content: {
     gap: spacing.lg,
+  },
+  /** Mesma altura mínima do `Button` (`minHeight: 48`) — ver comentário no JSX. */
+  appleButton: {
+    height: 48,
+  },
+  appleButtonDisabled: {
+    opacity: 0.5,
+  },
+  /** Mesmo tamanho (16px) do `<GoogleIcon />` do web. */
+  googleIcon: {
+    width: 16,
+    height: 16,
   },
   subtitle: {
     marginTop: spacing.xs,

@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import type { MovieDetails, MovieWatchStatus } from "@seenlist/types";
-import { fetchMovieDetails, fetchMovieStatus, setMovieStatus, fetchIsMovieFavorite, toggleMovieFavorite } from "./movieDetails";
+import {
+  fetchMovieDetails,
+  fetchMovieStatusDetails,
+  setMovieStatus,
+  incrementMovieRewatch,
+  fetchIsMovieFavorite,
+  toggleMovieFavorite,
+  fetchMovieAddedCount,
+  peekCachedMovieDetails,
+} from "./movieDetails";
 import { hapticTick } from "./haptics";
 import { useTranslation } from "./i18n/LocaleProvider";
 
@@ -13,7 +22,24 @@ export function useMovieDetails(movieId: string) {
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
+    /*
+     * CORREÇÃO (2026-09-27, Etapa 3 — "abro filme, saio, abro de
+     * novo, recarrega") — a tela desmonta e remonta de verdade a cada
+     * navegação (é tela de pilha, não aba), então este efeito roda do
+     * zero toda vez, INDEPENDENTE do cache de `fetchMovieDetails` já
+     * evitar a rede. Conferir o cache aqui, de forma síncrona, antes
+     * de decidir `isLoading`, é o que faz o esqueleto não piscar
+     * quando a resposta já está pronta — sem isso, `setIsLoading(true)`
+     * incondicional garantia pelo menos um quadro de esqueleto mesmo
+     * num cache-hit perfeito.
+     */
+    const cached = peekCachedMovieDetails(movieId, locale);
+    if (cached) {
+      setMovie(cached);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
     setIsError(false);
 
     fetchMovieDetails(movieId, locale)
@@ -40,14 +66,23 @@ export function useMovieDetails(movieId: string) {
 
 export function useMovieStatus(movieId: number) {
   const [status, setStatus] = useState<MovieWatchStatus | null>(null);
+  /**
+   * A PEDIDO (redesenho da header, mockup aprovado 2026-09-25) — a
+   * header nova mostra a data em que o filme foi assistido; antes
+   * este hook só sabia o `status`, nunca a data. Otimista junto com
+   * `status` em `changeStatus` (mesma regra do banco — só existe
+   * enquanto o status atual é "watched", ver `movieDetails.ts`).
+   */
+  const [watchedAt, setWatchedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    fetchMovieStatus(movieId).then((data) => {
+    fetchMovieStatusDetails(movieId).then((data) => {
       if (!cancelled) {
-        setStatus(data);
+        setStatus(data.status);
+        setWatchedAt(data.watchedAt);
         setIsLoading(false);
       }
     });
@@ -59,24 +94,74 @@ export function useMovieStatus(movieId: number) {
   const changeStatus = useCallback(
     async (newStatus: MovieWatchStatus) => {
       hapticTick();
-      const previous = status;
-      const next = previous === newStatus ? null : newStatus;
+      const previousStatus = status;
+      const previousWatchedAt = watchedAt;
+      const next = previousStatus === newStatus ? null : newStatus;
+      const nextWatchedAt = next === "watched" ? new Date().toISOString() : null;
       setBusy(true);
       setStatus(next); // otimista
+      setWatchedAt(nextWatchedAt); // otimista
 
       try {
-        await setMovieStatus(movieId, newStatus, previous);
+        await setMovieStatus(movieId, newStatus, previousStatus);
       } catch (error) {
         console.error("[useMovieStatus] Falha ao mudar status", error);
-        setStatus(previous);
+        setStatus(previousStatus);
+        setWatchedAt(previousWatchedAt);
       } finally {
         setBusy(false);
       }
     },
-    [movieId, status]
+    [movieId, status, watchedAt]
   );
 
-  return { status, isLoading, busy, changeStatus };
+  /**
+   * "Reassistido" (ver `MovieActions.tsx`/`OptionSheet` de "Marcar
+   * como...") não passa por `changeStatus` — `status` já é "watched"
+   * e não muda, só `rewatch_count`/`watched_at` no banco
+   * (`incrementMovieRewatch`). Sem isso, o `watchedAt` local ficava
+   * parado na primeira vez assistido até o usuário sair e voltar da
+   * tela (só então `fetchMovieStatusDetails` buscaria de novo).
+   */
+  const markRewatched = useCallback(async () => {
+    const previousWatchedAt = watchedAt;
+    const nextWatchedAt = new Date().toISOString();
+    setWatchedAt(nextWatchedAt); // otimista
+    try {
+      await incrementMovieRewatch(movieId);
+    } catch (error) {
+      console.error("[useMovieStatus] Falha ao registrar reassistido", error);
+      setWatchedAt(previousWatchedAt);
+      throw error;
+    }
+  }, [movieId, watchedAt]);
+
+  return { status, watchedAt, isLoading, busy, changeStatus, markRewatched };
+}
+
+/**
+ * A PEDIDO (redesenho da header de Filme) — "Este filme foi
+ * adicionado por X usuário(s)", número real via função no banco (ver
+ * `movieDetails.ts`/`fetchMovieAddedCount`).
+ */
+export function useMovieAddedCount(movieId: number) {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchMovieAddedCount(movieId)
+      .then((value) => {
+        if (!cancelled) setCount(value);
+      })
+      .catch((error) => {
+        console.error("[useMovieAddedCount] Falha ao buscar contagem", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [movieId]);
+
+  return count;
 }
 
 /** TASK-172 — favoritar filme, espelha useIsFavorite de useSeriesDetails.ts (que já existia só pra série). */

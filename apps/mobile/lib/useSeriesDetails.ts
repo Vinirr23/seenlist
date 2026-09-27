@@ -3,14 +3,17 @@ import { useFocusEffect } from "expo-router";
 import type { SeriesDetails, LibraryStatus } from "@seenlist/types";
 import {
   episodeKey,
+  fetchEpisodeRewatchCounts,
   fetchIsFavorite,
   fetchSeriesDetails,
+  peekCachedSeriesDetails,
   fetchSeriesStatus,
   fetchWatchedEpisodes,
   fetchWatchedEpisodeIds,
   incrementEpisodeRewatch,
   markEpisodesWatched,
   removeSeriesFromLibrary,
+  rewatchSeason as rewatchSeasonRequest,
   setSeriesStatus,
   toggleEpisodeWatched,
   toggleFavorite,
@@ -29,7 +32,20 @@ export function useSeriesDetails(seriesId: string) {
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
+    /*
+     * CORREÇÃO (2026-09-27, Etapa 3 — mesmo achado/mesma causa raiz
+     * de `useMovieDetails.ts`, ver o comentário lá) — conferir o
+     * cache de forma síncrona antes de decidir `isLoading` evita o
+     * esqueleto piscar ao reabrir uma série já em cache (ou já
+     * pré-carregada pela Home via `prefetchSeriesDetails`).
+     */
+    const cached = peekCachedSeriesDetails(seriesId, locale);
+    if (cached) {
+      setSeries(cached);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
     setIsError(false);
 
     fetchSeriesDetails(seriesId, locale)
@@ -70,6 +86,16 @@ export function useWatchedEpisodes(seriesId: number) {
    * (`watched`), que já está certo por causa do otimismo.
    */
   const [watchedEpisodeIds, setWatchedEpisodeIds] = useState<Set<number>>(new Set());
+  /**
+   * NOVO (2026-09-24, a pedido — "quando marco um episódio 'reassistido'
+   * não muda nada visualmente, quero que mostre quantas vezes foi
+   * reassistido") — companheiro de `watched`, mesmo padrão de
+   * `watchedEpisodeIds`: recarregado (sem otimismo) depois de cada
+   * mutation que pode ter mexido nele (`rewatch`/`rewatchSeason`), sem
+   * entrar na lógica otimista de `toggle`/`markMany`/`unmarkSeason`
+   * (essas nunca mudam contagem de rewatch).
+   */
+  const [rewatchCounts, setRewatchCounts] = useState<Map<WatchedEpisodeKey, number>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   /**
@@ -104,25 +130,26 @@ export function useWatchedEpisodes(seriesId: number) {
     watchedRef.current = watched;
   }, [watched]);
 
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-27, auditoria de performance —
+   * item 4.1: "Série detalhes: mesmos dados buscados 2× na abertura")
+   * — havia um `useEffect` de montagem AQUI (removido) fazendo
+   * exatamente as mesmas 3 buscas que `reload` já faz logo abaixo via
+   * `useFocusEffect(reload)`. Como `useFocusEffect` do expo-router
+   * também dispara na montagem inicial (não só em refoco), os dois
+   * rodavam juntos no primeiro `push` pra esta tela — dobrando as
+   * requisições. `reload` agora também cuida de `isLoading` (antes só
+   * o `useEffect` removido fazia isso), então continua: carregando na
+   * primeira montagem E atualizando ao voltar pra tela — só que com 1
+   * conjunto de requests, não 2. Nenhuma mudança na lógica dos dados.
+   */
   const reload = useCallback(() => {
-    fetchWatchedEpisodes(seriesId).then((data) => setWatched(data));
-    fetchWatchedEpisodeIds(seriesId).then((data) => setWatchedEpisodeIds(data));
-  }, [seriesId]);
-
-  useEffect(() => {
-    let cancelled = false;
     fetchWatchedEpisodes(seriesId).then((data) => {
-      if (!cancelled) {
-        setWatched(data);
-        setIsLoading(false);
-      }
+      setWatched(data);
+      setIsLoading(false);
     });
-    fetchWatchedEpisodeIds(seriesId).then((data) => {
-      if (!cancelled) setWatchedEpisodeIds(data);
-    });
-    return () => {
-      cancelled = true;
-    };
+    fetchWatchedEpisodeIds(seriesId).then((data) => setWatchedEpisodeIds(data));
+    fetchEpisodeRewatchCounts(seriesId).then((data) => setRewatchCounts(data));
   }, [seriesId]);
 
   /**
@@ -136,16 +163,17 @@ export function useWatchedEpisodes(seriesId: number) {
    * [season]/[episode].tsx`) marca/desmarca direto (`toggleEpisodeWatched`,
    * sem passar por este hook) e nunca avisa esta instância aqui — ao
    * voltar pra Detalhes de Série, a pilha de navegação só REVELA a
-   * tela de novo (não remonta), então o `useEffect` de busca inicial
-   * acima (que só roda uma vez, na montagem) nunca dispara de novo, e
-   * o Set de assistidos fica desatualizado até a pessoa sair e voltar
-   * pra tela pelo caminho todo de novo.
+   * tela de novo (não remonta), então um `useEffect` que só roda uma
+   * vez, na montagem, nunca dispararia de novo, e o Set de assistidos
+   * ficaria desatualizado até a pessoa sair e voltar pra tela pelo
+   * caminho todo de novo.
    *
    * Mesmo padrão já usado em outros lugares do app pra exatamente esse
    * tipo de bug (`useLibraryItems.ts`, `useCurrentUser.ts`,
    * `usePublicProfile.ts`, `lists/[id].tsx`) — `useFocusEffect` busca
    * de novo toda vez que a tela ganha foco, inclusive ao voltar de uma
-   * tela empilhada por cima.
+   * tela empilhada por cima. Como ele também roda na montagem inicial,
+   * é a ÚNICA fonte de busca agora (ver correção acima).
    */
   useFocusEffect(reload);
 
@@ -235,6 +263,8 @@ export function useWatchedEpisodes(seriesId: number) {
     async (seasonNumber: number, episodeNumber: number) => {
       try {
         await incrementEpisodeRewatch(seriesId, seasonNumber, episodeNumber);
+        // NOVO (2026-09-24) — recarrega a contagem já confirmada no servidor, pro badge "+N" aparecer sem precisar sair e voltar da tela.
+        fetchEpisodeRewatchCounts(seriesId).then((data) => setRewatchCounts(data));
       } catch (error) {
         console.error("[useWatchedEpisodes] Falha ao marcar reassistido", error);
       }
@@ -242,7 +272,30 @@ export function useWatchedEpisodes(seriesId: number) {
     [seriesId]
   );
 
-  return { watched, watchedEpisodeIds, isLoading, busy, toggle, markMany, unmarkSeason, rewatch, reload };
+  /**
+   * NOVO (2026-09-24, a pedido — sheet de temporada com "Reassistir")
+   * — versão em lote de `rewatch`, acima: usada quando a temporada já
+   * está 100% assistida e o usuário escolhe "Reassistir" em vez de
+   * "Desmarcar" no sheet (`SeasonAccordion.tsx`). Não mexe em
+   * `watched` (nenhum episódio muda de estado assistido/não assistido
+   * — só a contagem de rewatch sobe).
+   */
+  const rewatchSeasonAction = useCallback(
+    async (seasonNumber: number) => {
+      setBusy(true);
+      try {
+        await rewatchSeasonRequest(seriesId, seasonNumber);
+        fetchEpisodeRewatchCounts(seriesId).then((data) => setRewatchCounts(data));
+      } catch (error) {
+        console.error("[useWatchedEpisodes] Falha ao reassistir temporada", error);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [seriesId]
+  );
+
+  return { watched, watchedEpisodeIds, rewatchCounts, isLoading, busy, toggle, markMany, unmarkSeason, rewatch, rewatchSeasonAction, reload };
 }
 
 export function useSeriesStatus(seriesId: number) {
@@ -250,21 +303,21 @@ export function useSeriesStatus(seriesId: number) {
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-27, auditoria de performance —
+   * item 4.1, mesmo achado de `useWatchedEpisodes` acima) — havia um
+   * `useEffect` de montagem AQUI (removido) buscando exatamente o
+   * mesmo `fetchSeriesStatus` que `reload` já faz via
+   * `useFocusEffect(reload)` logo abaixo — os dois disparavam juntos
+   * no primeiro `push` pra esta tela. `reload` agora também cuida de
+   * `isLoading`, preservando o comportamento: carrega na primeira
+   * montagem e atualiza ao voltar pra tela, só que com 1 request, não 2.
+   */
   const reload = useCallback(() => {
-    fetchSeriesStatus(seriesId).then((data) => setStatus(data));
-  }, [seriesId]);
-
-  useEffect(() => {
-    let cancelled = false;
     fetchSeriesStatus(seriesId).then((data) => {
-      if (!cancelled) {
-        setStatus(data);
-        setIsLoading(false);
-      }
+      setStatus(data);
+      setIsLoading(false);
     });
-    return () => {
-      cancelled = true;
-    };
   }, [seriesId]);
 
   /**
@@ -275,7 +328,9 @@ export function useSeriesStatus(seriesId: number) {
    * "Assistindo" → "Em dia"/"Concluída" e vice-versa), mas essa tela
    * não sabe nada sobre este hook. Sem isso, o status mostrado aqui
    * (usado, por exemplo, por `EpisodeCarousel`) ficava desatualizado
-   * ao voltar pra Detalhes de Série.
+   * ao voltar pra Detalhes de Série. Como `useFocusEffect` também
+   * dispara na montagem inicial, é a ÚNICA fonte de busca agora (ver
+   * correção acima).
    */
   useFocusEffect(reload);
 

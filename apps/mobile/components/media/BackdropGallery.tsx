@@ -2,7 +2,7 @@ import { ScrollView, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { tmdbImageUrl } from "@/lib/library";
 import { Glass } from "@/components/ui";
-import { spacing } from "@/lib/theme";
+import { spacing, radius } from "@/lib/theme";
 
 /**
  * A PEDIDO (confirmação de paridade web/mobile) — porta de
@@ -46,11 +46,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: 4,
   },
-  /** `h-24 w-40 ... rounded-lg` = 160 × 96, canto 8 (era 10). */
+  /** `h-24 w-40 ... rounded-lg` = 160 × 96, canto 8 (era 10). Token formalizado (FASE 2, 2026-09-26) — mesmo papel de thumbnail de mídia que `radius.poster` cobre. */
   item: {
     width: 160,
     height: 96,
-    borderRadius: 8, // `rounded-lg`
+    borderRadius: radius.poster,
     overflow: "hidden",
   },
   image: {

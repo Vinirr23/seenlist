@@ -21,9 +21,16 @@
     "production": {
       "autoIncrement": true,
       "channel": "production"
+    },
+    "preview-ios": {
+      "distribution": "store",
+      "channel": "preview",
+      "autoIncrement": true,
+      "ios": {}
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "preview-ios": {}
   }
 }

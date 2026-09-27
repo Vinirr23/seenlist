@@ -76,8 +76,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.text,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
   secondary: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     marginTop: 2,
   },
 });

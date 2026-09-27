@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { fetchHasLiked, fetchLikeCount, toggleLike, type LikeTargetType } from "@/lib/social/likes";
 import { hapticTick } from "@/lib/haptics";
 import { Text } from "@/components/ui";
-import { colors, spacing } from "@/lib/theme";
+import { colors, spacing, fontSize } from "@/lib/theme";
 
 export function LikeButton({
   targetType,
@@ -92,9 +92,17 @@ export function LikeButton({
         * dependência nova) e tem os dois: "heart" (preenchido) e
         * "heart-outline" (contorno) — agora bate com o web.
         */}
+      {/*
+        * A PEDIDO (mockup "Opção B", 2026-09-25 — "os comentários estão
+        * com fonte/ícones muito pequenos comparado à referência", opção
+        * escolhida: "aumentar em todo o app") — 18px → 22px. O usuário
+        * escolheu explicitamente esta opção sabendo que o `LikeButton` é
+        * compartilhado com o Feed, então o coração cresce lá também
+        * (decisão consciente, não colateral).
+        */}
       <MaterialCommunityIcons
         name={hasLiked ? "heart" : "heart-outline"}
-        size={18}
+        size={22}
         color={hasLiked ? colors.primary : colors.muted}
       />
       <Text style={[styles.count, hasLiked && styles.countActive]}>{count ?? 0}</Text>
@@ -108,8 +116,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
+  // A PEDIDO (mockup "Opção B", 2026-09-25) — 12px → 15px, acompanhando
+  // o ícone acima e o `actionLabel` dos comentários (mesmo tamanho de
+  // texto ao lado de um ícone de ação, agora consistente entre Feed e
+  // comentários).
+  // FASE 2 (consistência visual sistêmica, 2026-09-26, decisão do usuário) — token formalizado `fontSize.smPlus` (era literal 15, mesmo valor).
   count: {
-    fontSize: 12,
+    fontSize: fontSize.smPlus,
     color: colors.muted,
   },
   countActive: {

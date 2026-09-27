@@ -165,7 +165,12 @@ const styles = StyleSheet.create({
   poster: {
     width: POSTER_WIDTH,
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    // CORREÇÃO (auditoria de consistência, 2026-09-25 — "propagar
+    // padrão já aprovado") — era `radius.md`(10); `ProfileMediaCarousel.tsx`
+    // (perfil próprio) já tinha sido corrigido pra `radius.lg`(16) em
+    // 2026-09-04 (web `rounded-2xl`), mas este carrossel do perfil
+    // PÚBLICO, mesmo cartão de pôster, nunca recebeu a mesma correção.
+    borderRadius: radius.lg,
     overflow: "hidden",
     backgroundColor: colors.surface,
     /**
@@ -194,7 +199,8 @@ const styles = StyleSheet.create({
   skeleton: {
     width: POSTER_WIDTH,
     aspectRatio: 2 / 3,
-    borderRadius: radius.md,
+    // Mesma correção do `poster` acima, pro esqueleto de carregamento não "piscar" um raio diferente do cartão real.
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
   },
   emptyText: {

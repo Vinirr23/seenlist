@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { Text, Glass } from "@/components/ui";
-import { colors, radius, spacing, scrim } from "@/lib/theme";
+import { colors, radius, spacing, scrim, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
@@ -49,6 +49,22 @@ export function ProfileMoreSheet({ username, onClose }: { username?: string | nu
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable onPress={(e) => e.stopPropagation()}>
           <Glass style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]} variant="dark">
+            {/*
+              * REMOVIDO (2026-09-24, a pedido — "remove 'sua semana' do
+              * app, que ainda está aparecendo o sheet") — o botão
+              * temporário pro Week Review (`app/week-review.tsx`,
+              * adicionado na rodada 26) saiu daqui. A feature foi
+              * PAUSADA: o card de Compartilhar mostrou um caso real
+              * (atividade espalhada por 8 séries, 1 episódio cada) onde
+              * o "recorde pessoal" fica sem sentido ("1" ao lado de "8"
+              * no card de stats) — o usuário está avaliando uma
+              * reformulação maior (ranking "Seus favoritos" e/ou trocar
+              * a granularidade de semanal pra mensal) antes de expor a
+              * tela de novo. `app/week-review.tsx` e toda a
+              * infraestrutura de servidor (pré-geração, notificação,
+              * cron) continuam existindo no código, só sem nenhum ponto
+              * de entrada na UI por enquanto.
+              */}
             <ActionRow icon="share-2" label={t("social.share")} onPress={handleShare} />
             <ActionRow
               icon="settings"
@@ -107,8 +123,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
   actionLabel: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: colors.text,
   },
   cancelButton: {

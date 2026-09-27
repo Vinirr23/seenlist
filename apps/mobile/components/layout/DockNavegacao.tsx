@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { Animated, Easing, View, Pressable, Text as RNText, StyleSheet } from "react-native";
+import { Animated, Easing, View, Pressable, Text as RNText, StyleSheet, AppState } from "react-native";
 import { useRouter, useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -8,11 +8,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { colors, fontFamily, radius, spacing } from "@/lib/theme";
 import { Glass } from "@/components/ui/Glass";
 import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-import { marcarToqueNaAba } from "@/lib/perfNavStamp";
-
-const UNREAD_POLL_INTERVAL_MS = 30_000;
 
 /**
  * A MESMA imagem de brilho já desfocada que o `AmbientGlow`
@@ -159,12 +157,28 @@ function isTabRoute(name: string | undefined): name is TabRouteName {
  * (`unreadCount`) continua sendo buscada, só decide MOSTRAR o ponto ou
  * não (`> 0`), não o texto.
  */
-const DOCK_MAX_WIDTH = 284;
-const DOCK_PADDING_H = spacing.sm; // 8 — mesmo valor do `px-2` do web (2ª compactação)
-const DOCK_RADIUS = radius.lg; // 16 — mesmo valor do `rounded-2xl`
-const DOCK_FLOATING_GAP = spacing.md - 4; // 12 — mesmo valor do `bottom-3` do web
-const ITEM_GLOW_W = 60;
-const ITEM_GLOW_H = 52;
+/**
+ * AUMENTADO (2026-09-22, a pedido — "quero só aumentar um pouco o
+ * tamanho da barra", com print de referência comparando com a barra do
+ * Threads, bem maior que a do SeenList). Todos os números abaixo que
+ * derivam do tamanho do dock (largura, caixa do ícone, glow, traço,
+ * padding, fonte da legenda) escalam JUNTOS por um fator só
+ * (`DOCK_SCALE`) — em vez de ajustar cada valor solto à mão, o que
+ * fatalmente desalinharia o brilho/traço da posição real do ícone (as
+ * fórmulas de `dockGlowLeft`/`dockStrokeLeft`, mais abaixo, dependem da
+ * largura da coluna pra centralizar os indicadores). ~15% maior que o
+ * valor original do "Floating Glass Dock" (2026-09-04) — primeira
+ * rodada; ajustar `DOCK_SCALE` sozinho pra afinar depois do teste no
+ * aparelho, mesmo padrão já usado pro intervalo do pulso de blur nesta
+ * mesma sessão.
+ */
+const DOCK_SCALE = 1.15;
+const DOCK_MAX_WIDTH = Math.round(284 * DOCK_SCALE); // 327
+const DOCK_PADDING_H = Math.round(spacing.sm * DOCK_SCALE); // 8 → 9
+const DOCK_RADIUS = Math.round(radius.lg * DOCK_SCALE); // 16 → 18
+const DOCK_FLOATING_GAP = spacing.md - 4; // 12 — margem até a borda da tela, NÃO escala (não é parte do tamanho do dock em si)
+const ITEM_GLOW_W = Math.round(60 * DOCK_SCALE); // 69
+const ITEM_GLOW_H = Math.round(52 * DOCK_SCALE); // 60
 /**
  * CORREÇÃO (2026-09-04, print real do emulador comparado com print do
  * web) — o brilho da aba ativa estava saindo como um DISCO ÂMBAR
@@ -189,12 +203,12 @@ const ITEM_GLOW_SPREAD = ITEM_GLOW_BLUR_PX * 3; // 18 — mesma regra do `BLUR_V
 const ITEM_GLOW_OPACITY = 0.32; // parada central do radial do web
 const ITEM_GLOW_TINT = "rgb(232,163,61)"; // colors.primary, sem alpha (o alpha vira `opacity`)
 const ITEM_GLOW_TOP = 4; // `top-1` do Tailwind = 0.25rem = 4px (estava 1px por engano)
-const ITEM_STROKE_W = 16;
-const ITEM_STROKE_H = 2;
-const ICON_BOX_SIZE = 24; // h-6 w-6 — era 36×36 (caixa invisível que afastava ícone/legenda no web, mesmo bug já corrigido lá)
-const ICON_SIZE = 20;
+const ITEM_STROKE_W = Math.round(16 * DOCK_SCALE); // 18
+const ITEM_STROKE_H = 2; // fino de propósito, não escala — ver comentário original em `Glass.tsx`/histórico do "Floating Glass Dock"
+const ICON_BOX_SIZE = Math.round(24 * DOCK_SCALE); // 28 — h-6 w-6 do web, escalado
+const ICON_SIZE = Math.round(20 * DOCK_SCALE); // 23
 const ICON_LABEL_GAP = 2;
-const ITEM_PADDING_V = 10; // py-2.5
+const ITEM_PADDING_V = Math.round(10 * DOCK_SCALE); // 12 — py-2.5 do web, escalado
 
 function dockItemWidth(itemCount: number): number {
   return (DOCK_MAX_WIDTH - DOCK_PADDING_H * 2) / itemCount;
@@ -231,6 +245,8 @@ export function DockNavegacao({ alvoDaTela }: { alvoDaTela: RefObject<View | nul
   const [unreadCount, setUnreadCount] = useState(0);
   const { t } = useTranslation();
   const router = useRouter();
+  const { session } = useAuth();
+  const userId = session?.user?.id;
   /*
    * CORREÇÃO DE CAUSA RAIZ (2026-09-17, typecheck real — "Tuple type
    * '[string]' of length '1' has no element at index '1'" em
@@ -250,7 +266,26 @@ export function DockNavegacao({ alvoDaTela }: { alvoDaTela: RefObject<View | nul
    */
   const segmentos = useSegments() as string[];
 
+  /*
+   * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance —
+   * ETAPA 2, item 3: "Recommendation polling") — mesmo raciocínio e
+   * mesma confirmação do usuário (painel Supabase) do sino de
+   * notificações, ao lado (`NotificationBell.tsx`): tabela
+   * `recommendations` tem `recipient_id` (linha própria de cada
+   * pessoa) e já está na publicação `supabase_realtime`. Polling de
+   * 30s trocado por: busca inicial (mantida) + assinatura filtrada
+   * por `recipient_id=eq.<id>` + resync de segurança no `AppState`.
+   *
+   * Este componente é ainda MAIS sensível ao resync que o sino: ele
+   * mora na RAIZ do app (`app/_layout.tsx`), fora do navegador —
+   * nunca desmonta entre telas, então não existe nenhum
+   * `useFocusEffect` de navegação por baixo pra servir de rede de
+   * segurança. O `AppState` (volta de segundo plano) é a ÚNICA
+   * garantia aqui de que uma reconexão de Realtime que perdeu eventos
+   * não deixa a bolinha desatualizada pra sempre.
+   */
   useEffect(() => {
+    if (!userId) return;
     let cancelled = false;
     function refresh() {
       fetchUnreadRecommendationsCount().then((count) => {
@@ -258,12 +293,26 @@ export function DockNavegacao({ alvoDaTela }: { alvoDaTela: RefObject<View | nul
       });
     }
     refresh();
-    const interval = setInterval(refresh, UNREAD_POLL_INTERVAL_MS);
+
+    const channel = supabase
+      .channel(`realtime-recommendations-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "recommendations", filter: `recipient_id=eq.${userId}` },
+        refresh
+      )
+      .subscribe();
+
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") refresh();
+    });
+
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      supabase.removeChannel(channel);
+      appStateSubscription.remove();
     };
-  }, []);
+  }, [userId]);
 
   /*
    * Qual aba está aberta. A fonte é a própria URL (fora do navegador
@@ -393,13 +442,43 @@ export function DockNavegacao({ alvoDaTela }: { alvoDaTela: RefObject<View | nul
              * `BottomTabBarProps` — conferido antes de tirar: nada no
              * app escutava esse evento (nenhum `addListener("tabPress")`
              * em lugar nenhum), ele só era emitido.
+             *
+             * CORREÇÃO DE CAUSA RAIZ (2026-09-27, Etapa 3 — bug real medido:
+             * "ao voltar pras abas, todas tendem a recarregar") — isolado com
+             * logs de montagem: trocar de aba DENTRO de `(tabs)` nunca
+             * remonta nada, e apertar voltar (saindo de detalhes de
+             * série/filme) também nunca remonta — a Stack só revela o
+             * `(tabs)` que já existia empilhado por baixo, do jeito certo.
+             * O remonte só acontece quando o toque no dock acontece
+             * ESTANDO FORA de `(tabs)` (ex.: na tela de detalhes de uma
+             * série, `series/[id]`, empilhada por cima — o dock aparece em
+             * cima de qualquer tela desde 2026-09-09, ver `RootLayout`).
+             *
+             * Causa: `router.navigate(href)` chamado a partir de uma tela
+             * de primeiro nível FORA do grupo (o navegador focado no
+             * momento da chamada é a Stack raiz, não o `Tabs` de dentro)
+             * não reconhece que o `(tabs)` já existe empilhado logo
+             * abaixo — em vez de só voltar pra ele (o que o botão voltar
+             * nativo faz certo), o expo-router reconstrói o grupo do zero,
+             * jogando fora TODO o estado das 4 abas (não só da que você
+             * tocou), inclusive todo o trabalho de cache/dedup das Etapas
+             * 1 e 2.
+             *
+             * Fix: quando o toque acontece fora de `(tabs)` (mesmo sinal
+             * que já usamos pra saber qual aba está ativa, `segmentos[0]`),
+             * primeiro fecha as telas empilhadas por cima
+             * (`router.dismissAll()` — mesmo efeito de apertar voltar até
+             * a raiz), SÓ DEPOIS navega pra aba. Isso faz o dock se
+             * comportar exatamente como o botão voltar (que já provamos
+             * que funciona certo), em vez de pular direto pro `navigate`
+             * com o navegador errado focado.
              */
             function handlePress() {
-              if (!focused) {
-                // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-                marcarToqueNaAba();
-                router.navigate(ROUTE_HREF[nome]);
+              if (focused) return;
+              if (segmentos[0] !== "(tabs)" && router.canDismiss()) {
+                router.dismissAll();
               }
+              router.navigate(ROUTE_HREF[nome]);
             }
 
             return (
@@ -475,7 +554,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   label: {
-    fontSize: 10,
+    fontSize: Math.round(10 * DOCK_SCALE), // 12 — ver `DOCK_SCALE`, acima
   },
   labelActive: {
     color: colors.primary,

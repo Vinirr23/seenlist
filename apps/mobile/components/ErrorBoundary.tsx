@@ -88,9 +88,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: spacing.sm,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   errorDetail: {
     textAlign: "center",
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     marginBottom: spacing.sm,
   },
 });

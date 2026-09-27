@@ -53,7 +53,7 @@ export default function ExploreAllListScreen() {
   // qualquer válido como fallback quando `list` não bate com nenhuma
   // das 6 chaves; a busca deste fallback nunca chega a aparecer,
   // porque o `useEffect` acima já volta pra trás antes.
-  const { items, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useDiscoverListInfinite(
+  const { items, isLoading, isError, retry, isFetchingNextPage, hasNextPage, fetchNextPage } = useDiscoverListInfinite(
     isValid ? (list as DiscoverListKey) : "trending_movies"
   );
 
@@ -64,6 +64,8 @@ export default function ExploreAllListScreen() {
       title={t(TITLE_KEYS[list as DiscoverListKey])}
       items={items}
       isLoading={isLoading}
+      isError={isError}
+      onRetry={retry}
       isFetchingNextPage={isFetchingNextPage}
       hasNextPage={hasNextPage}
       fetchNextPage={fetchNextPage}

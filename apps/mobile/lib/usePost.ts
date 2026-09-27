@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Post } from "./posts";
 import { fetchPost } from "./posts";
-import { buildPostCommentTree, createPostComment, deletePostComment, fetchPostComments, type CommentNode } from "./postComments";
+import { buildPostCommentTree, createPostComment, deletePostComment, editPostComment, fetchPostComments, type CommentNode } from "./postComments";
 
 export function usePost(postId: string) {
   const [post, setPost] = useState<Post | null>(null);
@@ -80,5 +80,18 @@ export function usePostComments(postId: string) {
     [load]
   );
 
-  return { tree, isLoading, sending, submit, remove };
+  /**
+   * FASE 1 (paridade com comentário de Episódio, 2026-09-26) — mesmo
+   * padrão de `useEpisodeComments.ts` (`edit` recarrega a árvore
+   * depois de gravar).
+   */
+  const edit = useCallback(
+    async (commentId: string, body: string) => {
+      await editPostComment(commentId, body);
+      await load();
+    },
+    [load]
+  );
+
+  return { tree, isLoading, sending, submit, remove, edit };
 }

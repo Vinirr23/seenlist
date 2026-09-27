@@ -2,7 +2,7 @@ import { View, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { ReviewAggregate } from "@/lib/social/reviews";
 import { Text, Glass } from "@/components/ui";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
@@ -61,14 +61,16 @@ const styles = StyleSheet.create({
   left: {
     alignItems: "center",
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxl` (era literal 28, mesmo valor).
   average: {
-    fontSize: 28,
+    fontSize: fontSize.xxl,
     fontWeight: "800",
     color: colors.primary,
   },
   count: {
     marginTop: 2,
-    fontSize: 10,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
+    fontSize: fontSize.micro,
   },
   right: {
     flex: 1,
@@ -85,8 +87,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 2,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
   starLabelText: {
-    fontSize: 10,
+    fontSize: fontSize.micro,
   },
   track: {
     flex: 1,

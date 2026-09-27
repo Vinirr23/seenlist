@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import type { MediaSearchResult } from "@seenlist/types";
 import { useSearchMedia } from "@/lib/useSearchMedia";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, Skeleton } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
 
@@ -17,10 +17,26 @@ export function SearchResults({ query }: { query: string }) {
     return <EmptyState message={t("search.promptSearch")} />;
   }
   if (isLoading) {
+    // CORREÇÃO (auditoria de consistência, 2026-09-25 — "esqueleto sem
+    // shimmer, só uma View opaca") — era uma `View` lisa
+    // (`colors.surface`), sem a animação que todo outro esqueleto do
+    // app tem (componente `Skeleton`, ver comentário de causa raiz
+    // nele). Reaproveita `Skeleton` na mesma forma do card real
+    // (pôster 56×84 + duas linhas de texto), em vez de inventar um
+    // formato novo — não é `AvatarRowSkeleton` (avatar redondo) nem
+    // `LibraryGridSkeleton` (pôster de grade quadriculada): nenhum dos
+    // dois tem essa forma "pôster retangular + texto ao lado".
     return (
       <View style={styles.list}>
         {[0, 1, 2].map((i) => (
-          <View key={i} style={styles.skeletonRow} />
+          <View key={i} style={styles.card}>
+            <Skeleton width={56} height={84} borderRadius={radius.sm} />
+            <View style={styles.cardInfo}>
+              <Skeleton width={48} height={14} borderRadius={radius.full} />
+              <Skeleton width="70%" height={14} />
+              <Skeleton width="30%" height={12} />
+            </View>
+          </View>
         ))}
       </View>
     );
@@ -136,7 +152,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   badgeText: {
-    fontSize: 10,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
+    fontSize: fontSize.micro,
     fontWeight: "600",
     color: colors.muted,
     textTransform: "uppercase",
@@ -146,11 +163,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: "600",
     color: colors.text,
-  },
-  skeletonRow: {
-    height: 84,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
   },
   emptyState: {
     paddingVertical: spacing.xl,

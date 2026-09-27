@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollView, View, Pressable, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
 import { StatsSeriesTab } from "@/components/profile/StatsSeriesTab";
 import { StatsMoviesTab } from "@/components/profile/StatsMoviesTab";
-import { Screen, Text } from "@/components/ui";
-import { colors, spacing } from "@/lib/theme";
+import { Screen, Text, ScreenHeader, GlassTargetProvider, AmbientGlow } from "@/components/ui";
+import { colors, spacing, fontSize } from "@/lib/theme";
+import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -27,28 +26,36 @@ export default function ProfileStatsScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
-  const router = useRouter();
   const [tab, setTab] = useState<StatsTab>("series");
   const { t } = useTranslation();
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-27, Etapa 3 — bug real reportado:
+   * "Minha Jornada... ao trocar de subabas séries e filmes ambas ficam
+   * recarregando") — `{tab === "series" ? <StatsSeriesTab /> :
+   * <StatsMoviesTab />}` desmontava um e montava o outro a CADA troca,
+   * e nenhum dos hooks de dado usados ali (`useProfileStats`,
+   * `useUpcomingEpisodes`, a busca de linha do tempo em
+   * `StatsSeriesTab`) tem cache — cada remonte refazia tudo do zero.
+   * Mesmo fix aplicado em `app/(tabs)/explore.tsx`: monta na primeira
+   * visita, depois MANTÉM montado, só escondendo com `display: "none"`.
+   */
+  const [subAbasVisitadas, setSubAbasVisitadas] = useState<Set<StatsTab>>(() => new Set([tab]));
+  useEffect(() => {
+    if (!subAbasVisitadas.has(tab)) setSubAbasVisitadas((prev) => new Set(prev).add(tab));
+  }, [tab, subAbasVisitadas]);
 
   return (
     <Screen padded={false}>
       {/* `bottomInset` saiu: a barra de navegação agora flutua sobre esta tela (ver `app/_layout.tsx`) e a folga do fim do conteúdo já soma a área segura, via `useTabBarClearance()`. Manter os dois empurrava o conteúdo pra cima duas vezes e ainda tirava o fundo de trás da barra, que é o que dá o efeito de vidro. */}
-      {/*
-        * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
-        * pendência de design", 2026-09-16) — título "Estatísticas" e
-        * as duas abas "Séries"/"Filmes" estavam com texto fixo em
-        * português; web usa `t("profile.statistics")`/`t("nav.series")`/
-        * `t("nav.movies")` — as 3 chaves já existem traduzidas nas 3
-        * línguas em `translations.ts`, só reaproveitadas aqui.
-        */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("profile.statistics")}</Text>
-      </View>
+      <ScreenHeader title={t("profile.statistics")} />
 
+      {/*
+        * CORREÇÃO (bug real, reportado — "nenhuma dessas telas tem as
+        * manchas azuis de fundo") — mesma correção de `favorite-series.tsx`
+        * (ver comentário lá): `SUBPAGE_GLOW_BLOBS`, já usada em
+        * `comments.tsx`/`edit-profile.tsx`.
+        */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       <View style={styles.tabs}>
         <Pressable style={[styles.tabButton, tab === "series" && styles.tabButtonActive]} onPress={() => setTab("series")}>
           <Text style={tab === "series" ? styles.tabLabelActive : styles.tabLabel}>{t("nav.series")}</Text>
@@ -58,22 +65,29 @@ export default function ProfileStatsScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>{tab === "series" ? <StatsSeriesTab /> : <StatsMoviesTab />}</ScrollView>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
+        {subAbasVisitadas.has("series") && (
+          <View key="sub-aba-series" style={tab === "series" ? undefined : styles.subAbaEscondida}>
+            <StatsSeriesTab />
+          </View>
+        )}
+        {subAbasVisitadas.has("movies") && (
+          <View key="sub-aba-movies" style={tab === "movies" ? undefined : styles.subAbaEscondida}>
+            <StatsMoviesTab />
+          </View>
+        )}
+      </ScrollView>
+      </GlassTargetProvider>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+  subAbaEscondida: {
+    display: "none",
+  },
+  glassFill: {
+    flex: 1,
   },
   tabs: {
     flexDirection: "row",
@@ -92,12 +106,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.primary,
   },
   tabLabel: {
-    fontSize: 14,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
+    fontSize: fontSize.sm,
     fontWeight: "500",
     color: colors.muted,
   },
   tabLabelActive: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "600",
     color: colors.text,
   },

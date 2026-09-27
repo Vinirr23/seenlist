@@ -5,9 +5,10 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { LibraryStatus } from "@seenlist/types";
 import { useMyLists } from "@/lib/useMyLists";
 import { addToList as addSeriesToList } from "@/lib/lists";
+import { removeSeries } from "@/lib/useSeriesDetails";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { Text, Skeleton, Glass } from "@/components/ui";
-import { colors, radius, spacing, scrim } from "@/lib/theme";
+import { colors, radius, spacing, scrim, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { RecommendSheet } from "../social/RecommendSheet";
 
@@ -18,7 +19,17 @@ export interface SeriesQuickActionsSheetProps {
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onSetStatus: (status: LibraryStatus) => void;
-  onRemove: () => void;
+  /**
+   * FASE 2 (consistência visual sistêmica, Task 9 "ações e feedback",
+   * 2026-09-26) — antes era `onRemove: () => void`, chamado pelo pai
+   * ANTES de a remoção terminar (o pai fechava a folha na hora e só
+   * navegava de volta quando a promise resolvia — sem nenhum feedback
+   * de carregamento nesse meio-tempo). Agora o próprio sheet chama
+   * `removeSeries` (mesmo padrão de `MovieQuickActionsSheet.tsx`,
+   * que já fazia assim) e mostra "Removendo…"; `onRemoved` só roda
+   * DEPOIS, pro pai navegar.
+   */
+  onRemoved: () => void;
   onClose: () => void;
 }
 
@@ -36,12 +47,13 @@ export function SeriesQuickActionsSheet({
   isFavorite,
   onToggleFavorite,
   onSetStatus,
-  onRemove,
+  onRemoved,
   onClose,
 }: SeriesQuickActionsSheetProps) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [view, setView] = useState<SheetView>("menu");
   const { lists, isLoading: listsLoading, creating, create } = useMyLists();
   const [showNewListForm, setShowNewListForm] = useState(false);
@@ -76,6 +88,18 @@ export function SeriesQuickActionsSheet({
     setShowNewListForm(false);
   }
 
+  async function handleRemove() {
+    hapticWarning();
+    setRemoving(true);
+    try {
+      await removeSeries(seriesId);
+      onRemoved();
+    } catch (error) {
+      console.error("[SeriesQuickActionsSheet] Falha ao remover série", error);
+      setRemoving(false);
+    }
+  }
+
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       {/* TASK-176 (achado real, comparado com CreatePostButton.tsx que já funcionava) — o `KeyboardAvoidingView` precisa ser filho DIRETO do `Modal`, sem nenhum `Pressable`/View extra o envolvendo, ou o cálculo de altura no Android não funciona direito. O "tocar fora fecha" virou um `Pressable` de fundo separado (posição absoluta, atrás da folha), não mais um wrapper por cima do KeyboardAvoidingView. */}
@@ -93,14 +117,8 @@ export function SeriesQuickActionsSheet({
                 <Pressable style={styles.confirmCancelButton} onPress={() => setConfirmingRemove(false)}>
                   <Text>{t("common.cancel")}</Text>
                 </Pressable>
-                <Pressable
-                  style={styles.confirmRemoveButton}
-                  onPress={() => {
-                    hapticWarning();
-                    onRemove();
-                  }}
-                >
-                  <Text style={styles.confirmRemoveText}>{t("common.remove")}</Text>
+                <Pressable style={styles.confirmRemoveButton} onPress={handleRemove} disabled={removing}>
+                  <Text style={styles.confirmRemoveText}>{removing ? t("common.removing") : t("common.remove")}</Text>
                 </Pressable>
               </View>
             </View>
@@ -254,10 +272,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   /** `mb-2 px-2 text-xs font-medium` do web — o respiro lateral é 8 e o de baixo 8. */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
   sheetTitle: {
     paddingHorizontal: 8,
     marginBottom: 8,
-    fontSize: 12,
+    fontSize: fontSize.xs,
     fontWeight: "600",
   },
   pickListHeader: {
@@ -290,7 +309,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm - 2,
-    fontSize: 14,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
+    fontSize: fontSize.sm,
     color: colors.text,
   },
   newListSaveButton: {
@@ -315,8 +335,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
   actionLabel: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
   },
   /** `mt-2` = 8 (era `spacing.xs` = 4), `gap-2` = 8, `rounded-lg` = 8, `py-3` = 12. */
   cancelButton: {
@@ -335,8 +356,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.sm,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
   confirmTitle: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: colors.text,
   },
   confirmMessage: {

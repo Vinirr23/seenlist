@@ -2,7 +2,7 @@ import { View, Pressable, StyleSheet } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { Text, Glass, GelSurface } from "@/components/ui";
-import { colors, fontFamily, fontSize, radius, spacing } from "@/lib/theme";
+import { colors, fontFamily, fontSize, radius } from "@/lib/theme";
 
 /**
  * CORREÇÃO (a pedido — auditoria de consistência) — achado real: o
@@ -86,7 +86,8 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 32,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    // FASE 2 (consistência visual, 2026-09-26) — token formalizado `radius.card` (era literal 12, mesmo valor).
+    borderRadius: radius.card,
     borderStyle: "dashed",
   },
   iconCircle: {

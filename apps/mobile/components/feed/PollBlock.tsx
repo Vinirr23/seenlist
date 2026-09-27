@@ -32,7 +32,6 @@ export function PollBlock({ postId, initial }: { postId: string; initial?: PollD
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId, initial]);
 
   async function handleVote(optionId: string) {
@@ -165,8 +164,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: "700",
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   totalText: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
     marginTop: 2,
   },
 });

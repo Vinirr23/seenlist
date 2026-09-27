@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
-import { View, ScrollView, RefreshControl, Pressable, StyleSheet } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { View, ScrollView, FlatList, RefreshControl, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { usePosts } from "@/lib/usePosts";
 import { PostCard } from "@/components/feed/PostCard";
@@ -11,7 +12,7 @@ import { CreatePostButton } from "@/components/feed/CreatePostButton";
 import { fetchLikeInfoFor, fetchCommentCountsFor } from "@/lib/social/likes";
 import { fetchPollDataFor, type PollData } from "@/lib/social/polls";
 import { supabase } from "@/lib/supabase";
-import { colors, spacing, radius, elevation } from "@/lib/theme";
+import { colors, spacing, radius, elevation, fontSize } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -52,6 +53,8 @@ export default function FeedScreen() {
   const [pollDataByPostId, setPollDataByPostId] = useState<Map<string, PollData>>(new Map());
   const [interactionsLoaded, setInteractionsLoaded] = useState(false);
   const [newPostsCount, setNewPostsCount] = useState(0);
+  /** ETAPA 2, item 4 — timer do debounce curto de recarga por evento Realtime (ver o `useEffect` do canal `realtime-feed-interactions`, abaixo). */
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const postIds = posts?.map((p) => p.id) ?? [];
   const postIdsKey = postIds.join(",");
@@ -73,24 +76,75 @@ export default function FeedScreen() {
     loadInteractions();
   }, [loadInteractions]);
 
-  // Curtida de post de qualquer pessoa (não só a minha) e comentário
-  // novo em qualquer post fazem os números atualizarem sozinhos.
+  /**
+   * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance —
+   * ETAPA 2, item 4: "Feed Realtime — eventos irrelevantes") —
+   * confirmado no código atual (pós-migração pra `FlatList` da Etapa
+   * 1A): as 3 assinaturas abaixo escutavam `likes`/`post_comments`/
+   * `poll_votes` SEM checar se a linha alterada pertence a algum post
+   * realmente exibido nesta tela — curtida/comentário/voto em
+   * QUALQUER post do app (inclusive de gente que a pessoa nem segue,
+   * se a RLS permitir leitura pública) disparava `loadInteractions()`
+   * (3 consultas em lote) mesmo sem nenhum dos posts visíveis ter
+   * mudado.
+   *
+   * Fix: cada handler agora lê a linha do próprio evento
+   * (`payload.new`/`payload.old` — `DELETE` só tem `old`) e só chama
+   * `loadInteractions` se o post afetado estiver no
+   * `Set` dos posts REALMENTE na tela agora (`postIds`, calculado
+   * pouco acima) — `Set.has` em vez de `Array.includes` pra não
+   * custar O(n) por evento com a lista grande. `likes` guarda o post
+   * em `target_id` (o filtro `target_type=eq.post` do servidor já
+   * garante que só chega curtida de post aqui, nunca de comentário/
+   * review/lista); `post_comments`/`poll_votes` guardam em `post_id`
+   * diretamente.
+   *
+   * DEBOUNCE CURTO (400ms) — pedido explícito da etapa: "se múltiplos
+   * eventos legítimos chegarem em sequência, avalie um debounce curto
+   * só se necessário". Uma rajada de curtidas no mesmo post (ex.: 5
+   * pessoas curtindo em poucos segundos) antes disparava 5 recargas
+   * completas; agora só a última da rajada dispara, ~400ms depois do
+   * último evento — imperceptível pra quem está lendo (bem abaixo do
+   * "atraso perceptível" que a etapa pede pra evitar), mas elimina
+   * round-trips redundantes. Atualização em tempo real dos posts
+   * exibidos continua preservada — só deixa de recarregar por posts
+   * que não aparecem na tela.
+   */
   useEffect(() => {
+    const visiblePostIds = new Set(postIds);
+
+    function scheduleReload() {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(loadInteractions, 400);
+    }
+
+    function handleLikeEvent(payload: { new?: Record<string, unknown>; old?: Record<string, unknown> }) {
+      const postId = (payload.new?.target_id ?? payload.old?.target_id) as string | undefined;
+      if (postId && visiblePostIds.has(postId)) scheduleReload();
+    }
+
+    function handlePostScopedEvent(payload: { new?: Record<string, unknown>; old?: Record<string, unknown> }) {
+      const postId = (payload.new?.post_id ?? payload.old?.post_id) as string | undefined;
+      if (postId && visiblePostIds.has(postId)) scheduleReload();
+    }
+
     const channel = supabase
       .channel("realtime-feed-interactions")
-      .on("postgres_changes", { event: "*", schema: "public", table: "likes", filter: "target_type=eq.post" }, loadInteractions)
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, loadInteractions)
+      .on("postgres_changes", { event: "*", schema: "public", table: "likes", filter: "target_type=eq.post" }, handleLikeEvent)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, handlePostScopedEvent)
       // CORREÇÃO (a pedido — "resposta de enquete não atualiza") —
       // `poll_votes` nunca teve inscrição nenhuma: voto de outra
       // pessoa só aparecia recarregando a tela. As outras duas
       // tabelas já estavam aqui desde sempre.
-      .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes" }, loadInteractions)
+      .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes" }, handlePostScopedEvent)
       .subscribe();
 
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       supabase.removeChannel(channel);
     };
-  }, [loadInteractions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- proposital, mesmo motivo do `loadInteractions` acima: `postIds` é um array NOVO a cada render (`posts?.map(...)`), incluí-lo faria este efeito desmontar/remontar o canal a cada render à toa; `postIdsKey` (string derivada, já na lista) é quem de fato representa esse valor pra fins de dependência — reconstrói `visiblePostIds` sempre que o CONTEÚDO muda, não a referência.
+  }, [loadInteractions, postIdsKey]);
 
   // Post novo de qualquer pessoa NÃO entra sozinho na lista (empurraria
   // o que a pessoa já está lendo) — só conta, mostra um aviso, e
@@ -126,34 +180,66 @@ export default function FeedScreen() {
         </View>
       )}
 
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
-      >
-        {isError ? (
+      {isError ? (
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+        >
           <PageError message={t("feed.errorLoadFeed")} onRetry={() => refetch()} />
-        ) : isLoading ? (
+        </ScrollView>
+      ) : isLoading ? (
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+        >
           <PostCardSkeleton />
-        ) : !posts || posts.length === 0 ? (
-          <Text variant="muted" style={styles.centerText}>
-            {t("feed.emptyFeed")}
-          </Text>
-        ) : (
-          <View style={styles.list}>
-            {posts.map((post) => (
-              <FeedItemEnter key={post.id}>
-                <PostCard
-                  post={post}
-                  onDeleted={refetch}
-                  likeInfo={likeInfoByPostId.get(post.id)}
-                  commentCount={commentCountByPostId.get(post.id)}
-                  pollInfo={pollDataByPostId.get(post.id)}
-                />
-              </FeedItemEnter>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+        </ScrollView>
+      ) : !posts || posts.length === 0 ? (
+        // FASE 2 (consistência visual sistêmica, 2026-09-26) — era
+        // `<Text variant="muted">` solto; `EmptyShelf` já é o padrão
+        // único de estado vazio do app. Sem `actionLabel` — o botão
+        // flutuante de criar post (`CreatePostButton`, abaixo) já é
+        // o CTA visível o tempo todo nesta tela.
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+        >
+          <EmptyShelf icon="edit-3" message={t("feed.emptyFeed")} />
+        </ScrollView>
+      ) : (
+        /*
+         * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance
+         * — item 4.5: "Feed principal → FlatList") — era `ScrollView` +
+         * `posts.map()`, montando até 30 `PostCard`s ricos (imagem de
+         * review e/ou foto anexada, curtida, comentários, enquete) de
+         * uma vez, mesmo os que estão fora da tela. `FlatList`
+         * virtualiza; `POSTS_LIMIT` (em `lib/posts.ts`) não mudou nesta
+         * correção. `FeedItemEnter`, pull-to-refresh, estados de
+         * erro/vazio/loading, Realtime (curtidas/comentários/enquetes/
+         * posts novos) e a navegação continuam exatamente iguais — só
+         * a forma de desenhar a lista mudou.
+         */
+        <FlatList
+          data={posts}
+          keyExtractor={(post) => post.id}
+          contentContainerStyle={[styles.content, styles.list, { paddingBottom: tabBarClearance }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+          initialNumToRender={6}
+          windowSize={7}
+          maxToRenderPerBatch={6}
+          renderItem={({ item: post }) => (
+            <FeedItemEnter>
+              <PostCard
+                post={post}
+                onDeleted={refetch}
+                likeInfo={likeInfoByPostId.get(post.id)}
+                commentCount={commentCountByPostId.get(post.id)}
+                pollInfo={pollDataByPostId.get(post.id)}
+              />
+            </FeedItemEnter>
+          )}
+        />
+      )}
 
       <CreatePostButton onCreated={refetch} />
     </Screen>
@@ -171,10 +257,6 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.md,
-  },
-  centerText: {
-    textAlign: "center",
-    marginTop: spacing.xl,
   },
   bannerWrapper: {
     position: "absolute",
@@ -200,7 +282,8 @@ const styles = StyleSheet.create({
   },
   bannerText: {
     color: colors.background,
-    fontSize: 12,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
+    fontSize: fontSize.xs,
     fontWeight: "700",
   },
 });

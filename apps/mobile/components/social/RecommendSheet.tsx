@@ -7,8 +7,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchFollowList, type FollowListUser } from "@/lib/followList";
 import { sendRecommendation } from "@/lib/recommendations";
 import { hapticTick, hapticSuccess } from "@/lib/haptics";
-import { Text, Skeleton } from "@/components/ui";
-import { colors, radius, spacing, tint, scrim } from "@/lib/theme";
+import { Text, Skeleton, Glass } from "@/components/ui";
+import { colors, radius, spacing, tint, scrim, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 const MAX_MESSAGE_LENGTH = 200;
@@ -96,7 +96,7 @@ export function RecommendSheet({
       {/* TASK-176 (mesma correção de MovieQuickActionsSheet.tsx/SeriesQuickActionsSheet.tsx) — KeyboardAvoidingView filho direto do Modal, "tocar fora fecha" virou Pressable de fundo separado. */}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
+        <Glass style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]} variant="dark">
           <View style={styles.header}>
             <Text numberOfLines={1} style={styles.title}>
               {t("social.recommendTitle", { title: mediaTitle })}
@@ -182,7 +182,7 @@ export function RecommendSheet({
             <Feather name="send" size={16} color={colors.background} />
             <Text style={styles.sendButtonText}>{sending ? t("common.sending") : t("social.sendRecommendation")}</Text>
           </Pressable>
-        </View>
+        </Glass>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -190,15 +190,19 @@ export function RecommendSheet({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: scrim.modal },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — `backgroundColor`
+  // sólido saiu (vira `<Glass variant="dark">`, padrão já usado por
+  // MovieQuickActionsSheet/SeriesQuickActionsSheet/ProfileMoreSheet/
+  // OptionSheet/ChangePasswordModal).
   sheet: {
-    backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     padding: spacing.md,
     paddingBottom: spacing.lg,
   },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  title: { fontSize: 14, fontWeight: "600", color: colors.text, flex: 1, marginRight: spacing.sm },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — tokens formalizados `fontSize.sm` (eram literais 14, mesmo valor).
+  title: { fontSize: fontSize.sm, fontWeight: "600", color: colors.text, flex: 1, marginRight: spacing.sm },
   searchInput: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -206,7 +210,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: colors.text,
     marginBottom: spacing.sm,
   },
@@ -223,8 +227,9 @@ const styles = StyleSheet.create({
   personRowSelected: { backgroundColor: tint.subtle },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.background, overflow: "hidden" },
   avatarImage: { width: "100%", height: "100%" },
-  personName: { fontSize: 14, fontWeight: "500", color: colors.text },
-  personUsername: { fontSize: 12 },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — tokens formalizados `fontSize.sm`/`fontSize.xs` (eram literais 14/12, mesmos valores).
+  personName: { fontSize: fontSize.sm, fontWeight: "500", color: colors.text },
+  personUsername: { fontSize: fontSize.xs },
   radio: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.border },
   radioSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
   messageInput: {
@@ -233,7 +238,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: radius.md,
     padding: spacing.sm,
-    fontSize: 14,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
+    fontSize: fontSize.sm,
     color: colors.text,
     minHeight: 60,
     textAlignVertical: "top",
@@ -249,5 +255,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
   },
   sendButtonDisabled: { opacity: 0.4 },
-  sendButtonText: { color: colors.background, fontWeight: "700", fontSize: 14 },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
+  sendButtonText: { color: colors.background, fontWeight: "700", fontSize: fontSize.sm },
 });

@@ -179,4 +179,16 @@ export interface LibraryItem {
    * (aí sim é "sem pôster" de verdade, não mais "carregando").
    */
   summaryPending?: boolean;
+  /**
+   * NOVO (a pedido, 2026-09-27 — "quero que a pesquisa [do seletor de
+   * banner] funcione independente de idioma") — título ORIGINAL da
+   * TMDB (`original_title`/`original_name`), pra buscar um item
+   * digitando em outro idioma (ex.: "How I Met Your Mother" achando
+   * "Como Eu Conheci Sua Mãe"). Vem de graça na MESMA busca de resumo
+   * que já preenche `title`/`posterPath` (`getMovieSummary`/
+   * `getSeriesSummary`, `lib/tmdb/client.ts`) — nenhuma chamada nova
+   * ao TMDB. `undefined` só enquanto `summaryPending` (resumo ainda
+   * não voltou) ou pro placeholder cru sem resumo nenhum.
+   */
+  originalTitle?: string;
 }

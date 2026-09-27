@@ -235,11 +235,31 @@ export function MinhaListaSection() {
    * ainda resolvendo pendência, ou com cards) continua exatamente
    * como sempre foi, sem mudança nenhuma.
    */
-  const isEmptyState = viewModeReady && !isLoading && !stillResolvingPending && visibleContinueWatching.length === 0;
+  /*
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-22, reportado com prints, mesmo bug
+   * no mobile — `series/index.tsx`) — `isEmptyState` (linha de cima)
+   * nunca olhava `staleSeries`: só avalia `visibleContinueWatching`
+   * (a pool "recente"), e `staleSeries` é estruturalmente EXCLUÍDA
+   * dessa pool por definição (é o corte de 14 dias que a separa dela,
+   * `STALE_AFTER_DAYS` em `continueWatchingSeries.ts`) — "não tem nada
+   * recente" sempre foi tratado como "não tem nada", mesmo quando a
+   * seção "Faz um tempo"/"Continue de onde parou" logo abaixo tinha
+   * itens reais.
+   *
+   * `semNadaPendenteResolvido` é o `isEmptyState` de antes, sem mudar
+   * o cálculo — só renomeado pra deixar claro que é sobre a pool
+   * recente, não sobre a tela inteira. `isEmptyState` (hero "Tudo em
+   * dia"/"Biblioteca vazia" + fileira "Populares") só aparece quando
+   * NÃO tem nada recente E também não tem nada em `staleSeries`.
+   */
+  const semNadaPendenteResolvido =
+    viewModeReady && !isLoading && !stillResolvingPending && visibleContinueWatching.length === 0;
+  const temStale = staleSeries.length > 0;
+  const isEmptyState = semNadaPendenteResolvido && !temStale;
 
   return (
     <>
-      {!isEmptyState && (
+      {!semNadaPendenteResolvido && (
         /*
          * PADRONIZADO (2026-09-01, a pedido — "deixe os espaços
          * padronizados") — era `mb-2` (8px, espaço entre o cabeçalho e
@@ -285,6 +305,17 @@ export function MinhaListaSection() {
          * assíncrono).
          */
         <HomeSkeleton variant={viewMode === "grid" ? "grid" : "list"} message={t("seriesHome.loadingMessage")} />
+      ) : visibleContinueWatching.length === 0 && temStale ? (
+        /*
+         * CORREÇÃO DE CAUSA RAIZ (2026-09-22, ver comentário grande em
+         * `semNadaPendenteResolvido`/`isEmptyState` acima) — não tem
+         * nada "recente" pra mostrar, mas TEM série pendente em
+         * `staleSeries` (seção "Continue de onde parou" logo abaixo)
+         * — a seção "Continue assistindo" inteira só desaparece, sem
+         * hero de "tudo em dia" nenhum (seria mentira: tem, sim, série
+         * pendente, só que na outra seção).
+         */
+        null
       ) : visibleContinueWatching.length === 0 ? (
         /*
          * "Estado vazio melhorado" (2026-09-01, a pedido, opção
@@ -458,7 +489,14 @@ export function MinhaListaSection() {
 
       {staleSeries.length > 0 && (
         <div className="mt-8">
-          <SectionTitle>Faz um tempo que você não assiste</SectionTitle>
+          {/*
+            RENOMEADO (2026-09-22, a pedido — "Gostei da frase: Continue
+            de onde parou.") — de "Faz um tempo que você não assiste"
+            (texto literal, sem chave de tradução) pra
+            `seriesHome.continueWhereYouLeftOff`, agora traduzido nos
+            dois lados (ver `translations.ts`, mesma chave do mobile).
+          */}
+          <SectionTitle>{t("seriesHome.continueWhereYouLeftOff")}</SectionTitle>
           {/* PADRONIZADO (2026-09-01, a pedido — "deixe os espaços padronizados") — era `mt-2` (8px), virou `mt-3` (12px), mesmo espaçamento título-conteúdo do resto da tela (ver comentário no cabeçalho de "Continue assistindo" acima). */}
           <div className="mt-3">
             {viewMode === "grid" ? (
@@ -482,6 +520,14 @@ export function MinhaListaSection() {
                     item={item}
                     layoutActive={layoutActive}
                     onTransitionActiveChange={handleTransitionActiveChange}
+                    /*
+                      A PEDIDO (2026-09-22, "Há quanto tempo é uma ideia
+                      boa") — só passado aqui, na seção "Continue de
+                      onde parou": o `.map` de "Continue assistindo"
+                      acima não recebe essa prop (fica `undefined`, sem
+                      label nenhuma).
+                    */
+                    staleSince={item.lastActivityAt}
                   />
                 ))}
               </div>

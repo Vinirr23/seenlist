@@ -7,7 +7,7 @@ import { SERIES_CATEGORIES } from "@/lib/seriesCategories";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
-import { spacing } from "@/lib/theme";
+import { spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 export function PublicLibrarySection({ userId }: { userId: string }) {
@@ -81,9 +81,10 @@ const styles = StyleSheet.create({
   wrapper: {
     gap: spacing.lg,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.lg` (era literal 18, mesmo valor).
   groupTitle: {
     marginBottom: spacing.sm,
-    fontSize: 18,
+    fontSize: fontSize.lg,
   },
   categoryList: {
     gap: spacing.lg,

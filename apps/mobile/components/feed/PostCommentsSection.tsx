@@ -4,7 +4,7 @@ import { usePostComments } from "@/lib/usePost";
 import type { CommentNode } from "@/lib/postComments";
 import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { PostCommentItem } from "./PostCommentItem";
-import { Text } from "@/components/ui";
+import { Text, Glass } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { hapticImpact } from "@/lib/haptics";
@@ -25,9 +25,19 @@ function flattenCommentIds(nodes: CommentNode[]): string[] {
  * (TASK-131): não muda mais o alvo do composer pra responder — só
  * comenta na raiz mesmo; responder a um comentário específico agora
  * abre a tela própria (ver `PostCommentItem.tsx`).
+ *
+ * FASE 1 (paridade com comentário de Episódio, 2026-09-26) — composer
+ * movido pro TOPO (antes ficava embaixo da lista) e virou card `Glass`
+ * (mesmo critério do `EpisodeCommentsSection.tsx`, "vidro que falta",
+ * 2026-09-04). Estado vazio agora usa a mesma chave de i18n do
+ * Episódio (`social.noCommentsYetFull`) — são o mesmo estado
+ * equivalente, só a chave antiga (`social.noCommentsYet`, mais curta)
+ * não tinha sido trocada quando essa segunda foi criada. NÃO trouxe
+ * spoiler/anexar imagem pro composer — recursos do comentário de
+ * mídia, não pedidos aqui.
  */
 export function PostCommentsSection({ postId }: { postId: string }) {
-  const { tree, isLoading, sending, submit, remove } = usePostComments(postId);
+  const { tree, isLoading, sending, submit, remove, edit } = usePostComments(postId);
   const [body, setBody] = useState("");
   const { t } = useTranslation();
 
@@ -56,32 +66,34 @@ export function PostCommentsSection({ postId }: { postId: string }) {
 
   return (
     <View style={styles.wrapper}>
+      <Glass style={styles.composerArea}>
+        <View style={styles.inputRow}>
+          <TextInput
+            value={body}
+            onChangeText={setBody}
+            placeholder={t("social.commentPlaceholder")}
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+          />
+          <Pressable style={styles.sendButton} onPress={handleSubmit} disabled={!body.trim() || sending}>
+            <Text style={styles.sendButtonText}>{t("common.submit")}</Text>
+          </Pressable>
+        </View>
+      </Glass>
+
       {isLoading ? (
         <AvatarRowSkeleton count={3} />
       ) : tree.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
-          {t("social.noCommentsYet")}
+          {t("social.noCommentsYetFull")}
         </Text>
       ) : (
         <View>
           {tree.map((node) => (
-            <PostCommentItem key={node.id} comment={node} postId={postId} depth={0} onDelete={remove} likeInfoByCommentId={likeInfoByCommentId} />
+            <PostCommentItem key={node.id} comment={node} postId={postId} depth={0} onDelete={remove} onEdit={edit} likeInfoByCommentId={likeInfoByCommentId} />
           ))}
         </View>
       )}
-
-      <View style={styles.inputRow}>
-        <TextInput
-          value={body}
-          onChangeText={setBody}
-          placeholder={t("social.commentPlaceholder")}
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-        />
-        <Pressable style={styles.sendButton} onPress={handleSubmit} disabled={!body.trim() || sending}>
-          <Text style={styles.sendButtonText}>{t("common.submit")}</Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -96,8 +108,14 @@ const styles = StyleSheet.create({
   centerText: {
     paddingVertical: spacing.sm,
   },
+  // Mesmo raio (`radius.lg`) do composer de Episódio — `Glass` não
+  // define raio sozinho, precisa ficar aqui.
+  composerArea: {
+    marginBottom: spacing.md,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+  },
   inputRow: {
-    marginTop: spacing.sm,
     flexDirection: "row",
     gap: spacing.sm,
   },
@@ -119,7 +137,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   sendButtonText: {
-    fontSize: 12,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
+    fontSize: fontSize.xs,
     fontWeight: "700",
     color: colors.background,
   },

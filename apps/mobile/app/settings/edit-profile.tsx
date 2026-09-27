@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchEditableProfile, saveEditableProfile, setBannerFocalY as saveBannerFocalY } from "@/lib/editProfile";
-import { pickImageFromLibrary, uploadAvatar, uploadBanner, setBannerFromTmdb } from "@/lib/imageUpload";
+import { pickImageFromLibrary, uploadAvatar, setBannerFromTmdb } from "@/lib/imageUpload";
 import { COUNTRIES } from "@/lib/countries";
-import { Screen, Text, Button, Skeleton, GlassTargetProvider, PressableScale, AmbientGlow } from "@/components/ui";
+import { Screen, Text, Button, Skeleton, GlassTargetProvider, PressableScale, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { CountryPicker } from "@/components/settings/CountryPicker";
 import { LibraryImagePickerSheet } from "@/components/settings/LibraryImagePickerSheet";
@@ -96,21 +96,6 @@ export default function EditProfileScreen() {
     else if (result.error) setError(result.error);
   }
 
-  async function handlePickFromDeviceBanner() {
-    const picked = await pickImageFromLibrary();
-    if (!picked) return;
-    setUploadingBanner(true);
-    const result = await uploadBanner(picked.uri, picked.mimeType);
-    setUploadingBanner(false);
-    if (result.url) {
-      setBannerUrl(result.url);
-      // `uploadBanner` já reseta `banner_focal_y: 0.5` no banco (ver
-      // `lib/imageUpload.ts`) — este `setBannerFocalY` só mantém a UI
-      // em sincronia com esse reset, sem escrita extra nenhuma.
-      setBannerFocalY(0.5);
-    } else if (result.error) setError(result.error);
-  }
-
   /**
    * REVERTIDO (a pedido, 2026-09-15 — "na escolha de avatar deixa pra
    * a pessoa selecionar do celular como estava antes") — chegou a
@@ -181,12 +166,22 @@ export default function EditProfileScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("profile.editProfile")}</Text>
-      </View>
+      {/*
+        * CORREÇÃO (bug real reportado — "quando tento ajustar o
+        * banner, fica saindo da tela") — causa raiz: o gesto nativo de
+        * "voltar deslizando" (swipe-back do iOS, herdado do Stack raiz
+        * em `app/_layout.tsx`, nunca desativado por tela nenhuma) competia
+        * com o arrasto horizontal do `BannerFocalYSlider` logo abaixo —
+        * o toque perto da borda esquerda do slider (valor "topo") cai
+        * bem na zona de reconhecimento do gesto nativo, que ganha a
+        * disputa e fecha a tela no meio do ajuste. Como o slider ocupa
+        * a largura toda desta tela (não só uma borda), desativar o
+        * swipe-back aqui é seguro — a seta de voltar do `ScreenHeader`
+        * continua funcionando normalmente.
+        */}
+      <Stack.Screen options={{ gestureEnabled: false }} />
+      {/* CORREÇÃO (Fase 3, achado alto — ScreenHeader não chegou a esta tela) — era um cabeçalho manual, divergente das ~24 telas já convertidas na Fase 2. */}
+      <ScreenHeader title={t("profile.editProfile")} />
 
       {/*
         * CORREÇÃO (auditoria — achado real, mais grave que visual):
@@ -372,17 +367,6 @@ const styles = StyleSheet.create({
   skeletonField: {
     gap: spacing.xs,
   },
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
@@ -439,10 +423,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
   },
   avatarInitials: {
     fontSize: fontSize.xl,

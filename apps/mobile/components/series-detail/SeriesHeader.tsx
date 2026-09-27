@@ -6,8 +6,9 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { SeriesDetails } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, Glass, GlassTargetProvider } from "@/components/ui";
-import { colors, spacing, elevation } from "@/lib/theme";
+import { colors, spacing, elevation, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useReviewAggregate } from "@/lib/social/useReviewAggregate";
 
 /**
  * CORREÇÃO (a pedido — auditoria mais rigorosa) — evita
@@ -54,6 +55,17 @@ export function SeriesHeader({
   const showProgress = totalEpisodes > 0;
   const percentage = showProgress ? Math.round((watchedCount / totalEpisodes) * 100) : 0;
   const seasonsLabel = `${series.numberOfSeasons} ${series.numberOfSeasons === 1 ? t("media.seasonSingular") : t("media.seasonPlural")}`;
+  /**
+   * A PEDIDO (2026-09-25 — redesenho do header, mockup v3 aprovado)
+   * — a linha "avaliações" usava `series.voteAverage`/`voteCount`, que
+   * vêm do TMDB: essas avaliações não existem de verdade dentro do
+   * SeenList ("aquele numero do TMDB não serve porque as avaliações
+   * não aparecem no seenlist de verdade"). Troca pela MESMA fonte real
+   * já usada em `ReviewsSection.tsx`/`ReviewSummary.tsx` (aba Sobre):
+   * `useReviewAggregate`, nota 1–5, dados reais do Supabase.
+   */
+  const reviewAggregate = useReviewAggregate({ mediaType: "series", mediaId: series.id });
+  const hasRealRating = !!reviewAggregate && reviewAggregate.count > 0 && reviewAggregate.average != null;
 
   return (
     /*
@@ -115,19 +127,32 @@ export function SeriesHeader({
         superior esquerdo e base 0.10 — a variante `icon` do `Glass` —
         mais `shadow-lg shadow-black/25`.
       */}
+      {/* CORREÇÃO (Fase 3, achado alto — acessibilidade de botões só-ícone) — `accessibilityLabel`/`accessibilityRole` faltavam nos dois botões abaixo. */}
       <Glass style={styles.backButton} variant="icon">
-        <Pressable style={styles.buttonHit} onPress={() => router.back()} hitSlop={8}>
+        <Pressable
+          style={styles.buttonHit}
+          onPress={() => router.back()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.back")}
+        >
           <Feather name="arrow-left" size={16} color={colors.text} />
         </Pressable>
       </Glass>
 
       <Glass style={styles.moreButton} variant="icon">
-        <Pressable style={styles.buttonHit} onPress={onMorePress} hitSlop={8}>
+        <Pressable
+          style={styles.buttonHit}
+          onPress={onMorePress}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("profile.moreOptions")}
+        >
           <Feather name="more-horizontal" size={16} color={colors.text} />
         </Pressable>
       </Glass>
 
-      <View style={[styles.textBlock, { bottom: showProgress ? 28 : 12 }]}>
+      <View style={[styles.textBlock, { bottom: showProgress ? 20 : 12 }]}>
         {/*
           PORTE DO WEB (2026-09-09, comparado no print) — o título era
           `variant="title"` = 28px/700. No web é `text-2xl
@@ -137,16 +162,19 @@ export function SeriesHeader({
           no web.
         */}
         <Text style={styles.title}>{series.title}</Text>
-        {series.voteAverage > 0 && (
+        {/*
+          A PEDIDO (2026-09-25 — mockup v3, "Opção A") — só aparece
+          quando existe pelo menos UMA avaliação real da comunidade
+          SeenList; some por inteiro (não mostra "0.0") quando ainda
+          não há nenhuma.
+        */}
+        {hasRealRating && (
           <View style={styles.ratingRow}>
             <MaterialCommunityIcons name="star" size={12} color={colors.primary} />
-            <Text style={styles.ratingValue}>{series.voteAverage.toFixed(1)}</Text>
-            {series.voteCount > 0 && (
-              /* O web separa com "•" (bullet) e usa a chave `series.ratingsCount`; aqui era "·" (ponto médio) com "avaliações" escrito à mão. */
-              <Text style={styles.ratingCount}>
-                • {t("media.ratingsCount", { count: formatCompactCount(series.voteCount) })}
-              </Text>
-            )}
+            <Text style={styles.ratingValue}>{reviewAggregate!.average!.toFixed(1)}</Text>
+            <Text style={styles.ratingCount}>
+              • {t("media.ratingsCount", { count: formatCompactCount(reviewAggregate!.count) })}
+            </Text>
           </View>
         )}
         {/*
@@ -156,15 +184,37 @@ export function SeriesHeader({
           gêneros já aparecem inteiros logo abaixo, na aba "Sobre", em
           chips próprios.
         */}
-        <Text style={styles.meta}>{[year, seasonsLabel].filter(Boolean).join(" · ")}</Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.meta}>{[year, seasonsLabel].filter(Boolean).join(" · ")}</Text>
+          {/*
+            A PEDIDO (2026-09-25 — mockup v3, corrigido depois de um
+            erro de lógica meu: "o T 99% não é a nota é a porcentagem
+            de progresso da série") — logo do SeenList + a MESMA
+            porcentagem da barra de progresso logo abaixo (não é nota).
+            Pílula (fundo preto semitransparente + borda sutil), igual
+            ao mockup — cor de texto FIXA, não acompanha `categoryColor`.
+          */}
+          {showProgress && (
+            <View style={styles.progressBadge}>
+              <Image source={require("@/assets/images/logo.png")} style={styles.progressBadgeLogo} contentFit="cover" />
+              <Text style={styles.progressBadgeText}>{percentage}%</Text>
+            </View>
+          )}
+        </View>
       </View>
 
+      {/*
+        A PEDIDO (2026-09-25 — mockup v3 aprovado) — barra de progresso
+        agora "sangra" a largura inteira (sem `paddingHorizontal`/
+        `paddingBottom`), sem o texto de porcentagem (que virou o badge
+        acima). A cor dinâmica da categoria (`categoryColor ??
+        colors.primary`) continua igual, só na barra.
+      */}
       {showProgress && (
         <View style={styles.progressRow}>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: categoryColor ?? colors.primary }]} />
           </View>
-          <Text style={styles.progressText}>{percentage}%</Text>
         </View>
       )}
     </GlassTargetProvider>
@@ -230,19 +280,65 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
   },
-  /** `text-2xl font-extrabold leading-tight drop-shadow`. */
+  /**
+   * `text-2xl font-extrabold leading-tight drop-shadow`.
+   * FASE 2 (consistência visual sistêmica, Bucket C, 2026-09-26, decisão
+   * do usuário) — token formalizado `fontSize.xl` (era literal 24):
+   * unifica com o título do `MovieHeader.tsx` (mesmo padrão visual de
+   * header sobre capa, filme/série), que já usa `fontSize.xl`(22).
+   * `lineHeight` ajustado de 30→28 na mesma proporção.
+   */
   title: {
-    fontSize: 24,
+    fontSize: fontSize.xl,
     fontWeight: "800",
-    lineHeight: 30,
+    lineHeight: 28,
     color: "#FFFFFF",
     ...SOMBRA_DE_TEXTO,
   },
-  meta: {
+  /** Linha [year · seasons] à esquerda + badge de progresso à direita. */
+  metaRow: {
     marginTop: 4,
-    fontSize: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
+  meta: {
+    fontSize: fontSize.xs,
     color: "rgba(255,255,255,0.8)",
     ...SOMBRA_DE_TEXTO,
+  },
+  /**
+   * Logo do SeenList + porcentagem de progresso — mockup v3 aprovado,
+   * pílula com fundo preto semitransparente + borda sutil (não texto
+   * solto sobre a foto): `background: rgba(0,0,0,0.35); border: 1px
+   * solid rgba(255,255,255,0.12); border-radius: 999px; padding: 3px
+   * 9px 3px 5px`. Cor de texto FIXA (`colors.text`) — diferente da
+   * barra de progresso abaixo, essa cor NÃO acompanha a categoria.
+   */
+  progressBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 999,
+    paddingVertical: 3,
+    paddingRight: 9,
+    paddingLeft: 5,
+  },
+  progressBadgeLogo: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+  },
+  progressBadgeText: {
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xsPlus` (era literal 13, mesmo valor).
+    fontSize: fontSize.xsPlus,
+    fontWeight: "700",
+    color: colors.text,
   },
   /** `mt-1.5` = 6 (era 5). */
   ratingRow: {
@@ -252,17 +348,24 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   /** `font-semibold` = 600 (era 700). */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — tokens formalizados `fontSize.xs` (eram literais 12, mesmo valor).
   ratingValue: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     fontWeight: "600",
     color: "#FFFFFF",
     ...SOMBRA_DE_TEXTO,
   },
   ratingCount: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     color: "rgba(255,255,255,0.7)",
     ...SOMBRA_DE_TEXTO,
   },
+  /**
+   * A PEDIDO (2026-09-25 — mockup v3 aprovado) — antes tinha
+   * `paddingHorizontal`/`paddingBottom` (barra "flutuando" com margem
+   * dos dois lados + do rodapé). Agora sangra a largura/altura
+   * inteira, colada nas bordas, igual a referência.
+   */
   progressRow: {
     position: "absolute",
     left: 0,
@@ -270,28 +373,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    /* `px-3 pb-2` = 12/8 no web; a horizontal era `spacing.md` = 16. */
-    paddingHorizontal: 12,
-    paddingBottom: spacing.sm,
   },
   progressTrack: {
     flex: 1,
     /* `h-1.5 rounded-full bg-black/40` = 6 de altura sobre preto a 40% (era 5 sobre o véu opaco). */
     height: 6,
-    borderRadius: 999,
     backgroundColor: "rgba(0,0,0,0.4)",
     overflow: "hidden",
   },
   /* `backgroundColor` sai por fora (inline) — usa a cor da categoria da série, ver `categoryColor` acima. */
   progressFill: {
     height: "100%",
-    borderRadius: 999,
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    ...SOMBRA_DE_TEXTO,
   },
 });

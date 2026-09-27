@@ -1,18 +1,18 @@
 import { useMemo } from "react";
-import { View, Pressable, StyleSheet, FlatList } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
-import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useViewModePreference } from "@/lib/useViewModePreference";
-import { Screen, Text } from "@/components/ui";
+import { Screen, ScreenHeader, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
+import { PageError } from "@/components/media/PageError";
 import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
-import { colors, spacing } from "@/lib/theme";
+import { spacing } from "@/lib/theme";
+import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -40,7 +40,7 @@ export default function ProfileMoviesScreen() {
   const espacoDoDock = useTabBarClearance();
   const router = useRouter();
   const { t } = useTranslation();
-  const { items, isLoading } = useLibraryItems();
+  const { items, isLoading, isError, refetch } = useLibraryItems();
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("profile-movies");
   const cardWidth = usePosterCardWidth();
 
@@ -62,13 +62,15 @@ export default function ProfileMoviesScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("nav.movies")}</Text>
-      </View>
+      <ScreenHeader title={t("nav.movies")} />
 
+      {/*
+        * CORREÇÃO (bug real, reportado — "nenhuma dessas telas tem as
+        * manchas azuis de fundo") — mesma correção de `favorite-series.tsx`
+        * (ver comentário lá): `SUBPAGE_GLOW_BLOBS`, já usada em
+        * `comments.tsx`/`edit-profile.tsx`.
+        */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       <View style={styles.toggleRow}>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </View>
@@ -79,6 +81,16 @@ export default function ProfileMoviesScreen() {
         null
       ) : isLoading ? (
         <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
+      ) : isError ? (
+        // CORREÇÃO (auditoria de consistência, 2026-09-25 — "erro de
+        // rede escondido atrás de um vazio falso") — faltava este
+        // ramo: sem ele, uma falha de busca mostrava "sem filmes
+        // assistidos" (parece que a conta está vazia) em vez de um
+        // erro de verdade com "tentar de novo". Mesmo padrão já usado
+        // em `favorite-movies.tsx`.
+        <View style={styles.content}>
+          <PageError message={t("error.loadLibraryFailed")} onRetry={() => refetch()} />
+        </View>
       ) : watchedMovies.length === 0 ? (
         <View style={styles.content}>
           <EmptyShelf message={t("profile.emptyWatchedMovies")} actionLabel={t("nav.explore")} actionHref="/(tabs)/explore" />
@@ -104,31 +116,14 @@ export default function ProfileMoviesScreen() {
           )}
         />
       )}
+      </GlassTargetProvider>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    /**
-     * CORREÇÃO (2026-09-16, print real — "botão de voltar, título e o
-     * que vem depois estão tudo junto") — `paddingBottom` era
-     * `spacing.sm` (8). No web (`SectionPageHeader.tsx`, componente
-     * compartilhado por TODAS essas telas lá — aqui cada tela reimplementa
-     * o próprio cabeçalho, sem componente comum), o espaço entre a linha
-     * voltar+título e o que vem a seguir é `mb-4` = 16 = `spacing.md`, o
-     * dobro do que o mobile tinha. Alinhado ao valor real do web, não a um
-     * chute.
-     */
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+  glassFill: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: spacing.md,

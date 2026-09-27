@@ -23,6 +23,20 @@ export const colors = {
   success: "#34C77B",
   warning: "#F0B429",
   danger: "#E8574A",
+  /**
+   * DIVERGÊNCIA DELIBERADA DO WEB (2026-09-24, a pedido — "o botão
+   * 'follow' é âmbar, usa a cor azul que usamos na aba interna 'em
+   * breve' pra 'following' ao invés desse preto") — não existe token
+   * azul aqui porque o web NUNCA teve isso: o "Following" do web
+   * (`apps/web/components/social/FollowButton.tsx`) também é só
+   * borda/fundo escuro, sem azul nenhum (conferido antes de criar este
+   * token — não é "sincronizar com o web", é uma escolha nova só do
+   * mobile, mesmo padrão já usado em outros pontos do app, ex.
+   * TASK-148 em `movies.tsx`). Valor = o stop dominante do MEIO do
+   * degradê `gelBlue` (a receita da aba "Em breve", ver mais abaixo
+   * neste arquivo): `rgba(58,133,206,0.88)` → opaco = `#3A85CE`.
+   */
+  info: "#3A85CE",
 } as const;
 
 export type ColorToken = keyof typeof colors;
@@ -39,6 +53,15 @@ export const spacing = {
 
 export const radius = {
   sm: 6,
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — formaliza dois
+  // valores que já eram usados de forma consistente e documentada em
+  // ~19 lugares do app (pôster/thumbnail de card = "web rounded-lg" =
+  // 8px; card maior tipo empty-state/elenco = "web rounded-xl" = 12px),
+  // cada um com comentário próprio explicando "a escala não tem esse
+  // valor" antes desta correção. Nomeados pelo papel, não por
+  // tamanho-t-shirt, pra não colidir com sm/md/lg existentes.
+  poster: 8,
+  card: 12,
   md: 10,
   lg: 16,
   full: 999,
@@ -150,9 +173,29 @@ export const fontSize = {
   micro: 10,
   xxs: 11,
   xs: 12,
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — 13px aparecia
+  // como literal solto em 20+ lugares, em pelo menos 10 papéis
+  // semânticos diferentes ("Read more", rótulo de aba, botão Seguir,
+  // texto de estado vazio, etc.) — evidência forte de reuso real,
+  // então formalizado como token em vez de continuar sendo reinventado
+  // arquivo por arquivo. Fica entre `xs` (12) e `sm` (14).
+  xsPlus: 13,
   sm: 14,
+  // FASE 2 (consistência visual sistêmica, 2026-09-26, decisão do usuário
+  // após levantamento completo de tipografia) — 15px aparecia como
+  // literal solto em 12 lugares (rótulos de ação em comentários —
+  // "Editar"/"Responder"/apagar —, `LikeButton`, contador de resposta),
+  // todos ajustados "a pedido" em 2026-09-25 pra ficarem maiores que o
+  // `xs`(12)/`xsPlus`(13) anteriores. Mesmo padrão de `xsPlus`/`lgPlus`:
+  // formaliza o valor recorrente em vez de deixá-lo solto. Fica entre
+  // `sm` (14) e `md` (16).
+  smPlus: 15,
   md: 16,
   lg: 18,
+  // FASE 2 (idem) — 20px aparecia em 6 lugares (títulos/números entre
+  // `lg` (18) e `xl` (22)) — evidência mais isolada que os 13px acima,
+  // mas ainda recorrente o suficiente pra virar token.
+  lgPlus: 20,
   xl: 22,
   xxl: 28,
 } as const;

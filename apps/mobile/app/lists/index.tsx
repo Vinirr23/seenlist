@@ -3,8 +3,9 @@ import { ScrollView, View, TextInput, Pressable, KeyboardAvoidingView, Platform,
 import { useRouter } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMyLists } from "@/lib/useMyLists";
-import { Screen, Text, GlassTargetProvider, Glass, GelSurface, PressableScale, AmbientGlow } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, GelSurface, PressableScale, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize, tint } from "@/lib/theme";
@@ -111,12 +112,7 @@ export default function ListsScreen() {
         * web. Nenhuma mancha mudou de valor.
         */}
       <GlassTargetProvider style={styles.flex} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("profile.myLists")}</Text>
-      </View>
+      <ScreenHeader title={t("profile.myLists")} />
 
       {/* PORTE DO WEB (2026-09-04, "vidro que falta") — campo de manchas de `ListsPageView.tsx` (ver `lib/glowBlobs.ts`). */}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
@@ -177,9 +173,12 @@ export default function ListsScreen() {
           ) : isError ? (
             <PageError message={t("error.loadListsFailed")} onRetry={() => refetch()} />
           ) : !lists || lists.length === 0 ? (
-            <Text variant="muted" style={styles.centerText}>
-              {t("profile.noListsYet")}
-            </Text>
+            // FASE 2 (consistência visual sistêmica, 2026-09-26) — era
+            // `<Text variant="muted">` solto; `EmptyShelf` já é o
+            // padrão único de estado vazio do app. Sem `actionLabel`
+            // aqui — o CTA "Criar nova lista" já existe acima, um
+            // segundo botão duplicaria a mesma ação.
+            <EmptyShelf icon="list" message={t("profile.noListsYet")} />
           ) : (
             <View style={styles.list}>
               {lists.map((list) => (
@@ -229,27 +228,6 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    /**
-     * CORREÇÃO (2026-09-16, print real — "botão de voltar, título e o
-     * que vem depois estão tudo junto") — `paddingBottom` era
-     * `spacing.sm` (8). No web (`SectionPageHeader.tsx`, componente
-     * compartilhado por TODAS essas telas lá — aqui cada tela reimplementa
-     * o próprio cabeçalho, sem componente comum), o espaço entre a linha
-     * voltar+título e o que vem a seguir é `mb-4` = 16 = `spacing.md`, o
-     * dobro do que o mobile tinha. Alinhado ao valor real do web, não a um
-     * chute.
-     */
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-  },
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
@@ -294,13 +272,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   saveButtonText: {
-    fontSize: 13,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xsPlus` (era literal 13, mesmo valor).
+    fontSize: fontSize.xsPlus,
     fontWeight: "700",
     color: colors.background,
-  },
-  centerText: {
-    textAlign: "center",
-    marginTop: spacing.lg,
   },
   list: {
     gap: spacing.sm,

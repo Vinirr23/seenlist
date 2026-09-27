@@ -46,7 +46,7 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
     .select("id, type, actor_id, target_media_type, target_media_id, payload, read_at, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(20);
   if (error) throw error;
   if (!rows || rows.length === 0) return [];
 

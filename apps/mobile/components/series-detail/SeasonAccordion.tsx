@@ -2,15 +2,15 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import type { Episode, SeasonWithEpisodes } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { isEpisodeWatchedSync, type WatchedEpisodeKey } from "@/lib/seriesDetails";
-import { hapticTick } from "@/lib/haptics";
+import { episodeKey, isEpisodeWatchedSync, type WatchedEpisodeKey } from "@/lib/seriesDetails";
+import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { Text, Glass } from "@/components/ui";
 import { EpisodeWatchedButton } from "./EpisodeWatchedButton";
 import { OptionSheet, type OptionSheetAction } from "@/components/settings/OptionSheet";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, fontFamily } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 type TFunction = (key: string, vars?: Record<string, string | number>) => string;
@@ -30,11 +30,13 @@ export function SeasonAccordion({
   allSeasons,
   watched,
   watchedEpisodeIds,
+  rewatchCounts,
   busy,
   onToggleEpisode,
   onMarkMany,
   onUnmarkSeason,
   onRewatch,
+  onRewatchSeason,
   defaultOpen = false,
   categoryColor,
 }: {
@@ -54,12 +56,23 @@ export function SeasonAccordion({
   watched: Set<WatchedEpisodeKey>;
   /** CORREÇÃO (2026-08-26 — "motor resistente") — opcional, ver `isEpisodeWatchedSync` (seriesDetails.ts). */
   watchedEpisodeIds?: Set<number>;
+  /**
+   * NOVO (2026-09-24, a pedido — "quero que mostre quantas vezes foi
+   * reassistido") — quantas vezes cada episódio já assistido foi
+   * marcado como "Reassistido"/"Reassistir" (ver `EpisodeWatchedButton`/
+   * sheet de temporada). Chave = `episodeKey` (`"temporada-episódio"`),
+   * mesmo formato de `watched`. Episódio sem entrada aqui = nunca
+   * reassistido (0), não mostra badge nenhum.
+   */
+  rewatchCounts?: Map<WatchedEpisodeKey, number>;
   busy: boolean;
   /** `episodeId` opcional (2026-08-26, "motor resistente" — ver seriesDetails.ts) — ID fixo da TMDB, gravado junto quando disponível. */
   onToggleEpisode: (seasonNumber: number, episodeNumber: number, episodeId?: number) => void;
   onMarkMany: (episodes: { seasonNumber: number; episodeNumber: number; episodeId?: number }[]) => void;
   onUnmarkSeason: (seasonNumber: number) => void;
   onRewatch: (seasonNumber: number, episodeNumber: number) => void;
+  /** NOVO (2026-09-24) — reassiste a temporada inteira de uma vez, ver `confirmSeasonToggle`/`buildDialogProps` abaixo. */
+  onRewatchSeason: (seasonNumber: number) => void;
   defaultOpen?: boolean;
   /**
    * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-15 — "no web, ao colocar
@@ -88,6 +101,63 @@ export function SeasonAccordion({
   const percentage = season.episodes.length > 0 ? Math.round((watchedCount / season.episodes.length) * 100) : 0;
 
   const sortedEpisodes = useMemo(() => [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber), [season.episodes]);
+
+  /**
+   * CORREÇÃO DE DESEMPENHO (2026-09-27, reportado — "num aparelho
+   * Android funciona normal, no outro trava/tem lentidão" ao abrir a
+   * aba Episódios) — a lista de episódios de uma temporada aberta
+   * (`sortedEpisodes.map(...)`, logo abaixo) sempre montou TODOS os
+   * cards de uma vez, sem virtualização (diferente do carrossel
+   * "Continuar acompanhando" logo acima na tela, que já usa `FlatList`
+   * — ver TASK-162 em `EpisodeCarousel.tsx`). Uma temporada de 20+
+   * episódios abre de repente ~20 cards `Glass` (cada um com várias
+   * views nativas próprias — borda, base, brilho de canto), tudo no
+   * MESMO frame — um aparelho com GPU mais forte absorve isso sem
+   * piscar, um mais fraco trava visivelmente. Bate com o relato (um
+   * aparelho bem, outro não).
+   *
+   * `FlatList`/virtualização de verdade não dá aqui sem mudar o
+   * comportamento da tela: esta lista é VERTICAL, dentro da MESMA
+   * `ScrollView` vertical da tela inteira (`app/series/[id].tsx`) —
+   * `FlatList` vertical dentro de `ScrollView` vertical é o padrão que
+   * o próprio React Native desaconselha ("VirtualizedLists should
+   * never be nested inside plain ScrollViews with the same
+   * orientation"), porque a janela de renderização dela usa a PRÓPRIA
+   * rolagem, não a da tela — encaixotar a lista de episódios (rolagem
+   * própria, altura fixa) mudaria a experiência de "acordeão que
+   * expande a página inteira" pra "caixinha com barra de rolagem
+   * embutida", uma mudança de layout que não foi pedida.
+   *
+   * FIX (sem mudar layout nem comportamento nenhum, só ESPALHA o
+   * custo): ao abrir a temporada, os cards nascem em LOTES de
+   * `BATCH_SIZE`, um lote por frame (`requestAnimationFrame`), em vez
+   * de todos de uma vez. O resultado final (todos os episódios
+   * visíveis, na mesma ordem, mesmo visual) é idêntico — só o
+   * MOMENTO em que cada lote nasce é espalhado em vários frames
+   * rápidos em vez de um frame só fazendo tudo, que é exatamente o
+   * tipo de pico que um aparelho mais fraco sente como travada.
+   */
+  const BATCH_SIZE = 8;
+  const [visibleCount, setVisibleCount] = useState(() => (defaultOpen ? Math.min(BATCH_SIZE, sortedEpisodes.length) : 0));
+
+  useEffect(() => {
+    if (open) {
+      setVisibleCount((v) => (v > 0 ? v : Math.min(BATCH_SIZE, sortedEpisodes.length)));
+    } else {
+      setVisibleCount(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só reage à ABERTURA/FECHAMENTO, não a mudanças em `sortedEpisodes` (evitaria reiniciar o lote no meio de uma marcação qualquer, que não muda a lista em si).
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || visibleCount >= sortedEpisodes.length) return;
+    const raf = requestAnimationFrame(() => {
+      setVisibleCount((v) => Math.min(v + BATCH_SIZE, sortedEpisodes.length));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [open, visibleCount, sortedEpisodes.length]);
+
+  const visibleEpisodes = useMemo(() => sortedEpisodes.slice(0, visibleCount), [sortedEpisodes, visibleCount]);
 
   /**
    * A PEDIDO (2026-09-17 — "quando marco a temporada 3, deveria
@@ -213,10 +283,21 @@ export function SeasonAccordion({
    * custo de verdade da atualização de vários episódios de uma vez.
    */
   function confirmSeasonToggle(includeEarlierSeasons: boolean) {
-    hapticTick();
     if (allWatched) {
+      /**
+       * FASE 2 (consistência visual sistêmica, Task 9 "ações e
+       * feedback", 2026-09-26) — desmarcar a temporada inteira descarta
+       * progresso/rewatch de verdade (já pede confirmação por isso, via
+       * o botão `danger` do sheet, ver `buildDialogProps` abaixo) — o
+       * mesmo peso de "remover da biblioteca", que usa `hapticWarning`.
+       * O `hapticTick` neutro ficava reservado pra ações leves; foi
+       * usado aqui só porque o mesmo handler cobre os dois sentidos
+       * (marcar/desmarcar), sem ninguém separar os hápticos.
+       */
+      hapticWarning();
       onUnmarkSeason(season.seasonNumber);
     } else {
+      hapticTick();
       const episodesDestaTemporada = season.episodes.map((ep) => ({
         seasonNumber: season.seasonNumber,
         episodeNumber: ep.episodeNumber,
@@ -224,6 +305,19 @@ export function SeasonAccordion({
       }));
       onMarkMany(includeEarlierSeasons ? [...earlierPendingEpisodes, ...episodesDestaTemporada] : episodesDestaTemporada);
     }
+    setDialog(null);
+  }
+
+  /**
+   * NOVO (2026-09-24, a pedido — sheet de temporada com "Reassistir")
+   * — só chamada quando `allWatched` (a temporada já está 100%
+   * assistida) — nunca desmarca nada, só incrementa o contador de
+   * rewatch de todos os episódios da temporada, ver `rewatchSeason`
+   * (seriesDetails.ts).
+   */
+  function confirmRewatchSeason() {
+    hapticTick();
+    onRewatchSeason(season.seasonNumber);
     setDialog(null);
   }
 
@@ -241,6 +335,7 @@ export function SeasonAccordion({
         setDialog(null);
       },
       onConfirmSeasonToggle: confirmSeasonToggle,
+      onRewatchSeason: confirmRewatchSeason,
       allWatched,
       earlierPendingSeasonsCount: new Set(earlierPendingEpisodes.map((ep) => ep.seasonNumber)).size,
     },
@@ -250,72 +345,88 @@ export function SeasonAccordion({
   return (
     <Glass style={styles.wrapper} variant="light">
       {/*
-        PORTE DO WEB (2026-09-09, comparado no print) — o cabeçalho tinha
-        só "12/12 assistidos" em 11px. No web (`SeasonAccordion.tsx` +
-        `SeasonProgress.tsx`) ele tem TRÊS coisas: a contagem à
-        esquerda, a PORCENTAGEM à direita na cor da categoria, e uma
-        BARRA DE PROGRESSO embaixo das duas — nada disso existia aqui.
-        A ordem dos dois controles da direita também estava trocada: no
-        web o chevron vem PRIMEIRO (ele faz parte do botão que abre o
-        acordeão) e o círculo de "marcar temporada" vem depois, solto.
+        REFEITO (2026-09-24, a pedido — "os cards de episódios, quero
+        que deixe visualmente igual ao print de referência", mockup
+        aprovado em https://claude.ai/artifact/3DVFJLwKkXLwo5ZYwQPD1L)
+        — a versão anterior (porte do web, comentário original abaixo)
+        tinha um rótulo "22/22 episódios" + "100%" escritos por
+        extenso, e uma barra de progresso em pílula arredondada com
+        respiro lateral. A referência trocou isso: sem nenhum texto de
+        "episódios"/porcentagem — só a fração "N/N" ao lado do círculo
+        de check —, com o nome da temporada maior/negrito colado no
+        chevron, um círculo de check PREENCHIDO (não mais um ícone
+        solto), e uma barra de progresso fina, reta (sem pílula) e
+        RENTE às duas bordas do card, grudada na base — as pontas dela
+        ficam arredondadas de graça pelo `overflow: hidden` do `Glass`.
+
+        AJUSTE #1 NO MEIO DA IMPLEMENTAÇÃO (mesmo dia, a pedido — "um
+        detalhe que notei agora, é pra continuar o efeito glass") — a
+        primeira versão desta correção tinha trocado o `Glass` por um
+        `View` chapado (`#000000` liso) pra bater com o preto da
+        referência; voltou a usar `Glass`, testando `variant="dark"`.
+
+        AJUSTE #2 (mesmo dia, a pedido — 2 prints mostrando o card
+        ESCURO/preto, "ficou preto, quero que deixe como tava antes,
+        mas não mudo restante do que ajustamos") — `variant="dark"`
+        ficou preto demais; voltou pro `variant="light"` de sempre (o
+        azulado com `LUZ_DA_PILHA`, igual era antes de TODA essa rodada
+        de mudança de layout) — só o FORMATO do card mudou (título/
+        chevron/contagem/check/barra), a cor de fundo do vidro nunca
+        deveria ter mudado.
+
+        Cores continuam as mesmas de sempre (a pedido — "o verde, deixa
+        o verde anterior, não precisa mudar as cores originais" —
+        `categoryColor` / `colors.primary` / `colors.muted` de sempre,
+        só a forma do card mudou, não a paleta).
+
+        Comentário original (porte do web, 2026-09-09), pra contexto
+        histórico: o cabeçalho tinha só "12/12 assistidos" em 11px; o
+        web (`SeasonAccordion.tsx` + `SeasonProgress.tsx`) tinha três
+        coisas (contagem, porcentagem, barra) que foram todas trocadas
+        agora pelo formato da referência.
       */}
       <View style={styles.header}>
         <Pressable style={styles.headerButton} onPress={() => setOpen((v) => !v)}>
-          <View style={styles.headerText}>
-            <Text style={styles.seasonName}>{season.name}</Text>
-            <View style={styles.progressBlock}>
-              <View style={styles.progressLabels}>
-                <Text variant="muted" style={styles.progressLabel}>
-                  {t("seriesHome.episodeProgress", { watched: watchedCount, total: season.episodes.length })}
-                </Text>
-                <Text style={[styles.progressPercent, { color: categoryColor ?? colors.primary }]}>{percentage}%</Text>
-              </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: categoryColor ?? colors.primary }]} />
-              </View>
-            </View>
-          </View>
+          <Text style={styles.seasonName} numberOfLines={1}>
+            {season.name}
+          </Text>
           {/* `transition-transform` + `rotate-180` do web — o web gira o MESMO ícone, não troca de ícone. */}
           <Feather
             name="chevron-down"
-            size={16}
-            color={colors.muted}
-            style={open ? styles.chevronAberto : undefined}
+            size={20}
+            color={colors.text}
+            style={[styles.chevron, open ? styles.chevronAberto : undefined]}
           />
         </Pressable>
+
+        <Text style={styles.countLabel}>
+          {watchedCount}/{season.episodes.length}
+        </Text>
 
         {season.episodes.length > 0 && (
           <Pressable
             hitSlop={8}
             disabled={busy}
             onPress={() => setDialog({ type: "season-toggle" })}
+            style={[styles.checkCircle, allWatched ? { backgroundColor: categoryColor ?? colors.primary } : styles.checkCirclePending]}
           >
-            {/*
-              CORREÇÃO (2026-09-09, ampliado no print) — o `check-circle`
-              do Feather é um círculo ABERTO, com o traço interrompido no
-              canto e o check saindo por cima dele. O web usa o
-              `CheckCircle2` do lucide: círculo FECHADO com o check
-              inteiro DENTRO. São dois desenhos diferentes. O
-              `check-circle-outline` do MaterialCommunityIcons é o
-              equivalente do lucide; o vazio vem da mesma família pra os
-              dois estados terem o mesmo traço.
-            */}
-            <MaterialCommunityIcons
-              name={allWatched ? "check-circle-outline" : "circle-outline"}
-              size={24}
-              color={allWatched ? (categoryColor ?? colors.primary) : colors.muted}
-            />
+            {allWatched && <Feather name="check" size={16} color="#000000" />}
           </Pressable>
         )}
       </View>
 
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: categoryColor ?? colors.primary }]} />
+      </View>
+
       {open && (
         <View style={styles.episodeList}>
-          {sortedEpisodes.map((episode) => (
+          {visibleEpisodes.map((episode) => (
             <SeasonEpisodeRow
               key={episode.id}
               episode={episode}
               isWatched={isEpisodeWatchedSync(watched, episode.seasonNumber, episode.episodeNumber, episode.id, watchedEpisodeIds)}
+              rewatchCount={rewatchCounts?.get(episodeKey(episode.seasonNumber, episode.episodeNumber)) ?? 0}
               categoryColor={categoryColor}
               onOpenEpisode={handleOpenEpisode}
               onToggleWatched={handleEpisodePress}
@@ -367,12 +478,15 @@ export function SeasonAccordion({
 const SeasonEpisodeRow = memo(function SeasonEpisodeRow({
   episode,
   isWatched,
+  rewatchCount = 0,
   categoryColor,
   onOpenEpisode,
   onToggleWatched,
 }: {
   episode: Episode;
   isWatched: boolean;
+  /** NOVO (2026-09-24) — ver comentário grande no prop `rewatchCounts` de `SeasonAccordion`, acima. */
+  rewatchCount?: number;
   categoryColor?: string;
   onOpenEpisode: (episodeNumber: number) => void;
   onToggleWatched: (episodeNumber: number, isWatched: boolean) => void;
@@ -408,9 +522,26 @@ const SeasonEpisodeRow = memo(function SeasonEpisodeRow({
             mostra ("Episódio 1"), e é o que faz o título do episódio
             ganhar destaque de verdade.
           */}
-          <Text variant="muted" style={styles.episodeNumber}>
-            {t("episode.numberLabel", { number: episode.episodeNumber })}
-          </Text>
+          <View style={styles.episodeNumberRow}>
+            <Text variant="muted" style={styles.episodeNumber}>
+              {t("episode.numberLabel", { number: episode.episodeNumber })}
+            </Text>
+            {/*
+              NOVO (2026-09-24, a pedido — "quando marco um episódio
+              'reassistido' não muda nada visualmente, quero que mostre
+              quantas vezes foi reassistido... igual nesse print com os
+              cards da home") — mesmo par de estilos (`rewatchBadgeBox`/
+              `rewatchBadge`, cópia de `plusBadgeBox`/`plusBadge` de
+              `ContinueWatchingListRow.tsx`) usado no badge "+N" de
+              episódios pendentes da Home — mesma linguagem visual,
+              contador diferente.
+            */}
+            {rewatchCount > 0 && (
+              <View style={styles.rewatchBadgeBox}>
+                <Text style={styles.rewatchBadge}>+{rewatchCount}</Text>
+              </View>
+            )}
+          </View>
           <Text numberOfLines={1} style={styles.episodeTitle}>
             {episode.name}
           </Text>
@@ -439,6 +570,8 @@ function buildDialogProps(
     onUnwatch: (episodeNumber: number) => void;
     onRewatch: (episodeNumber: number) => void;
     onConfirmSeasonToggle: (includeEarlierSeasons: boolean) => void;
+    /** NOVO (2026-09-24) — "Reassistir" no sheet de temporada, só oferecido quando `allWatched`. */
+    onRewatchSeason: () => void;
     allWatched: boolean;
     /** A PEDIDO (2026-09-17) — quantas temporadas ANTERIORES a esta ainda têm episódio pendente. Só muda o diálogo de "marcar temporada" quando > 0. */
     earlierPendingSeasonsCount: number;
@@ -490,9 +623,29 @@ function buildDialogProps(
     };
   }
 
+  /*
+   * NOVO (2026-09-24, a pedido — "quando seleciono o botão pra marcar
+   * toda a temporada aparece 'desmarcar toda temporada', quero que
+   * seja um sheet que tenha 'desmarcar' e 'reassistido'") — a
+   * temporada já está 100% assistida (`allWatched`) e não há nenhuma
+   * pendência de temporada anterior (já tratado acima): em vez do
+   * único botão "Confirmar" (que só desmarcava), oferece as duas
+   * opções. `danger` no "Desmarcar" segue o mesmo padrão visual (cor
+   * de alerta) já usado noutros sheets do app pra ações destrutivas.
+   */
+  if (handlers.allWatched) {
+    return {
+      title: t("episode.seasonActionsTitle"),
+      actions: [
+        { label: t("episode.unmarkSeasonAction"), danger: true, onPress: () => handlers.onConfirmSeasonToggle(false) },
+        { label: t("episode.rewatchSeasonAction"), active: true, onPress: () => handlers.onRewatchSeason() },
+      ],
+    };
+  }
+
   return {
-    title: handlers.allWatched ? t("episode.unmarkSeasonTitle") : t("episode.markSeasonTitle"),
-    message: handlers.allWatched ? t("episode.unmarkSeasonMessage") : t("episode.markSeasonMessage"),
+    title: t("episode.markSeasonTitle"),
+    message: t("episode.markSeasonMessage"),
     actions: [{ label: t("common.confirm"), active: true, onPress: () => handlers.onConfirmSeasonToggle(false) }],
   };
 }
@@ -542,77 +695,97 @@ const LUZ_DA_PILHA = "rgba(90,165,207,0.25)";
 
 const styles = StyleSheet.create({
   /**
-   * PORTE DO WEB (2026-09-09) — era um bloco SÓLIDO. O
-   * `SeasonAccordion.tsx` do web usa
-   * `rounded-lg border border-white/10 backdrop-blur-[10px] backdrop-saturate-[160%]`,
-   * que é a receita `light` do `Glass` (desfoque 10px, brilho 0.13,
-   * base 0.06 — e a saturação 1.6 que essa receita já carrega).
-   * Borda e fundo saíram daqui porque quem desenha agora é o `Glass`.
+   * REFEITO (2026-09-24, mockup aprovado — ver comentário grande no
+   * JSX acima) — só o FORMATO do card mudou nesta correção (raio e o
+   * que fica dentro dele). O vidro continua sendo `variant="light"` de
+   * sempre (`LUZ_DA_PILHA`, azulado) — chegou a testar `variant="dark"`
+   * no meio do caminho (achando que bateria mais com o preto do print
+   * de referência), mas voltou atrás a pedido ("ficou preto, quero que
+   * deixe como tava antes"): a cor do vidro nunca fez parte do pedido
+   * de mudança, só o layout do cabeçalho/contagem/check/barra.
+   * `overflow: hidden` continua fazendo dupla função: corta o conteúdo
+   * E arredonda de graça a ponta da barra de progresso lá embaixo
+   * (`progressTrack`), que não tem raio próprio.
+   *
+   * CORREÇÃO DE CAUSA RAIZ (mesmo dia, a pedido — "ficou ótimo agora,
+   * só o tamanho do card prefiro o anterior") — não era o CONTEÚDO do
+   * card que tinha ficado maior (medido nos prints: a versão nova é
+   * até mais baixa que a antiga). A causa real era este `marginBottom:
+   * 10` daqui: o pai (`app/series/[id].tsx`, `styles.seasonList`) já
+   * usa `gap: 12` entre as temporadas — o `marginBottom` somava em
+   * cima, dobrando o respiro entre os cards (12 + 10 = 22) e deixando
+   * tudo mais espalhado/"maior" na tela. Removido — quem espaça os
+   * cards é só o `gap` do pai, como sempre foi.
    */
   wrapper: {
-    borderRadius: 8, // `rounded-lg` (era `radius.md` = 10)
+    borderRadius: radius.md, // 10 — bate com o raio medido no print de referência
     overflow: "hidden",
   },
-  /** `flex w-full items-center gap-3 px-4 py-3` = 12 entre as partes, 16/12 de recheio (a vertical era 16). */
+  /** Sem `paddingBottom` — quem fecha a base do card agora é a `progressTrack`, colada nela. */
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 13,
+    paddingBottom: 11,
   },
-  /** No web o chevron faz parte do BOTÃO que abre o acordeão, não é um ícone solto ao lado. */
+  /** Título + chevron colados, do tamanho que o conteúdo pedir — quem empurra a contagem/check pra direita é o `flex: 1` daqui. */
   headerButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 5,
     minWidth: 0,
   },
-  headerText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  /** `text-sm font-medium` = 14/500 (era `variant="label"` = 14/600). */
+  /** 17/700 — era 14/500. O nome da temporada é o elemento principal da linha na referência, não um rótulo pequeno. */
   seasonName: {
-    fontSize: fontSize.sm,
-    fontWeight: "500",
+    flexShrink: 1,
+    fontSize: fontSize.md + 1,
+    fontWeight: "700",
     color: colors.text,
+  },
+  /** Ícone de verdade (era `size:16` cor `colors.muted`) — pequeno demais ficava didfícil de bater com o tamanho da seta no print de referência. */
+  chevron: {
+    flexShrink: 0,
   },
   chevronAberto: {
     transform: [{ rotate: "180deg" }],
   },
-  /** `mt-1.5 w-full` do `SeasonProgress.tsx`. */
-  progressBlock: {
-    marginTop: 6,
-    width: "100%",
+  /** "N/N" solto, sem a palavra "episódios" nem "%" — troca o bloco antigo de duas linhas (`progressBlock`/`progressLabels`/`progressPercent`, removidos). */
+  countLabel: {
+    fontSize: fontSize.sm + 1,
+    fontWeight: "500",
+    color: colors.muted,
   },
-  /** `mb-1 flex items-center justify-between text-xs text-muted`. */
-  progressLabels: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  progressLabel: {
-    fontSize: fontSize.xs,
-  },
-  /** Cor vem por fora (inline) — usa a cor da categoria da série, ver `categoryColor` acima (antes fixo em `colors.primary`, bug real corrigido 2026-09-15). */
-  progressPercent: {
-    fontSize: fontSize.xs,
-  },
-  /** `h-1.5 w-full overflow-hidden rounded-full bg-border` (`ProgressBar.tsx`). */
-  progressTrack: {
-    height: 6,
-    width: "100%",
+  /** Substitui o ícone solto (`check-circle-outline`/`circle-outline`) por um círculo de verdade — preenchido quando a temporada está 100%, só contorno quando não está. */
+  checkCircle: {
+    width: 30,
+    height: 30,
     borderRadius: 999,
-    backgroundColor: colors.border,
-    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  /* `backgroundColor` sai por fora (inline) — usa a cor da categoria da série. */
+  checkCirclePending: {
+    borderWidth: 2,
+    borderColor: colors.muted,
+  },
+  /**
+   * Fina (4, era 6) e RETA (sem `borderRadius`, era pílula 999) — igual
+   * à referência. Fica por fora do `header` (sem padding horizontal),
+   * rente às duas bordas do card; o raio vem de graça do
+   * `overflow: hidden` do `wrapper`. Cor de fundo também mudou pra um
+   * branco bem fraco (`rgba(255,255,255,0.08)`) já que `colors.border`
+   * era pensado pra cima de vidro, não de preto chapado.
+   */
+  progressTrack: {
+    height: 4,
+    width: "100%",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  /* `backgroundColor` sai por fora (inline) — usa a cor da categoria da série, sem mudança na paleta (a pedido — "o verde, deixa o verde anterior"). */
   progressFill: {
     height: "100%",
-    borderRadius: 999,
   },
   /** `space-y-2 border-t border-border p-3` = 8 entre os cards, 12 de recheio (não tinha recheio nenhum). */
   episodeList: {
@@ -653,8 +826,9 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   /** `text-[10px] text-muted` centralizado — o web escreve "Sem imagem", não desenha um ícone. */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
   stillFallback: {
-    fontSize: 10,
+    fontSize: fontSize.micro,
     textAlign: "center",
   },
   /** Sem `gap`: no web são três `<p>` seguidos (margem zero), e só o terceiro tem `mt-0.5`. */
@@ -662,9 +836,28 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  /** NOVO (2026-09-24) — envolve o rótulo "Episódio X" e o badge de rewatch na mesma linha, sem alterar o espaçamento que já existia (`gap` pequeno só entre os dois, nenhuma margem nova em volta). */
+  episodeNumberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   /** `text-xs text-muted`. */
   episodeNumber: {
     fontSize: fontSize.xs,
+  },
+  /** NOVO (2026-09-24) — cópia de `plusBadgeBox`/`plusBadge` de `ContinueWatchingListRow.tsx` (badge "+N" da Home), mesma linguagem visual pro contador de rewatch. */
+  rewatchBadgeBox: {
+    backgroundColor: "rgba(232,163,61,0.15)",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+  },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
+  rewatchBadge: {
+    fontSize: fontSize.micro,
+    fontWeight: "700",
+    fontFamily: fontFamily[700],
+    color: colors.primary,
   },
   /** `truncate text-sm font-medium` = 14/500 (era 600). */
   episodeTitle: {

@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useFollowList } from "@/lib/useFollowList";
 import type { FollowDirection } from "@/lib/followList";
-import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, Glass, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowListRow } from "@/components/profile/FollowListRow";
@@ -47,17 +47,15 @@ export default function FollowListScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle" style={styles.headerTitle}>
-          {title}
-        </Text>
-        <Pressable onPress={() => router.push("/discover-people")} hitSlop={8}>
-          <Feather name="user-plus" size={18} color={colors.text} />
-        </Pressable>
-      </View>
+      {/* CORREÇÃO (Fase 3, achado alto — ScreenHeader não chegou a esta tela) — era um cabeçalho manual; o botão "convidar" (user-plus) foi preservado no slot `right`. */}
+      <ScreenHeader
+        title={title}
+        right={
+          <Pressable onPress={() => router.push("/discover-people")} hitSlop={8}>
+            <Feather name="user-plus" size={18} color={colors.text} />
+          </Pressable>
+        }
+      />
 
       {/* PORTE DO WEB (2026-09-04, "vidro que falta") — campo de manchas de `UserListPageView.tsx` (ver `lib/glowBlobs.ts`). */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
@@ -104,20 +102,6 @@ export default function FollowListScreen() {
 
 const styles = StyleSheet.create({
   glassFill: {
-    flex: 1,
-  },
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  headerTitle: {
     flex: 1,
   },
   // CORREÇÃO (2026-09-03) — mesma padronização de borda de tela.

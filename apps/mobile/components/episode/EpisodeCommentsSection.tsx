@@ -9,6 +9,7 @@ import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { EpisodeCommentItem } from "./EpisodeCommentItem";
 import { Text, Glass } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
+import { PageError } from "@/components/media/PageError";
 import { hapticTick, hapticImpact } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -41,7 +42,7 @@ function flattenCommentIds(nodes: CommentNode[]): string[] {
  */
 export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
   const { t } = useTranslation();
-  const { tree, isLoading, sending, submit, remove, edit } = useEpisodeComments(target);
+  const { tree, isLoading, isError, retry, sending, submit, remove, edit } = useEpisodeComments(target);
   const commentsBaseHref = `/episodes/${target.mediaId}/${target.seasonNumber}/${target.episodeNumber}`;
 
   /** TASK-153 — busca a curtida de TODOS os comentários (em qualquer nível da árvore) de uma vez, não um por um. */
@@ -161,12 +162,28 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
 
       {isLoading ? (
         <AvatarRowSkeleton count={3} />
+      ) : isError ? (
+        // CORREÇÃO (Fase 3, achado alto — falha de rede não pode parecer
+        // "nenhum comentário ainda") — mesmo padrão `PageError`+retry do
+        // resto do app; reaproveita `error.loadCommentsFailed`, já usada
+        // em `app/profile/comments.tsx` pro mesmo tipo de falha.
+        <PageError message={t("error.loadCommentsFailed")} onRetry={retry} />
       ) : tree.length === 0 ? (
         <Text variant="muted" style={styles.centerText}>
           {t("social.noCommentsYetFull")}
         </Text>
       ) : (
         <View>
+          {/*
+            * CORREÇÃO (mockup 2026-09-25, "deixe os comentários do mesmo
+            * jeito da referência") — `flatten` faz o `EpisodeCommentItem`
+            * mostrar só o comentário-raiz (sem as respostas abertas
+            * dentro da própria lista), com contador de respostas +
+            * bandeira (só visual, ver comentário no próprio componente).
+            * As respostas continuam existindo — só passam a aparecer na
+            * tela de conversa do comentário (`comment/[commentId].tsx`),
+            * não aqui.
+            */}
           {tree.map((node) => (
             <EpisodeCommentItem
               key={node.id}
@@ -176,6 +193,7 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
               onDelete={remove}
               onEdit={edit}
               likeInfoByCommentId={likeInfoByCommentId}
+              flatten
             />
           ))}
         </View>

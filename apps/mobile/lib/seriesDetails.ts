@@ -2,6 +2,7 @@ import type { SeriesDetails, LibraryStatus, CastMember } from "@seenlist/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { todayLocalKey } from "@/lib/localDate";
+import { notifyWatchedAction } from "@/lib/reviewPrompt";
 
 const SITE_URL = "https://seenlist.app";
 
@@ -21,6 +22,21 @@ const SITE_URL = "https://seenlist.app";
  */
 const SERIES_DETAILS_TTL_MS = 5 * 60 * 1000;
 const seriesDetailsCache = new Map<string, { data: SeriesDetails; expiresAt: number }>();
+
+/**
+ * CORREÇÃO (2026-09-27, auditoria de performance — Etapa 3, mesmo
+ * achado/mesma causa raiz do `peekCachedMovieDetails` em
+ * `movieDetails.ts` — ver o comentário lá) — a tela de Série (tela de
+ * pilha, desmonta ao sair) reinicia `isLoading` incondicionalmente ao
+ * remontar; sem uma forma síncrona de conferir o cache ANTES de
+ * decidir isso, o esqueleto pisca mesmo quando a resposta já está
+ * pronta (cache-hit ou o pré-carregamento da Home, `prefetchSeriesDetails`
+ * abaixo).
+ */
+export function peekCachedSeriesDetails(seriesId: string, language: string): SeriesDetails | null {
+  const cached = seriesDetailsCache.get(`${seriesId}:${language}`);
+  return cached && cached.expiresAt > Date.now() ? cached.data : null;
+}
 
 export async function fetchSeriesDetails(seriesId: string, language = "pt-BR"): Promise<SeriesDetails> {
   const cacheKey = `${seriesId}:${language}`;
@@ -113,6 +129,36 @@ export async function fetchWatchedEpisodes(seriesId: number): Promise<Set<Watche
   if (error) throw error;
 
   return new Set((data ?? []).map((row) => episodeKey(row.season_number, row.episode_number)));
+}
+
+/**
+ * NOVO (2026-09-24, a pedido — "quando marco um episódio 'reassistido'
+ * não muda nada visualmente, quero que mostre quantas vezes foi
+ * reassistido") — `rewatch_count` já existia na tabela e já era
+ * incrementado (`incrementEpisodeRewatch`, abaixo), mas nunca tinha
+ * sido buscado de volta pra tela mostrar. Função separada (em vez de
+ * ampliar `fetchWatchedEpisodes` acima) pra não mudar o tipo de
+ * retorno de uma função já usada em outros pontos — quem precisa do
+ * contador chama as duas em paralelo (ver `useWatchedEpisodes`,
+ * `useSeriesDetails.ts`). Só inclui linhas com `rewatch_count > 0` —
+ * a grande maioria dos episódios nunca foi reassistida, e não faz
+ * sentido carregar um Map cheio de zeros implícitos.
+ */
+export async function fetchEpisodeRewatchCounts(seriesId: number): Promise<Map<WatchedEpisodeKey, number>> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return new Map();
+
+  const { data, error } = await supabase
+    .from("watched_episodes")
+    .select("season_number, episode_number, rewatch_count")
+    .eq("series_id", seriesId)
+    .eq("user_id", user.id)
+    .gt("rewatch_count", 0);
+  if (error) throw error;
+
+  return new Map((data ?? []).map((row) => [episodeKey(row.season_number, row.episode_number), row.rewatch_count as number]));
 }
 
 /**
@@ -1101,6 +1147,9 @@ export async function toggleEpisodeWatched(
       tmdb_episode_id: episodeId ?? null,
     });
     if (error) throw error;
+    // Gatilho do prompt de avaliação (rodada 2026-09-24) — só na
+    // marcação de verdade (branch do insert), nunca ao desmarcar.
+    void notifyWatchedAction();
   }
 
   await recalculateSeriesCategoryAfterEpisodeChange(seriesId);
@@ -1136,6 +1185,13 @@ export async function markEpisodesWatched(
     .from("watched_episodes")
     .upsert(rows, { onConflict: "user_id,series_id,season_number,episode_number", ignoreDuplicates: true });
   if (error) throw error;
+  // Gatilho do prompt de avaliação (rodada 2026-09-24) — conta todos
+  // os itens do lote como "marcados"; `ignoreDuplicates` pode incluir
+  // algum episódio que já estava assistido, então isso é uma
+  // aproximação (soma um pouco a mais em casos raros), aceitável pra
+  // um contador heurístico que só decide QUANDO pedir avaliação, não
+  // uma métrica que precisa ser exata.
+  void notifyWatchedAction(episodes.length);
 
   await recalculateSeriesCategoryAfterEpisodeChange(seriesId);
 }
@@ -1198,6 +1254,65 @@ export async function incrementEpisodeRewatch(seriesId: number, seasonNumber: nu
   }
 }
 
+/**
+ * NOVO (2026-09-24, a pedido — sheet de temporada com "Desmarcar" e
+ * "Reassistir" em vez de só "Confirmar") — versão em lote de
+ * `incrementEpisodeRewatch`, acima: incrementa `rewatch_count` de
+ * TODOS os episódios já assistidos desta temporada (nunca desmarca
+ * nenhum — só faz sentido reassistir o que já foi visto) e soma o
+ * total de episódios afetados em `total_watch_events`, de uma vez só,
+ * em vez de um `total_watch_events + 1` por episódio (evitaria N
+ * idas ao banco só pra essa métrica).
+ */
+export async function rewatchSeason(seriesId: number, seasonNumber: number): Promise<number> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) throw new Error("not authenticated");
+
+  const { data: episodeRows, error: readError } = await supabase
+    .from("watched_episodes")
+    .select("episode_number, rewatch_count")
+    .eq("user_id", user.id)
+    .eq("series_id", seriesId)
+    .eq("season_number", seasonNumber);
+  if (readError) throw readError;
+  if (!episodeRows || episodeRows.length === 0) return 0;
+
+  await Promise.all(
+    episodeRows.map((row) =>
+      supabase
+        .from("watched_episodes")
+        .update({ rewatch_count: (row.rewatch_count ?? 0) + 1 })
+        .eq("user_id", user.id)
+        .eq("series_id", seriesId)
+        .eq("season_number", seasonNumber)
+        .eq("episode_number", row.episode_number)
+        .then(({ error }) => {
+          if (error) throw error;
+        })
+    )
+  );
+
+  const { data: statusRow, error: statusReadError } = await supabase
+    .from("series_status")
+    .select("total_watch_events")
+    .eq("user_id", user.id)
+    .eq("series_id", seriesId)
+    .maybeSingle();
+  if (statusReadError) throw statusReadError;
+  if (statusRow) {
+    const { error: statusUpdateError } = await supabase
+      .from("series_status")
+      .update({ total_watch_events: (statusRow.total_watch_events ?? 0) + episodeRows.length })
+      .eq("user_id", user.id)
+      .eq("series_id", seriesId);
+    if (statusUpdateError) throw statusUpdateError;
+  }
+
+  return episodeRows.length;
+}
+
 /** TASK-115 (episódio) — checagem leve, um episódio só (a tela de detalhes do episódio não precisa da lista inteira de watched_episodes da série). */
 /**
  * CORREÇÃO (2026-08-26 — "motor resistente") — `episodeId` (opcional)
@@ -1209,39 +1324,53 @@ export async function incrementEpisodeRewatch(seriesId: number, seasonNumber: nu
  * Sem esse argumento (chamador antigo), cai pro comportamento de
  * sempre.
  */
+export interface EpisodeWatchedState {
+  watched: boolean;
+  /** `watched_episodes.watched_at` (coluna já existia desde a migração original, `not null default now()`) — null só quando `watched` é false. */
+  watchedAt: string | null;
+}
+
+/**
+ * CORREÇÃO (2026-09-25 — "tira o 'assistido', mostra a data real que
+ * foi assistido", tela de detalhe do episódio) — antes retornava só
+ * `boolean`; único chamador é `EpisodeDetailScreen`, então trocar o
+ * retorno pra trazer também `watched_at` (coluna que já existia, ver
+ * `20260705000000_watched_episodes.sql`) não quebra mais ninguém.
+ * Mesmo padrão de `watchedDateLabel` já usado em `MovieHeader.tsx`.
+ */
 export async function isEpisodeWatched(
   seriesId: number,
   seasonNumber: number,
   episodeNumber: number,
   episodeId?: number
-): Promise<boolean> {
+): Promise<EpisodeWatchedState> {
   const {
     data: { user },
   } = await getCurrentAuthUser();
-  if (!user) return false;
+  if (!user) return { watched: false, watchedAt: null };
 
   if (episodeId !== undefined) {
     const { data: byId, error: byIdError } = await supabase
       .from("watched_episodes")
-      .select("series_id")
+      .select("series_id, watched_at")
       .eq("series_id", seriesId)
       .eq("user_id", user.id)
       .eq("tmdb_episode_id", episodeId)
       .maybeSingle();
     if (byIdError) throw byIdError;
-    if (byId) return true;
+    if (byId) return { watched: true, watchedAt: byId.watched_at };
   }
 
   const { data, error } = await supabase
     .from("watched_episodes")
-    .select("series_id")
+    .select("series_id, watched_at")
     .eq("series_id", seriesId)
     .eq("season_number", seasonNumber)
     .eq("episode_number", episodeNumber)
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) throw error;
-  return Boolean(data);
+  return { watched: Boolean(data), watchedAt: data?.watched_at ?? null };
 }
 
 export async function fetchIsFavorite(seriesId: number): Promise<boolean> {
@@ -1323,25 +1452,6 @@ function getPendingEpisodes(seasons: SeriesDetails["seasons"], _watched: Set<Wat
     }
   }
   return result;
-}
-
-/** Idêntico a getNextUpcomingEpisode do web. */
-function getNextUpcomingEpisode(seasons: SeriesDetails["seasons"]): EpisodeRef | null {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let best: EpisodeRef | null = null;
-
-  for (const season of seasons) {
-    for (const episode of season.episodes) {
-      if (!episode.airDate) continue;
-      const airDate = new Date(`${episode.airDate}T00:00:00`);
-      if (airDate <= today) continue;
-      if (!best || !best.episode.airDate || airDate < new Date(`${best.episode.airDate}T00:00:00`)) {
-        best = { seasonNumber: season.seasonNumber, episode };
-      }
-    }
-  }
-  return best;
 }
 
 /**

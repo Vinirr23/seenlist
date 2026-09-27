@@ -45,7 +45,7 @@ import { BlurView, BlurTargetView, type BlurViewProps } from "expo-blur";
  */
 const PatchedBlurView = BlurView as unknown as ComponentType<BlurViewProps & { applyNoise?: boolean }>;
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, glass, gel, glassVariants, type GlassVariant, type GlassVariantName } from "@/lib/theme";
+import { glass, gel, glassVariants, type GlassVariant, type GlassVariantName } from "@/lib/theme";
 
 /**
  * HISTÓRICO — DIAGNÓSTICO TEMPORÁRIO (2026-09-16, a pedido — "rolagem
@@ -182,13 +182,6 @@ const GlassLightContext = createContext<ReactNode>(null);
 
 /** Dentro de um card, o dither não se repete (a camada de fundo já o tem). */
 const InsideGlassContext = createContext(false);
-
-/**
- * Quanto da luz do fundo é reinjetada. 1 = uma segunda cópia, que é o
- * que o `saturate(180%)` faz na prática com a cor de trás (dobra a
- * distância dela ao cinza).
- */
-const GLASS_LIGHT_THROUGH = 1;
 
 /**
  * TENTATIVA REVERTIDA (2026-09-02 — "o fundo não tem blur, coloque o

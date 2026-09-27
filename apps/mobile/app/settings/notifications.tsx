@@ -1,9 +1,7 @@
-import { View, Pressable, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { View, StyleSheet } from "react-native";
 import { useNotificationPreferences } from "@/lib/useNotificationPreferences";
 import type { NotificationPreferences } from "@/lib/notificationPreferences";
-import { Screen, Text, Skeleton, GlassTargetProvider, Glass, AmbientGlow } from "@/components/ui";
+import { Screen, Skeleton, GlassTargetProvider, Glass, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { ToggleRow } from "@/components/settings/ToggleRow";
 import { colors, radius, spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -25,7 +23,6 @@ export default function NotificationSettingsScreen() {
    * atrás dela.
    */
   const espacoDoDock = useTabBarClearance();
-  const router = useRouter();
   const { t } = useTranslation();
   const ITEMS: { field: keyof NotificationPreferences; label: string }[] = [
     { field: "episodeNew", label: t("settings.notifEpisodeNew") },
@@ -38,12 +35,8 @@ export default function NotificationSettingsScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("settings.notifications")}</Text>
-      </View>
+      {/* CORREÇÃO (Fase 3, achado alto — ScreenHeader não chegou a esta tela) — era um cabeçalho manual, divergente das ~24 telas já convertidas na Fase 2. */}
+      <ScreenHeader title={t("settings.notifications")} />
 
       {/*
         * PORTE DO WEB (2026-09-04, "vidro que falta") —
@@ -85,17 +78,6 @@ export default function NotificationSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
   glassFill: {
     flex: 1,
   },

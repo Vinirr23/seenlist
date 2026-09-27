@@ -75,15 +75,23 @@ const PUBLIC_PROFILE_GLOW_BLOBS: GlowBlob[] = [
  * - botões voltar/compartilhar viraram círculo de vidro (o web chama
  *   de `GLASS_ICON_BTN`), no lugar do círculo com `scrim` sólido e da
  *   caixa com borda;
- * - contagens (Seguindo/Seguidores/Comentários) viraram as 3 pílulas
- *   de vidro do cabeçalho, com as MESMAS camadas de gradiente extra
- *   do perfil próprio (inclusive o segundo gradiente azulado só na
- *   última pílula — ver comentário lá);
  * - "Editar" virou pílula "gel".
  *
- * `FollowButton` NÃO foi tocado de propósito: o web também deixou ele
- * sólido (`bg-primary`/borda simples, sem vidro nenhum) — conferido em
- * `apps/web/components/social/FollowButton.tsx`.
+ * ATUALIZAÇÃO (2026-09-24, nova regra permanente — "sempre padronize
+ * perfil público com o perfil pessoal") — a partir de agora, TODA
+ * mudança visual feita no Perfil próprio (`app/(tabs)/profile.tsx`)
+ * precisa ser replicada aqui também, sem esperar pedido separado. Duas
+ * partes deste comentário ficaram desatualizadas e foram corrigidas
+ * nesta rodada:
+ * - as contagens (Seguindo/Seguidores/Comentários) NÃO são mais 3
+ *   pílulas separadas — viraram 1 card único com colunas de largura
+ *   proporcional ao rótulo (`countsCard`, ver comentário completo lá),
+ *   mesmo redesenho aplicado no Perfil próprio;
+ * - `FollowButton` deixou de estar sincronizado com o web de propósito
+ *   (a linha abaixo, "NÃO foi tocado de propósito", não vale mais) —
+ *   agora usa `colors.info` (azul, a pedido — "usa a cor azul que
+ *   usamos na aba interna 'em breve'") em vez do preto/escuro herdado
+ *   do web. Ver o comentário completo em `FollowButton.tsx`.
  */
 export default function PublicProfileScreen() {
   /*
@@ -172,7 +180,7 @@ export default function PublicProfileScreen() {
         */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={PUBLIC_PROFILE_GLOW_BLOBS} />}>
         <ScrollView contentContainerStyle={{ paddingBottom: espacoDoDock }}>
-          {!!profile.bannerUrl ? (
+          {profile.bannerUrl ? (
             /*
              * REDESENHO "CAPA CURTA E MINIMALISTA" (2026-09-16, a
              * pedido — "aplique no mobile também... deixa perfil
@@ -255,16 +263,36 @@ export default function PublicProfileScreen() {
           ) : (
             <>
               <View style={styles.topIconsRowNoBanner}>
-                {/* Ver comentário completo no bloco COM capa, acima — mesma correção do `PressableScale`. */}
+                {/*
+                  * Ver comentário completo no bloco COM capa, acima — mesma
+                  * correção do `PressableScale`.
+                  *
+                  * CORREÇÃO (FASE 2, consistência visual sistêmica,
+                  * 2026-09-26 — "ícones de voltar em Glass") — este par
+                  * (voltar/compartilhar) e o par do bloco COM capa, acima,
+                  * são o MESMO botão (mesmo tamanho 36px, mesmo raio,
+                  * mesmo ícone) só que num fundo diferente (com/sem capa)
+                  * — mas aqui não passava `variant` nenhum pro `Glass`
+                  * (caía no padrão `"card"`, receita pensada pra cartão
+                  * grande de conteúdo, não pra um botão-ícone circular) e
+                  * o ícone usava `colors.muted` em vez de `colors.text`.
+                  * Nenhum comentário explicava a diferença — nada aqui
+                  * sugere que foi decisão consciente (é o oposto: o
+                  * comentário logo acima trata os dois blocos como "as
+                  * mesmas 4 posições", só faltou propagar a receita
+                  * `"icon"` — a mesma que `MovieHeader.tsx`/
+                  * `SeriesHeader.tsx` usam pro mesmo papel — pra esta
+                  * variante sem capa.
+                  */}
                 <PressableScale hitSlop={8} onPress={() => router.back()}>
-                  <Glass style={styles.bannerIconGlass}>
-                    <Feather name="arrow-left" size={16} color={colors.muted} />
+                  <Glass variant="icon" style={styles.bannerIconGlass}>
+                    <Feather name="arrow-left" size={16} color={colors.text} />
                   </Glass>
                 </PressableScale>
                 <View style={styles.topIconsSpacer} />
                 <PressableScale hitSlop={8} onPress={handleShare}>
-                  <Glass style={styles.bannerIconGlass}>
-                    <Feather name="share-2" size={16} color={colors.muted} />
+                  <Glass variant="icon" style={styles.bannerIconGlass}>
+                    <Feather name="share-2" size={16} color={colors.text} />
                   </Glass>
                 </PressableScale>
               </View>
@@ -276,14 +304,17 @@ export default function PublicProfileScreen() {
             </>
           )}
 
-          {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-
           {/*
-            * Pílulas de contagem — mesmas camadas de gradiente extra do
-            * perfil próprio (`app/(tabs)/profile.tsx`): um branco no
-            * canto superior esquerdo em TODAS, e um segundo azulado no
-            * canto inferior direito só na última (Comentários), como o
-            * `ProfileHeader.tsx` do web faz.
+            * PADRONIZADO COM O PERFIL PRÓPRIO (2026-09-24, a pedido —
+            * "sempre padronize perfil público com o perfil pessoal") —
+            * eram 3 `Glass` `pill` SEPARADOS (`countCardFlex`/
+            * `countCard`, removidos); agora é o mesmo card ÚNICO com
+            * colunas de largura proporcional ao rótulo que o Perfil
+            * próprio usa (`app/(tabs)/profile.tsx`, `countsCard`/
+            * `countItemNarrow`/`countItem`/`countItemWide` — ver o
+            * histórico completo de medições lá). Mesmas camadas de
+            * gradiente extra (branco+azulado) e mesmo nudge óptico do
+            * ícone "user-check".
             *
             * "Comentários" continua fixo em 0 aqui — é assim no web
             * também (`PublicProfileView.tsx`, `statPills`): a contagem
@@ -292,35 +323,67 @@ export default function PublicProfileScreen() {
             * não inventei um número nem um `select` novo pra isso.
             */}
           <View style={styles.countsRow}>
-            <Pressable style={styles.countCardFlex} onPress={() => router.push(`/follow-list/${profile.userId}/following`)}>
-              <Glass style={styles.countCard} variant="pill">
+            <Glass style={styles.countsCard} variant="pill">
+              <Pressable style={styles.countItemNarrow} onPress={() => router.push(`/follow-list/${profile.userId}/following`)}>
+                <Feather name="users" size={16} color={colors.primary} style={styles.countIcon} />
                 <Text style={styles.countNumber}>{counts.following}</Text>
                 <Text variant="muted" style={styles.countLabel}>
-                  Seguindo
+                  {t("profile.following")}
                 </Text>
-              </Glass>
-            </Pressable>
-            <Pressable style={styles.countCardFlex} onPress={() => router.push(`/follow-list/${profile.userId}/followers`)}>
-              <Glass style={styles.countCard} variant="pill">
+              </Pressable>
+              <View style={styles.countDivider} />
+              <Pressable style={styles.countItem} onPress={() => router.push(`/follow-list/${profile.userId}/followers`)}>
+                {/* Mesmo nudge óptico do Perfil próprio — ver o comentário completo em `app/(tabs)/profile.tsx` (ícone "user-check" não é simétrico). */}
+                <Feather name="user-check" size={16} color={colors.primary} style={[styles.countIcon, styles.countIconUserCheckNudge]} />
                 <Text style={styles.countNumber}>{counts.followers}</Text>
                 <Text variant="muted" style={styles.countLabel}>
-                  Seguidores
+                  {t("profile.followers")}
                 </Text>
-              </Glass>
-            </Pressable>
-            <View style={styles.countCardFlex}>
-              <Glass style={styles.countCard} variant="pill">
+              </Pressable>
+              <View style={styles.countDivider} />
+              {/*
+                * NÃO é `Pressable` de propósito (diferente do Perfil
+                * próprio, que navega pra "/profile/comments" — a PRÓPRIA
+                * tela de comentários de quem está logado). Aqui é o
+                * perfil de OUTRA pessoa: não existe rota pública de
+                * comentários de terceiros, e a contagem já é fixa em 0
+                * (ver comentário acima). Copiar o `onPress` do Perfil
+                * próprio sem adaptar levaria pra "meus" comentários ao
+                * clicar no card de OUTRO usuário — bug, corrigido antes
+                * de publicar.
+                */}
+              <View style={styles.countItemWide}>
                 {/* Mesma coisa do Perfil próprio — ver o comentário longo em `app/(tabs)/profile.tsx`. */}
                 <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                   <RNImage source={GLOW_PILL} resizeMode="stretch" style={styles.countCardBlueGlow} />
                 </View>
+                <Feather name="message-circle" size={16} color={colors.primary} style={styles.countIcon} />
                 <Text style={styles.countNumber}>0</Text>
                 <Text variant="muted" style={styles.countLabel}>
                   {t("profile.commentsTitle")}
                 </Text>
-              </Glass>
-            </View>
+              </View>
+            </Glass>
           </View>
+
+          {/*
+            * PADRONIZADO COM O PERFIL PRÓPRIO (2026-09-24) — o Perfil
+            * próprio tem um título "Bio" (ícone + texto) acima do
+            * parágrafo; aqui era só o parágrafo solto, sem título. Mesma
+            * receita de `sectionTitle`/`bioBlock` de `app/(tabs)/
+            * profile.tsx` — inclusive o `paddingHorizontal` só no
+            * `bioBlock` (não duplicado no `bio` também, mesmo bug já
+            * corrigido lá).
+            */}
+          {!!profile.bio && (
+            <View style={styles.bioBlock}>
+              <View style={styles.sectionTitle}>
+                <Feather name="file-text" size={14} color={colors.primary} />
+                <Text style={styles.sectionTitleText}>{t("profile.bio")}</Text>
+              </View>
+              <Text style={styles.bio}>{profile.bio}</Text>
+            </View>
+          )}
 
           <View style={styles.actionsRow}>
             {isOwnProfile ? (
@@ -410,8 +473,18 @@ const styles = StyleSheet.create({
    * chapado + degradê separados) saíram — essa é a MESMA correção de
    * "sombra estranha" já aplicada no Perfil próprio.
    */
+  /**
+   * PADRONIZADO COM O PERFIL PRÓPRIO (2026-09-24, a pedido — "assim
+   * como em 'perfil' sobe o card de stats") — era `spacing.lg` (24),
+   * que SOMAVA com o `marginTop: spacing.md` (16) do `countsRow`
+   * abaixo, dando 40px de vão até o card de stats. `app/(tabs)/
+   * profile.tsx` já tinha reduzido esse par pra `spacing.xs` (4) +
+   * `marginTop: 0` (ver comentário completo lá, "colado") — mesmos
+   * dois valores aplicados aqui, card de stats sobe pro mesmo lugar
+   * do Perfil próprio.
+   */
   bannerSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
   },
   bannerShort: {
     height: 190,
@@ -546,28 +619,87 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   metaLine: {
-    fontSize: 11,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+    fontSize: fontSize.xxs,
   },
-  bio: {
+  /**
+   * PADRONIZADO COM O PERFIL PRÓPRIO (2026-09-24) — `bioBlock` (novo)
+   * carrega o `paddingHorizontal`; `bio` NÃO tem o próprio de propósito
+   * (mesmo bug de padding duplicado já corrigido em `app/(tabs)/
+   * profile.tsx` — não repetir aqui).
+   */
+  bioBlock: {
     marginTop: spacing.md,
     paddingHorizontal: spacing.md,
+  },
+  /** Mesma receita de título de seção do Perfil próprio (ícone + texto, 14/700, gap `spacing.sm`). */
+  sectionTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  sectionTitleText: {
     fontSize: fontSize.sm,
+    fontWeight: "700",
     color: colors.text,
   },
+  bio: {
+    marginTop: 4,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.text,
+  },
+  /** PADRONIZADO COM O PERFIL PRÓPRIO (2026-09-24) — ver comentário completo em `bannerSection`, acima. */
   countsRow: {
-    flexDirection: "row",
-    gap: 10,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
+    marginTop: 0,
   },
-  countCardFlex: {
+  /**
+   * PADRONIZADO COM O PERFIL PRÓPRIO (2026-09-24, a pedido — "sempre
+   * padronize perfil público com o perfil pessoal") — mesmas 6 regras
+   * de `countsCard`/`countItemNarrow`/`countItem`/`countItemWide`/
+   * `countDivider`/`countIcon`/`countIconUserCheckNudge` de
+   * `app/(tabs)/profile.tsx` (`countCardFlex`/`countCard` antigos,
+   * removidos). Ver o histórico completo de medições lá.
+   */
+  countsCard: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderRadius: radius.lg,
+    paddingVertical: 9,
+    paddingHorizontal: 4,
+    alignSelf: "center",
+    width: "75%",
+  },
+  countItem: {
     flex: 1,
-  },
-  countCard: {
     alignItems: "center",
-    borderRadius: radius.md,
-    paddingHorizontal: 6,
-    paddingVertical: 12,
+    gap: 2,
+    paddingHorizontal: 4,
+  },
+  countItemNarrow: {
+    flex: 0.85,
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 4,
+  },
+  countItemWide: {
+    flex: 1.15,
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 4,
+  },
+  countIcon: {
+    opacity: 0.9,
+  },
+  countIconUserCheckNudge: {
+    marginLeft: 3,
+  },
+  countDivider: {
+    width: 1,
+    alignSelf: "stretch",
+    marginVertical: 4,
+    backgroundColor: "rgba(255,255,255,0.16)",
   },
   countNumber: {
     fontSize: fontSize.sm,
@@ -590,14 +722,29 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   editButtonText: {
-    fontSize: 12,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
+    fontSize: fontSize.xs,
     fontWeight: "700",
     color: colors.background,
     textTransform: "uppercase",
   },
+  /**
+   * BUG REAL CORRIGIDO (2026-09-24, a pedido — "não existe espaço da
+   * borda pra os cards no perfil público") — causa raiz: faltava
+   * `paddingHorizontal` aqui. Nem `StatsCarousel.tsx` (`section`) nem
+   * `PublicMediaCarousel.tsx` (`section`)/`PublicMediaSectionsList.tsx`
+   * (`wrapper`) têm padding horizontal PRÓPRIO — os 4 (Estatísticas +
+   * 4 carrosséis de mídia) sempre dependeram do PAI aplicar a folga
+   * lateral, e este wrapper nunca aplicou. Prova: o Perfil próprio
+   * (`app/(tabs)/profile.tsx`) usa `styles.section` — que TEM
+   * `paddingHorizontal: spacing.md` — ao redor do `StatisticsCard`
+   * equivalente lá. Mesmo valor aqui, agora os cards ficam com a mesma
+   * margem lateral que o resto da tela (banner, bio, stats).
+   */
   sections: {
     marginTop: spacing.xl,
     gap: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   centerText: {
     textAlign: "center",

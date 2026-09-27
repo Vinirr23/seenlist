@@ -1,5 +1,5 @@
 import { memo, useEffect, useState, type ReactNode } from "react";
-import { ScrollView, View, Pressable, StyleSheet } from "react-native";
+import { FlatList, View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -8,7 +8,7 @@ import { fetchLibraryStatusesFor } from "@/lib/discover";
 import { tmdbImageUrl } from "@/lib/library";
 import { AddToLibraryButton } from "./AddToLibraryButton";
 import { PressableScale, Glass } from "@/components/ui";
-import { colors, spacing, elevation } from "@/lib/theme";
+import { colors, spacing, elevation, radius } from "@/lib/theme";
 
 /**
  * PADRONIZADO COM O WEB (2026-09-02, a pedido — "o tamanho dos cards
@@ -144,11 +144,44 @@ export const DiscoverCarousel = memo(function DiscoverCarousel({
           ))}
         </View>
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-          {visibleItems.map((item) => (
-            <DiscoverCard key={`${item.mediaType}-${item.id}`} item={item} status={statuses.get(`${item.mediaType}-${item.id}`) ?? null} />
-          ))}
-        </ScrollView>
+        /**
+         * CORREÇÃO DE DESEMPENHO (2026-09-27, reportado — "no Explorar,
+         * um aparelho Android funciona normal, o outro trava/tem
+         * lentidão") — era `ScrollView` + `.map()`, o MESMO padrão que já
+         * causou o problema medido (`VirtualizedList: You have a large
+         * list that is slow to update`) no carrossel de episódios
+         * (`EpisodeCarousel.tsx`, TASK-162, ver o comentário grande lá):
+         * desenha TODOS os cards de uma vez, não importa quantos itens a
+         * lista de descoberta tenha — e cada card é um pôster + `Glass`
+         * + `AddToLibraryButton`, várias views nativas cada. Explorar
+         * empilha até 4 destes carrosséis na mesma tela (Populares,
+         * "Baseado no que você já viu", etc.) — o custo se multiplica.
+         * Isso é exatamente o tipo de custo que um aparelho mais forte
+         * absorve sem piscar e um mais fraco sente como travada, batendo
+         * com o relato (um aparelho bem, outro não). Fix: mesmo remédio
+         * já aprovado e usado no carrossel de episódios — `FlatList`
+         * horizontal com `getItemLayout` (todo card tem a mesma largura,
+         * dá pra calcular a posição sem medir nada) pra virtualizar de
+         * verdade.
+         */
+        <FlatList
+          data={visibleItems}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          contentContainerStyle={styles.row}
+          getItemLayout={(_, index) => ({
+            length: CARD_WIDTH + spacing.sm,
+            offset: (CARD_WIDTH + spacing.sm) * index,
+            index,
+          })}
+          initialNumToRender={6}
+          windowSize={5}
+          maxToRenderPerBatch={8}
+          renderItem={({ item }) => (
+            <DiscoverCard item={item} status={statuses.get(`${item.mediaType}-${item.id}`) ?? null} />
+          )}
+        />
       )}
     </View>
   );
@@ -235,8 +268,8 @@ const styles = StyleSheet.create({
     // hidden`, que cortaria a sombra).
     ...elevation.low,
     width: CARD_WIDTH,
-    /* `rounded-lg` = 8 no web; era `radius.md` = 10. */
-    borderRadius: 8,
+    /* `rounded-lg` = 8 no web = `radius.poster` (FASE 2, 2026-09-26 — token formalizado). */
+    borderRadius: radius.poster,
   },
   /**
    * PORTE DO WEB (2026-09-09) — a caixa do pôster não tinha borda nem
@@ -252,7 +285,7 @@ const styles = StyleSheet.create({
     position: "relative",
     width: CARD_WIDTH,
     aspectRatio: 2 / 3,
-    borderRadius: 8,
+    borderRadius: radius.poster,
     overflow: "hidden",
   },
   poster: {
@@ -268,7 +301,7 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     aspectRatio: 2 / 3,
     /* `rounded-lg` = 8, igual ao card de verdade. */
-    borderRadius: 8,
+    borderRadius: radius.poster,
     backgroundColor: colors.surface,
   },
 });

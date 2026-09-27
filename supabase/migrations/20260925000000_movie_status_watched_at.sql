@@ -1,0 +1,19 @@
+-- SeenList — movie_status.watched_at
+--
+-- CORRIGIDO (2026-09-25, erro real ao rodar: "column watched_at of
+-- relation movie_status already exists") — eu tinha assumido que essa
+-- coluna não existia (só vi `status`/`updated_at` nas migrations
+-- `20260706000000_movie_status.sql`/`20260707000000_movie_status_created_at.sql`),
+-- sem notar que ela já tinha sido criada em
+-- `20260729000000_watched_episodes_is_special.sql` (TASK-027L, pipeline
+-- de import do TV Time Out) — a coluna já existe, `timestamptz`,
+-- aceita nulo, mesmo nome e tipo que eu ia criar. Essa migration não
+-- faz mais nada — fica só como registro do que foi corrigido; não
+-- precisa rodar.
+--
+-- O redesenho da header de Filme (mockup aprovado 2026-09-25) passou
+-- a POPULAR essa coluna também a partir das ações do próprio app
+-- (marcar/desmarcar assistido, reassistir — `lib/movieDetails.ts`),
+-- além da fonte original (import do TV Time). Coluna já existente,
+-- só ganhou uma segunda fonte de escrita — nenhuma mudança de schema
+-- foi necessária de verdade.

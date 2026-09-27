@@ -4,6 +4,7 @@ import type { FollowListUser } from "@/lib/followList";
 import { Text, Glass } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * PORTE DO WEB (2026-09-04, "vidro que falta") — a linha virou
@@ -16,6 +17,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  */
 export function FollowListRow({ user }: { user: FollowListUser }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const displayName = user.displayName || user.username;
 
   return (
@@ -30,8 +32,9 @@ export function FollowListRow({ user }: { user: FollowListUser }) {
             @{user.username}
           </Text>
           {user.followsViewer && (
+            /* CORREÇÃO (FASE 2, strings hardcoded, 2026-09-26) — era texto literal, sem passar por `t()`. */
             <Text style={styles.followsYou} numberOfLines={1}>
-              Segue você
+              {t("profile.followsYou")}
             </Text>
           )}
         </View>
@@ -51,21 +54,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  /**
+   * FASE 2 (consistência visual sistêmica, 2026-09-26, decisão do
+   * usuário: "Unificar em 36px") — era 44/22, o único lugar do app
+   * (junto de `app/notifications.tsx`) com esse avatar de linha num
+   * tamanho diferente do resto ("Opção B" da Fase 1: 36px, já usado em
+   * comentários/posts/atividade/recomendações).
+   */
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-  },
+  // FASE 2 (consistência visual sistêmica, Bucket C, 2026-09-26, decisão do
+  // usuário) — token formalizado `fontSize.xs` (era `fontSize.sm`=14):
+  // unifica com o mesmo papel (iniciais em avatar de 36px) do
+  // `PostCommentItem.tsx`/`EpisodeCommentItem.tsx`, que já usam `fontSize.xs`(12).
   avatarInitials: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     fontWeight: "700",
     color: colors.muted,
   },
@@ -78,12 +88,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.text,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
   username: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
   followsYou: {
     marginTop: 2,
-    fontSize: 11,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+    fontSize: fontSize.xxs,
     color: colors.primary,
   },
 });

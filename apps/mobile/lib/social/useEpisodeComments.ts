@@ -39,15 +39,23 @@ export function useEpisodeCommentCount(target: MediaTarget) {
 export function useEpisodeComments(target: MediaTarget) {
   const [tree, setTree] = useState<CommentNode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // CORREÇÃO (Fase 3, achado alto — mesmo bug de `useDiscoverList.ts`) —
+  // antes, uma falha de rede caía direto no `console.error` e a tela
+  // renderizava a mesma coisa de "nenhum comentário ainda", sem
+  // diferenciar as duas situações. `isError` some de novo assim que
+  // `load()` (retry) tiver sucesso.
+  const [isError, setIsError] = useState(false);
   const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
+    setIsError(false);
     try {
       const comments = await fetchMediaComments(target);
       setTree(buildCommentTree(comments));
     } catch (error) {
       console.error("[useEpisodeComments] Falha ao buscar comentários", error);
+      setIsError(true);
     } finally {
       setIsLoading(false);
     }
@@ -92,5 +100,5 @@ export function useEpisodeComments(target: MediaTarget) {
     [load]
   );
 
-  return { tree, isLoading, sending, submit, remove, edit };
+  return { tree, isLoading, isError, sending, submit, remove, edit, retry: load };
 }

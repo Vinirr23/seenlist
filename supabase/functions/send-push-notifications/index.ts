@@ -122,6 +122,23 @@ function buildMessage(
       const deepLink = mediaId && mediaType ? `/${mediaType === "movie" ? "movies" : "series"}/${mediaId}` : "/profile/recommendations";
       return { title, body, deepLink };
     }
+    /*
+     * NOVO (rodada 29, 2026-09-23) — "Sua semana no SeenList". Inserida
+     * por `week-review-notify` (domingo, 15h Brasília — ver comentário
+     * grande naquela function pra decisões de horário/escopo), lida
+     * daqui como qualquer outro tipo, sem lógica especial de envio.
+     * Texto rascunhado sem confirmação do usuário (mesmo padrão já
+     * usado pras frases de fallback genéricas da rodada 26) — sinalizar
+     * pra revisão, fácil de trocar se não ficar bom.
+     */
+    case "week_review": {
+      const obraTitle = typeof n.payload?.title === "string" ? n.payload.title : null;
+      return {
+        title: "📅 Sua semana no SeenList está pronta",
+        body: obraTitle ? `${obraTitle} foi o destaque — veja e compartilhe.` : "Veja o resumo da sua semana e compartilhe.",
+        deepLink: "/week-review",
+      };
+    }
     default:
       return null;
   }

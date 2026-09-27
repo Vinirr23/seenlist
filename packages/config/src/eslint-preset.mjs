@@ -12,6 +12,19 @@ export const basePreset = [
     rules: {
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "no-console": ["warn", { allow: ["warn", "error"] }],
+      /**
+       * CORREÇÃO (limpeza técnica pós-Fase 3, achado — regra
+       * incompatível com o padrão do React Native) — `require()` de
+       * assets estáticos (imagens/fontes) é a forma padrão e legítima
+       * do Metro bundler resolver esses arquivos; sem essa isenção, a
+       * regra disparava em ~19 lugares que não são bug nenhum (todos
+       * conferidos: `require(".../assets/images/*.png")` /`.webp`, nunca
+       * um módulo JS de verdade). `allow` filtra pelo TEXTO do
+       * argumento do `require()` (regex de gitignore-pattern da própria
+       * regra), então continua acusando qualquer `require()` de módulo
+       * de código — só assets ficam isentos.
+       */
+      "@typescript-eslint/no-require-imports": ["error", { allow: ["\\.(png|jpe?g|gif|webp|svg|ttf|otf|woff2?)$"] }],
     },
   },
   {

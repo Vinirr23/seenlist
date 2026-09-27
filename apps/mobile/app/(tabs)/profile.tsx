@@ -37,8 +37,6 @@ import { NotificationBell } from "@/components/profile/NotificationBell";
 import { ProfileMoreSheet } from "@/components/profile/ProfileMoreSheet";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
-// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-import { logTempoDesdeOToque } from "@/lib/perfNavStamp";
 
 /**
  * CORREÇÃO (a pedido — "perfil não se parece com o web") — o vidro do
@@ -108,13 +106,10 @@ interface CachedEditableFields {
  * cards de seção com contagem, e o card de estatísticas certo).
  */
 export default function ProfileScreen() {
-  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — roda em TODO render (não só no 1º), pra ver se a tela está remontando a cada troca de aba. REMOVER junto.
-  console.log(`[PERF-DOCK] BODY Perfil renderizou em ${performance.now().toFixed(1)}ms`);
+
   const router = useRouter();
   const { user } = useCurrentUser();
   const { t } = useTranslation();
-  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-  useFocusEffect(useCallback(() => { logTempoDesdeOToque("Perfil"); }, []));
   const counts = useFollowCounts(user?.id ?? null);
   const socialCounts = useSocialCounts(user?.id ?? null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
@@ -206,7 +201,6 @@ export default function ProfileScreen() {
           });
         }
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cacheUserId])
   );
 
@@ -242,7 +236,7 @@ export default function ProfileScreen() {
         */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={PROFILE_GLOW_BLOBS} />}>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
-        {!!bannerUrl ? (
+        {bannerUrl ? (
           /*
             * REDESENHO "CAPA CURTA E MINIMALISTA" (a pedido — "não
             * gostei, implementa a versão F- Capa curta e minimalista",
@@ -451,85 +445,90 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {!!bio && <Text style={styles.bio}>{bio}</Text>}
-
         {/*
-          * CORREÇÃO #3 (a pedido, 2026-09-02 — comparação lado a lado
-          * com print real do web, "não está igual") — o `ProfileHeader.tsx`
-          * CORREÇÃO (2026-09-09, medida no print a pedido — "no web tem
-          * um brilho suave no lado superior esquerdo, no mobile esse
-          * brilho toma o lado esquerdo todo de cima a baixo e é mais
-          * forte").
+          * REDESENHO (2026-09-24, a pedido — mockup confirmado, "estende
+          * agora"/"confirmado") — item 3+4 do pedido: as 3 pílulas de
+          * vidro SEPARADAS (Seguindo/Seguidores/Comentários, cada uma
+          * com seu próprio `Glass`) viraram UM card único de vidro, com
+          * linhas divisórias finas entre as colunas — mesma receita
+          * visual do card de stats do Compartilhar (`ShareCardExport.tsx`
+          * → `statsCard`/`statItem`/`statDivider`), só que reaproveitando
+          * a receita `pill` do `Glass` (já calibrada pro tom do Perfil,
+          * ver comentário grande removido daqui — histórico completo
+          * ainda em `lib/theme.ts`, receita `pill`) em vez da paleta
+          * roxa do card de Compartilhar.
           *
-          * Estas pílulas tinham um `LinearGradient` diagonal
-          * (branco 0.18, de 22%/12% até 85%/75%) SOMADO ao brilho que o
-          * próprio `Glass` já desenha. Dois problemas de uma vez:
-          *
-          *   FORMA — gradiente linear não tem queda radial. A cor varia
-          *   só ao longo do eixo do gradiente, então o canto inferior
-          *   esquerdo, que quase não avança nesse eixo, fica tão aceso
-          *   quanto o superior esquerdo. Daí "toma o lado esquerdo todo
-          *   de cima a baixo". Mapa do azul medido na pílula do meio,
-          *   grade normalizada, topo → base:
-          *
-          *       web                          mobile
-          *       79  88  77  60  48  45  44    41 121 110  91  81  71  64
-          *       75  78  70   —  46  45  44   117 117 107  86   —  72  62
-          *       64  64  58  49  46  45  44   106 104  95  83  76  67  60
-          *       57  54  51  48   —  45  44   104  98 102   —  71   —  60
-          *       57  54  50  47  46  45  45    44  93  87  76  70  64  58
-          *
-          *   No web o brilho MORRE: 45 chapado na metade direita e no
-          *   rodapé. No mobile a coluna esquerda fica em 104-117 inteira.
-          *
-          *   FORÇA — eram DOIS brancos empilhados (o 0.17 da receita
-          *   `card` do `Glass` mais este 0.18), quando o web tem um só.
-          *
-          * Fix: o gradiente extra saiu, e as pílulas passaram a usar uma
-          * receita própria (`pill`, em `lib/theme.ts`) com os números
-          * exatos do `ProfileHeader.tsx` do web — inclusive a base
-          * BRANCA em vez do azul compensado das outras receitas, que é o
-          * que a medição do print mostra. O segundo brilho azulado da
-          * última pílula continua, agora como radial de verdade.
+          * Também subiu de posição: antes vinha DEPOIS da bio; agora
+          * fica colado logo após a capa/cabeçalho (mesmo lugar que já
+          * ocupava — só trocou de ordem com a bio, que desceu).
           */}
         <View style={styles.countsRow}>
-          <Pressable style={styles.countCardFlex} onPress={() => router.push(`/follow-list/${user.id}/following`)}>
-            <Glass style={styles.countCard} variant="pill">
+          <Glass style={styles.countsCard} variant="pill">
+            <Pressable style={styles.countItemNarrow} onPress={() => router.push(`/follow-list/${user.id}/following`)}>
+              <Feather name="users" size={16} color={colors.primary} style={styles.countIcon} />
               <Text style={styles.countNumber}>{counts.following}</Text>
+              {/* CORREÇÃO (achado durante auditoria da Task #17, FASE 2, 2026-09-26) — texto literal; reaproveita `profile.following` (mesmo texto, já usado como título/estado em `follow-list/[direction].tsx`/`FollowButton.tsx`). */}
               <Text variant="muted" style={styles.countLabel}>
-                Seguindo
+                {t("profile.following")}
               </Text>
-            </Glass>
-          </Pressable>
-          <Pressable style={styles.countCardFlex} onPress={() => router.push(`/follow-list/${user.id}/followers`)}>
-            <Glass style={styles.countCard} variant="pill">
-              <Text style={styles.countNumber}>{counts.followers}</Text>
-              <Text variant="muted" style={styles.countLabel}>
-                Seguidores
-              </Text>
-            </Glass>
-          </Pressable>
-          <Pressable style={styles.countCardFlex} onPress={() => router.push("/profile/comments")}>
-            <Glass style={styles.countCard} variant="pill">
+            </Pressable>
+            <View style={styles.countDivider} />
+            <Pressable style={styles.countItem} onPress={() => router.push(`/follow-list/${user.id}/followers`)}>
               {/*
-                O segundo brilho da ÚLTIMA pílula, o azulado do canto
-                inferior direito. No web:
+                CORREÇÃO (2026-09-24 — medida em pixel no seu print, não
+                chutada): comparei os 3 ícones um por um, com régua sobre
+                o número/texto de cada coluna. "users" (Seguindo) e
+                "message-circle" (Comentários) batem certinho com o
+                centro do número/texto embaixo. Só o "user-check"
+                (Seguidores) fica visualmente puxado pra esquerda — a
+                caixa do ícone em si até está centralizada, mas o
+                desenho dele não é simétrico (o corpo da pessoa fica à
+                esquerda, o "check" pendurado à direita, sem massa
+                visual equivalente do lado esquerdo pra compensar), daí
+                o olho lê como "fora do centro" mesmo com o layout
+                certo. `marginLeft: 3` empurra só ESTE ícone pra
+                compensar o desenho, sem mexer no alinhamento
+                (já correto) dos outros dois.
+              */}
+              <Feather name="user-check" size={16} color={colors.primary} style={[styles.countIcon, styles.countIconUserCheckNudge]} />
+              <Text style={styles.countNumber}>{counts.followers}</Text>
+              {/* CORREÇÃO (achado durante auditoria da Task #17, FASE 2, 2026-09-26) — texto literal; reaproveita `profile.followers` (mesmo texto, já usado como título em `follow-list/[direction].tsx`). */}
+              <Text variant="muted" style={styles.countLabel}>
+                {t("profile.followers")}
+              </Text>
+            </Pressable>
+            <View style={styles.countDivider} />
+            <Pressable style={styles.countItemWide} onPress={() => router.push("/profile/comments")}>
+              {/*
+                O segundo brilho, o azulado do canto inferior direito do
+                card inteiro (antes só cobria a última pílula — agora
+                cobre a última coluna do card único, mesma posição
+                relativa). No web:
                 `radial-gradient(70% 90% at 85% 100%, rgba(42,127,184,0.22), transparent 60%)`.
-                Vira caixa: raios visíveis 0.6×70 = 42% da largura e
-                0.6×90 = 54% da altura, centro em 85%/100% → esquerda
-                43%, topo 46%, 84% × 108%. Opacidade 0.22/0.867 = 0.254
-                (o 0.867 é o alpha do centro do PNG, ver `lib/theme.ts`).
               */}
               <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <RNImage source={GLOW_PILL} resizeMode="stretch" style={styles.countCardBlueGlow} />
               </View>
+              <Feather name="message-circle" size={16} color={colors.primary} style={styles.countIcon} />
               <Text style={styles.countNumber}>{socialCounts?.commentsGiven ?? 0}</Text>
+              {/* CORREÇÃO (achado durante auditoria da Task #17, FASE 2, 2026-09-26) — texto literal; reaproveita `profile.comments` (mesmo texto, já usado como título de stat card em `StatsSeriesTab.tsx`). */}
               <Text variant="muted" style={styles.countLabel}>
-                Comentários
+                {t("profile.comments")}
               </Text>
-            </Glass>
-          </Pressable>
+            </Pressable>
+          </Glass>
         </View>
+
+        {!!bio && (
+          <View style={styles.bioBlock}>
+            <View style={styles.sectionTitle}>
+              <Feather name="file-text" size={14} color={colors.primary} />
+              {/* CORREÇÃO (achado durante auditoria da Task #17, FASE 2, 2026-09-26) — texto literal; reaproveita `profile.bio` (mesmo texto, já usado em `settings/edit-profile.tsx`). */}
+              <Text style={styles.sectionTitleText}>{t("profile.bio")}</Text>
+            </View>
+            <Text style={styles.bio}>{bio}</Text>
+          </View>
+        )}
 
         <View style={styles.section}>
           <StatisticsCard />
@@ -681,8 +680,17 @@ const styles = StyleSheet.create({
    * abandonada) — sem padding nem margem lateral nenhuma, só o
    * respiro de baixo antes do resto do conteúdo.
    */
+  /**
+   * REVISÃO (2026-09-24, a pedido — "você deixou espaço entre banner e
+   * [contagens], é pra ficar colado, como no mockup") — `marginBottom`
+   * era `spacing.lg` (24), tunado de quando o próximo elemento era a
+   * bio (que tinha seu próprio `marginTop` pequeno). Agora o próximo
+   * elemento é o card de contagens, que deve ficar colado — reduzido
+   * pra `spacing.xs` (4), só o suficiente pra não encostar de verdade
+   * (0 ficaria colado bit a bit, sem nenhum respiro visual).
+   */
   bannerSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
   },
   /**
    * Bem mais baixa que a versão A original (era 224px antes da versão
@@ -758,6 +766,31 @@ const styles = StyleSheet.create({
    * 2026-09-16) — `bottom` era `0` (colado na borda de baixo da capa).
    * 30% do tamanho do próprio avatar (`SHORT_HEADER_AVATAR_SIZE`, 66px):
    * 66 × 0,3 = 19,8, arredondado pra 20.
+   */
+  /**
+   * CAUSA RAIZ DO "ESPACINHO" (2026-09-24, a pedido — "ainda tem um
+   * espacinho" entre a capa e o card de contagens) — `bottom: 20`
+   * (herdado do ajuste "sobe uns 30% o avatar", 2026-09-16) deixa uma
+   * tira de 20px de fundo sólido (cor igual ao fundo da tela) DENTRO
+   * do `bannerShort` (190px fixos), abaixo da própria linha do
+   * avatar/nome — um vão morto que sempre existiu, só nunca foi
+   * reparado porque o vão ANTIGO até o card de contagens (40px, já
+   * corrigido antes nesta sessão) era grande o bastante pra esconder
+   * ele dentro. Reduzir só o vão externo não bastava.
+   *
+   * Voltou pra `bottom: 0` (linha encostada na base da capa) — isso
+   * DESFAZ visualmente aquele "sobe 30%" de 2026-09-16.
+   *
+   * REVERTIDO DE VOLTA (2026-09-24, mesmo dia — comparação com o print
+   * antigo "Nagumo Hajime", que mostrava o avatar mais alto dentro do
+   * banner) — medi as duas fotos (a atual e a de referência) e a
+   * posição batia com algo perto do `bottom: 20` original, não do `0`
+   * daqui em cima. Escolha explícita seguida (opções dadas, você
+   * escolheu) — priorizar o avatar na posição alta, mesmo sabendo que
+   * isso reabre uns 20px de espaço "colado" entre o fim do banner e o
+   * card de contagens (o mesmo espaço que a mudança pra `bottom: 0`
+   * tinha fechado). Se depois de ver esse resultado você preferir um
+   * meio-termo, me avisa que ajusto.
    */
   shortRow: {
     position: "absolute",
@@ -848,6 +881,11 @@ const styles = StyleSheet.create({
      * capa) só existe o `pb-2` (8) daquela fileira.
      */
     marginTop: 0,
+    // REVISÃO (2026-09-24, mesmo pedido de "colado" acima) — mesmo
+    // respiro pequeno (`spacing.xs`) que o `bannerSection` ganhou pro
+    // caso COM capa, pra manter os dois caminhos (com/sem capa)
+    // consistentes até o card de contagens logo abaixo.
+    marginBottom: spacing.xs,
   },
   avatar: {
     width: AVATAR_SIZE,
@@ -877,10 +915,6 @@ const styles = StyleSheet.create({
      */
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.4)",
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
   },
   avatarInitials: {
     fontSize: fontSize.lg,
@@ -917,13 +951,39 @@ const styles = StyleSheet.create({
    * mas continua correto e foi mantido. Funciona igual pra qualquer
    * nome/idioma — nada aqui depende do texto específico.
    */
+  /**
+   * CORREÇÃO (2026-09-24 — medida em PIXEL, direto no seu print, não
+   * chutada por código). Depois do `includeFontPadding: false` (acima,
+   * no `displayName`) o bloco nome+"Editar" continuava visualmente alto
+   * demais — medi as duas prints com um script (contorno do avatar vs.
+   * topo do texto do nome/base da pílula "Editar") e o resultado foi
+   * direto: o avatar tem o centro vertical ~13-14px ABAIXO de onde o
+   * bloco nome+botão realmente aparece pintado na tela, mesmo com
+   * `justifyContent: "center"` — ou seja, o `justifyContent: "center"`
+   * (da correção de 2026-09-17) está centralizando a CAIXA calculada
+   * pelo RN (que inclui o espaço invisível sobrando embaixo do nome,
+   * mesmo espaço já documentado no comentário do `displayName`), não o
+   * conteúdo visível de verdade — por isso nunca ficava certo por mais
+   * que se mexesse na fonte.
+   *
+   * Troquei `justifyContent: "center"` por `"flex-start"` +
+   * `paddingTop` fixo — assim o deslocamento é direto (sem a matemática
+   * de redistribuição do `"center"`, que "absorve" metade de qualquer
+   * ajuste e mascara o resultado). O valor de `paddingTop` foi
+   * calculado a partir do que foi medido no print (bloco precisa descer
+   * ~13-14px) somado à diferença entre os dois avatares
+   * (`AVATAR_SIZE` 74 − `SHORT_HEADER_AVATAR_SIZE` 66 = 8, metade = 4,
+   * por isso o caso "tall" ganha +4 a mais que o "short").
+   */
   headerTextCenterShort: {
     height: SHORT_HEADER_AVATAR_SIZE,
-    justifyContent: "center",
+    justifyContent: "flex-start",
+    paddingTop: 13,
   },
   headerTextCenterTall: {
     height: AVATAR_SIZE,
-    justifyContent: "center",
+    justifyContent: "flex-start",
+    paddingTop: 17,
   },
   /**
    * A PEDIDO (2026-09-16 — "deixa ele um botão glass igual
@@ -970,39 +1030,157 @@ const styles = StyleSheet.create({
    * cima do valor JÁ reduzido (8, não dos originais): 8 × 0,65 = 5,2,
    * arredondado pra 5.
    */
+  /**
+   * REVISÃO (2026-09-24) — `marginTop` era 5 (tunado pra ficar perto
+   * do avatar, quando a bio vinha logo depois dele). Agora a bio vem
+   * depois do título "Bio" (`sectionTitle`, que já tem seu próprio
+   * `marginBottom`), então só precisa de um respiro pequeno até o
+   * texto — 4px.
+   *
+   * CAUSA RAIZ ("alinha Bio", 2026-09-24, print seguinte) — este
+   * `paddingHorizontal: spacing.md` é sobra de quando a bio era um
+   * elemento solto (sem o `bioBlock` que a envolve hoje). Agora o pai
+   * (`bioBlock`, logo abaixo) já aplica o MESMO `paddingHorizontal` —
+   * os dois juntos somavam 32px de borda pro texto da bio, enquanto o
+   * título "Bio" (dentro do mesmo `bioBlock`, sem padding próprio)
+   * ficava só nos 16px do pai. Por isso o texto da bio aparecia
+   * ~16px mais pra dentro que o título "Bio" acima dele. Removido
+   * daqui — o padding do `bioBlock` já é suficiente.
+   */
   bio: {
-    marginTop: 5,
-    paddingHorizontal: spacing.md,
+    marginTop: 4,
     fontSize: fontSize.sm,
     lineHeight: 20,
+    color: colors.text,
+  },
+  /**
+   * NOVO (2026-09-24) — envolve o título "Bio" + o texto da bio como
+   * um bloco só, espaçado do card de contagens acima dele.
+   */
+  bioBlock: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  /** Mesma receita de título de seção usada em `ProfileListsPreview.tsx` (ícone + texto, 14/700, gap `spacing.sm`) — reaproveitada aqui pro título "Bio" em vez de duplicar visual novo. */
+  sectionTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  sectionTitleText: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
     color: colors.text,
   },
   /** CORREÇÃO (2026-09-03, comparado com o web) — `gap: spacing.sm` (8); o web usa `gap-2.5` (`ProfileHeader.tsx`, "mt-4 flex gap-2.5") = 10px — sem token exato, valor literal. */
   /** CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web usa `px-4` (`spacing.md`=16) como borda de tela. */
   countsRow: {
-    flexDirection: "row",
-    gap: 10,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
-  },
-  countCardFlex: {
-    flex: 1,
+    // REVISÃO (2026-09-24, mesmo pedido — "colado") — era `spacing.md`
+    // (16), que SOMAVA com o `marginBottom` do `bannerSection` (24) —
+    // 40px de vão total. Zerado aqui: o respiro que sobrou (4px) vem
+    // só do `bannerSection.marginBottom`, ver comentário lá.
+    marginTop: 0,
   },
   /**
-   * CORREÇÃO (2026-09-03, comparado com o web) — o web
-   * (`ProfileHeader.tsx`, pílula de contagem) usa `px-1.5 py-3`
-   * (6px/12px) — `paddingHorizontal` não existia aqui (texto
-   * dependia só da centralização do flex, sem respiro nenhum das
-   * bordas), e `paddingVertical` estava em `spacing.sm` (8) em vez de
-   * 12. Radius continua o do `Glass` (vidro, fora do escopo desta
-   * correção).
+   * REDESENHO (2026-09-24, a pedido — mockup confirmado) — antes eram
+   * 3 `Glass` `pill` SEPARADOS com `gap: 10` entre eles
+   * (`countCardFlex`/`countCard`, removidos). Agora é UM `Glass` só,
+   * com os itens em `row` dentro dele e divisórias finas
+   * (`countDivider`) entre as colunas — mesma ideia estrutural do
+   * `statsCard`/`statDivider` do card de stats do Compartilhar
+   * (`ShareCardExport.tsx`).
    */
-  countCard: {
-    alignItems: "center",
-    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-2xl` = 16. */
+  /**
+   * A PEDIDO (2026-09-24 — "diminui esse card em 30%"). As duas
+   * primeiras tentativas encolheram o CONTEÚDO (ícone, depois fonte) e
+   * deixaram a caixa quase do mesmo tamanho — você corrigiu: o pedido
+   * é o CARD ficar menor NA HORIZONTAL, com ícone/número/rótulo no
+   * tamanho ORIGINAL (revertido aqui: `paddingVertical` volta a 12,
+   * ícones voltam a `size={16}`, fontes voltam a `fontSize.sm`/`xs`).
+   * A redução em si é só `width: "70%"` + `alignSelf: "center"` abaixo
+   * — encolhe a largura do card em 30%, centralizado, sem mexer no
+   * tamanho de mais nada dentro dele.
+   *
+   * ACONTECEU O QUE EU TINHA AVISADO (2026-09-24, print seguinte) —
+   * "Comentários" quebrou linha ("Comentário" + "s" sozinho embaixo),
+   * só nessa coluna, deixando o card com mais altura que precisava e
+   * as 3 colunas com quantidade de linhas diferente (isso é a causa
+   * raiz do "alinha as informações dentro do card" — não é um
+   * `alignItems` errado, é a quebra de linha empurrando só a 3ª coluna
+   * pra baixo). Medi direto no seu print: o texto "Comentários" precisa
+   * de ~67-68px pra caber numa linha só, e a coluna só tinha uns
+   * ~65px disponíveis — faltavam uns 2-3px. Corrigido por dois lados
+   * (sem tocar fonte/ícone, como pedido): `width` do card sobe de 70%
+   * pra 75% (ainda 25% mais estreito que o original, não os 30%
+   * cheios) e `paddingHorizontal` do item cai de 6 pra 4 — sobra ~15px
+   * a mais por coluna, folga confortável.
+   *
+   * Também "diminui um pouco verticalmente, tem muito espaço pra
+   * baixo" — `paddingVertical` cai de 12 pra 9 (não dá pra ir muito
+   * mais baixo que isso sem apertar o ícone/número/texto, que ficam do
+   * mesmo tamanho de antes).
+   */
+  countsCard: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    /** CORREÇÃO (2026-09-04) — era `radius.md` (10); web `rounded-2xl` = 16. Mantido do `countCard` antigo. */
     borderRadius: radius.lg,
-    paddingHorizontal: 6,
-    paddingVertical: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 4,
+    alignSelf: "center",
+    width: "75%",
+  },
+  /**
+   * A PEDIDO (2026-09-24 — "colunas com largura proporcional ao
+   * conteúdo"). Medi pixel a pixel no seu print e confirmei: ícone,
+   * número e rótulo já compartilhavam o mesmo `centerX` dentro de cada
+   * coluna (diferença de 1-3px, dentro da margem de erro de medir em
+   * imagem pequena) — não era bug de centralização. A sensação de
+   * "Comentários pesado pra direita" vinha só da palavra ser mais
+   * longa (11 letras) sobrando menos respiro numa coluna do MESMO
+   * tamanho que "Seguindo" (8 letras). Em vez de 3 colunas
+   * `flex: 1` iguais, cada uma agora tem um `flex` proporcional ao
+   * número de letras do rótulo (Seguindo=8, Seguidores=10,
+   * Comentários=11, de 29 letras no total): `countItemNarrow`
+   * (0,85), este aqui — `countItem`, usado por "Seguidores" — fica
+   * 1 (referência), `countItemWide` (1,15) pra "Comentários". As
+   * divisórias deixam de ficar exatamente no centro geométrico do
+   * card (viram proporcionais ao conteúdo também) — troca explícita,
+   * você escolheu essa opção sabendo disso.
+   */
+  countItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 4,
+  },
+  /** Ver comentário em `countItem` — coluna "Seguindo" (rótulo mais curto), um pouco mais estreita que a média. */
+  countItemNarrow: {
+    flex: 0.85,
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 4,
+  },
+  /** Ver comentário em `countItem` — coluna "Comentários" (rótulo mais longo), um pouco mais larga que a média. */
+  countItemWide: {
+    flex: 1.15,
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 4,
+  },
+  countIcon: {
+    opacity: 0.9,
+  },
+  /** Ver comentário no JSX (ícone "Seguidores") — nudge óptico só deste ícone, medido no print. */
+  countIconUserCheckNudge: {
+    marginLeft: 3,
+  },
+  countDivider: {
+    width: 1,
+    alignSelf: "stretch",
+    marginVertical: 4,
+    backgroundColor: "rgba(255,255,255,0.16)",
   },
   countNumber: {
     fontSize: fontSize.sm,
@@ -1041,10 +1219,30 @@ const styles = StyleSheet.create({
    * que está errado, é a caixa de linha do texto ACIMA que é maior
    * que deveria). `lineHeight: 28` trava a caixa deste texto no
    * mesmo valor do `text-lg` do Tailwind.
+   *
+   * CAUSA RAIZ DO ITEM 5 (2026-09-24 — "avatar+nome+botão ainda estão
+   * visualmente desalinhados", mesmo depois do `headerTextCenterShort`/
+   * `headerTextCenterTall` travar a altura da coluna no tamanho do
+   * avatar e centralizar com `justifyContent: "center"`, sessão
+   * 2026-09-17). Aquela correção centraliza a CAIXA do bloco
+   * nome+botão certinho — o problema é que o CONTEÚDO visível dentro
+   * da caixa não é simétrico: como o parágrafo acima já flagrou, o
+   * texto do nome "flutua" mais alto dentro da própria linha de 28px
+   * (métrica vertical da "Plus Jakarta Sans"), sobrando espaço
+   * invisível embaixo das letras, ANTES do botão "Editar" começar. Ou
+   * seja: dentro da caixa já centralizada, o par "letras do nome" +
+   * "botão Editar" fica com um respiro invisível a mais entre os dois
+   * — visualmente o nome fica colado no topo e o botão mais pro fundo
+   * do que deveria, mesmo a caixa como um todo estando centralizada.
+   * `includeFontPadding: false` é a correção padrão do Android pra
+   * essa classe de bug (remove o padding extra que as fontes Android
+   * reservam por baixo/cima das letras); no iOS essa prop não existe e
+   * é ignorada sem efeito nenhum — seguro nas duas plataformas.
    */
   displayName: {
     fontWeight: "700",
     lineHeight: 28,
+    includeFontPadding: false,
   },
   /** Ver o comentário no JSX — `mb-6` (24) da `<section>` do web em volta das Recomendações. */
   recommendationsBlock: {

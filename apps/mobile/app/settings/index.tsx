@@ -351,10 +351,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
   },
-  // CORREÇÃO — web: `text-xl font-bold`=20/700 (nenhum token de
-  // `fontSize` bate em 20 — `lg`=18, `xl`=22 — por isso valor solto).
+  // CORREÇÃO — web: `text-xl font-bold`=20/700.
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — este era exatamente
+  // o caso que motivou formalizar `fontSize.lgPlus` (20, entre `lg`=18 e
+  // `xl`=22) — token aplicado aqui no lugar do valor solto.
   headerTitle: {
-    fontSize: 20,
+    fontSize: fontSize.lgPlus,
     fontWeight: "700",
     color: colors.text,
   },

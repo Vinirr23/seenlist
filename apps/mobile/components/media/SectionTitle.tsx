@@ -1,6 +1,6 @@
 import { View, StyleSheet } from "react-native";
 import { Text, Glass } from "@/components/ui";
-import { colors, fontFamily, spacing } from "@/lib/theme";
+import { colors, fontFamily, fontSize } from "@/lib/theme";
 
 /**
  * PORTE DO WEB (2026-09-09, comparado no print — o mobile mostrava
@@ -49,7 +49,8 @@ const styles = StyleSheet.create({
   },
   texto: {
     /* `text-xs` = 12, `font-bold` = 700, `tracking-wide` = 0.025em ≈ 0.3px em 12px. */
-    fontSize: 12,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (mesmo valor).
+    fontSize: fontSize.xs,
     fontWeight: "700",
     fontFamily: fontFamily[700],
     letterSpacing: 0.3,

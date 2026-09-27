@@ -7,13 +7,15 @@ import { addToList } from "@/lib/lists";
 import { removeMovieFromLibrary } from "@/lib/movieDetails";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { Text, Skeleton, Glass } from "@/components/ui";
-import { colors, radius, spacing, scrim } from "@/lib/theme";
+import { colors, radius, spacing, scrim, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { RecommendSheet } from "../social/RecommendSheet";
 
 export interface MovieQuickActionsSheetProps {
   movieId: number;
   movieTitle: string;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
   onRemoved: () => void;
   onClose: () => void;
 }
@@ -22,11 +24,24 @@ type SheetView = "menu" | "pick-list";
 
 /**
  * TASK-172 — menu "..." de filme, achado real (não existia). Porta
- * fiel de `SeriesQuickActionsSheet.tsx`, sem favoritar/assistir
- * depois/parar de assistir — pra filme, favorito já é botão
- * principal (`MovieActions.tsx`), e "assistir depois" também;
- * duplicar aqui seria redundante. Só o que faltava mesmo: adicionar
- * a lista, recomendar, remover, compartilhar.
+ * fiel de `SeriesQuickActionsSheet.tsx`.
+ *
+ * REDESENHO (mockup aprovado 2026-09-25) — favoritar e "assistir
+ * depois" ENTRARAM aqui (pedido explícito do usuário: "o botão de
+ * favoritar sai da tela e a opção vai pro sheet"). Antes ficavam como
+ * botões principais na tela (`MovieActions.tsx`), redundantes com
+ * duplicar aqui — agora a header tem só o check de "assistido" (ver
+ * `MovieHeader.tsx`), e essas duas opções (que não são o caminho mais
+ * comum, "assistido" é) moraram pro menu "···", mesmo padrão que
+ * `SeriesQuickActionsSheet.tsx` já usava pra série.
+ *
+ * CORREÇÃO (2026-09-25, teste no aparelho) — "assistir depois" SAIU
+ * de novo daqui: o círculo de check da header (`MovieHeader.tsx`)
+ * ganhou um terceiro estado (cinza/branco/verde) e agora É "assistir
+ * depois" no meio do ciclo (cinza → toca → branco = assistir depois →
+ * toca de novo → verde = assistido) — pedido explícito: "aciona a
+ * função 'assistir depois' (tira a opção assistir depois do sheet)".
+ * Ficaria duplicado manter os dois caminhos pra mesma ação.
  *
  * CORREÇÃO DE CAUSA RAIZ (2026-09-10, achado numa auditoria pedida —
  * "você está sempre pulando os botões de cima e as folhas") — este
@@ -45,7 +60,14 @@ type SheetView = "menu" | "pick-list";
  * lucide (lista com um "+"). `MaterialCommunityIcons "playlist-plus"`
  * é o mais parecido disso disponível no app.
  */
-export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose }: MovieQuickActionsSheetProps) {
+export function MovieQuickActionsSheet({
+  movieId,
+  movieTitle,
+  isFavorite,
+  onToggleFavorite,
+  onRemoved,
+  onClose,
+}: MovieQuickActionsSheetProps) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -181,6 +203,12 @@ export function MovieQuickActionsSheet({ movieId, movieTitle, onRemoved, onClose
                 {movieTitle}
               </Text>
 
+              <ActionRow
+                icon="heart"
+                label={isFavorite ? t("profile.removeFromFavorites") : t("profile.addToFavorites")}
+                active={isFavorite}
+                onPress={onToggleFavorite}
+              />
               <Pressable style={styles.actionRow} onPress={() => setView("pick-list")}>
                 <MaterialCommunityIcons name="playlist-plus" size={18} color={colors.text} />
                 <Text style={styles.actionLabel}>{t("movie.addToList")}</Text>
@@ -214,14 +242,17 @@ function ActionRow({
   icon,
   label,
   onPress,
+  active,
   danger,
 }: {
   icon: keyof typeof Feather.glyphMap;
   label: string;
   onPress: () => void;
+  active?: boolean;
   danger?: boolean;
 }) {
-  const color = danger ? colors.danger : colors.text;
+  // Mesma regra de `SeriesQuickActionsSheet.tsx`: favoritado usa a cor de perigo (coração vermelho), não a de destaque (âmbar) — mesmo padrão visual do coração ativo no resto do app.
+  const color = danger ? colors.danger : active ? colors.danger : colors.text;
   return (
     <Pressable style={styles.actionRow} onPress={onPress}>
       <Feather name={icon} size={16} color={color} />
@@ -250,7 +281,8 @@ const styles = StyleSheet.create({
   sheetTitle: {
     paddingHorizontal: spacing.sm,
     marginBottom: spacing.sm,
-    fontSize: 12,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
+    fontSize: fontSize.xs,
     fontWeight: "600",
   },
   pickListScroll: {
@@ -286,7 +318,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm - 2,
-    fontSize: 14,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
+    fontSize: fontSize.sm,
     color: colors.text,
   },
   newListSaveButton: {
@@ -305,8 +338,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
   actionLabel: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
   },
   cancelButton: {
     marginTop: 8,
@@ -325,7 +359,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   confirmTitle: {
-    fontSize: 14,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
+    fontSize: fontSize.sm,
     color: colors.text,
   },
   confirmMessage: {

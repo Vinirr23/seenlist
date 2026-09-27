@@ -1,10 +1,9 @@
-import { ScrollView, View, Pressable, StyleSheet } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { ScrollView, StyleSheet } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { ReviewsFullView } from "@/components/reviews/ReviewsFullView";
-import { Screen, Text, GlassTargetProvider, AmbientGlow } from "@/components/ui";
+import { Screen, GlassTargetProvider, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
-import { colors, spacing } from "@/lib/theme";
+import { spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -25,7 +24,6 @@ export default function SeriesReviewsScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
-  const router = useRouter();
   const { t } = useTranslation();
   const { id, title, posterPath } = useLocalSearchParams<{ id: string; title: string; posterPath: string }>();
   const numericId = Number(id);
@@ -35,18 +33,14 @@ export default function SeriesReviewsScreen() {
       {/*
         PORTE DO WEB (2026-09-09, comparado no print) — o cabeçalho
         desta tela é o do `CommentsPageView.tsx`:
-        `flex items-center gap-3 border-b border-white/10 px-4 py-3`
-        com o título em `text-xl font-bold` (20px/700). Aqui o espaço
-        era 8, a altura 8/8, o título `variant="subtitle"` (18px/600) e
-        NÃO havia a linha embaixo — o cabeçalho não se separava do
-        conteúdo.
+        `flex items-center gap-3 border-b border-white/10 px-4 py-3`.
+        FASE 2 (consistência visual sistêmica, 2026-09-26) — convertido
+        pro `<ScreenHeader>` compartilhado (título/ícone já batiam com a
+        referência); a linha divisória embaixo é uma necessidade visual
+        real desta tela (web tem, o grupo "voltar+título" comum não tem)
+        — mantida via o `style` de escape hatch do componente.
       */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>{t("social.reviews")}</Text>
-      </View>
+      <ScreenHeader title={t("social.reviews")} style={styles.header} />
 
       {/*
         * PORTE DO WEB (2026-09-04, "vidro que falta") — campo de
@@ -72,24 +66,16 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
+  /**
+   * FASE 2 (2026-09-26) — a linha divisória embaixo do cabeçalho
+   * (`border-b border-white/10` do web) é a única diferença real
+   * desta tela em relação ao `<ScreenHeader>` padrão; aplicada via o
+   * `style` de escape hatch do componente, sem herdar o resto do
+   * grupo "voltar+título" comum.
+   */
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12, // `gap-3` (era 8)
-    paddingHorizontal: spacing.md,
-    paddingTop: 12, // `py-3` (era 8)
-    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)", // `border-b border-white/10`
-  },
-  /** `text-xl font-bold` = 20/700 (era `variant="subtitle"` = 18/600). */
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.text,
+    borderBottomColor: "rgba(255,255,255,0.1)",
   },
   /** O `PageContainer` do web entra com `pt-6` e o conteúdo com `py-4` por dentro — 40 no total antes do primeiro card. Aqui não havia respiro nenhum. */
   content: {

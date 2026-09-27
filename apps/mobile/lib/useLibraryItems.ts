@@ -55,6 +55,47 @@ function cacheKeyFor(userId: string | undefined, locale: string): string | null 
 }
 
 /**
+ * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance — item
+ * 1 da Etapa 1B: "useLibraryItems — evitar atualização de estado
+ * desnecessária") — `setItems(data)` rodava incondicionalmente depois
+ * de TODA busca (inicial, refoco, puxar-pra-atualizar), sempre com uma
+ * referência de array NOVA, mesmo quando o conteúdo é idêntico ao que
+ * já estava na tela — invalidando qualquer `memo`/`useMemo` downstream
+ * que dependa de `items` por identidade.
+ *
+ * Fingerprint BARATO (não é deep-equal pesado): concatena só os campos
+ * que a UI realmente mostra (status, progresso, título, pôster,
+ * timestamps) por item, ordena as strings (a ORDEM de `items` não
+ * importa pra decidir se o conteúdo mudou) e junta tudo numa string
+ * só. Custa um `map`+`sort`+`join` sobre a lista — desprezível perto
+ * do custo de um re-render de toda a árvore que depende de `items`
+ * (o problema que estamos evitando). Cobre os 3 casos pedidos:
+ * `status`/progresso mudando, item entrando/saindo (muda o CONJUNTO
+ * de `mediaType:id` presentes na string) e metadata relevante mudando
+ * (título/pôster/timestamps).
+ */
+function computeLibrarySignature(items: LibraryItem[]): string {
+  return items
+    .map((item) => {
+      const progress = item.mediaType === "series" ? item.progress : undefined;
+      return [
+        item.mediaType,
+        item.id,
+        item.status,
+        item.updatedAt,
+        item.lastActivityAt,
+        item.title,
+        item.posterPath ?? "",
+        progress?.watchedEpisodes ?? "",
+        progress?.totalEpisodes ?? "",
+        progress?.totalWatchEvents ?? "",
+      ].join(":");
+    })
+    .sort()
+    .join("|");
+}
+
+/**
  * TASK-125 (correção — atualização automática) — porta de
  * `useLibraryItems` (react-query no web, que refaz a busca sozinho
  * sempre que a tela volta a ficar em foco). A versão anterior só
@@ -90,6 +131,7 @@ export function useLibraryItems(options: UseLibraryItemsOptions = {}): UseLibrar
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedOnce = useRef(false);
   const hasShownCache = useRef(false);
+  const lastSignatureRef = useRef<string | null>(null);
 
   const cacheKey = cacheKeyFor(userId, locale);
 
@@ -104,7 +146,15 @@ export function useLibraryItems(options: UseLibraryItemsOptions = {}): UseLibrar
 
       try {
         const data = await fetchLibraryItems(undefined, locale);
-        setItems(data);
+        // CORREÇÃO DE DESEMPENHO (2026-09-27, Etapa 1B, item 1) — ver
+        // `computeLibrarySignature` acima: só troca a referência de
+        // `items` (e, portanto, só re-renderiza quem depende dela) se
+        // o conteúdo realmente mudou.
+        const signature = computeLibrarySignature(data);
+        if (signature !== lastSignatureRef.current) {
+          lastSignatureRef.current = signature;
+          setItems(data);
+        }
         hasLoadedOnce.current = true;
         if (cacheKey) {
           AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch((error) => {
@@ -132,6 +182,13 @@ export function useLibraryItems(options: UseLibraryItemsOptions = {}): UseLibrar
           if (!cancelled && raw && !hasLoadedOnce.current) {
             const cached = JSON.parse(raw) as LibraryItem[];
             setItems(cached);
+            // CORREÇÃO DE DESEMPENHO (2026-09-27, Etapa 1B, item 1) —
+            // guarda a "assinatura" do cache também, pra quando a
+            // busca de rede que vem em seguida (`load`, mais abaixo)
+            // trouxer o MESMO conteúdo do cache local — sem isso, a
+            // troca cache→rede sempre geraria uma referência nova de
+            // `items` mesmo quando o dado é idêntico.
+            lastSignatureRef.current = computeLibrarySignature(cached);
             setIsLoading(false);
             hasShownCache.current = true;
           }

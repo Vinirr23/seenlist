@@ -57,7 +57,7 @@ export function useNotifications() {
         .select("id, type, actor_id, target_media_type, target_media_id, payload, read_at, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(20);
       if (error) {
         console.error("[notifications] Falha ao buscar notificações", describeSupabaseError(error));
         throw error;

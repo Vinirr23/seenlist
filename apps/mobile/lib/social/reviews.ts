@@ -57,7 +57,29 @@ export interface ReviewAggregate {
   distribution: { star: number; count: number }[];
 }
 
-export async function fetchReviews(target: ReviewTarget): Promise<Review[]> {
+export interface ReviewsPage {
+  reviews: Review[];
+  /** true quando é provável que existam mais linhas depois desta página (página cheia — mesma heurística já usada em `explore/DiscoverGridScreen.tsx`/`useDiscoverList.ts`: não é uma contagem exata, é "voltou uma página cheia, então pode ter mais"). */
+  hasMore: boolean;
+}
+
+const REVIEWS_PAGE_SIZE = 20;
+
+/**
+ * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance —
+ * ETAPA 2, item 2: "Reviews — paginação") — antes buscava TODAS as
+ * avaliações do título de uma vez (`.order(...)`, sem `.range()`),
+ * mesmo problema de escala do achado 6.4/9.5 da auditoria original.
+ * Diferente de comentários (`mediaComments.ts`/`postComments.ts`),
+ * avaliação não tem resposta/árvore — é lista plana, ordenada só por
+ * `created_at` — então paginar aqui é seguro sem nenhuma mudança
+ * estrutural: só `.range()` + um parâmetro de página opcional.
+ * `page` começa em 0; chamador acumula as páginas (ver
+ * `useReviews.ts`). Assinatura muda (era `Review[]`, agora
+ * `ReviewsPage`) — único chamador é `useReviews.ts`, atualizado
+ * junto.
+ */
+export async function fetchReviews(target: ReviewTarget, page = 0): Promise<ReviewsPage> {
   let query = supabase
     .from("reviews")
     .select("id, user_id, rating, review_text, contains_spoiler, mood, watched_platform, favorite_character_id, favorite_character_name, created_at")
@@ -67,7 +89,8 @@ export async function fetchReviews(target: ReviewTarget): Promise<Review[]> {
     .or("rating.not.is.null,review_text.not.is.null");
   query = target.seasonNumber == null ? query.is("season_number", null) : query.eq("season_number", target.seasonNumber);
   query = target.episodeNumber == null ? query.is("episode_number", null) : query.eq("episode_number", target.episodeNumber);
-  const { data, error } = await query.order("created_at", { ascending: false });
+  const from = page * REVIEWS_PAGE_SIZE;
+  const { data, error } = await query.order("created_at", { ascending: false }).range(from, from + REVIEWS_PAGE_SIZE - 1);
   if (error) throw error;
 
   const rows = (data ?? []) as ReviewRow[];
@@ -81,7 +104,7 @@ export async function fetchReviews(target: ReviewTarget): Promise<Review[]> {
     for (const p of (profileRows ?? []) as ProfileRow[]) profilesById.set(p.user_id, p);
   }
 
-  return rows.map((row) => {
+  const reviews = rows.map((row) => {
     const profile = profilesById.get(row.user_id);
     return {
       id: row.id,
@@ -101,6 +124,8 @@ export async function fetchReviews(target: ReviewTarget): Promise<Review[]> {
       },
     };
   });
+
+  return { reviews, hasMore: reviews.length === REVIEWS_PAGE_SIZE };
 }
 
 export async function fetchMyReview(target: ReviewTarget): Promise<Review | null> {

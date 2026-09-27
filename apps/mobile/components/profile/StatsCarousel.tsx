@@ -6,7 +6,7 @@ import { PageError } from "../media/PageError";
 import { Text } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
-import { spacing } from "@/lib/theme";
+import { spacing, fontSize } from "@/lib/theme";
 
 export interface StatsCarouselProps {
   stats: ProfileStats | undefined;
@@ -84,8 +84,9 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.sm,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.lg` (era literal 18, mesmo valor).
   sectionTitle: {
-    fontSize: 18,
+    fontSize: fontSize.lg,
   },
   row: {
     flexDirection: "row",

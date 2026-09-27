@@ -28,9 +28,7 @@ import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
 import { HOME_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { translateDayLabel } from "@/lib/i18n/dayLabels";
-import { colors, spacing, radius } from "@/lib/theme";
-// DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-import { logTempoDesdeOToque } from "@/lib/perfNavStamp";
+import { colors, spacing } from "@/lib/theme";
 
 const CONTINUE_LIMIT = 8;
 
@@ -63,13 +61,9 @@ const STALE_AFTER_DAYS = 14;
  * série (também já construída depois).
  */
 export default function SeriesHomeScreen() {
-  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — roda em TODO render (não só no 1º), pra ver se a tela está remontando a cada troca de aba. REMOVER junto.
-  console.log(`[PERF-DOCK] BODY Séries (Minha Lista) renderizou em ${performance.now().toFixed(1)}ms`);
   const router = useRouter();
   const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
-  // DIAGNÓSTICO TEMPORÁRIO (2026-09-17) — ver `lib/perfNavStamp.ts`. REMOVER junto.
-  useFocusEffect(useCallback(() => { logTempoDesdeOToque("Séries (Minha Lista)"); }, []));
   /**
    * CORREÇÃO DE RAIZ (2026-09-17, reportado — "mudar de tabs ainda
    * trava", igual ao mesmo bug já corrigido em `series/[id].tsx`
@@ -222,6 +216,31 @@ export default function SeriesHomeScreen() {
   }, [items]);
 
   /**
+   * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance —
+   * item 5 da Etapa 1B: "Home Séries — staleSeries sem limite") —
+   * `staleSeries` (seção "Continue de onde parou", logo abaixo) nunca
+   * teve limite nenhum aqui: toda série "Assistindo" parada há 14+
+   * dias entra, sem corte — diferente de `continueWatching` (que já
+   * tinha `CONTINUE_LIMIT`, ver acima) e é desenhada dentro de um
+   * `ScrollView` comum (`PosterGrid` no modo grade é só uma `View` com
+   * TODOS os itens montados, sem nenhuma virtualização própria; no
+   * modo lista, `.map()` monta um `ContinueWatchingListRow` por item,
+   * também todos de uma vez) — com biblioteca grande, dezenas de
+   * cards montados de uma vez só pra abrir a Home.
+   *
+   * Confirmado com o usuário (pergunta direta, já que não existia
+   * nenhuma rota "Ver tudo" pra esta seção e esconder conteúdo sem
+   * forma de acessá-lo depois é proibido): a decisão foi replicar o
+   * MESMO padrão já usado em "Continue assistindo" — limite na Home
+   * (`CONTINUE_LIMIT`, mesmo valor) + nova rota
+   * `/series/continue-de-onde-parou` (`ContinueWhereYouLeftOffAllScreen`)
+   * com a lista completa, virtualizada (`FlatList`, mesmo padrão de
+   * `continue-assistindo.tsx`). Nenhum item fica inacessível — só sai
+   * do corte fixo da Home.
+   */
+  const visibleStaleSeries = useMemo(() => staleSeries.slice(0, CONTINUE_LIMIT), [staleSeries]);
+
+  /**
    * CORREÇÃO (bug real, reportado com print — Tomb Raider King,
    * "De Caipira a Mestre Espadachim" etc. aparecendo na grade mas
    * sumindo no modo lista) — mesmo bug já corrigido no web antes
@@ -305,7 +324,18 @@ export default function SeriesHomeScreen() {
    * modo GRADE também depende deste mesmo resultado pra decidir se
    * uma série "Em dia" tem pendência real (o "portão").
    */
-  const listNeedingEpisodes = useMemo(() => [...continueWatching, ...staleSeries], [continueWatching, staleSeries]);
+  /*
+   * CORREÇÃO DE DESEMPENHO (2026-09-27, Etapa 1B, item 5) — busca o
+   * "próximo episódio pendente" só das séries de fato exibidas na
+   * Home (`visibleStaleSeries`, com o corte novo), não da lista
+   * `staleSeries` inteira — mesmo princípio já aplicado a
+   * `continueWatching` (que também já entra aqui só com o corte de
+   * `CONTINUE_LIMIT`, nunca a lista completa).
+   */
+  const listNeedingEpisodes = useMemo(
+    () => [...continueWatching, ...visibleStaleSeries],
+    [continueWatching, visibleStaleSeries]
+  );
 
   /**
    * CORREÇÃO DE CAUSA RAIZ (2026-09-04 — "tudo em dia mostra espaço em
@@ -419,10 +449,33 @@ export default function SeriesHomeScreen() {
    * `nextEpisodesLoaded` (o filtro de "tem pendência real" já vem
    * pronto de outra fonte lá).
    */
-  const isEmptyState =
+  /*
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-22, reportado com prints — "tudo em
+   * dia" aparecia mesmo tendo séries reais em "Faz um tempo que você
+   * não assiste"/"Continue de onde parou") — `isEmptyState` (acima)
+   * nunca olhava `staleSeries`: ela só avalia a pool "recente"
+   * (`continueWatching`/`visibleContinueWatching`), e `staleSeries` é
+   * estruturalmente EXCLUÍDA dessa pool por definição (é o corte de 14
+   * dias que a separa dela, ver `STALE_AFTER_DAYS` acima) — ou seja,
+   * "não tem nada recente" sempre foi tratado como "não tem nada",
+   * mesmo quando a seção de baixo tinha itens de verdade.
+   *
+   * `naoTemNadaRecente` é o `isEmptyState` de antes, sem mudança de
+   * cálculo — só renomeado pra deixar claro que é sobre a pool
+   * recente, não sobre a tela inteira. `isEmptyState` (o hero "Tudo em
+   * dia"/"Biblioteca vazia" + fileira "Populares") só aparece quando
+   * NÃO tem nada recente E também não tem nada em `staleSeries`.
+   * `pularSecaoRecente` cobre o caso do meio: não tem nada recente,
+   * mas tem stale — aí a seção "Continue assistindo" inteira (cabeçalho
+   * + grade/lista + esqueleto) some, sem hero nenhum, e a tela vai
+   * direto pra seção "Continue de onde parou" abaixo.
+   */
+  const naoTemNadaRecente =
     viewModeReady &&
     !isLoading &&
     (continueWatching.length === 0 || (nextEpisodesLoaded && visibleContinueWatching.length === 0));
+  const temStale = staleSeries.length > 0;
+  const pularSecaoRecente = naoTemNadaRecente && temStale;
 
   /**
    * ESTABILIZADO (2026-09-17, réplica do fix do Perfil — "pode
@@ -472,7 +525,7 @@ export default function SeriesHomeScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
-          {!isError && !isEmptyState && (
+          {!isError && !naoTemNadaRecente && (
             <View style={styles.sectionHeader}>
               <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
               <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
@@ -496,6 +549,18 @@ export default function SeriesHomeScreen() {
             ) : (
               <LibraryListSkeleton />
             )
+          ) : pularSecaoRecente ? (
+            /*
+             * CORREÇÃO DE CAUSA RAIZ (2026-09-22, ver comentário grande
+             * em `naoTemNadaRecente`/`pularSecaoRecente` acima) — não
+             * tem nada "recente" pra mostrar, mas TEM série pendente em
+             * `staleSeries` (seção "Continue de onde parou" logo
+             * abaixo) — então a seção "Continue assistindo" inteira só
+             * desaparece, sem hero de "tudo em dia" nenhum (isso seria
+             * mentira: tem, sim, série pendente, só que na outra
+             * seção).
+             */
+            null
           ) : continueWatching.length === 0 ? (
             /*
               PORTE DO WEB (2026-09-10, auditoria — vazio "de verdade",
@@ -661,20 +726,23 @@ export default function SeriesHomeScreen() {
             <View style={styles.staleSection}>
               {/*
                 Também é `SectionTitle` no web (`MinhaListaSection.tsx`,
-                mesma pílula de "Continue assistindo") — aqui era um
-                título comum. O texto continua literal nos dois lados:
-                nem o web tem chave de tradução pra ele.
+                mesma pílula de "Continue assistindo").
+                RENOMEADO (2026-09-22, a pedido — "Gostei da frase:
+                Continue de onde parou.") — de "Faz um tempo que você
+                não assiste" (texto literal, sem chave de tradução) pra
+                `seriesHome.continueWhereYouLeftOff`, agora traduzido
+                nos dois lados (ver `translations.ts`).
               */}
               <View style={styles.staleTitle}>
-                <SectionTitle>Faz um tempo que você não assiste</SectionTitle>
+                <SectionTitle>{t("seriesHome.continueWhereYouLeftOff")}</SectionTitle>
               </View>
               {viewMode === "grid" ? (
-                <PosterGrid items={staleSeries} onPressItem={handlePressItem} />
+                <PosterGrid items={visibleStaleSeries} onPressItem={handlePressItem} />
               ) : !nextEpisodesLoaded ? (
                 <LibraryListSkeleton />
               ) : (
                 <View style={styles.listRows}>
-                  {staleSeries.map((item) => {
+                  {visibleStaleSeries.map((item) => {
                     // Mesma regra do "Continue assistindo" acima (ver
                     // comentário grande lá, 2026-09-04) — o próprio
                     // `ContinueWatchingListRow` decide quando não tem
@@ -688,11 +756,31 @@ export default function SeriesHomeScreen() {
                         layoutActive={layoutActive}
                         onTransitionActiveChange={handleTransitionActiveChange}
                         onMarkedWatched={handleMarkedWatched}
+                        /*
+                          A PEDIDO (2026-09-22, "Há quanto tempo é uma
+                          ideia boa") — só passado aqui, na seção
+                          "Continue de onde parou": o `ContinueWatchingListRow`
+                          das séries "recentes" acima não recebe essa
+                          prop (fica `undefined`, sem label nenhuma).
+                        */
+                        staleSince={item.lastActivityAt}
                       />
                     );
                   })}
                 </View>
               )}
+
+              {/*
+                CORREÇÃO DE DESEMPENHO (2026-09-27, Etapa 1B, item 5) —
+                mesmo botão/mesma posição do "Ver tudo" de "Continue
+                assistindo" acima, agora que esta seção também tem
+                corte (`CONTINUE_LIMIT`, ver `visibleStaleSeries`) —
+                sem ele, as séries além do corte ficariam inacessíveis.
+              */}
+              <ViewAllButton
+                label={t("seriesHome.viewAllStaleSeries")}
+                onPress={() => router.push("/series/continue-de-onde-parou")}
+              />
             </View>
           )}
         </ScrollView>

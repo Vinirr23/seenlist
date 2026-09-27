@@ -3,7 +3,8 @@ import { Image } from "expo-image";
 import type { WatchProvider } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, Glass } from "@/components/ui";
-import { radius, spacing } from "@/lib/theme";
+import { radius, spacing, fontSize } from "@/lib/theme";
+import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * IMPLEMENTAÇÃO (2026-09-04, a pedido — "quais implementações faltam
@@ -21,18 +22,18 @@ import { radius, spacing } from "@/lib/theme";
  * deste app já usa (`SeriesHeader.tsx`, `SeriesCaughtUpCard.tsx` etc.
  * ficam em `series-detail/`, nunca em `movie-detail/`).
  *
- * Texto "Onde assistir" fixo (não usa `t()`) de propósito — mantém a
- * MESMA condição que já existia em `movie-detail/StreamingProviders.tsx`
- * antes desta mudança (também sem tradução). Tradução ficou combinada
- * como pendência separada, pra não misturar os dois escopos.
+ * CORREÇÃO (2026-09-22, bug reportado) — texto "Onde assistir" estava
+ * fixo (sem `t()`) tanto aqui quanto em `movie-detail/StreamingProviders.tsx`.
+ * Agora usa a chave `movie.whereToWatch` (pt-BR/en/es) nos dois lugares.
  */
 export function SeriesWatchProviders({ providers }: { providers: WatchProvider[] }) {
+  const { t } = useTranslation();
   if (providers.length === 0) return null;
 
   return (
     <View>
       <Text variant="subtitle" style={styles.title}>
-        Onde assistir
+        {t("movie.whereToWatch")}
       </Text>
       <View style={styles.row}>
         {providers.map((provider) => {
@@ -88,8 +89,9 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
   name: {
-    fontSize: 10,
+    fontSize: fontSize.micro,
     textAlign: "center",
   },
 });

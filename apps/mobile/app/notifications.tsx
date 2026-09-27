@@ -10,10 +10,10 @@ import {
   type AppNotification,
 } from "@/lib/notifications";
 import { tmdbImageUrl } from "@/lib/library";
-import { Screen, Text, Skeleton, GlassTargetProvider, AmbientGlow, Glass } from "@/components/ui";
+import { Screen, Text, Skeleton, GlassTargetProvider, AmbientGlow, Glass, ScreenHeader } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
-import { colors, radius, spacing, tint } from "@/lib/theme";
+import { colors, radius, spacing, tint, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
@@ -90,19 +90,16 @@ export default function NotificationsScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle" style={styles.headerTitle}>
-          {t("profile.notifications")}
-        </Text>
-        {hasUnread && (
-          <Pressable onPress={handleMarkAllRead} hitSlop={8}>
-            <Text style={styles.markAllText}>{t("notifications.markAllRead")}</Text>
-          </Pressable>
-        )}
-      </View>
+      <ScreenHeader
+        title={t("profile.notifications")}
+        right={
+          hasUnread ? (
+            <Pressable onPress={handleMarkAllRead} hitSlop={8}>
+              <Text style={styles.markAllText}>{t("notifications.markAllRead")}</Text>
+            </Pressable>
+          ) : undefined
+        }
+      />
 
       {/*
         * CORREÇÃO (a pedido, 2026-09-15/16 — "as cores de fundo devem
@@ -117,7 +114,7 @@ export default function NotificationsScreen() {
           <View style={[styles.content, { gap: spacing.sm }]}>
             {[0, 1, 2, 3].map((i) => (
               <View key={i} style={styles.card}>
-                <Skeleton width={44} height={44} borderRadius={22} />
+                <Skeleton width={36} height={36} borderRadius={18} />
                 <View style={{ flex: 1, gap: spacing.xs }}>
                   <Skeleton width="80%" height={13} />
                   <Skeleton width="40%" height={11} />
@@ -180,19 +177,9 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  headerTitle: {
-    flex: 1,
-  },
   markAllText: {
-    fontSize: 12,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
+    fontSize: fontSize.xs,
     fontWeight: "700",
     color: colors.primary,
   },
@@ -234,27 +221,36 @@ const styles = StyleSheet.create({
     borderColor: tint.border,
     backgroundColor: tint.subtle,
   },
+  /**
+   * FASE 2 (consistência visual sistêmica, 2026-09-26, decisão do
+   * usuário: "Unificar em 36px") — era 44/22, o único lugar do app
+   * (junto de `FollowListRow.tsx`) com esse avatar de linha num
+   * tamanho diferente do resto ("Opção B" da Fase 1: 36px, já usado em
+   * comentários/posts/atividade/recomendações).
+   */
   avatarWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     overflow: "hidden",
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   avatarInitials: {
-    fontSize: 14,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.sm` (era literal 14, mesmo valor).
+    fontSize: fontSize.sm,
   },
   iconFallback: {
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.background,
   },
-  message: { fontSize: 14, color: colors.text, lineHeight: 19 },
-  date: { fontSize: 11, marginTop: 2 },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — tokens formalizados `fontSize.sm`/`fontSize.xxs` (eram literais 14/11, mesmos valores).
+  message: { fontSize: fontSize.sm, color: colors.text, lineHeight: 19 },
+  date: { fontSize: fontSize.xxs, marginTop: 2 },
   unreadDot: {
     width: 8,
     height: 8,

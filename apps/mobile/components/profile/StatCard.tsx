@@ -44,11 +44,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   subtext: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — era `fontSize:
+  // 11` literal; `StatisticsCard.tsx` já usa `fontSize.xs` (12) pro
+  // mesmo papel (rótulo embaixo/ao lado do número) — mesma hierarquia
+  // semântica, alinhado ao token.
   title: {
     marginTop: spacing.xs,
-    fontSize: 11,
+    fontSize: fontSize.xs,
   },
 });

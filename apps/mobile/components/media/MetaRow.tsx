@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import type { ReactNode } from "react";
 import { Text, Glass } from "@/components/ui";
-import { colors, fontSize } from "@/lib/theme";
+import { colors, fontSize, radius } from "@/lib/theme";
 
 /**
  * A PEDIDO (confirmação de paridade web/mobile, reportado com print)
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     flexBasis: "40%",
     /* Trava em meia largura pra um item sozinho na última linha (quantidade ímpar) não esticar até a borda — numa grade de duas colunas ele fica com metade, como no web. */
     maxWidth: "50%",
-    borderRadius: 12, // `rounded-xl`
+    borderRadius: radius.card, // `rounded-xl` (FASE 2, 2026-09-26 — token formalizado)
     paddingHorizontal: 12, // `px-3`
     paddingVertical: 10, // `py-2.5`
   },
@@ -71,7 +71,8 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   /** `text-[11px] text-muted`, sem margem (o `<p>` do web tem margem zero). */
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   label: {
-    fontSize: 11,
+    fontSize: fontSize.xxs,
   },
 });

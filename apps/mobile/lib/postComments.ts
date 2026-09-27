@@ -96,6 +96,20 @@ export async function deletePostComment(commentId: string): Promise<void> {
   if (!data || data.length === 0) throw new Error("Não foi possível apagar — talvez este comentário não seja seu.");
 }
 
+/**
+ * FASE 1 (paridade com comentário de Episódio, 2026-09-26) — comentário
+ * de Post nunca teve capacidade de editar (só responder/apagar). Mesmo
+ * padrão exato de `editMediaComment` em `mediaComments.ts`: `.select()`
+ * depois do update detecta bloqueio silencioso de RLS.
+ */
+export async function editPostComment(commentId: string, body: string): Promise<void> {
+  const trimmed = body.trim();
+  if (!trimmed) return;
+  const { data, error } = await supabase.from("post_comments").update({ body: trimmed }).eq("id", commentId).select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Não foi possível editar — talvez este comentário não seja seu.");
+}
+
 export interface CommentNode extends PostComment {
   children: CommentNode[];
 }

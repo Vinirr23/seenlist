@@ -1,11 +1,10 @@
 import { useMemo } from "react";
-import { View, Pressable, StyleSheet, FlatList } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePublicFavorites } from "@/lib/usePublicProfile";
 import { useViewModePreference } from "@/lib/useViewModePreference";
-import { Screen, Text } from "@/components/ui";
+import { Screen, ScreenHeader, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PageError } from "@/components/media/PageError";
 import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
@@ -13,7 +12,8 @@ import { MediaListRow } from "@/components/media/MediaListRow";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
-import { colors, spacing } from "@/lib/theme";
+import { spacing } from "@/lib/theme";
+import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -53,13 +53,19 @@ export default function FavoriteSeriesScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
-        <Text variant="subtitle">{t("profile.favoriteSeries")}</Text>
-      </View>
+      <ScreenHeader title={t("profile.favoriteSeries")} />
 
+      {/*
+        * CORREÇÃO (bug real, reportado — "nenhuma dessas telas tem as
+        * manchas azuis de fundo") — esta tela (e as outras 5 subpáginas
+        * do Perfil: favorite-movies, movies, series, recommendations,
+        * stats) nunca tinha ganhado o `GlassTargetProvider`/`AmbientGlow`
+        * que o resto do app usa (`profile.tsx`, `edit-profile.tsx`,
+        * `comments.tsx`) — mesma paleta azul `SUBPAGE_GLOW_BLOBS` já
+        * usada em `comments.tsx`/`edit-profile.tsx`, por serem o mesmo
+        * tipo de tela (subpágina do Perfil, não uma aba principal).
+        */}
+      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       <View style={styles.toggleRow}>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
       </View>
@@ -104,31 +110,14 @@ export default function FavoriteSeriesScreen() {
           )}
         />
       )}
+      </GlassTargetProvider>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
-  // em 16px app-wide) — `paddingHorizontal` era `spacing.lg` (24); web
-  // usa `px-4` (`spacing.md`=16) como borda de tela.
-  header: {
-    /**
-     * CORREÇÃO (2026-09-16, print real — "botão de voltar, título e o
-     * que vem depois estão tudo junto") — `paddingBottom` era
-     * `spacing.sm` (8). No web (`SectionPageHeader.tsx`, componente
-     * compartilhado por TODAS essas telas lá — aqui cada tela reimplementa
-     * o próprio cabeçalho, sem componente comum), o espaço entre a linha
-     * voltar+título e o que vem a seguir é `mb-4` = 16 = `spacing.md`, o
-     * dobro do que o mobile tinha. Alinhado ao valor real do web, não a um
-     * chute.
-     */
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+  glassFill: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: spacing.md,

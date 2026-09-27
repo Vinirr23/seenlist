@@ -6,7 +6,7 @@ import type { UpcomingEpisodeWithBadge, UpcomingBadge } from "@/lib/upcomingEpis
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, Glass } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, fontSize } from "@/lib/theme";
 
 /** Mesmas cores do web: PREMIERE e MAIS RECENTE em branco/preto, NOVO em amarelo (única das três que usa a cor da marca). */
 const BADGE_LABEL_KEY: Record<Exclude<UpcomingBadge, null>, string> = {
@@ -161,8 +161,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   // web: `text-[15px]` — não `text-sm`/`fontSize.sm` (14).
+  // FASE 2 (consistência visual sistêmica, 2026-09-26, decisão do usuário) — token formalizado `fontSize.smPlus` (mesmo valor).
   seriesTitle: {
-    fontSize: 15,
+    fontSize: fontSize.smPlus,
     fontWeight: "700",
     color: colors.text,
   },
@@ -205,13 +206,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   daysNumber: {
-    fontSize: 20,
+    // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.lgPlus` (era literal 20, mesmo valor).
+    fontSize: fontSize.lgPlus,
     fontWeight: "800",
     color: colors.text,
     lineHeight: 22,
   },
+  // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.micro` (era literal 10, mesmo valor).
   daysLabel: {
-    fontSize: 10,
+    fontSize: fontSize.micro,
     fontWeight: "700",
     letterSpacing: 0.3,
   },

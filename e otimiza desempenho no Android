@@ -1,0 +1,95 @@
+warning: in the working copy of 'apps/mobile/app.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/(auth)/onboarding.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/(tabs)/explore.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/(tabs)/movies.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/(tabs)/profile.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/(tabs)/series/continue-assistindo.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/(tabs)/series/index.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/episodes/[seriesId]/[season]/[episode].tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/lists/index.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/profile/favorite-movies.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/profile/favorite-series.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/profile/movies.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/profile/series.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/series/[id].tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/settings/edit-profile.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/settings/index.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/u/[username]/favorite-movies.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/u/[username]/favorite-series.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/u/[username]/index.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/u/[username]/movies.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/app/u/[username]/series.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/episode/EpisodeWatchedPlatformPicker.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/explore/AddToLibraryButton.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/explore/DiscoverCarousel.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/explore/DiscoverGridScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/explore/ExploreMoviesTab.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/explore/ExploreSeriesTab.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/layout/DockNavegacao.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/media/ContinueWatchingListRow.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/media/PosterGrid.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/media/ViewModeToggle.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/profile/FollowButton.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/profile/ProfileListsPreview.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/profile/ProfileMediaCarousel.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/profile/ProfileRecommendationsPreview.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/profile/StatisticsCard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/series-detail/EpisodeCarousel.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/series-detail/EpisodeWatchedButton.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/series-detail/SeasonAccordion.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/ui/Glass.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/components/ui/PressableScale.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/lib/i18n/translations.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/lib/seriesDetails.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/lib/theme.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/lib/useLibraryItems.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/mobile/lib/useSeriesDetails.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/web/lib/queries/seriesCategoryRecalc.ts', LF will be replaced by CRLF the next time Git touches it
+ apps/mobile/app.json                               |   7 [32m+[m[31m-[m
+ apps/mobile/app/(auth)/onboarding.tsx              |  17 [32m+[m[31m-[m
+ apps/mobile/app/(tabs)/explore.tsx                 |   9 [32m+[m[31m-[m
+ apps/mobile/app/(tabs)/movies.tsx                  | 283 [32m++++++++++[m[31m-------[m
+ apps/mobile/app/(tabs)/profile.tsx                 |  73 [32m++++[m[31m-[m
+ .../app/(tabs)/series/continue-assistindo.tsx      |  94 [32m+++[m[31m---[m
+ apps/mobile/app/(tabs)/series/index.tsx            | 130 [32m++++++[m[31m--[m
+ .../app/episodes/[seriesId]/[season]/[episode].tsx |  17 [32m+[m[31m-[m
+ apps/mobile/app/lists/index.tsx                    |  49 [32m++[m[31m-[m
+ apps/mobile/app/profile/favorite-movies.tsx        |  12 [32m+[m[31m-[m
+ apps/mobile/app/profile/favorite-series.tsx        |  12 [32m+[m[31m-[m
+ apps/mobile/app/profile/movies.tsx                 |  12 [32m+[m[31m-[m
+ apps/mobile/app/profile/series.tsx                 |  38 [32m++[m[31m-[m
+ apps/mobile/app/series/[id].tsx                    |  49 [32m++[m[31m-[m
+ apps/mobile/app/settings/edit-profile.tsx          |  17 [32m+[m[31m-[m
+ apps/mobile/app/settings/index.tsx                 |  28 [32m+[m[31m-[m
+ apps/mobile/app/u/[username]/favorite-movies.tsx   |  12 [32m+[m[31m-[m
+ apps/mobile/app/u/[username]/favorite-series.tsx   |  12 [32m+[m[31m-[m
+ apps/mobile/app/u/[username]/index.tsx             |  40 [32m++[m[31m-[m
+ apps/mobile/app/u/[username]/movies.tsx            |  12 [32m+[m[31m-[m
+ apps/mobile/app/u/[username]/series.tsx            |  25 [32m+[m[31m-[m
+ .../episode/EpisodeWatchedPlatformPicker.tsx       |  11 [32m+[m
+ .../components/explore/AddToLibraryButton.tsx      |  32 [32m+[m[31m-[m
+ .../mobile/components/explore/DiscoverCarousel.tsx |  22 [32m+[m[31m-[m
+ .../components/explore/DiscoverGridScreen.tsx      |  16 [32m+[m[31m-[m
+ .../mobile/components/explore/ExploreMoviesTab.tsx |  83 [32m+++[m[31m--[m
+ .../mobile/components/explore/ExploreSeriesTab.tsx |  74 [32m+++[m[31m--[m
+ apps/mobile/components/layout/DockNavegacao.tsx    |   8 [32m+[m[31m-[m
+ .../components/media/ContinueWatchingListRow.tsx   |  22 [32m+[m[31m-[m
+ apps/mobile/components/media/PosterGrid.tsx        |  15 [32m+[m[31m-[m
+ apps/mobile/components/media/ViewModeToggle.tsx    |  36 [32m++[m[31m-[m
+ apps/mobile/components/profile/FollowButton.tsx    |  13 [32m+[m[31m-[m
+ .../components/profile/ProfileListsPreview.tsx     |  22 [32m+[m[31m-[m
+ .../components/profile/ProfileMediaCarousel.tsx    |  43 [32m++[m[31m-[m
+ .../profile/ProfileRecommendationsPreview.tsx      |  12 [32m+[m[31m-[m
+ apps/mobile/components/profile/StatisticsCard.tsx  |  13 [32m+[m[31m-[m
+ .../components/series-detail/EpisodeCarousel.tsx   |  85 [32m++++[m[31m-[m
+ .../series-detail/EpisodeWatchedButton.tsx         | 137 [32m+++++++[m[31m-[m
+ .../components/series-detail/SeasonAccordion.tsx   | 346 [32m++++++++++++++++[m[31m-----[m
+ apps/mobile/components/ui/Glass.tsx                | 224 [32m+++++++++++[m[31m--[m
+ apps/mobile/components/ui/PressableScale.tsx       |  25 [32m+[m[31m-[m
+ apps/mobile/lib/i18n/translations.ts               |   6 [32m+[m
+ apps/mobile/lib/seriesDetails.ts                   |  35 [32m++[m[31m-[m
+ apps/mobile/lib/theme.ts                           |  89 [32m+++++[m[31m-[m
+ apps/mobile/lib/useLibraryItems.ts                 |  20 [32m+[m[31m-[m
+ apps/mobile/lib/useSeriesDetails.ts                |  45 [32m++[m[31m-[m
+ apps/web/lib/queries/seriesCategoryRecalc.ts       |  39 [32m++[m[31m-[m
+ 47 files changed, 1916 insertions(+), 505 deletions(-)
