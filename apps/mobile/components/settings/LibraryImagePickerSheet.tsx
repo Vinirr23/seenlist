@@ -7,7 +7,6 @@ import type { LibraryItem } from "@seenlist/types";
 import { fetchLibraryItems, tmdbImageUrl } from "@/lib/library";
 import { fetchSeriesDetails } from "@/lib/seriesDetails";
 import { fetchMovieDetails } from "@/lib/movieDetails";
-import { textoCasaComBusca } from "@/lib/fuzzyMatch";
 import { Text } from "@/components/ui";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -85,35 +84,11 @@ export function LibraryImagePickerSheet({ onSelect, onClose }: { onSelect: (url:
       .catch(() => setItems([]));
   }, []);
 
-  /*
-   * CORREÇÃO (a pedido, 2026-09-27 — "quero que a pesquisa funcione
-   * independente de idioma e mesmo com erro de digitação") — antes,
-   * `item.title.toLowerCase().includes(query)`: exigia substring EXATA
-   * (com acento certo) só do título já localizado (pt-BR aqui). Trocado
-   * por `textoCasaComBusca` (lib/fuzzyMatch.ts) — ignora acento/caixa e
-   * tolera pequenos erros de digitação por palavra.
-   *
-   * "Independente de idioma" bate também contra `item.originalTitle`
-   * (título original da TMDB) — chegou a existir aqui uma versão que
-   * buscava esse título item por item, em segundo plano
-   * (`fetchMovieDetails`/`fetchSeriesDetails`), mas achado real numa
-   * Biblioteca de 1428 itens mostrou que isso não escala (teto de 80
-   * buscas deixava a maioria — inclusive séries inteiras — sem título
-   * original, busca falhando em silêncio). Resolvido na RAIZ: o título
-   * original agora vem pronto na própria busca em lote da Biblioteca —
-   * `getMovieSummary`/`getSeriesSummary` (`apps/web/lib/tmdb/client.ts`)
-   * já buscam o resumo de cada item, e a TMDB já devolve
-   * `original_title`/`original_name` de graça NESSA MESMA resposta;
-   * agora é gravado em `media_summaries_cache` (migração
-   * `20260927000000_media_summaries_cache_original_title.sql`) e
-   * propagado até `LibraryItem.originalTitle` (packages/types) — zero
-   * chamada nova, funciona pra biblioteca de qualquer tamanho.
-   */
   const filteredItems = useMemo(() => {
     if (!items) return items;
-    const query = search.trim();
+    const query = search.trim().toLowerCase();
     if (!query) return items;
-    return items.filter((item) => textoCasaComBusca(item.title, query) || textoCasaComBusca(item.originalTitle ?? "", query));
+    return items.filter((item) => item.title.toLowerCase().includes(query));
   }, [items, search]);
 
   async function handlePickTitle(item: LibraryItem) {
