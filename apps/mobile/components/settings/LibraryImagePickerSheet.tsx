@@ -200,7 +200,19 @@ export function LibraryImagePickerSheet({ onSelect, onClose }: { onSelect: (url:
         </View>
 
         {!selectedTitle && (
-          <View style={styles.searchRow}>
+          /*
+           * CORREÇÃO (a pedido, 2026-09-27, print comparando com a busca
+           * do Explorar — "faltou só o glass na search bar de banner") —
+           * CAUSA RAIZ: mesma categoria dos outros dois bugs desta leva
+           * (a tela toda nunca tinha sido retrofitada com o sistema de
+           * vidro, ver comentário no topo do componente): essa barra
+           * usava `<View>` com `backgroundColor: colors.surface` chapado,
+           * enquanto a barra de busca do Explorar (`SearchBar.tsx`) já é
+           * `<Glass>` (variant padrão "card") desde 2026-09-04. Trocado
+           * pro mesmo padrão — `backgroundColor` chapado saiu do estilo
+           * (o `Glass` cuida do próprio fundo/blur).
+           */
+          <Glass style={styles.searchRow}>
             <Feather name="search" size={16} color={colors.muted} />
             <TextInput
               value={search}
@@ -210,7 +222,7 @@ export function LibraryImagePickerSheet({ onSelect, onClose }: { onSelect: (url:
               autoCapitalize="none"
               style={styles.searchInput}
             />
-          </View>
+          </Glass>
         )}
 
         {!!error && <Text variant="error" style={styles.errorText}>{error}</Text>}
@@ -315,7 +327,6 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
