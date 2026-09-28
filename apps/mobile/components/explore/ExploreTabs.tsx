@@ -7,9 +7,17 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 // versão RN de `apps/web/components/explore/ExploreTabs.tsx`: a
 // antiga aba única "Descobrir" (misturava séries e filmes) virou 3
 // abas dedicadas, mesma mudança já feita no web em 2026-08-21.
-export type ExploreTab = "movies" | "series" | "activity";
+export type ExploreTab = "feed" | "movies" | "series" | "activity";
 
+/**
+ * A PEDIDO (2026-09-28, "quero religar a aba feed... vai ficar como uma
+ * sub aba dentro de explorar, ficando assim: feed, filmes, séries e
+ * atividade") — "feed" entrou como 1ª sub-aba, na ordem pedida. Mesmo
+ * padrão visual das outras 3 (pílula própria, gel âmbar quando ativa) —
+ * ver `FeedTabContent.tsx` pro conteúdo.
+ */
 const TABS: { key: ExploreTab; labelKey: string }[] = [
+  { key: "feed", labelKey: "explore.tab.feed" },
   { key: "movies", labelKey: "explore.tab.movies" },
   { key: "series", labelKey: "explore.tab.series" },
   { key: "activity", labelKey: "explore.tab.activity" },

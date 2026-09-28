@@ -563,6 +563,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.publish": "Publicar",
 
     "explore.tab.discover": "Descobrir",
+    "explore.tab.feed": "Feed",
     "explore.tab.movies": "FILMES",
     "explore.tab.series": "SÉRIES",
     "explore.tab.activity": "Atividade",
@@ -1200,6 +1201,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.publish": "Post",
 
     "explore.tab.discover": "Discover",
+    "explore.tab.feed": "Feed",
     "explore.tab.movies": "MOVIES",
     "explore.tab.series": "SHOWS",
     "explore.tab.activity": "Activity",
@@ -1800,6 +1802,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.publish": "Publicar",
 
     "explore.tab.discover": "Descubrir",
+    "explore.tab.feed": "Feed",
     "explore.tab.movies": "PELÍCULAS",
     "explore.tab.series": "SERIES",
     "explore.tab.activity": "Actividad",

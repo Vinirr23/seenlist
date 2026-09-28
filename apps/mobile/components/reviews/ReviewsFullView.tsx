@@ -59,14 +59,20 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
   }, [othersReviews.map((r) => r.id).join(",")]);
 
   /*
-   * DECISÃO DE PRODUTO (a pedido — aba Feed descontinuada) — a
-   * avaliação não é mais publicada no Feed, e a caixa "Publicar
-   * também no Feed" saiu do formulário: oferecer publicar num lugar
-   * que ninguém consegue mais abrir seria enganoso.
+   * RELIGADO (a pedido, 2026-09-28 — Feed voltou como sub-aba de
+   * Explorar) — a caixa "Publicar também no Feed" volta a aparecer
+   * (`canShareToFeed` no `<ReviewComposer>`, abaixo).
    *
-   * O parâmetro `shareToFeed` continua na assinatura porque o
-   * `ReviewComposer` é compartilhado — ele só chega sempre `false`
-   * agora, já que a caixa não é mais renderizada.
+   * ACHADO REAL nesta mesma volta: mesmo com a caixa escondida (todo
+   * este tempo com `canShareToFeed` ausente), o estado interno
+   * `shareToFeed` do `ReviewComposer` sempre começou como
+   * `!hasExistingReview` — ou seja, `true` pra toda avaliação NOVA,
+   * INDEPENDENTE da caixa aparecer ou não — e esse valor sempre foi
+   * repassado pro `onSubmit` daqui. Resultado: toda avaliação nova
+   * escrita enquanto o Feed estava "descontinuado" foi silenciosamente
+   * publicada como post mesmo assim (ninguém via, mas o post existia).
+   * Religar a caixa não introduz esse comportamento — só o torna
+   * visível/intencional de novo, como era antes de 2026-08-22.
    */
   async function handleSubmit(rating: number, reviewText: string | null, shareToFeed: boolean) {
     setPostError(null);
@@ -163,6 +169,7 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
         initialText={myReview?.reviewText ?? ""}
         hasExistingReview={!!myReview}
         isPending={saving}
+        canShareToFeed
         showRating={showRating}
         onSubmit={handleSubmit}
         /* PORTE DO WEB (2026-09-09) — "Remover minha avaliação" passou pra DENTRO do card, na mesma linha do botão de salvar, como no `ReviewFullComposer.tsx`. */
