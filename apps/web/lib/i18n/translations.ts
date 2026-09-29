@@ -581,6 +581,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     // App Store) — namespace continua "androidPromo" por continuidade
     // (as chaves acima são genéricas, só esta muda por loja).
     "androidPromo.ctaIos": "Baixar na App Store",
+    // NOVA (2026-09-29, a pedido — faixa fina pra quem acessa pelo
+    // desktop, ver `MobileAppPromoBanner.tsx`): a pessoa não instala
+    // ali na hora, só fica sabendo que o app existe — texto próprio,
+    // mais curto que o modal do celular.
+    "androidPromo.desktopBannerText": "SeenList também é app — disponível para Android e iOS.",
     "moviesHome.emptyUpcoming": "Nenhum filme da sua lista 'Assistir depois' tem estreia futura conhecida.",
     "moviesHome.emptyWatching": "Você ainda não adicionou nenhum filme.",
     "moviesHome.exploreMovies": "Explorar filmes",
@@ -1418,6 +1423,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "androidPromo.availableFor": "Available for",
     "androidPromo.cta": "Download on Play Store",
     "androidPromo.ctaIos": "Download on the App Store",
+    "androidPromo.desktopBannerText": "SeenList is also an app — available for Android and iOS.",
     "moviesHome.emptyUpcoming": "No movies in your 'Watch later' list have a known future release.",
     "moviesHome.emptyWatching": "You haven't added any movies yet.",
     "moviesHome.exploreMovies": "Explore movies",
@@ -2237,6 +2243,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "androidPromo.availableFor": "Disponible para",
     "androidPromo.cta": "Descargar en Play Store",
     "androidPromo.ctaIos": "Descargar en App Store",
+    "androidPromo.desktopBannerText": "SeenList también es una app — disponible para Android y iOS.",
     "moviesHome.emptyUpcoming": "Ninguna película de tu lista 'Ver más tarde' tiene un estreno futuro conocido.",
     "moviesHome.emptyWatching": "Todavía no agregaste ninguna película.",
     "moviesHome.exploreMovies": "Explorar películas",

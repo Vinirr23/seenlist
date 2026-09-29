@@ -17,80 +17,66 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * Mesma estrutura visual de card central, adaptada — sem "beta" em
  * lugar nenhum, com link real pra Play Store.
  *
- * CORREÇÃO (a pedido — "aparece só uma vez e nunca mais") — usava
- * `localStorage` permanente, depois foi trocado pra `sessionStorage`
- * (achando que resolvia). Não resolveu: reportado com teste real —
- * fechar o navegador por completo e reabrir não trouxe o banner de
- * volta. Causa real: `sessionStorage` depende do navegador tratar
- * aquilo como uma sessão "nova" de verdade — recursos como
- * "continuar de onde parou" (Chrome e outros) podem preservar sessão
- * mesmo fechando aba/janela, então não é confiável pro que se
- * precisa aqui.
- *
- * Trocado pro MESMO padrão já usado em `WebPushPrompt.tsx`:
- * `localStorage` com PRAZO (não sessão do navegador, não permanente)
- * — dispensar vale por `DISMISS_DAYS`, independe de como o navegador
- * decide tratar "sessão".
- *
- * Quem CLICA em baixar continua com a dispensa permanente
- * (`INSTALLED_KEY`, sem prazo) — essa pessoa já foi pra loja, não faz
- * sentido continuar oferecendo.
- *
- * MUDANÇA NESTA REVISÃO (2026-09-24) — a detecção de plataforma virou
- * `isAndroid || isIOS` (antes só `isAndroid`, porque não existia pra
- * onde mandar usuário de iPhone). Loja/link/texto do CTA agora
+ * MUDANÇA (2026-09-24) — a detecção de plataforma virou
+ * `isAndroid || isIOS` (antes só `isAndroid`). Loja/link/texto do CTA
  * dependem da plataforma detectada (`STORE_URL`/`ctaKey` por
- * `platform`). Chaves de armazenamento no `localStorage` também
- * mudaram de nome (`seenlist:android-promo-*` → `seenlist:app-promo-*`)
- * DE PROPÓSITO — reseta a dispensa/instalação de quem já tinha
- * interagido com a versão só-Android, o que é o comportamento certo
- * aqui (o banner agora é uma oferta diferente, com destino real pra
- * quem antes não tinha nenhum).
+ * `platform`).
+ *
+ * MUDANÇA DE ESCOPO (2026-09-29, a pedido — "toda vez que um usuário
+ * carregue o link pelo web, aparece aquele aviso de 'já disponível
+ * para Android e iOS'", confirmado em 3 rodadas de pergunta: pra quem
+ * mostrar, com que frequência, em que formato):
+ *
+ * 1. AGORA MOSTRA PRA DESKTOP TAMBÉM — antes, `platform === null`
+ *    (nem Android nem iOS detectado) fazia o componente inteiro
+ *    devolver `null`, sem nada visível pra quem acessa do computador.
+ *    Detecção virou uma união de 3 valores (`"android" | "ios" |
+ *    "desktop"`), sempre resolvendo pra algum dos três, nunca `null`.
+ *
+ * 2. SEM MEMÓRIA DE DISPENSA — a versão anterior guardava
+ *    `DISMISS_KEY`/`DISMISS_DAYS` (7 dias) no `localStorage`: fechar o
+ *    aviso escondia ele por uma semana. Removido de propósito, a
+ *    pedido explícito ("toda vez", confirmado mesmo depois de eu
+ *    apontar o trade-off de UX) — fechar (`X`) agora só esconde pra
+ *    ESTA visita; a próxima carga da página mostra de novo. Única
+ *    exceção: `INSTALLED_KEY` continua permanente — quem já CLICOU
+ *    pra instalar não tem motivo pra continuar vendo o convite pra
+ *    instalar.
+ *
+ * 3. DOIS FORMATOS DIFERENTES, NÃO UM SÓ — confirmado explicitamente
+ *    ("ambos", quando perguntado se o modal cheio ainda serve depois
+ *    de aparecer toda visita): mobile (Android/iOS) continua com o
+ *    MODAL CHEIO de sempre (interrompe, mas leva direto pra loja —
+ *    ação real possível). Desktop ganhou uma FAIXA FINA, sem bloquear
+ *    a tela (`DesktopBanner`, abaixo) — a pessoa não instala ali na
+ *    hora, só fica sabendo que o app existe; um modal bloqueando toda
+ *    visita pra quem não pode agir seria só irritação pura.
  */
-const DISMISS_KEY = "seenlist:app-promo-dismissed-until";
-const DISMISS_DAYS = 7;
 const INSTALLED_KEY = "seenlist:app-promo-clicked-install";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.seenlist.app";
 const APP_STORE_URL = "https://apps.apple.com/app/seenlist-s%C3%A9ries-e-filmes/id6812850654";
 
-type MobilePlatform = "android" | "ios" | null;
+type Platform = "android" | "ios" | "desktop";
 
 export function MobileAppPromoBanner() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [platform, setPlatform] = useState<MobilePlatform>(null);
+  const [platform, setPlatform] = useState<Platform | null>(null);
   const { t } = useTranslation();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    /*
-     * CORREÇÃO (a pedido, decidido com dado real do painel) — o modal
-     * aparecia pra TODO MUNDO, inclusive quem está em computador, que
-     * não tem como instalar app nenhum. Pra essas pessoas era
-     * interrupção pura, sem ação possível — e gastava a única chance
-     * de convencer alguém a instalar.
-     *
-     * O porquê disso importar tanto: a retenção D7 de quem tem o app
-     * é 36%, contra 4% de quem só usa o site (dado medido só com o
-     * app Android até aqui — ainda não há dado equivalente pro app
-     * iOS, recém-publicado). Mostrar este convite pra quem PODE agir
-     * é, hoje, a alavanca mais forte que o produto tem — e mostrar pra
-     * quem não pode só queima paciência.
-     */
     const userAgent = navigator.userAgent;
     const isAndroid = /android/i.test(userAgent);
     // Detecção padrão de iOS via user agent — inclui iPad que pede
     // versão desktop (reporta "MacIntel" na plataforma, mas com touch
     // habilitado), caso comum em iPad moderno.
     const isIOS = /iphone|ipad|ipod/i.test(userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    const detectedPlatform: MobilePlatform = isAndroid ? "android" : isIOS ? "ios" : null;
-    if (!detectedPlatform) return;
+    const detectedPlatform: Platform = isAndroid ? "android" : isIOS ? "ios" : "desktop";
 
     const clickedInstall = localStorage.getItem(INSTALLED_KEY) === "1";
-    const dismissedUntil = Number(localStorage.getItem(DISMISS_KEY) ?? 0);
-    const stillDismissed = dismissedUntil > Date.now();
-    if (!clickedInstall && !stillDismissed) {
+    if (!clickedInstall) {
       setPlatform(detectedPlatform);
       setOpen(true);
     }
@@ -102,13 +88,19 @@ export function MobileAppPromoBanner() {
     return () => cancelAnimationFrame(frame);
   }, [open]);
 
+  // SEM `localStorage` aqui de propósito (ver comentário grande acima,
+  // item 2) — fechar só esconde nesta visita; a próxima carga da
+  // página mostra de novo.
   function handleDismiss() {
-    localStorage.setItem(DISMISS_KEY, String(Date.now() + DISMISS_DAYS * 24 * 60 * 60 * 1000));
     setMounted(false);
     setTimeout(() => setOpen(false), 200);
   }
 
   if (!open || !platform) return null;
+
+  if (platform === "desktop") {
+    return <DesktopAppBanner mounted={mounted} onDismiss={handleDismiss} />;
+  }
 
   const storeUrl = platform === "ios" ? APP_STORE_URL : PLAY_STORE_URL;
   const ctaLabel = platform === "ios" ? t("androidPromo.ctaIos") : t("androidPromo.cta");
@@ -191,6 +183,71 @@ export function MobileAppPromoBanner() {
           <ArrowUpRight className="h-4 w-4" strokeWidth={2.5} />
         </a>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Faixa fina pra quem acessa pelo DESKTOP — ver item 3 do comentário
+ * grande em `MobileAppPromoBanner`, acima. Diferente do modal: não usa
+ * `position: fixed`/overlay, fica no FLUXO normal do layout, logo no
+ * topo, antes do conteúdo da tela — empurra o conteúdo pra baixo uns
+ * poucos pixels, mas nunca bloqueia nada. Os dois links de loja aqui
+ * são só informativos (quem clica no computador só abre a página da
+ * loja no navegador, não instala nada ali) — por isso marcam
+ * `INSTALLED_KEY` do mesmo jeito que o modal do celular: é um sinal
+ * real de intenção, mesmo vindo do desktop.
+ */
+function DesktopAppBanner({ mounted, onDismiss }: { mounted: boolean; onDismiss: () => void }) {
+  const { t } = useTranslation();
+
+  function handleStoreClick() {
+    localStorage.setItem(INSTALLED_KEY, "1");
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 border-b border-primary/20 bg-primary/10 px-4 py-2.5 transition-opacity duration-200",
+        mounted ? "opacity-100" : "opacity-0"
+      )}
+    >
+      <Smartphone className="h-4 w-4 shrink-0 text-primary" strokeWidth={2.25} />
+      <p className="min-w-0 flex-1 truncate text-xs font-medium text-text">{t("androidPromo.desktopBannerText")}</p>
+
+      {/*
+        * Nome de loja ("App Store"/"Google Play") em texto FIXO, sem
+        * chave de tradução — são nomes próprios de marca, iguais nos 3
+        * idiomas do app (mesmo raciocínio de não traduzir "Android"/
+        * "iOS" em lugar nenhum do resto do código). O rótulo mais
+        * longo ("Baixar na App Store", `androidPromo.ctaIos`) é do
+        * MODAL do celular, de propósito mais chamativo — aqui na
+        * faixa fina, com dois botões lado a lado num espaço estreito
+        * (coluna de ~430px, ver `TASK-014` em `app/(main)/layout.tsx`),
+        * o nome curto sozinho já deixa claro que é link de loja.
+        */}
+      <a
+        href={APP_STORE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={handleStoreClick}
+        className="shrink-0 whitespace-nowrap rounded-full border border-primary/30 px-2.5 py-1 text-[11px] font-semibold text-text"
+      >
+        App Store
+      </a>
+      <a
+        href={PLAY_STORE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={handleStoreClick}
+        className="shrink-0 whitespace-nowrap rounded-full border border-primary/30 px-2.5 py-1 text-[11px] font-semibold text-text"
+      >
+        Google Play
+      </a>
+
+      <button type="button" onClick={onDismiss} aria-label={t("social.close")} className="shrink-0 text-muted">
+        <X className="h-4 w-4" strokeWidth={2} />
+      </button>
     </div>
   );
 }
