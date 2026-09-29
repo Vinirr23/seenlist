@@ -305,6 +305,19 @@ export interface GlassProps extends ViewProps {
    */
   blurTarget?: RefObject<View | null>;
   /**
+   * TESTE DE DIAGNÓSTICO (2026-09-29, "travadinha no Feed ao rolar",
+   * relatado mesmo voltando por posts já vistos há pouco — indício de
+   * custo de MONTAGEM do card, não só recálculo contínuo) — força este
+   * `Glass` a usar o mesmo caminho "sem blur real" que o Android já usa
+   * fora do `dock` (`ANDROID_REAL_BLUR_VARIANTS`), TAMBÉM no iOS. Não
+   * muda nada em nenhum outro `Glass` do app (default `false`) — só
+   * quem passar `forceNoBlur` explicitamente. Usado por enquanto só em
+   * `PostCard.tsx` (Feed), pra confirmar se o `PatchedBlurView`
+   * (`UIVisualEffectView` nativo no iOS) é de fato a causa da
+   * travadinha antes de decidir a correção definitiva.
+   */
+  forceNoBlur?: boolean;
+  /**
    * MOLDURA DE VIDRO (2026-09-04) — segunda leitura de perímetro, logo
    * por DENTRO da borda externa. Opt-in por enquanto: só o card de
    * Estatísticas usa, até aprovação.
@@ -380,7 +393,7 @@ function highlightBox(v: GlassVariant) {
  * `GlassTargetProvider` (telas ainda não convertidas continuam com o
  * visual antigo até a vez delas, por escolha — "tela a tela").
  */
-export function Glass({ style, children, variant = "card", rim = true, blurTarget, ...props }: GlassProps) {
+export function Glass({ style, children, variant = "card", rim = true, blurTarget, forceNoBlur = false, ...props }: GlassProps) {
   /* `useContext` roda SEMPRE (regra dos hooks); a prop só tem prioridade depois. */
   const alvoDoContexto = useContext(GlassTargetContext);
   const target = blurTarget ?? alvoDoContexto;
@@ -389,8 +402,11 @@ export function Glass({ style, children, variant = "card", rim = true, blurTarge
   /**
    * Usado na troca `BlurView` → `View` comum, mais abaixo — ver o
    * comentário grande junto do `{semBlurNoAndroid ? ... : ...}`.
+   * `forceNoBlur` (ver comentário na prop, em `GlassProps`) entra aqui
+   * também — mesmo caminho "sem blur real", só que independente de
+   * plataforma/variante, pra quem pedir explicitamente.
    */
-  const semBlurNoAndroid = Platform.OS === "android" && !ANDROID_REAL_BLUR_VARIANTS.has(variant);
+  const semBlurNoAndroid = forceNoBlur || (Platform.OS === "android" && !ANDROID_REAL_BLUR_VARIANTS.has(variant));
   /**
    * EXPERIMENTO (2026-09-17, a pedido — "a barra de navegação continua
    * opaca, ela muda de cor sempre que mudo de tela, pegando a primeira

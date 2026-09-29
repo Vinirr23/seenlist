@@ -176,7 +176,8 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
     // toque (abrir detalhe), `Glass` cuida do visual (era `View` com
     // `backgroundColor: colors.surface` chapado).
     <Pressable onPress={detail ? undefined : handlePress} disabled={detail}>
-      <Glass style={styles.card}>
+      {/* TESTE DE DIAGNÓSTICO (2026-09-29, "travadinha no Feed ao rolar") — ver o comentário na prop `forceNoBlur`, em `Glass.tsx`. */}
+      <Glass style={styles.card} forceNoBlur>
       <View style={styles.headerRow}>
         <Pressable
           style={styles.header}
@@ -192,8 +193,6 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
                 {post.authorName}
               </Text>
               <VerifiedBadge tier={post.authorVerifiedTier} size={fontSize.sm} />
-              {/* DIAGNÓSTICO TEMPORÁRIO (2026-09-29) — remover depois de achar a causa do selo sumido no Feed. */}
-              <Text style={{ fontSize: 10, color: "red" }}>[{String(post.authorVerifiedTier)}]</Text>
             </View>
             <Text numberOfLines={1} variant="muted" style={styles.meta}>
               @{post.authorUsername} · {formatRelativeTime(post.createdAt, now, locale, t("feed.justNow")) ?? dateFormatter.format(new Date(post.createdAt))}
@@ -216,7 +215,7 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
       </View>
 
       {post.type === "review" && post.mediaTitle && (
-        <Glass style={styles.reviewCard}>
+        <Glass style={styles.reviewCard} forceNoBlur>
           <View style={styles.reviewPoster}>
             {posterUrl ? (
               <Image source={{ uri: posterUrl }} style={styles.reviewPosterImage} contentFit="cover" />
