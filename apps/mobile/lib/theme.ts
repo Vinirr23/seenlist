@@ -24,6 +24,17 @@ export const colors = {
   warning: "#F0B429",
   danger: "#E8574A",
   /**
+   * A PEDIDO (2026-09-29 — "o símbolo do like no feed, comentários em
+   * séries e avaliações deixe na cor vermelha (hoje é âmbar)") —
+   * vermelho DEDICADO ao coração de curtir, separado de `danger`
+   * (ações destrutivas, ex.: apagar) mesmo sendo os dois vermelhos —
+   * são conceitos diferentes, e um dia mudar um não deveria mudar o
+   * outro sem querer. Usado só em `LikeButton.tsx` (compartilhado por
+   * post, comentário de post, comentário de episódio e avaliação — os
+   * 4 lugares onde esse coração aparece no app).
+   */
+  like: "#F0424D",
+  /**
    * DIVERGÊNCIA DELIBERADA DO WEB (2026-09-24, a pedido — "o botão
    * 'follow' é âmbar, usa a cor azul que usamos na aba interna 'em
    * breve' pra 'following' ao invés desse preto") — não existe token

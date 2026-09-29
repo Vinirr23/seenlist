@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, ScrollView, FlatList, RefreshControl, Pressable, StyleSheet } from "react-native";
+import { View, ScrollView, FlatList, RefreshControl, Pressable, StyleSheet, type ListRenderItem } from "react-native";
+import * as Updates from "expo-updates";
 import { Feather } from "@expo/vector-icons";
 import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { usePosts } from "@/lib/usePosts";
+import type { Post } from "@/lib/posts";
 import { PostCard } from "@/components/feed/PostCard";
 import { FeedItemEnter } from "@/components/feed/FeedItemEnter";
 import { CreatePostButton } from "@/components/feed/CreatePostButton";
@@ -150,8 +152,40 @@ export default function FeedScreen() {
     refetch();
   }
 
+  /**
+   * CORREÇÃO DE DESEMPENHO (2026-09-29, "a rolagem do feed está
+   * travando") — antes, `renderItem` era uma arrow function inline:
+   * identidade NOVA a cada render de `FeedScreen` (o que acontece a
+   * cada evento Realtime de curtida/comentário/enquete, ver
+   * `loadInteractions`, acima). `useCallback` aqui + o `memo` novo em
+   * `PostCard.tsx` (com comparação por VALOR, não por referência dos
+   * Maps) são as DUAS metades do mesmo conserto — uma sem a outra não
+   * resolve: `useCallback` sozinho não evitaria recalcular os cards se
+   * `PostCard` não soubesse comparar `likeInfo`/`commentCount`/
+   * `pollInfo` por valor; `memo` sozinho não adiantaria se `renderItem`
+   * continuasse instável.
+   */
+  const renderPost: ListRenderItem<Post> = useCallback(
+    ({ item: post }) => (
+      <FeedItemEnter>
+        <PostCard
+          post={post}
+          onDeleted={refetch}
+          likeInfo={likeInfoByPostId.get(post.id)}
+          commentCount={commentCountByPostId.get(post.id)}
+          pollInfo={pollDataByPostId.get(post.id)}
+        />
+      </FeedItemEnter>
+    ),
+    [refetch, likeInfoByPostId, commentCountByPostId, pollDataByPostId]
+  );
+
   return (
     <Screen padded={false}>
+      {/* DIAGNÓSTICO TEMPORÁRIO (2026-09-29) — remover depois de confirmar se o update OTA está mesmo chegando no aparelho. */}
+      <Text style={{ fontSize: 10, color: "red", paddingHorizontal: spacing.md, paddingTop: 4 }}>
+        update: {Updates.updateId ?? "embutido/nenhum"} · embedded: {String(Updates.isEmbeddedLaunch)}
+      </Text>
       {newPostsCount > 0 && (
         <View style={styles.bannerWrapper}>
           <Pressable style={styles.banner} onPress={handleShowNewPosts}>
@@ -201,17 +235,7 @@ export default function FeedScreen() {
           initialNumToRender={6}
           windowSize={7}
           maxToRenderPerBatch={6}
-          renderItem={({ item: post }) => (
-            <FeedItemEnter>
-              <PostCard
-                post={post}
-                onDeleted={refetch}
-                likeInfo={likeInfoByPostId.get(post.id)}
-                commentCount={commentCountByPostId.get(post.id)}
-                pollInfo={pollDataByPostId.get(post.id)}
-              />
-            </FeedItemEnter>
-          )}
+          renderItem={renderPost}
         />
       )}
 

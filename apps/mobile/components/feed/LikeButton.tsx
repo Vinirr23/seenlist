@@ -103,7 +103,7 @@ export function LikeButton({
       <MaterialCommunityIcons
         name={hasLiked ? "heart" : "heart-outline"}
         size={22}
-        color={hasLiked ? colors.primary : colors.muted}
+        color={hasLiked ? colors.like : colors.muted}
       />
       <Text style={[styles.count, hasLiked && styles.countActive]}>{count ?? 0}</Text>
     </Pressable>
@@ -126,6 +126,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   countActive: {
-    color: colors.primary,
+    color: colors.like,
   },
 });
