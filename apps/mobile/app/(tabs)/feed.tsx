@@ -250,8 +250,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xxl,
   },
+  // A PEDIDO (2026-09-29, "feed igual Threads") — sem espaço entre posts: cada `PostCard` já desenha sua própria linha divisória embaixo (`styles.card` em `PostCard.tsx`).
   list: {
-    gap: spacing.md,
+    gap: 0,
   },
   bannerWrapper: {
     position: "absolute",

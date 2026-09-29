@@ -47,14 +47,27 @@ export function useOtaUpdateCheck() {
 
   async function checarEAplicar() {
     /**
-     * Expo Go e dev client não têm runtime de update de verdade — a
-     * API lança erro nesses casos ("This app is running in Expo Go
-     * / not embedded"). `Updates.isEmbeddedLaunch` só é `true` num
-     * build real (standalone/EAS Build) — guard mais correto que
-     * `__DEV__`, que também seria `false` rodando um dev client em
-     * produção.
+     * BUG REAL CORRIGIDO (2026-09-29, achado investigando "update não
+     * chega mesmo fechando e abrindo várias vezes") — este guard usava
+     * `Updates.isEmbeddedLaunch`, que parecia certo ("só builds de
+     * verdade, nunca Expo Go") mas tem um significado bem diferente do
+     * que o nome sugere: ele só é `true` no PRIMEIRO lançamento do app,
+     * antes de qualquer update OTA já ter sido aplicado — assim que o
+     * aparelho recebe o primeiro update, vira `false` PRA SEMPRE (até
+     * um novo build nativo pela loja), mesmo sendo um build de produção
+     * de verdade rodando normalmente. Resultado: este hook parava de
+     * checar update novo pra sempre, bem no momento em que ele mais
+     * precisava continuar funcionando — e é exatamente esse o estado
+     * em que o app real do usuário está hoje. Confirmado ao vivo: um
+     * texto de diagnóstico no Feed mostrou `embedded: false` no
+     * aparelho de teste.
+     *
+     * `Updates.isEnabled` é o guard certo pra "isso é Expo Go/dev
+     * client sem runtime de update" — é uma flag fixa de configuração
+     * de build (true em qualquer build com updates habilitado, false
+     * em Expo Go), não muda depois de aplicar um update.
      */
-    if (!Updates.isEmbeddedLaunch) return;
+    if (!Updates.isEnabled) return;
     if (checando.current) return;
     checando.current = true;
 

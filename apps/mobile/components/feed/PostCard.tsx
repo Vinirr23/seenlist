@@ -8,7 +8,7 @@ import { editPost, deletePost } from "@/lib/posts";
 import { reportPost } from "@/lib/social/postReports";
 import { tmdbImageUrl } from "@/lib/library";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { Text, Button, Glass } from "@/components/ui";
+import { Text, Button } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { OptionSheet } from "@/components/settings/OptionSheet";
@@ -176,8 +176,19 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
     // toque (abrir detalhe), `Glass` cuida do visual (era `View` com
     // `backgroundColor: colors.surface` chapado).
     <Pressable onPress={detail ? undefined : handlePress} disabled={detail}>
-      {/* TESTE DE DIAGNÓSTICO (2026-09-29, "travadinha no Feed ao rolar") — ver o comentário na prop `forceNoBlur`, em `Glass.tsx`. */}
-      <Glass style={styles.card} forceNoBlur>
+      {/*
+        * A PEDIDO (2026-09-29 — "deixa o feed igual o feed do threads,
+        * sem efeito, separado por linha") — tirado o `Glass` (vidro/blur)
+        * inteiro daqui: virou `View` simples, sem fundo nem borda ao
+        * redor, só uma linha fina embaixo separando um post do próximo
+        * (`styles.card`, `borderBottomWidth`). Resolve de vez, sem
+        * precisar de nenhuma versão "vidro falso": nenhum card monta
+        * blur nativo nenhum agora, então não sobra custo de composição
+        * nenhum por post na rolagem — a causa provável da travadinha
+        * reportada. `forceNoBlur` em `Glass.tsx` continua existindo (não
+        * removido), só não é mais usado aqui.
+        */}
+      <View style={styles.card}>
       <View style={styles.headerRow}>
         <Pressable
           style={styles.header}
@@ -215,7 +226,7 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
       </View>
 
       {post.type === "review" && post.mediaTitle && (
-        <Glass style={styles.reviewCard} forceNoBlur>
+        <View style={styles.reviewCard}>
           <View style={styles.reviewPoster}>
             {posterUrl ? (
               <Image source={{ uri: posterUrl }} style={styles.reviewPosterImage} contentFit="cover" />
@@ -239,7 +250,7 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
               <Text style={styles.ratingText}>{(post.rating ?? 0).toFixed(1)}/5</Text>
             </View>
           </View>
-        </Glass>
+        </View>
       )}
 
       {editing ? (
@@ -286,7 +297,7 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
           ]}
         />
       )}
-      </Glass>
+      </View>
     </Pressable>
   );
 }
@@ -319,10 +330,11 @@ function arePropsEqual(prev: Readonly<PostCardProps>, next: Readonly<PostCardPro
 export const PostCard = memo(PostCardComponent, arePropsEqual);
 
 const styles = StyleSheet.create({
-  // `Glass` já cuida de fundo/borda/blur — aqui só sobra o formato/recheio.
+  // A PEDIDO (2026-09-29, "feed igual Threads") — sem fundo/borda ao redor, só uma linha fina embaixo separando os posts.
   card: {
-    borderRadius: radius.lg,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   headerRow: {
     flexDirection: "row",
@@ -367,13 +379,11 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: fontSize.xxs,
   },
-  // `Glass` já cuida de fundo/borda/blur — aqui só sobra o formato/recheio.
+  // A PEDIDO (2026-09-29, "feed igual Threads") — sem caixa/fundo ao redor, só a linha (poster + info) dentro do corpo do post.
   reviewCard: {
     flexDirection: "row",
     gap: spacing.sm,
     marginTop: spacing.sm,
-    borderRadius: radius.md,
-    padding: spacing.sm,
   },
   reviewPoster: {
     width: 44,
