@@ -154,6 +154,22 @@ function buildMessage(
         deepLink: "/week-review",
       };
     }
+    /*
+     * NOVO (a pedido, 2026-09-29 — "manda as notificações sobre
+     * selo"). Envio único (migration `20260929000006_...sql` já
+     * insere uma linha por usuário) — decisão explícita do usuário:
+     * MESMO texto pra todo mundo (dourado, azul, sem selo), sem
+     * branching por `verified_tier`; o "se você foi um dos primeiros
+     * 100..." já cobre os três casos sozinho. Sem ator/mídia, então
+     * não depende de `actorName`/`commentContext` como os demais.
+     */
+    case "verified_badge": {
+      return {
+        title: "✅ Chegaram os selos de verificação",
+        body: "Se você foi um dos primeiros 100 cadastrados, seu perfil agora tem o selo azul de verificação 💙",
+        deepLink: "/profile",
+      };
+    }
     default:
       return null;
   }

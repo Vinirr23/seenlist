@@ -17,7 +17,8 @@ export type NotificationType =
   | "new_follower"
   | "feedback_reply"
   | "post_like"
-  | "new_feedback";
+  | "new_feedback"
+  | "verified_badge";
 
 export interface AppNotification {
   id: string;

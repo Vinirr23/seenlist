@@ -13,6 +13,7 @@ import { tmdbImageUrl } from "@/lib/library";
 import { Screen, Text, Skeleton, GlassTargetProvider, AmbientGlow, Glass, ScreenHeader } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
+import { useCurrentUser } from "@/lib/useCurrentUser";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, tint, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -52,6 +53,8 @@ function getNotificationMessage(n: AppNotification, t: (key: string, vars?: Reco
       return t("notifications.postLike", { name });
     case "new_feedback":
       return t("notifications.newFeedback", { message: n.message ?? "" });
+    case "verified_badge":
+      return t("notifications.verifiedBadge");
   }
 }
 
@@ -89,6 +92,9 @@ function getNotificationRoute(n: AppNotification): string | null {
   if (n.type === "post_like") {
     return n.targetId ? `/posts/${n.targetId}` : null;
   }
+  if (n.type === "verified_badge") {
+    return "/profile";
+  }
   if (n.mediaType && n.mediaId != null) {
     return n.mediaType === "movie" ? `/movies/${n.mediaId}` : `/series/${n.mediaId}`;
   }
@@ -101,6 +107,10 @@ export default function NotificationsScreen() {
   const { t, locale } = useTranslation();
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" }), [locale]);
   const [notifications, setNotifications] = useState<AppNotification[] | null>(null);
+  // A PEDIDO (2026-09-29 — notificação de lançamento do selo, "sino
+  // padrão" pra quem não tem selo) — ícone dessa notificação é o
+  // PRÓPRIO selo de quem está lendo (sem ator/mídia pra mostrar).
+  const { user: currentUser } = useCurrentUser();
 
   const reload = useCallback(() => {
     fetchNotifications(locale).then(setNotifications);
@@ -172,6 +182,16 @@ export default function NotificationsScreen() {
                         <Avatar uri={n.actor.avatarUrl} name={n.actor.displayName ?? n.actor.username} style={styles.avatar} textStyle={styles.avatarInitials} />
                       ) : n.mediaPosterPath ? (
                         <Image source={{ uri: tmdbImageUrl(n.mediaPosterPath, "w185") ?? undefined }} style={styles.avatar} />
+                      ) : n.type === "verified_badge" && currentUser?.verifiedTier ? (
+                        /*
+                          A PEDIDO (2026-09-29 — "sino padrão" pra quem
+                          não tem selo) — quem TEM selo vê o próprio
+                          selo aqui em vez do sininho; quem não tem cai
+                          no fallback de sempre logo abaixo.
+                        */
+                        <View style={[styles.avatar, styles.iconFallback]}>
+                          <VerifiedBadge tier={currentUser.verifiedTier} size={20} />
+                        </View>
                       ) : (
                         <View style={[styles.avatar, styles.iconFallback]}>
                           <Feather name="bell" size={16} color={colors.primary} />

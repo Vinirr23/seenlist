@@ -12,6 +12,7 @@ import {
 import { tmdbImage } from "@/lib/tmdb/image";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
+import { useCurrentUser } from "@/lib/queries/current-user";
 import { SectionPageHeader } from "./SectionPageHeader";
 import { EmptyState } from "../search/EmptyState";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -55,6 +56,8 @@ function getNotificationMessage(n: AppNotification, t: (key: string, vars?: Reco
       return t("notifications.postLike", { name });
     case "new_feedback":
       return t("notifications.newFeedback", { message: n.message ?? "" });
+    case "verified_badge":
+      return t("notifications.verifiedBadge");
   }
 }
 
@@ -97,6 +100,9 @@ function getNotificationHref(n: AppNotification): string | null {
   if (n.type === "post_like") {
     return n.targetId ? `/explore/posts/${n.targetId}` : null;
   }
+  if (n.type === "verified_badge") {
+    return "/profile";
+  }
   if (n.mediaType && n.mediaId != null) {
     return `/${n.mediaType === "movie" ? "movies" : "series"}/${n.mediaId}`;
   }
@@ -107,6 +113,11 @@ export function NotificationsView() {
   const { data: notifications, isLoading } = useNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  // A PEDIDO (2026-09-29 — notificação de lançamento do selo,
+  // "sino padrão" pra quem não tem selo) — o ícone dessa notificação
+  // é o PRÓPRIO selo de quem está lendo (não tem ator/mídia pra
+  // mostrar), por isso precisa do `verifiedTier` do usuário logado.
+  const { data: currentUser } = useCurrentUser();
   const { t, locale } = useTranslation();
   const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
   const hasUnread = (notifications ?? []).some((n) => !n.readAt);
@@ -161,6 +172,16 @@ export function NotificationsView() {
                     <Avatar src={n.actor.avatarUrl} name={n.actor.displayName ?? n.actor.username} className="h-full w-full" />
                   ) : n.mediaPosterPath ? (
                     <Image src={tmdbImage(n.mediaPosterPath, "w185") ?? ""} alt="" fill sizes="44px" className="object-cover" />
+                  ) : n.type === "verified_badge" && currentUser?.verifiedTier ? (
+                    /*
+                      A PEDIDO (2026-09-29 — "sino padrão" pra quem não
+                      tem selo) — quem TEM selo (gold/blue) vê o próprio
+                      selo aqui em vez do sininho; quem não tem cai no
+                      fallback de sempre logo abaixo.
+                    */
+                    <div className="flex h-full w-full items-center justify-center">
+                      <VerifiedBadge tier={currentUser.verifiedTier} className="h-6 w-6" />
+                    </div>
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-primary">
                       <Bell className="h-4 w-4" strokeWidth={2} />
