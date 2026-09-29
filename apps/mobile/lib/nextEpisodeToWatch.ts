@@ -159,12 +159,35 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[], language = "
      * futuro, ainda sem estreia) não conta mais — evita mostrar
      * "próximo episódio" de uma temporada que nem tem previsão de
      * estrear ainda.
+     *
+     * CORREÇÃO 3 (bug real, reportado com print — Outlander: Blood of
+     * My Blood T02, episódios 9/10 sem data aparecendo como "próximo a
+     * assistir", pulando na frente dos episódios 3-8, que TÊM data real
+     * ainda no futuro) — a CORREÇÃO 2 acima não bastava: uma temporada
+     * pode ter UM episódio antigo já ao ar (confirmando a temporada) E
+     * TAMBÉM ter episódios com data real futura conhecida — nesse caso
+     * a temporada já tem calendário de verdade, e um episódio sem data
+     * no meio dela não "pode já ter saído": é só um que o TMDB ainda
+     * não catalogou, quase certamente mais adiante que os que JÁ têm
+     * data futura. Diferente do caso do anime semanal (CORREÇÃO 1):
+     * lá a temporada não tinha NENHUMA data futura conhecida, só a
+     * ausência de data no episódio mais recente. Por isso a regra da
+     * CORREÇÃO 2 agora também exige que a temporada não tenha nenhum
+     * episódio com data futura conhecida — se tiver, o fallback de
+     * "sem data" não se aplica mais pra ela.
      */
     const seasonsWithConfirmedAiring = new Set(
       liveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today).map((e) => e.seasonNumber)
     );
+    const seasonsWithKnownFutureSchedule = new Set(
+      liveEpisodes.filter((e) => e.airDate !== null && e.airDate > today).map((e) => e.seasonNumber)
+    );
     const pending = liveEpisodes
-      .filter((e) => (e.airDate !== null && e.airDate <= today) || (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber)))
+      .filter(
+        (e) =>
+          (e.airDate !== null && e.airDate <= today) ||
+          (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber) && !seasonsWithKnownFutureSchedule.has(e.seasonNumber))
+      )
       // CORREÇÃO (2026-08-26 — "motor resistente") — ID FIXO da TMDB primeiro, cai pra chave (temporada-episódio) sem ele.
       .filter((e) => !(e.episodeId !== undefined && watchedIds.has(e.episodeId)) && !watchedKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
       .sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)

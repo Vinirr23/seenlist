@@ -243,9 +243,27 @@ export function findPendingEpisodes(
   const pending: { seasonNumber: number; episode: (typeof seasons)[number]["episodes"][number] }[] = [];
   for (const season of sorted) {
     const seasonHasConfirmedAiring = season.episodes.some((ep) => ep.airDate !== null && hasEpisodeAired(ep.airDate));
+    /*
+     * BUG REAL, CAUSA RAIZ ENCONTRADA (2026-09-29, reportado com print
+     * — Outlander: Blood of My Blood T02, episódios 9/10 sem data
+     * aparecendo como "próximo a assistir", pulando na frente dos
+     * episódios 3-8, que TÊM data real ainda no futuro) — antes,
+     * `seasonHasConfirmedAiring` bastava sozinho pra tratar QUALQUER
+     * episódio sem data como "pode já ter saído", mesmo quando a MESMA
+     * temporada já tinha outros episódios com data real FUTURA
+     * conhecida. Isso servia bem o caso original (anime semanal, TMDB
+     * atrasa a data do episódio mais recente, temporada sem NENHUMA
+     * data futura conhecida) — mas quebra quando a temporada JÁ tem
+     * calendário real: aí um episódio sem data é só um que o TMDB ainda
+     * não catalogou, quase certamente mais adiante que os que já têm
+     * data futura, não "pode já ter saído". Corrigido: o fallback de
+     * "sem data" só vale se a temporada NÃO tiver nenhum episódio com
+     * data futura conhecida.
+     */
+    const seasonHasKnownFutureSchedule = season.episodes.some((ep) => ep.airDate !== null && !hasEpisodeAired(ep.airDate));
     const episodes = [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber);
     for (const ep of episodes) {
-      const aired = ep.airDate ? hasEpisodeAired(ep.airDate) : seasonHasConfirmedAiring;
+      const aired = ep.airDate ? hasEpisodeAired(ep.airDate) : seasonHasConfirmedAiring && !seasonHasKnownFutureSchedule;
       if (!aired) continue;
       if (!isEpisodeWatched(watched, season.seasonNumber, ep.episodeNumber, ep.episodeId, watchedEpisodeIds)) {
         pending.push({ seasonNumber: season.seasonNumber, episode: ep });
