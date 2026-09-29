@@ -312,9 +312,23 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 
                 {!!uploadError && <Text variant="error">{uploadError}</Text>}
 
-                <Pressable style={styles.attachButton} onPress={handlePickImage} disabled={busy}>
-                  <Feather name="image" size={16} color={colors.muted} />
-                  <Text variant="muted" style={styles.attachButtonText}>
+                {/*
+                  * AJUSTE VISUAL (a pedido, print de referência do app
+                  * Threads, 2026-09-29) — "muito perto do botão de
+                  * publicar e muito pequeno também". Sem funcionalidade
+                  * nova: o botão continua chamando o mesmíssimo
+                  * `handlePickImage`. Ganhou estilo PRÓPRIO
+                  * (`attachImageButton`/`attachImageButtonText`, em vez
+                  * do `attachButton` genérico que ainda serve só pro
+                  * "Adicionar opção" da enquete) — ícone maior (16→20),
+                  * viram um "chip" com fundo/borda e padding em vez de
+                  * texto nu (toque maior, mais parecido com o do
+                  * Threads), e `marginBottom` some com o respiro extra
+                  * até o "Publicar" além do `gap` uniforme da `sheet`.
+                  */}
+                <Pressable style={styles.attachImageButton} onPress={handlePickImage} disabled={busy}>
+                  <Feather name="image" size={20} color={colors.muted} />
+                  <Text variant="muted" style={styles.attachImageButtonText}>
                     {imageUri ? t("feed.changeImage") : t("social.attachImage")}
                   </Text>
                 </Pressable>
@@ -490,5 +504,25 @@ const styles = StyleSheet.create({
   attachButtonText: {
     // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).
     fontSize: fontSize.xs,
+  },
+  // Estilo dedicado do botão "Anexar imagem ou GIF" (modo post) — ver
+  // comentário no JSX acima. NÃO usado pelo "Adicionar opção" da
+  // enquete, que continua com `attachButton`/`attachButtonText`.
+  attachImageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    alignSelf: "flex-start",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    marginBottom: spacing.sm,
+  },
+  attachImageButtonText: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
   },
 });
