@@ -9,6 +9,7 @@ import { pickImageFromLibrary, uploadPostImage } from "@/lib/imageUpload";
 import { Text, Button } from "@/components/ui";
 import { hapticTick, hapticSuccess } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { colors, radius, spacing, fontSize, elevation, scrim } from "@/lib/theme";
 
 const MAX_LENGTH = 500;
@@ -31,6 +32,21 @@ const MIN_POLL_OPTIONS = 2;
  */
 export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
   const insets = useSafeAreaInsets();
+  /*
+   * BUG REAL CORRIGIDO (2026-09-28, print real — "botão + muito pra a
+   * direita", encostando no dock) — CAUSA RAIZ: `styles.fab.bottom`
+   * somava um número FIXO, escrito à mão (`88 = 12 [margem flutuante]
+   * + 60 [altura do dock] + 16 [respiro]`) na época em que o dock
+   * tinha 60px de altura. Em 2026-09-22 o dock cresceu ~15%
+   * (`DOCK_SCALE`, `DockNavegacao.tsx`) — a ALTURA real virou 70px, e
+   * `useTabBarClearance.ts` foi atualizado pra refletir isso (é o hook
+   * que todo o resto do app já usa pra essa mesma conta) — só este
+   * botão continuou com a conta antiga, feita à mão, sem usar o hook.
+   * Como o Feed ficou desativado esse mês inteiro, ninguém viu esse
+   * desalinhamento até religar agora. Corrigido reaproveitando o MESMO
+   * hook (nunca mais duplicar essa conta manualmente).
+   */
+  const tabBarClearance = useTabBarClearance();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"post" | "poll">("post");
@@ -136,11 +152,52 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Pressable hitSlop={8} style={[styles.fab, { bottom: 88 + insets.bottom }]} onPress={handleOpen}>
-        <Feather name="plus" size={24} color={colors.background} />
+      {/*
+       * A PEDIDO (2026-09-28, mockup desenhado pelo usuário em cima do
+       * print — 2ª rodada: "não era pra subir o botão, apenas colocar
+       * ele um pouco acima de profile") — altura volta a ser só o
+       * respiro normal acima do dock (`tabBarClearance`, sem somar
+       * nada — a 1ª tentativa subiu demais). Só a posição HORIZONTAL
+       * muda: mais pra esquerda, pra ficar acima do ícone "Perfil"
+       * (o último dos 4 do dock) em vez de em cima da borda entre
+       * "Explorar"/"Perfil". `right: spacing.xxl` é uma 1ª calibragem —
+       * ainda pode precisar de ajuste fino depois de ver no aparelho.
+       * E ~15% menor (56→48, ícone 24→20).
+       */}
+      <Pressable
+        hitSlop={8}
+        style={[styles.fab, { bottom: tabBarClearance, right: spacing.xxl }]}
+        onPress={handleOpen}
+      >
+        <Feather name="plus" size={20} color={colors.background} />
       </Pressable>
 
-      <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
+      {/*
+       * BUG REAL CORRIGIDO (2026-09-29, print real — "Post atrás da
+       * barra de gestos", TASK-136 tinha corrigido isso antes, voltou)
+       * — CAUSA RAIZ: o upgrade recente pra Expo SDK 55/RN 0.83 mira
+       * uma versão do Android mais nova que TORNOU o modo edge-to-edge
+       * obrigatório (deixou de ser opcional) — o Android passou a
+       * deixar o `Modal` desenhar por baixo da barra de gestos também
+       * (igual o resto do app, que já é edge-to-edge de propósito, ver
+       * `useSafeAreaInsets()` em toda tela), só que sem os 2 flags que
+       * avisam o React Native pra tratar isso direito, o conteúdo do
+       * Modal ficava num meio-termo — nem o Android reservava o
+       * espaço sozinho (comportamento antigo, pré-SDK 55, que o
+       * TASK-136 original contava), nem o app sabia que precisava
+       * desviar. `statusBarTranslucent`/`navigationBarTranslucent` são
+       * os flags oficiais do RN pra isso — com eles, o `insets.bottom`
+       * já somado aqui embaixo (`paddingBottom`) passa a valer de
+       * verdade dentro do Modal também.
+       */}
+      <Modal
+        visible={open}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setOpen(false)}
+        statusBarTranslucent
+        navigationBarTranslucent
+      >
         {/* TASK-136 (correção — teclado cobrindo o campo) — "undefined" no Android não fazia nada; dentro de um Modal, o Android não ajusta a janela sozinho como faz numa tela normal (é uma janela nativa separada) — precisa do KeyboardAvoidingView de verdade. "height" é o comportamento que funciona de forma confiável dentro de Modal no Android ("padding" tem comportamento inconsistente nesse contexto específico). */}
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.overlay}>
           {/*
@@ -151,10 +208,12 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
             * último elemento ficava parcialmente coberto. O
             * `insets` já era calculado neste componente (usado no
             * botão flutuante), só nunca tinha sido aplicado aqui.
-            * `insets.bottom || spacing.md` garante um respiro
-            * mínimo mesmo em aparelho que reporta 0.
+            * `Math.max(insets.bottom, spacing.md)` garante um respiro
+            * mínimo mesmo em aparelho que reporta um `insets.bottom`
+            * pequeno demais (não só exatamente 0 — o `||` antigo só
+            * cobria esse caso extremo).
             */}
-          <View style={[styles.sheet, { paddingBottom: spacing.lg + (insets.bottom || spacing.md) }]}>
+          <View style={[styles.sheet, { paddingBottom: spacing.lg + Math.max(insets.bottom, spacing.md) }]}>
             <View style={styles.sheetHeader}>
               <Pressable onPress={() => setOpen(false)} hitSlop={8}>
                 <Text variant="muted">{t("common.cancel")}</Text>
@@ -276,35 +335,23 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     /**
-     * CORREÇÃO (2026-09-15, item deixado de fora de propósito em
-     * 2026-09-03, retomado agora — "posição do FAB '+' do feed") —
-     * era `spacing.lg` (24); o web usa `right-4` (`CreatePostButton.tsx`
-     * do web, `components/explore/`) = 16px (`spacing.md`), não 24.
-     * A posição vertical (`bottom`, ver `88 + insets.bottom` abaixo)
-     * NÃO muda — ela já é intencionalmente própria do mobile: usa a
-     * MESMA conta do "Floating Glass Dock" deste app
-     * (`useTabBarClearance.ts`, que cita este componente
-     * explicitamente como usando "o mesmo cálculo"), não o número do
-     * web (`FLOATING_BUTTON_BOTTOM_OFFSET`=6.5rem+safe-area), porque o
-     * dock do mobile foi redesenhado com altura própria — os dois
-     * offsets existem pelo mesmo motivo (não deixar a barra flutuante
-     * tampar o botão), só que cada plataforma calcula a partir da
-     * altura real da SUA barra.
+     * `bottom`/`right` de verdade vêm do `style` inline no JSX (ver
+     * comentário ali) — dependem de `tabBarClearance` (hook) e do
+     * ajuste a pedido do usuário, então não dá pra deixar fixos aqui.
+     *
+     * HISTÓRICO: a posição original (2026-09-15) copiava o `right-4`
+     * do web (16px) sem considerar que o dock do MOBILE é um pill
+     * CENTRALIZADO, mais estreito que a tela (`DOCK_MAX_WIDTH` em
+     * `DockNavegacao.tsx`) — 16px da borda da tela podia cair bem em
+     * cima do ícone "Perfil" do dock, dependendo da largura do
+     * aparelho. Corrigido (2026-09-28, a pedido, com mockup desenhado
+     * pelo usuário em cima do print) — subiu mais e puxou mais pra
+     * esquerda, folga clara acima do dock inteiro.
      */
-    right: spacing.md,
-    // TASK-172/176, atualizado em 2026-09-04 (porte do "Floating
-    // Glass Dock" — ver `app/(tabs)/_layout.tsx`/
-    // `useTabBarClearance.ts`) — 88px = 12 (margem flutuante do dock)
-    // + 60 (altura de verdade do dock novo) + 16 (respiro) acima
-    // dele; o `insets.bottom` (área do sistema — gestos/botões, varia
-    // por aparelho) é somado no lugar onde o componente usa esse
-    // estilo, não aqui (style estático não tem acesso ao hook de área
-    // segura). Mesma conta de `useTabBarClearance.ts` — só não usa o
-    // hook porque esse retorna a distância TOTAL de clearance de
-    // conteúdo (inclui o respiro), enquanto aqui a posição do botão já
-    // soma esse respiro sozinha via `bottom`, não via `paddingBottom`.
-    width: 56,
-    height: 56,
+    // TAMANHO (2026-09-28, a pedido — "diminui uns 15%") — era 56;
+    // 56 × 0.85 ≈ 47,6, arredondado pra 48.
+    width: 48,
+    height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     alignItems: "center",

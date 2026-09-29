@@ -154,7 +154,33 @@ export default function ExploreScreen() {
             {(subAbasVisitadas.has("movies") || subAbasVisitadas.has("series")) && (
               <ScrollView
                 key="sub-aba-discover"
-                style={tab === "activity" ? styles.subAbaEscondida : undefined}
+                /*
+                 * BUG REAL CORRIGIDO (2026-09-28, reportado com print —
+                 * "post cortado, só quando rolo a tela que aparece os de
+                 * baixo"/"sem respiro entre o botão + e a barra
+                 * nativa"/"feed não recebeu glass") — esta condição só
+                 * escondia esta `ScrollView` quando `tab === "activity"`;
+                 * ao adicionar "feed" como 4ª sub-aba (ver comentário
+                 * acima), ela ficou de fora da checagem — com `tab ===
+                 * "feed"`, esta `ScrollView` continuava MONTADA E VISÍVEL
+                 * ao lado do bloco do Feed (irmã na mesma coluna flex),
+                 * disputando a altura disponível com o `View` `flex: 1`
+                 * do Feed e espremendo a área visível dele. Isso explicava
+                 * os 3 sintomas de uma vez: FlatList do Feed cortada
+                 * (precisando rolar pra ver o que sobrava escondido fora
+                 * da área espremida); o botão flutuante "+"
+                 * (`CreatePostButton`, `position: absolute, bottom: 88 +
+                 * insets.bottom`) posicionado relativo ao fundo do
+                 * container ESPREMIDO, não ao fundo real da tela — perto
+                 * demais da barra nativa; e as manchas de vidro
+                 * (`AmbientGlow`) do Explorar, que cobrem a tela inteira
+                 * mas ficavam viúvas atrás da área extra ocupada por esta
+                 * `ScrollView` fantasma, dando a impressão de tela chapada
+                 * na parte de baixo. Corrigido: mesma regra de
+                 * mutualmente-exclusivo já usada nas outras 3 sub-abas —
+                 * só fica visível quando `tab` é "movies" ou "series".
+                 */
+                style={tab === "movies" || tab === "series" ? undefined : styles.subAbaEscondida}
                 contentContainerStyle={[styles.discoverContent, { paddingBottom: tabBarClearance }]}
               >
                 {subAbasVisitadas.has("movies") && (

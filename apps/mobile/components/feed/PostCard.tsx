@@ -8,7 +8,7 @@ import { editPost, deletePost } from "@/lib/posts";
 import { reportPost } from "@/lib/social/postReports";
 import { tmdbImageUrl } from "@/lib/library";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { Text, Button } from "@/components/ui";
+import { Text, Button, Glass } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { LikeButton } from "./LikeButton";
@@ -22,7 +22,7 @@ import { useNow } from "@/lib/useNow";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
-import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const SITE_URL = "https://seenlist.app";
 
@@ -156,7 +156,16 @@ export function PostCard({
    * de comportamento, sem trocar o componente dinamicamente.
    */
   return (
-    <Pressable style={styles.card} onPress={detail ? undefined : handlePress} disabled={detail}>
+    // A PEDIDO (2026-09-28, print real — "feed não recebeu glass") —
+    // este card ficou de fora do redesign "âmbar/vidro" (Aug/2026)
+    // porque o Feed estava desativado nessa época inteira (ver
+    // `SEENLIST-HANDOFF.md`, seção "Feed social"); reativar sozinho não
+    // corrige isso, então a mesma receita de `ReviewCard.tsx` ("vidro
+    // que falta", 2026-09-04) entra aqui agora: `Pressable` cuida só do
+    // toque (abrir detalhe), `Glass` cuida do visual (era `View` com
+    // `backgroundColor: colors.surface` chapado).
+    <Pressable onPress={detail ? undefined : handlePress} disabled={detail}>
+      <Glass style={styles.card}>
       <View style={styles.headerRow}>
         <Pressable
           style={styles.header}
@@ -191,7 +200,7 @@ export function PostCard({
       </View>
 
       {post.type === "review" && post.mediaTitle && (
-        <View style={styles.reviewCard}>
+        <Glass style={styles.reviewCard}>
           <View style={styles.reviewPoster}>
             {posterUrl ? (
               <Image source={{ uri: posterUrl }} style={styles.reviewPosterImage} contentFit="cover" />
@@ -215,7 +224,7 @@ export function PostCard({
               <Text style={styles.ratingText}>{(post.rating ?? 0).toFixed(1)}/5</Text>
             </View>
           </View>
-        </View>
+        </Glass>
       )}
 
       {editing ? (
@@ -262,16 +271,14 @@ export function PostCard({
           ]}
         />
       )}
+      </Glass>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // `Glass` já cuida de fundo/borda/blur — aqui só sobra o formato/recheio.
   card: {
-    ...elevation.low,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.md,
   },
@@ -313,13 +320,11 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: fontSize.xxs,
   },
+  // `Glass` já cuida de fundo/borda/blur — aqui só sobra o formato/recheio.
   reviewCard: {
     flexDirection: "row",
     gap: spacing.sm,
     marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
     borderRadius: radius.md,
     padding: spacing.sm,
   },
