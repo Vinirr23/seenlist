@@ -3,6 +3,7 @@ import type { Review } from "@/lib/queries/social/reviews";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "./LikeButton";
@@ -37,6 +38,7 @@ export function ReviewCard({ review, likeInfo }: { review: Review; likeInfo?: { 
           {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
           <Avatar src={review.author.avatarUrl} name={authorName} className="h-6 w-6 bg-surface" textClassName="text-[10px]" />
           <span className="truncate text-sm font-medium text-text">{authorName}</span>
+          <VerifiedBadge tier={review.author.verifiedTier} />
           <span className="shrink-0 text-xs text-muted">{dateFormatter.format(new Date(review.createdAt))}</span>
         </Link>
         <StarRating value={review.rating ?? 0} size="sm" />

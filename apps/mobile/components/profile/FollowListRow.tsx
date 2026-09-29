@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import type { FollowListUser } from "@/lib/followList";
 import { Text, Glass } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -25,9 +26,12 @@ export function FollowListRow({ user }: { user: FollowListUser }) {
       <Glass style={styles.row}>
         <Avatar uri={user.avatarUrl} name={displayName} style={styles.avatar} textStyle={styles.avatarInitials} />
         <View style={styles.info}>
-          <Text numberOfLines={1} style={styles.name}>
-            {displayName}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text numberOfLines={1} style={styles.name}>
+              {displayName}
+            </Text>
+            <VerifiedBadge tier={user.verifiedTier} size={fontSize.sm} />
+          </View>
           <Text numberOfLines={1} variant="muted" style={styles.username}>
             @{user.username}
           </Text>
@@ -83,7 +87,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   name: {
+    flexShrink: 1,
     fontSize: fontSize.sm,
     fontWeight: "600",
     color: colors.text,

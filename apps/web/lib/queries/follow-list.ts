@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
+import type { VerifiedTier } from "./social-types";
 
 export interface FollowListUser {
   userId: string;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  verifiedTier: VerifiedTier;
   /** Esse usuário segue quem está vendo a lista (pedido explícito — "Segue você"). */
   followsViewer: boolean;
 }
@@ -45,7 +47,7 @@ export function useFollowList(userId: string | null, direction: "following" | "f
 
       let query = supabase
         .from("profiles")
-        .select("user_id, username, display_name, avatar_url")
+        .select("user_id, username, display_name, avatar_url, verified_tier")
         .in("user_id", otherIds);
 
       if (search.trim()) {
@@ -74,6 +76,7 @@ export function useFollowList(userId: string | null, direction: "following" | "f
         username: p.username,
         displayName: p.display_name,
         avatarUrl: p.avatar_url,
+        verifiedTier: p.verified_tier as VerifiedTier,
         followsViewer: followsViewerIds.has(p.user_id),
       }));
     },

@@ -28,6 +28,7 @@ import { useSeriesActivityIds, useMovieActivityIds, useFavoriteIds } from "@/lib
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { Screen, Text, GlassTargetProvider, Glass, PressableScale, AmbientGlow, type GlowBlob } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
 import { ProfileRecommendationsPreview } from "@/components/profile/ProfileRecommendationsPreview";
@@ -373,9 +374,12 @@ export default function ProfileScreen() {
               <View style={styles.shortRow}>
                 <Avatar uri={user.avatarUrl} name={user.name} style={styles.avatarShort} textStyle={styles.avatarInitials} />
                 <View style={[styles.headerText, styles.headerTextCenterShort]}>
-                  <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
-                    {user.name}
-                  </Text>
+                  <View style={styles.nameRow}>
+                    <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
+                      {user.name}
+                    </Text>
+                    <VerifiedBadge tier={user.verifiedTier} size={18} />
+                  </View>
                   {/*
                     * A PEDIDO (2026-09-16 — "remove @seenlistapp em baixo
                     * de 'seenlist' e substitui por um botão 'editar'",
@@ -432,9 +436,12 @@ export default function ProfileScreen() {
           <View style={styles.headerRow}>
             <Avatar uri={user.avatarUrl} name={user.name} style={styles.avatar} textStyle={styles.avatarInitials} />
             <View style={[styles.headerText, styles.headerTextCenterTall]}>
-              <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
-                {user.name}
-              </Text>
+              <View style={styles.nameRow}>
+                <Text numberOfLines={1} variant="subtitle" style={styles.displayName}>
+                  {user.name}
+                </Text>
+                <VerifiedBadge tier={user.verifiedTier} size={18} />
+              </View>
               {/* Ver comentário completo no bloco COM capa, acima — mesma pílula "Editar" em vidro (variant `pill`), incluindo a correção do `PressableScale`. */}
               <PressableScale hitSlop={8} onPress={() => router.push("/settings/edit-profile")} style={styles.editButtonWrap}>
                 <Glass style={styles.editButton} variant="pill">
@@ -1239,7 +1246,12 @@ const styles = StyleSheet.create({
    * reservam por baixo/cima das letras); no iOS essa prop não existe e
    * é ignorada sem efeito nenhum — seguro nas duas plataformas.
    */
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   displayName: {
+    flexShrink: 1,
     fontWeight: "700",
     lineHeight: 28,
     includeFontPadding: false,

@@ -4,6 +4,9 @@ import { fetchDisplaySummaries, fetchLibraryItems, type MediaSummary } from "@/l
 
 export type ProfileVisibility = "public" | "followers" | "private";
 
+/** Ver `components/common/VerifiedBadge.tsx` — selo exibido ao lado do nome. */
+export type VerifiedTier = "gold" | "blue" | null;
+
 export interface UserProfile {
   userId: string;
   username: string;
@@ -15,6 +18,7 @@ export interface UserProfile {
   bannerFocalY: number;
   country: string | null;
   createdAt: string;
+  verifiedTier: VerifiedTier;
 }
 
 interface ProfileRow {
@@ -27,6 +31,7 @@ interface ProfileRow {
   banner_focal_y: number;
   country: string | null;
   created_at: string;
+  verified_tier: VerifiedTier;
 }
 
 function fromRow(row: ProfileRow): UserProfile {
@@ -40,6 +45,7 @@ function fromRow(row: ProfileRow): UserProfile {
     bannerFocalY: row.banner_focal_y,
     country: row.country,
     createdAt: row.created_at,
+    verifiedTier: row.verified_tier,
   };
 }
 

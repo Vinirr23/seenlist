@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import type { VerifiedTier } from "./publicProfile";
 
 export interface CurrentUser {
   id: string;
@@ -7,6 +8,7 @@ export interface CurrentUser {
   name: string;
   avatarUrl: string | null;
   createdAt: string;
+  verifiedTier: VerifiedTier;
 }
 
 /**
@@ -31,10 +33,21 @@ export async function fetchCurrentUser(user: User): Promise<CurrentUser> {
   const metadataName = (user.user_metadata?.full_name ?? user.user_metadata?.name) as string | undefined;
   const metadataAvatar = (user.user_metadata?.avatar_url as string | undefined) ?? null;
 
-  const { data: profile } = await supabase.from("profiles").select("display_name, avatar_url").eq("user_id", user.id).maybeSingle();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, avatar_url, verified_tier")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   const name = profile?.display_name?.trim() || metadataName?.trim() || email.split("@")[0] || "Usuário";
   const avatarUrl = profile?.avatar_url ?? metadataAvatar;
 
-  return { id: user.id, email, name, avatarUrl, createdAt: user.created_at };
+  return {
+    id: user.id,
+    email,
+    name,
+    avatarUrl,
+    createdAt: user.created_at,
+    verifiedTier: (profile?.verified_tier as VerifiedTier) ?? null,
+  };
 }

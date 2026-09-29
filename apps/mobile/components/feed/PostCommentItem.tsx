@@ -6,6 +6,7 @@ import type { CommentNode } from "@/lib/postComments";
 import { LikeButton } from "./LikeButton";
 import { Text, Button, Glass } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
@@ -125,7 +126,10 @@ export function PostCommentItem({
             <Pressable style={styles.authorTouch} onPress={() => router.push(`/u/${comment.authorUsername}`)}>
               <Avatar uri={comment.authorAvatarUrl} name={comment.authorName} style={styles.avatar} textStyle={styles.avatarInitials} />
               <View style={styles.metaCol}>
-                <Text style={styles.authorName}>{comment.authorName}</Text>
+                <View style={styles.nameRow}>
+                  <Text style={styles.authorName}>{comment.authorName}</Text>
+                  <VerifiedBadge tier={comment.authorVerifiedTier} size={fontSize.md} />
+                </View>
                 <Text variant="muted" style={styles.date}>
                   {dateFormatter.format(new Date(comment.createdAt))}
                 </Text>
@@ -235,6 +239,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: "700",
     color: colors.muted,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   authorName: {
     fontSize: fontSize.md,

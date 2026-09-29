@@ -1,4 +1,5 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
+import type { VerifiedTier } from "../publicProfile";
 
 export type ReviewMediaType = "movie" | "series";
 
@@ -21,7 +22,7 @@ export interface Review {
   favoriteCharacterId: number | null;
   favoriteCharacterName: string | null;
   createdAt: string;
-  author: { username: string; displayName: string | null; avatarUrl: string | null };
+  author: { username: string; displayName: string | null; avatarUrl: string | null; verifiedTier: VerifiedTier };
 }
 
 interface ReviewRow {
@@ -42,6 +43,7 @@ interface ProfileRow {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  verified_tier: VerifiedTier;
 }
 
 /**
@@ -99,7 +101,7 @@ export async function fetchReviews(target: ReviewTarget, page = 0): Promise<Revi
   if (userIds.length > 0) {
     const { data: profileRows } = await supabase
       .from("profiles")
-      .select("user_id, username, display_name, avatar_url")
+      .select("user_id, username, display_name, avatar_url, verified_tier")
       .in("user_id", userIds);
     for (const p of (profileRows ?? []) as ProfileRow[]) profilesById.set(p.user_id, p);
   }
@@ -121,6 +123,7 @@ export async function fetchReviews(target: ReviewTarget, page = 0): Promise<Revi
         username: profile?.username ?? "usuário",
         displayName: profile?.display_name ?? null,
         avatarUrl: profile?.avatar_url ?? null,
+        verifiedTier: profile?.verified_tier ?? null,
       },
     };
   });
@@ -159,7 +162,7 @@ export async function fetchMyReview(target: ReviewTarget): Promise<Review | null
     favoriteCharacterName: row.favorite_character_name,
     watchedPlatform: row.watched_platform,
     createdAt: row.created_at,
-    author: { username: "", displayName: null, avatarUrl: null },
+    author: { username: "", displayName: null, avatarUrl: null, verifiedTier: null },
   };
 }
 

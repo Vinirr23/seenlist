@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { STALE_TIME_PROFILE } from "@/lib/queryStaleTimes";
+import type { VerifiedTier } from "./social-types";
 
 export interface CurrentUser {
   id: string;
@@ -9,6 +10,7 @@ export interface CurrentUser {
   name: string;
   avatarUrl: string | null;
   createdAt: string;
+  verifiedTier: VerifiedTier;
 }
 
 /**
@@ -36,7 +38,7 @@ async function fetchCurrentUser(): Promise<CurrentUser | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, avatar_url")
+    .select("display_name, avatar_url, verified_tier")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -49,6 +51,7 @@ async function fetchCurrentUser(): Promise<CurrentUser | null> {
     name,
     avatarUrl,
     createdAt: user.created_at,
+    verifiedTier: (profile?.verified_tier as VerifiedTier) ?? null,
   };
 }
 

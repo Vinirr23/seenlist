@@ -14,6 +14,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { PageError } from "@/components/media/PageError";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 
 /**
  * TASK-028 — página pública em `/u/[username]`. Item 11: só o
@@ -277,7 +278,9 @@ export function PublicProfileView({ username }: { username: string }) {
 
             const nameBlockContent = (
               <>
-                <p className="truncate text-lg font-bold text-text">{displayName}</p>
+                <p className="truncate text-lg font-bold text-text">
+                  {displayName} <VerifiedBadge tier={profile.verifiedTier} />
+                </p>
                 <p className="truncate text-sm text-primary">@{profile.username}</p>
                 {joinedLine && <p className="truncate text-xs text-muted">{joinedLine}</p>}
               </>

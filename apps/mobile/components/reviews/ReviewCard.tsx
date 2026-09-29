@@ -2,6 +2,7 @@ import { View, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import type { Review } from "@/lib/social/reviews";
 import { Text, Glass } from "@/components/ui";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
@@ -21,6 +22,7 @@ export function ReviewCard({ review, initial }: { review: Review; initial?: { co
       <View style={styles.header}>
         <Pressable style={styles.authorRow} onPress={() => router.push(`/u/${review.author.username}`)}>
           <Text style={styles.authorName}>{review.author.displayName ?? review.author.username}</Text>
+          <VerifiedBadge tier={review.author.verifiedTier} size={fontSize.md} />
           <Text variant="muted" style={styles.date}>
             {dateFormatter.format(new Date(review.createdAt))}
           </Text>

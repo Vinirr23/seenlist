@@ -16,7 +16,11 @@ export async function fetchUserSearch(query: string): Promise<FollowListUser[]> 
     data: { user: viewer },
   } = await getCurrentAuthUser();
 
-  let profilesQuery = supabase.from("profiles").select("user_id, username, display_name, avatar_url").order("created_at", { ascending: false }).limit(SUGGESTIONS_LIMIT);
+  let profilesQuery = supabase
+    .from("profiles")
+    .select("user_id, username, display_name, avatar_url, verified_tier")
+    .order("created_at", { ascending: false })
+    .limit(SUGGESTIONS_LIMIT);
 
   const trimmed = query.trim();
   if (trimmed) {
@@ -41,6 +45,7 @@ export async function fetchUserSearch(query: string): Promise<FollowListUser[]> 
     username: p.username,
     displayName: p.display_name,
     avatarUrl: p.avatar_url,
+    verifiedTier: p.verified_tier as FollowListUser["verifiedTier"],
     followsViewer: followsViewerIds.has(p.user_id),
   }));
 }

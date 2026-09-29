@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { STALE_TIME_FEED } from "@/lib/queryStaleTimes";
+import type { VerifiedTier } from "./social-types";
 
 export type PostType = "text" | "image" | "review" | "poll";
 
@@ -11,6 +12,7 @@ export interface Post {
   authorName: string;
   authorUsername: string;
   authorAvatarUrl: string | null;
+  authorVerifiedTier: VerifiedTier;
   type: PostType;
   /** TASK-066 — vazio quando o post é só imagem/GIF, sem legenda. */
   body: string;
@@ -51,7 +53,12 @@ interface PostRow {
 
 function mapRow(
   row: PostRow,
-  profile: { display_name: string | null; username: string; avatar_url: string | null }
+  profile: {
+    display_name: string | null;
+    username: string;
+    avatar_url: string | null;
+    verified_tier?: VerifiedTier;
+  }
 ): Post {
   return {
     id: row.id,
@@ -59,6 +66,7 @@ function mapRow(
     authorName: profile.display_name || profile.username,
     authorUsername: profile.username,
     authorAvatarUrl: profile.avatar_url,
+    authorVerifiedTier: profile.verified_tier ?? null,
     type: row.type,
     body: row.body ?? "",
     imageUrl: row.image_url,
@@ -104,7 +112,10 @@ export function usePosts() {
 
       const userIds = [...new Set((rows ?? []).map((r) => r.user_id))];
       const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("user_id, username, display_name, avatar_url").in("user_id", userIds)
+        ? await supabase
+            .from("profiles")
+            .select("user_id, username, display_name, avatar_url, verified_tier")
+            .in("user_id", userIds)
         : { data: [] };
       const profileById = new Map((profiles ?? []).map((p) => [p.user_id, p]));
 
@@ -141,7 +152,7 @@ export function usePost(postId: string) {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("user_id, username, display_name, avatar_url")
+        .select("user_id, username, display_name, avatar_url, verified_tier")
         .eq("user_id", row.user_id)
         .maybeSingle();
       if (!profile) return null;

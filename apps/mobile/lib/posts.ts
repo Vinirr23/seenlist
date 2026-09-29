@@ -1,4 +1,5 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
+import type { VerifiedTier } from "./publicProfile";
 
 export type PostType = "text" | "image" | "review" | "poll";
 
@@ -8,6 +9,7 @@ export interface Post {
   authorName: string;
   authorUsername: string;
   authorAvatarUrl: string | null;
+  authorVerifiedTier: VerifiedTier;
   type: PostType;
   body: string;
   imageUrl: string | null;
@@ -42,6 +44,7 @@ interface ProfileRow {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  verified_tier?: VerifiedTier;
 }
 
 function mapRow(row: PostRow, profile: ProfileRow): Post {
@@ -51,6 +54,7 @@ function mapRow(row: PostRow, profile: ProfileRow): Post {
     authorName: profile.display_name || profile.username,
     authorUsername: profile.username,
     authorAvatarUrl: profile.avatar_url,
+    authorVerifiedTier: profile.verified_tier ?? null,
     type: row.type,
     body: row.body ?? "",
     imageUrl: row.image_url,
@@ -81,7 +85,10 @@ export async function fetchPosts(): Promise<Post[]> {
   const typedRows = (rows ?? []) as PostRow[];
   const userIds = [...new Set(typedRows.map((r) => r.user_id))];
   const { data: profiles } = userIds.length
-    ? await supabase.from("profiles").select("user_id, username, display_name, avatar_url").in("user_id", userIds)
+    ? await supabase
+        .from("profiles")
+        .select("user_id, username, display_name, avatar_url, verified_tier")
+        .in("user_id", userIds)
     : { data: [] as ProfileRow[] };
   const profileById = new Map(((profiles ?? []) as ProfileRow[]).map((p) => [p.user_id, p]));
 
@@ -103,7 +110,7 @@ export async function fetchPost(postId: string): Promise<Post | null> {
   const typedRow = row as PostRow;
   const { data: profile } = await supabase
     .from("profiles")
-    .select("user_id, username, display_name, avatar_url")
+    .select("user_id, username, display_name, avatar_url, verified_tier")
     .eq("user_id", typedRow.user_id)
     .maybeSingle();
   if (!profile) return null;

@@ -1,5 +1,6 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import type { ReviewMediaType } from "./reviews";
+import type { VerifiedTier } from "../publicProfile";
 
 export interface MediaTarget {
   mediaType: ReviewMediaType;
@@ -15,7 +16,7 @@ export interface MediaComment {
   containsSpoiler: boolean;
   parentCommentId: string | null;
   createdAt: string;
-  author: { userId: string; username: string; displayName: string | null; avatarUrl: string | null };
+  author: { userId: string; username: string; displayName: string | null; avatarUrl: string | null; verifiedTier: VerifiedTier };
 }
 
 export interface CommentNode extends MediaComment {
@@ -67,9 +68,15 @@ export async function fetchMediaComments(target: MediaTarget): Promise<MediaComm
 
   const rows = (data ?? []) as CommentRow[];
   const userIds = [...new Set(rows.map((r) => r.user_id))];
-  const profilesById = new Map<string, { username: string; display_name: string | null; avatar_url: string | null }>();
+  const profilesById = new Map<
+    string,
+    { username: string; display_name: string | null; avatar_url: string | null; verified_tier: VerifiedTier }
+  >();
   if (userIds.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("user_id, username, display_name, avatar_url").in("user_id", userIds);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, username, display_name, avatar_url, verified_tier")
+      .in("user_id", userIds);
     for (const p of profiles ?? []) profilesById.set(p.user_id, p);
   }
 
@@ -87,6 +94,7 @@ export async function fetchMediaComments(target: MediaTarget): Promise<MediaComm
         username: profile?.username ?? "usuário",
         displayName: profile?.display_name ?? null,
         avatarUrl: profile?.avatar_url ?? null,
+        verifiedTier: profile?.verified_tier ?? null,
       },
     };
   });

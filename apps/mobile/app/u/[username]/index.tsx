@@ -9,6 +9,7 @@ import { usePublicProfile, useFollowCounts, useFollow } from "@/lib/usePublicPro
 import { usePublicProfileStats } from "@/lib/useProfileStats";
 import { Screen, Text, GlassTargetProvider, Glass, GelSurface, PressableScale, AmbientGlow, type GlowBlob } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { PageError } from "@/components/media/PageError";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { FollowButton } from "@/components/profile/FollowButton";
@@ -155,9 +156,12 @@ export default function PublicProfileScreen() {
 
   const nameBlock = (
     <View style={styles.headerText}>
-      <Text numberOfLines={1} variant="subtitle">
-        {displayName}
-      </Text>
+      <View style={styles.nameRow}>
+        <Text numberOfLines={1} variant="subtitle">
+          {displayName}
+        </Text>
+        <VerifiedBadge tier={profile.verifiedTier} size={18} />
+      </View>
       <Text numberOfLines={1} style={styles.username}>
         @{profile.username}
       </Text>
@@ -613,6 +617,10 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     minWidth: 0,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   username: {
     fontSize: fontSize.sm,

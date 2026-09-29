@@ -1,4 +1,5 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
+import type { VerifiedTier } from "./publicProfile";
 
 export interface PostComment {
   id: string;
@@ -8,6 +9,7 @@ export interface PostComment {
   authorName: string;
   authorUsername: string;
   authorAvatarUrl: string | null;
+  authorVerifiedTier: VerifiedTier;
   body: string;
   createdAt: string;
 }
@@ -26,6 +28,7 @@ interface ProfileRow {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  verified_tier: VerifiedTier;
 }
 
 /**
@@ -46,7 +49,10 @@ export async function fetchPostComments(postId: string): Promise<PostComment[]> 
   const typedRows = (rows ?? []) as CommentRow[];
   const userIds = [...new Set(typedRows.map((r) => r.user_id))];
   const { data: profiles } = userIds.length
-    ? await supabase.from("profiles").select("user_id, username, display_name, avatar_url").in("user_id", userIds)
+    ? await supabase
+        .from("profiles")
+        .select("user_id, username, display_name, avatar_url, verified_tier")
+        .in("user_id", userIds)
     : { data: [] as ProfileRow[] };
   const profileById = new Map(((profiles ?? []) as ProfileRow[]).map((p) => [p.user_id, p]));
 
@@ -62,6 +68,7 @@ export async function fetchPostComments(postId: string): Promise<PostComment[]> 
         authorName: profile.display_name || profile.username,
         authorUsername: profile.username,
         authorAvatarUrl: profile.avatar_url,
+        authorVerifiedTier: (profile.verified_tier as VerifiedTier) ?? null,
         body: row.body,
         createdAt: row.created_at,
       };

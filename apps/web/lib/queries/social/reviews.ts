@@ -3,6 +3,7 @@ import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { useToast } from "@/lib/toast/ToastProvider";
 import type { MediaTarget } from "./types";
+import type { VerifiedTier } from "../social-types";
 
 export interface Review {
   id: string;
@@ -18,7 +19,7 @@ export interface Review {
   watchedPlatform: string | null;
   createdAt: string;
   updatedAt: string;
-  author: { username: string; displayName: string | null; avatarUrl: string | null };
+  author: { username: string; displayName: string | null; avatarUrl: string | null; verifiedTier: VerifiedTier };
 }
 
 function reviewsQueryKey(target: MediaTarget) {
@@ -123,17 +124,25 @@ export function useReviews(target: MediaTarget) {
 
       const rows = data ?? [];
       const userIds = [...new Set(rows.map((row) => row.user_id))];
-      const profilesById = new Map<string, { username: string; displayName: string | null; avatarUrl: string | null }>();
+      const profilesById = new Map<
+        string,
+        { username: string; displayName: string | null; avatarUrl: string | null; verifiedTier: VerifiedTier }
+      >();
       if (userIds.length > 0) {
         const { data: profileRows, error: profileError } = await supabase
           .from("profiles")
-          .select("user_id, username, display_name, avatar_url")
+          .select("user_id, username, display_name, avatar_url, verified_tier")
           .in("user_id", userIds);
         if (profileError) {
           console.error("[social/reviews] Falha ao buscar autores das reviews", describeSupabaseError(profileError));
         } else {
           for (const p of profileRows ?? []) {
-            profilesById.set(p.user_id, { username: p.username, displayName: p.display_name, avatarUrl: p.avatar_url });
+            profilesById.set(p.user_id, {
+              username: p.username,
+              displayName: p.display_name,
+              avatarUrl: p.avatar_url,
+              verifiedTier: (p.verified_tier as VerifiedTier) ?? null,
+            });
           }
         }
       }
@@ -150,7 +159,12 @@ export function useReviews(target: MediaTarget) {
         watchedPlatform: null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
-        author: profilesById.get(row.user_id) ?? { username: "usuário", displayName: null, avatarUrl: null },
+        author: profilesById.get(row.user_id) ?? {
+          username: "usuário",
+          displayName: null,
+          avatarUrl: null,
+          verifiedTier: null,
+        },
       }));
     },
   });
@@ -202,7 +216,7 @@ export function useMyReview(target: MediaTarget) {
         watchedPlatform: data.watched_platform,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
-        author: { username: "", displayName: null, avatarUrl: null },
+        author: { username: "", displayName: null, avatarUrl: null, verifiedTier: null },
       };
     },
   });

@@ -7,6 +7,7 @@ import { useHasLiked, useLikeCount, useToggleLike } from "@/lib/queries/social/l
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 
 interface CommentNode extends PostComment {
   children: CommentNode[];
@@ -43,7 +44,9 @@ export function PostCommentItem({
     <div className={depth > 0 ? "ml-6 border-l border-border pl-3" : ""}>
       <div className="py-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-text">{comment.authorName}</p>
+          <p className="text-xs font-semibold text-text">
+            {comment.authorName} <VerifiedBadge tier={comment.authorVerifiedTier} />
+          </p>
           <p className="text-xs text-muted">{dateFormatter.format(new Date(comment.createdAt))}</p>
         </div>
         <p className="mt-0.5 text-sm text-text">{comment.body}</p>

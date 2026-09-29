@@ -8,6 +8,7 @@ import { SpoilerGate } from "@/components/reviews/SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
 import { Text, Button, Glass } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -155,7 +156,10 @@ export function EpisodeCommentItem({
             <Pressable style={styles.authorTouch} onPress={() => router.push(`/u/${comment.author.username}`)}>
               <Avatar uri={comment.author.avatarUrl} name={displayName} style={styles.avatar} textStyle={styles.avatarInitials} />
               <View style={styles.metaCol}>
-                <Text style={styles.authorName}>{displayName}</Text>
+                <View style={styles.nameRow}>
+                  <Text style={styles.authorName}>{displayName}</Text>
+                  <VerifiedBadge tier={comment.author.verifiedTier} size={fontSize.md} />
+                </View>
                 <Text variant="muted" style={styles.date}>
                   {dateFormatter.format(new Date(comment.createdAt))}
                 </Text>
@@ -333,6 +337,10 @@ const styles = StyleSheet.create({
   },
   // A PEDIDO (mockup "Opção B", 2026-09-25) — xs(12) → 16.
   // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.md` (era literal 16, mesmo valor).
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   authorName: {
     fontSize: fontSize.md,
     fontWeight: "700",

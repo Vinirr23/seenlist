@@ -257,7 +257,7 @@ export default function EpisodeDetailScreen() {
       favoriteCharacterId: null,
       favoriteCharacterName: null,
       createdAt: new Date().toISOString(),
-      author: { username: "", displayName: null, avatarUrl: null },
+      author: { username: "", displayName: null, avatarUrl: null, verifiedTier: null },
     };
   }
 

@@ -10,6 +10,7 @@ import { tmdbImageUrl } from "@/lib/library";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Text, Button, Glass } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { LikeButton } from "./LikeButton";
 import { CommentCount } from "./CommentCount";
@@ -176,9 +177,12 @@ export function PostCard({
         >
           <Avatar uri={post.authorAvatarUrl} name={post.authorName} style={styles.avatar} textStyle={styles.avatarInitials} />
           <View style={styles.headerText}>
-            <Text numberOfLines={1} style={styles.authorName}>
-              {post.authorName}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text numberOfLines={1} style={styles.authorName}>
+                {post.authorName}
+              </Text>
+              <VerifiedBadge tier={post.authorVerifiedTier} size={fontSize.sm} />
+            </View>
             <Text numberOfLines={1} variant="muted" style={styles.meta}>
               @{post.authorUsername} · {formatRelativeTime(post.createdAt, now, locale, t("feed.justNow")) ?? dateFormatter.format(new Date(post.createdAt))}
             </Text>
@@ -311,7 +315,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   authorName: {
+    flexShrink: 1,
     fontSize: fontSize.sm,
     fontWeight: "700",
     color: colors.text,

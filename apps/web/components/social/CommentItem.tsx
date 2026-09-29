@@ -8,6 +8,7 @@ import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "./LikeButton";
 import { CommentComposer } from "./CommentComposer";
@@ -124,6 +125,7 @@ export function CommentItem({
               textClassName="text-[8px]"
             />
             <span className="font-medium text-text">{comment.author.displayName ?? comment.author.username}</span>
+            <VerifiedBadge tier={comment.author.verifiedTier} />
             <span>{dateFormatter.format(new Date(comment.createdAt))}</span>
           </Link>
           <div className="mt-1">

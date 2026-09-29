@@ -9,6 +9,7 @@ import { useFollowCounts } from "@/lib/queries/public-profile";
 import { useSocialCounts } from "@/lib/queries/social-counts";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { NotificationBell } from "./NotificationBell";
 import { ProfileMoreSheet } from "./ProfileMoreSheet";
 
@@ -174,7 +175,9 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
                 <Avatar src={user.avatarUrl} name={user.name} className="h-full w-full bg-surface" textClassName="text-lg" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-lg font-bold text-text">{user.name}</p>
+                <p className="truncate text-lg font-bold text-text">
+                  {user.name} <VerifiedBadge tier={user.verifiedTier} />
+                </p>
                 {/*
                   * A PEDIDO (2026-09-16 — "remove @seenlistapp em baixo de
                   * 'seenlist' e substitui por um botão 'editar'"). O
@@ -231,7 +234,9 @@ export function ProfileHeader({ user }: { user: CurrentUser }) {
       {!profile?.bannerUrl && (() => {
         const nameBlockContent = (
           <>
-            <p className="truncate text-lg font-bold text-text">{user.name}</p>
+            <p className="truncate text-lg font-bold text-text">
+              {user.name} <VerifiedBadge tier={user.verifiedTier} />
+            </p>
             {/* Ver comentário completo no bloco COM capa, acima — mesma pílula em vidro no lugar do "@username". */}
             <Link
               href="/profile/edit"

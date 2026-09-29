@@ -27,7 +27,7 @@ export function useUserSearch(query: string) {
 
       let profilesQuery = supabase
         .from("profiles")
-        .select("user_id, username, display_name, avatar_url")
+        .select("user_id, username, display_name, avatar_url, verified_tier")
         .order("created_at", { ascending: false })
         .limit(SUGGESTIONS_LIMIT);
 
@@ -60,6 +60,7 @@ export function useUserSearch(query: string) {
         username: p.username,
         displayName: p.display_name,
         avatarUrl: p.avatar_url,
+        verifiedTier: p.verified_tier as FollowListUser["verifiedTier"],
         followsViewer: followsViewerIds.has(p.user_id),
       }));
     },

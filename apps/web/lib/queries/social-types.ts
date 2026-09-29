@@ -1,5 +1,8 @@
 export type ProfileVisibility = "public" | "followers" | "private";
 
+/** Ver `components/common/VerifiedBadge.tsx` — selo exibido ao lado do nome. */
+export type VerifiedTier = "gold" | "blue" | null;
+
 export interface UserProfile {
   userId: string;
   username: string;
@@ -16,4 +19,5 @@ export interface UserProfile {
   favoritesVisibility: ProfileVisibility;
   libraryVisibility: ProfileVisibility;
   createdAt: string;
+  verifiedTier: VerifiedTier;
 }

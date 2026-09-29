@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
+import type { VerifiedTier } from "./social-types";
 
 export interface PostComment {
   id: string;
@@ -10,6 +11,7 @@ export interface PostComment {
   authorName: string;
   authorUsername: string;
   authorAvatarUrl: string | null;
+  authorVerifiedTier: VerifiedTier;
   body: string;
   createdAt: string;
 }
@@ -91,7 +93,10 @@ export function usePostComments(postId: string) {
 
       const userIds = [...new Set((rows ?? []).map((r) => r.user_id))];
       const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("user_id, username, display_name, avatar_url").in("user_id", userIds)
+        ? await supabase
+            .from("profiles")
+            .select("user_id, username, display_name, avatar_url, verified_tier")
+            .in("user_id", userIds)
         : { data: [] };
       const profileById = new Map((profiles ?? []).map((p) => [p.user_id, p]));
 
@@ -107,6 +112,7 @@ export function usePostComments(postId: string) {
             authorName: profile.display_name || profile.username,
             authorUsername: profile.username,
             authorAvatarUrl: profile.avatar_url,
+            authorVerifiedTier: (profile.verified_tier as VerifiedTier) ?? null,
             body: row.body,
             createdAt: row.created_at,
           };

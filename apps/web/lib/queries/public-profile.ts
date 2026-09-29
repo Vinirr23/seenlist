@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
-import type { UserProfile, ProfileVisibility } from "./social-types";
+import type { UserProfile, ProfileVisibility, VerifiedTier } from "./social-types";
 import { STALE_TIME_PROFILE } from "@/lib/queryStaleTimes";
 
 interface ProfileRow {
@@ -19,6 +19,7 @@ interface ProfileRow {
   favorites_visibility: ProfileVisibility;
   library_visibility: ProfileVisibility;
   created_at: string;
+  verified_tier: VerifiedTier;
 }
 
 function fromRow(row: ProfileRow): UserProfile {
@@ -36,6 +37,7 @@ function fromRow(row: ProfileRow): UserProfile {
     favoritesVisibility: row.favorites_visibility,
     libraryVisibility: row.library_visibility,
     createdAt: row.created_at,
+    verifiedTier: row.verified_tier,
   };
 }
 

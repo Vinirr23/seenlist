@@ -3,12 +3,14 @@ import { createClient, getCurrentAuthUser } from "@/lib/supabase/client";
 import { describeSupabaseError } from "@/lib/supabase/describeError";
 import { useToast } from "@/lib/toast/ToastProvider";
 import type { MediaTarget } from "./types";
+import type { VerifiedTier } from "../social-types";
 
 export interface CommentAuthor {
   userId: string;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  verifiedTier: VerifiedTier;
 }
 
 export interface Comment {
@@ -130,7 +132,7 @@ export function useComments(target: MediaTarget, options?: { enabled?: boolean }
       if (userIds.length > 0) {
         const { data: profileRows, error: profileError } = await supabase
           .from("profiles")
-          .select("user_id, username, display_name, avatar_url")
+          .select("user_id, username, display_name, avatar_url, verified_tier")
           .in("user_id", userIds);
         if (profileError) {
           console.error("[social/comments] Falha ao buscar autores dos comentários", describeSupabaseError(profileError));
@@ -141,6 +143,7 @@ export function useComments(target: MediaTarget, options?: { enabled?: boolean }
               username: p.username,
               displayName: p.display_name,
               avatarUrl: p.avatar_url,
+              verifiedTier: (p.verified_tier as VerifiedTier) ?? null,
             });
           }
         }
@@ -159,6 +162,7 @@ export function useComments(target: MediaTarget, options?: { enabled?: boolean }
           username: "usuário",
           displayName: null,
           avatarUrl: null,
+          verifiedTier: null,
         },
       }));
     },

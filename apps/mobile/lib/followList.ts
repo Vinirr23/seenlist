@@ -1,10 +1,12 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
+import type { VerifiedTier } from "./publicProfile";
 
 export interface FollowListUser {
   userId: string;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  verifiedTier: VerifiedTier;
   /** Esse usuário segue quem está vendo a lista (mesma regra do web — "Segue você"). */
   followsViewer: boolean;
 }
@@ -32,7 +34,10 @@ export async function fetchFollowList(userId: string, direction: FollowDirection
   const otherIds = [...new Set((relations ?? []).map((r) => (r as Record<string, string>)[otherColumn]))];
   if (otherIds.length === 0) return [];
 
-  let query = supabase.from("profiles").select("user_id, username, display_name, avatar_url").in("user_id", otherIds);
+  let query = supabase
+    .from("profiles")
+    .select("user_id, username, display_name, avatar_url, verified_tier")
+    .in("user_id", otherIds);
   const trimmedSearch = search.trim();
   if (trimmedSearch) {
     query = query.or(`username.ilike.%${trimmedSearch}%,display_name.ilike.%${trimmedSearch}%`);
@@ -53,6 +58,7 @@ export async function fetchFollowList(userId: string, direction: FollowDirection
     username: p.username,
     displayName: p.display_name,
     avatarUrl: p.avatar_url,
+    verifiedTier: (p.verified_tier as VerifiedTier) ?? null,
     followsViewer: followsViewerIds.has(p.user_id),
   }));
 }

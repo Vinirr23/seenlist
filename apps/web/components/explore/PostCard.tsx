@@ -22,6 +22,7 @@ import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { useNow } from "@/lib/useNow";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 
 /**
  * TASK-059 (fase 4) — salvar e denunciar, reaproveitando as duas
@@ -175,7 +176,9 @@ export function PostCard({
           {/* BUG REAL CORRIGIDO (2026-08-27, ver comentário completo em `components/common/Avatar.tsx`) — foto quebrada agora cai pras iniciais. */}
           <Avatar src={post.authorAvatarUrl} name={post.authorName} className="h-9 w-9 bg-background" textClassName="text-xs" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-text">{post.authorName}</p>
+            <p className="truncate text-sm font-semibold text-text">
+              {post.authorName} <VerifiedBadge tier={post.authorVerifiedTier} />
+            </p>
             <p className="truncate text-xs text-muted">
               @{post.authorUsername} · {formatRelativeTime(post.createdAt, now, locale, t("feed.justNow")) ?? dateFormatter.format(new Date(post.createdAt))}
             </p>

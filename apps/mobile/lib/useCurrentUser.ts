@@ -5,7 +5,15 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchCurrentUser, type CurrentUser } from "./currentUser";
 import { fetchSocialCounts, type SocialCounts } from "./socialCounts";
 
-const CURRENT_USER_CACHE_VERSION = 1;
+/**
+ * A PEDIDO (2026-09-29, "selo de verificação") — `v1` → `v2`: o cache
+ * salvo em disco não tem `verifiedTier` (campo novo em `CurrentUser`),
+ * então sem esse bump a própria badge do usuário no perfil dele podia
+ * não aparecer até um refetch "frio" acontecer por acaso. O bump
+ * força exatamente um refetch por dispositivo; chaves antigas (`v1:*`)
+ * simplesmente ficam obsoletas e não são mais lidas.
+ */
+const CURRENT_USER_CACHE_VERSION = 2;
 
 function currentUserCacheKeyFor(userId: string): string {
   return `seenlist:profile:current-user:v${CURRENT_USER_CACHE_VERSION}:${userId}`;
