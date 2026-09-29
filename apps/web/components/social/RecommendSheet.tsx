@@ -10,6 +10,7 @@ import { hapticTick } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useDialogAnimation } from "@/lib/useDialogAnimation";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { cn } from "@seenlist/utils";
 
 const MAX_MESSAGE_LENGTH = 200;
@@ -156,7 +157,10 @@ export function RecommendSheet({
                  */}
                 <Avatar src={person.avatarUrl} name={personName} className="h-9 w-9 bg-white/10" textClassName="text-xs" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-text">{personName}</p>
+                  <p className="flex items-center gap-1 truncate text-sm font-medium text-text">
+                    <span className="truncate">{personName}</span>
+                    <VerifiedBadge tier={person.verifiedTier} className="shrink-0" />
+                  </p>
                   <p className="truncate text-xs text-muted">@{person.username}</p>
                 </div>
                 <div

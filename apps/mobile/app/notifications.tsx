@@ -12,6 +12,7 @@ import {
 import { tmdbImageUrl } from "@/lib/library";
 import { Screen, Text, Skeleton, GlassTargetProvider, AmbientGlow, Glass, ScreenHeader } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, tint, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -52,6 +53,23 @@ function getNotificationMessage(n: AppNotification, t: (key: string, vars?: Reco
     case "new_feedback":
       return t("notifications.newFeedback", { message: n.message ?? "" });
   }
+}
+
+/**
+ * A PEDIDO (2026-09-29 — "não aparece o selo na lista do sininho") —
+ * porte fiel de `splitMessageAroundName` do web (`NotificationsView.tsx`,
+ * mesmo comentário completo lá): o nome do ator fica embutido no MEIO
+ * da frase traduzida, então acha o texto do nome já pronto dentro da
+ * frase, em vez de reimplementar a interpolação. `<Text>` do React
+ * Native aceita `<Image>` (o que `VerifiedBadge` renderiza) como filho
+ * inline — documentado, funciona igual a texto+ícone dentro da mesma
+ * linha.
+ */
+function splitMessageAroundName(message: string, name: string): { before: string; after: string } | null {
+  if (!name) return null;
+  const index = message.indexOf(name);
+  if (index === -1) return null;
+  return { before: message.slice(0, index), after: message.slice(index + name.length) };
 }
 
 /**
@@ -144,6 +162,8 @@ export default function NotificationsScreen() {
             ListEmptyComponent={<EmptyState message={t("notifications.empty")} />}
             renderItem={({ item: n }) => {
               const message = getNotificationMessage(n, t);
+              const actorName = n.actor?.displayName ?? (n.actor ? `@${n.actor.username}` : "");
+              const split = n.actor?.verifiedTier ? splitMessageAroundName(message, actorName) : null;
               return (
                 <Pressable onPress={() => handleOpen(n)}>
                   <Glass style={[styles.card, !n.readAt && styles.cardUnread]}>
@@ -159,7 +179,18 @@ export default function NotificationsScreen() {
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.message}>{message}</Text>
+                      <Text style={styles.message}>
+                        {split ? (
+                          <>
+                            {split.before}
+                            {actorName}
+                            <VerifiedBadge tier={n.actor!.verifiedTier} size={13} />
+                            {split.after}
+                          </>
+                        ) : (
+                          message
+                        )}
+                      </Text>
                       <Text variant="muted" style={styles.date}>
                         {dateFormatter.format(new Date(n.createdAt))}
                       </Text>

@@ -27,7 +27,7 @@ export type NotificationType =
 export interface AppNotification {
   id: string;
   type: NotificationType;
-  actor: { userId: string; username: string; displayName: string | null; avatarUrl: string | null } | null;
+  actor: { userId: string; username: string; displayName: string | null; avatarUrl: string | null; verifiedTier: "gold" | "blue" | null } | null;
   /**
    * A PEDIDO (2026-09-29 — "curti um post mas não recebi
    * notificação") — causa raiz: curtida em POST nunca tinha tipo de
@@ -65,8 +65,16 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
   const actorIds = [...new Set(rows.map((r) => r.actor_id).filter((id): id is string => Boolean(id)))];
   const { data: profiles } =
     actorIds.length > 0
-      ? await supabase.from("profiles").select("user_id, username, display_name, avatar_url").in("user_id", actorIds)
-      : { data: [] as { user_id: string; username: string; display_name: string | null; avatar_url: string | null }[] };
+      ? await supabase.from("profiles").select("user_id, username, display_name, avatar_url, verified_tier").in("user_id", actorIds)
+      : {
+          data: [] as {
+            user_id: string;
+            username: string;
+            display_name: string | null;
+            avatar_url: string | null;
+            verified_tier: string | null;
+          }[],
+        };
   const profileById = new Map((profiles ?? []).map((p) => [p.user_id, p]));
 
   const movieIds = rows.filter((r) => r.target_media_type === "movie" && r.target_media_id != null).map((r) => r.target_media_id!);
@@ -87,7 +95,13 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
       id: row.id,
       type: row.type as NotificationType,
       actor: actor
-        ? { userId: actor.user_id, username: actor.username, displayName: actor.display_name, avatarUrl: actor.avatar_url }
+        ? {
+            userId: actor.user_id,
+            username: actor.username,
+            displayName: actor.display_name,
+            avatarUrl: actor.avatar_url,
+            verifiedTier: (actor.verified_tier as "gold" | "blue" | null) ?? null,
+          }
         : null,
       targetType: (row.target_type as AppNotification["targetType"]) ?? null,
       targetId: row.target_id ?? null,

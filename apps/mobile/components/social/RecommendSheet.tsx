@@ -8,6 +8,7 @@ import { fetchFollowList, type FollowListUser } from "@/lib/followList";
 import { sendRecommendation } from "@/lib/recommendations";
 import { hapticTick, hapticSuccess } from "@/lib/haptics";
 import { Text, Skeleton, Glass } from "@/components/ui";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { colors, radius, spacing, tint, scrim, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -151,9 +152,12 @@ export function RecommendSheet({
                       {item.avatarUrl && <Image source={{ uri: item.avatarUrl }} style={styles.avatarImage} />}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text numberOfLines={1} style={styles.personName}>
-                        {item.displayName ?? item.username}
-                      </Text>
+                      <View style={styles.nameRow}>
+                        <Text numberOfLines={1} style={styles.personName}>
+                          {item.displayName ?? item.username}
+                        </Text>
+                        <VerifiedBadge tier={item.verifiedTier} size={13} />
+                      </View>
                       <Text numberOfLines={1} variant="muted" style={styles.personUsername}>
                         @{item.username}
                       </Text>
@@ -225,10 +229,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   personRowSelected: { backgroundColor: tint.subtle },
+  nameRow: { flexDirection: "row", alignItems: "center", minWidth: 0 },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.background, overflow: "hidden" },
   avatarImage: { width: "100%", height: "100%" },
   // FASE 2 (consistência visual sistêmica, 2026-09-26) — tokens formalizados `fontSize.sm`/`fontSize.xs` (eram literais 14/12, mesmos valores).
-  personName: { fontSize: fontSize.sm, fontWeight: "500", color: colors.text },
+  personName: { fontSize: fontSize.sm, fontWeight: "500", color: colors.text, flexShrink: 1 },
   personUsername: { fontSize: fontSize.xs },
   radio: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.border },
   radioSelected: { borderColor: colors.primary, backgroundColor: colors.primary },

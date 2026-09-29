@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries/notifications";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { SectionPageHeader } from "./SectionPageHeader";
 import { EmptyState } from "../search/EmptyState";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -55,6 +56,26 @@ function getNotificationMessage(n: AppNotification, t: (key: string, vars?: Reco
     case "new_feedback":
       return t("notifications.newFeedback", { message: n.message ?? "" });
   }
+}
+
+/**
+ * A PEDIDO (2026-09-29 — "não aparece o selo na lista do sininho") —
+ * o nome do ator fica embutido no MEIO da frase traduzida (ex.: "{name}
+ * curtiu seu post"), então não dá pra só jogar o `<VerifiedBadge>` no
+ * fim do `<p>` — precisa entrar logo depois do nome, dentro da frase.
+ * Como o texto final já foi montado por `t()`, a forma confiável de
+ * achar "logo depois do nome" é procurar o próprio texto do nome
+ * dentro da frase pronta (em vez de re-implementar a interpolação) —
+ * funciona pra qualquer locale/ordem de palavra sem precisar de nenhum
+ * marcador extra na tradução. Tipos sem ator (`episode_new`,
+ * `feedback_reply`, `new_feedback`...) simplesmente não têm o nome pra
+ * achar — `null` faz o chamador cair no texto plano de sempre.
+ */
+function splitMessageAroundName(message: string, name: string): { before: string; after: string } | null {
+  if (!name) return null;
+  const index = message.indexOf(name);
+  if (index === -1) return null;
+  return { before: message.slice(0, index), after: message.slice(index + name.length) };
 }
 
 /**
@@ -131,6 +152,8 @@ export function NotificationsView() {
           {notifications.map((n) => {
             const href = getNotificationHref(n);
             const message = getNotificationMessage(n, t);
+            const actorName = n.actor?.displayName ?? (n.actor ? `@${n.actor.username}` : "");
+            const split = n.actor?.verifiedTier ? splitMessageAroundName(message, actorName) : null;
             const content = (
               <>
                 <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-background">
@@ -145,7 +168,18 @@ export function NotificationsView() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1 py-0.5">
-                  <p className="text-sm text-text">{message}</p>
+                  <p className="text-sm text-text">
+                    {split ? (
+                      <>
+                        {split.before}
+                        {actorName}
+                        <VerifiedBadge tier={n.actor!.verifiedTier} className="mx-0.5 align-[-0.05em]" />
+                        {split.after}
+                      </>
+                    ) : (
+                      message
+                    )}
+                  </p>
                   <p className="mt-0.5 text-xs text-muted">{dateFormatter.format(new Date(n.createdAt))}</p>
                 </div>
                 {!n.readAt && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />}
