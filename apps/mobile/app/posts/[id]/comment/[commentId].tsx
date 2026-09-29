@@ -7,10 +7,9 @@ import { usePostComments } from "@/lib/usePost";
 import { findCommentNode, type CommentNode } from "@/lib/postComments";
 import { PostCommentItem } from "@/components/feed/PostCommentItem";
 import { LikeButton } from "@/components/feed/LikeButton";
-import { Screen, Text, Button, GlassTargetProvider, Glass, AmbientGlow, ScreenHeader } from "@/components/ui";
+import { Screen, Text, Button, ScreenHeader } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
-import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
@@ -115,11 +114,11 @@ export default function PostCommentDetailScreen() {
       <ScreenHeader title={t("social.commentSingularTitle")} />
 
       {/*
-        * PORTE DO WEB (2026-09-04, "vidro que falta") — mesmo campo de
-        * manchas das sub-telas de comentário (ver `lib/glowBlobs.ts`),
-        * igual à tela equivalente de Episódio.
+        * A PEDIDO (2026-09-29, "responder um comentário, abre uma tela
+        * com glass e etc... deixa igual o resto de feed") — tirado o
+        * `GlassTargetProvider`+`AmbientGlow` (manchas de fundo) inteiro;
+        * a tela agora é flat igual o resto do Feed já redesenhado.
         */}
-      <GlassTargetProvider style={styles.flex} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
         {isLoading ? (
@@ -130,7 +129,12 @@ export default function PostCommentDetailScreen() {
           </Text>
         ) : (
           <>
-            <Glass style={styles.composerArea}>
+            {/*
+              * A PEDIDO (2026-09-29, "tira o vidro, deixa igual o resto
+              * do feed") — era `<Glass>`; virou `View` simples, mesmo
+              * padrão do composer de `PostCommentsSection.tsx`.
+              */}
+            <View style={styles.composerArea}>
               <TextInput
                 value={body}
                 onChangeText={setBody}
@@ -144,10 +148,16 @@ export default function PostCommentDetailScreen() {
                   <Text style={styles.sendButtonText}>{t("common.send")}</Text>
                 </Pressable>
               </View>
-            </Glass>
+            </View>
 
-            {/* PORTE DO WEB (2026-09-04) — o comentário em destaque vira cartão de vidro, igual ao comentário-raiz de `PostCommentItem`/`EpisodeCommentItem`. */}
-            <Glass style={styles.commentCard}>
+            {/*
+              * A PEDIDO (2026-09-29, "tira o vidro, deixa igual o resto
+              * do feed") — era `<Glass>` (cartão de vidro, mesmo critério
+              * do comentário-raiz de `PostCommentItem`/
+              * `EpisodeCommentItem`); virou `View` simples, sem
+              * fundo/borda arredondada.
+              */}
+            <View style={styles.commentCard}>
               {editingTop ? (
                 <View>
                   <TextInput value={editTopBody} onChangeText={setEditTopBody} multiline autoFocus style={styles.editInput} />
@@ -164,14 +174,19 @@ export default function PostCommentDetailScreen() {
                 </View>
               ) : (
                 <>
+                  {/*
+                    * CORREÇÃO (2026-09-29, reportado com print comparando
+                    * com o Threads real — "horário/dia embaixo do nome,
+                    * no Threads é do lado do nome") — nome e data agora
+                    * ficam na mesma linha (dentro de `commentHeader`), em
+                    * vez de empilhados numa coluna (`metaCol`).
+                    */}
                   <Pressable style={styles.commentHeader} onPress={() => router.push(`/u/${comment.authorUsername}`)}>
                     <Avatar uri={comment.authorAvatarUrl} name={comment.authorName} style={styles.avatar} textStyle={styles.avatarInitials} />
-                    <View style={styles.metaCol}>
-                      <Text style={styles.authorName}>{comment.authorName}</Text>
-                      <Text variant="muted" style={styles.date}>
-                        {dateFormatter.format(new Date(comment.createdAt))}
-                      </Text>
-                    </View>
+                    <Text style={styles.authorName}>{comment.authorName}</Text>
+                    <Text variant="muted" style={styles.date}>
+                      {dateFormatter.format(new Date(comment.createdAt))}
+                    </Text>
                   </Pressable>
                   <Text style={styles.body}>{comment.body}</Text>
                   {/* A PEDIDO (mockup 2026-09-25, "bem melhor, pode aplicar") — linha fina separando o texto das ações, igual à referência. */}
@@ -206,7 +221,7 @@ export default function PostCommentDetailScreen() {
                   </View>
                 </>
               )}
-            </Glass>
+            </View>
 
             <View style={styles.repliesArea}>
               {comment.children.length === 0 ? (
@@ -223,7 +238,6 @@ export default function PostCommentDetailScreen() {
         )}
         </ScrollView>
       </KeyboardAvoidingView>
-      </GlassTargetProvider>
     </Screen>
   );
 }
@@ -243,20 +257,23 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: spacing.md,
   },
-  // Mesmo raio (`radius.lg`) do card equivalente de Episódio — `Glass`
-  // não define raio sozinho, precisa ficar aqui.
+  // A PEDIDO (2026-09-29, "tira o vidro, deixa como o resto do feed") —
+  // sem fundo/borda arredondada (era `Glass`); linha fina embaixo
+  // separando o comentário em destaque das respostas, mesma receita do
+  // resto do Feed.
   commentCard: {
-    borderRadius: radius.lg,
-    padding: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
+  // CORREÇÃO (2026-09-29, "horário do lado do nome, igual Threads") —
+  // nome+data agora ficam juntos, na mesma linha do avatar (era
+  // `alignItems: "flex-start"` + uma coluna `metaCol` empilhada ao
+  // lado; sem essa coluna, "center" alinha tudo no meio do avatar).
   commentHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.xs,
-  },
-  metaCol: {
-    flexDirection: "column",
-    gap: 1,
   },
   avatar: {
     width: AVATAR_SIZE,
@@ -274,12 +291,17 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   authorName: {
+    flexShrink: 1,
     fontSize: fontSize.md,
     fontWeight: "700",
     color: colors.text,
   },
   date: {
     // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xsPlus` (era literal 13, mesmo valor).
+    // CORREÇÃO (2026-09-29, "horário do lado do nome") — agora mora
+    // dentro de `commentHeader`; `flexShrink: 0` pra nunca ser
+    // espremido (o nome cede espaço primeiro).
+    flexShrink: 0,
     fontSize: fontSize.xsPlus,
   },
   body: {
@@ -356,16 +378,21 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
   },
-  // Mesma conversão do composer de `PostCommentsSection.tsx` — vira o
-  // primeiro elemento da tela (era o último).
+  // A PEDIDO (2026-09-29, "tira o vidro, deixa como o resto do feed") —
+  // sem fundo/borda arredondada (era `Glass`); o `input` abaixo ganhou
+  // sua própria borda sólida, mesmo critério do composer de
+  // `PostCommentsSection.tsx`.
   composerArea: {
     marginBottom: spacing.md,
-    borderRadius: radius.lg,
-    padding: spacing.sm,
     gap: spacing.xs,
   },
   input: {
     minHeight: 60,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing.sm,
     fontSize: fontSize.sm,
     color: colors.text,
     textAlignVertical: "top",

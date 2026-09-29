@@ -22,7 +22,6 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useNow } from "@/lib/useNow";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
-import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const SITE_URL = "https://seenlist.app";
@@ -72,12 +71,6 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
   const isOwner = session?.user.id === post.userId;
   const { t, locale } = useTranslation();
   const now = useNow(30_000);
-  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -199,15 +192,24 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
         >
           <Avatar uri={post.authorAvatarUrl} name={post.authorName} style={styles.avatar} textStyle={styles.avatarInitials} />
           <View style={styles.headerText}>
+            {/*
+              * CORREÇÃO (2026-09-29, reportado com print comparando com o
+              * Threads real — "você colocou horário/dia embaixo do
+              * nome, no Threads é do lado do nome") — antes o horário
+              * era uma 2ª linha, embaixo de `nameRow`; agora entra DENTRO
+              * de `nameRow`, na mesma linha do nome+selo, igual à
+              * referência. O `@authorUsername` continua fora (já tirado
+              * antes) — o toque no header inteiro leva pro perfil.
+              */}
             <View style={styles.nameRow}>
               <Text numberOfLines={1} style={styles.authorName}>
                 {post.authorName}
               </Text>
               <VerifiedBadge tier={post.authorVerifiedTier} size={fontSize.sm} />
+              <Text numberOfLines={1} variant="muted" style={styles.meta}>
+                {formatRelativeTime(post.createdAt, now, locale, t("feed.justNow"))}
+              </Text>
             </View>
-            <Text numberOfLines={1} variant="muted" style={styles.meta}>
-              @{post.authorUsername} · {formatRelativeTime(post.createdAt, now, locale, t("feed.justNow")) ?? dateFormatter.format(new Date(post.createdAt))}
-            </Text>
           </View>
         </Pressable>
 
@@ -368,6 +370,7 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.xs,
   },
   authorName: {
     flexShrink: 1,
@@ -376,7 +379,12 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+  // CORREÇÃO (2026-09-29, "horário do lado do nome, igual Threads") —
+  // agora mora dentro de `nameRow` (mesma linha do nome); `flexShrink: 0`
+  // pra nunca ser espremido antes do nome truncar primeiro (`authorName`
+  // já tem `flexShrink: 1` de propósito, pra ser o único a ceder espaço).
   meta: {
+    flexShrink: 0,
     fontSize: fontSize.xxs,
   },
   // A PEDIDO (2026-09-29, "feed igual Threads") — sem caixa/fundo ao redor, só a linha (poster + info) dentro do corpo do post.

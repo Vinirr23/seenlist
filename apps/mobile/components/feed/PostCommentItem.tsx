@@ -130,11 +130,17 @@ export function PostCommentItem({
           <View style={styles.headerRow}>
             <Pressable style={styles.authorTouch} onPress={() => router.push(`/u/${comment.authorUsername}`)}>
               <Avatar uri={comment.authorAvatarUrl} name={comment.authorName} style={styles.avatar} textStyle={styles.avatarInitials} />
-              <View style={styles.metaCol}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.authorName}>{comment.authorName}</Text>
-                  <VerifiedBadge tier={comment.authorVerifiedTier} size={fontSize.md} />
-                </View>
+              {/*
+                * CORREÇÃO (2026-09-29, reportado com print comparando com
+                * o Threads real — "você colocou horário/dia embaixo do
+                * nome, no Threads é do lado do nome") — a data era uma 2ª
+                * linha dentro de `metaCol` (coluna), embaixo de
+                * `nameRow`; agora entra DENTRO de `nameRow`, na mesma
+                * linha do nome+selo, igual à referência.
+                */}
+              <View style={styles.nameRow}>
+                <Text style={styles.authorName}>{comment.authorName}</Text>
+                <VerifiedBadge tier={comment.authorVerifiedTier} size={fontSize.md} />
                 <Text variant="muted" style={styles.date}>
                   {dateFormatter.format(new Date(comment.createdAt))}
                 </Text>
@@ -225,13 +231,13 @@ const styles = StyleSheet.create({
   },
   authorTouch: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    // CORREÇÃO (2026-09-29, "horário do lado do nome") — era
+    // "flex-start" (fazia sentido quando nome+data eram 2 linhas, pra
+    // alinhar o avatar com o topo do bloco); com nome+selo+data agora
+    // numa linha só, "center" alinha o avatar com o meio do texto.
+    alignItems: "center",
     gap: spacing.xs,
     flexShrink: 1,
-  },
-  metaCol: {
-    flexDirection: "column",
-    gap: 1,
   },
   avatar: {
     width: AVATAR_SIZE,
@@ -251,14 +257,21 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.xs,
+    flexShrink: 1,
   },
   authorName: {
+    flexShrink: 1,
     fontSize: fontSize.md,
     fontWeight: "700",
     color: colors.text,
   },
   date: {
     // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xsPlus` (era literal 13, mesmo valor).
+    // CORREÇÃO (2026-09-29, "horário do lado do nome, igual Threads") —
+    // agora mora dentro de `nameRow`; `flexShrink: 0` pra nunca ser
+    // espremido (o nome cede espaço primeiro).
+    flexShrink: 0,
     fontSize: fontSize.xsPlus,
   },
   body: {

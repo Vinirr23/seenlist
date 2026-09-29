@@ -25,24 +25,44 @@ import type { Locale } from "./i18n/translations";
  * — nunca mais tem risco de faltar suporte no motor JS, em nenhum
  * aparelho, banda de ICU incluída ou não.
  *
- * Retorna `null` quando o post é antigo o suficiente (7+ dias) — o
- * chamador cai pra formatação de data absoluta que já existia antes.
+ * ATUALIZADO (2026-09-29, "pra posts mais antigos, hoje aparece a data
+ * completa, deixa só tipo: 1 d, 2 d e etc") — antes retornava `null`
+ * a partir de 7 dias, e quem chamava (`PostCard.tsx`) caía pra data
+ * absoluta (`Intl.DateTimeFormat`). Agora nunca mais retorna `null`:
+ * continua em dias até 29, depois semana ("N sem") até 29 dias-de-mês,
+ * depois mês ("N mês(es)") — sem limite superior, igual ao raciocínio
+ * já usado em `formatStaleSince` abaixo (que continua intocada — é
+ * função separada, com propósito e calibração próprios, não deve ser
+ * reaproveitada aqui).
  */
-const LABELS: Record<Locale, { minute: (n: number) => string; hour: (n: number) => string; day: (n: number) => string }> = {
+/**
+ * A PEDIDO (2026-09-29, "deixa igual o Threads" — tirar o "há"/"ago" e
+ * deixar só número + unidade curta, tipo "2 h", "23 h") — formato
+ * compacto, sem palavra de prefixo. `minute` continua por extenso
+ * ("min", não "m") pra não confundir com "mês"/"month"; hora e dia
+ * viram só a inicial.
+ */
+const LABELS: Record<Locale, { minute: (n: number) => string; hour: (n: number) => string; day: (n: number) => string; week: (n: number) => string; month: (n: number) => string }> = {
   "pt-BR": {
-    minute: (n) => `há ${n} min`,
-    hour: (n) => `há ${n} h`,
-    day: (n) => `há ${n} ${n === 1 ? "dia" : "dias"}`,
+    minute: (n) => `${n} min`,
+    hour: (n) => `${n} h`,
+    day: (n) => `${n} d`,
+    week: (n) => `${n} sem`,
+    month: (n) => `${n} ${n === 1 ? "mês" : "meses"}`,
   },
   en: {
-    minute: (n) => `${n}m ago`,
-    hour: (n) => `${n}h ago`,
-    day: (n) => `${n}d ago`,
+    minute: (n) => `${n} min`,
+    hour: (n) => `${n} h`,
+    day: (n) => `${n} d`,
+    week: (n) => `${n} w`,
+    month: (n) => `${n} mo`,
   },
   es: {
-    minute: (n) => `hace ${n} min`,
-    hour: (n) => `hace ${n} h`,
-    day: (n) => `hace ${n} ${n === 1 ? "día" : "días"}`,
+    minute: (n) => `${n} min`,
+    hour: (n) => `${n} h`,
+    day: (n) => `${n} d`,
+    week: (n) => `${n} sem`,
+    month: (n) => `${n} ${n === 1 ? "mes" : "meses"}`,
   },
 };
 
@@ -93,7 +113,7 @@ export function formatStaleSince(dateIso: string, now: number, locale: Locale): 
   return labels.month(Math.max(1, Math.round(diffDays / 30)));
 }
 
-export function formatRelativeTime(dateIso: string, now: number, locale: Locale, justNowLabel: string): string | null {
+export function formatRelativeTime(dateIso: string, now: number, locale: Locale, justNowLabel: string): string {
   const diffMs = now - new Date(dateIso).getTime();
   const diffSeconds = Math.round(diffMs / 1000);
 
@@ -108,7 +128,11 @@ export function formatRelativeTime(dateIso: string, now: number, locale: Locale,
   if (diffHours < 24) return labels.hour(diffHours);
 
   const diffDays = Math.round(diffHours / 24);
-  if (diffDays < 7) return labels.day(diffDays);
+  if (diffDays < 30) {
+    if (diffDays < 7) return labels.day(diffDays);
+    return labels.week(Math.max(1, Math.round(diffDays / 7)));
+  }
 
-  return null;
+  const diffMonths = Math.max(1, Math.round(diffDays / 30));
+  return labels.month(diffMonths);
 }
