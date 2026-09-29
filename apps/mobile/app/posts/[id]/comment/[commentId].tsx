@@ -12,7 +12,8 @@ import { Avatar } from "@/components/common/Avatar";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { useNow } from "@/lib/useNow";
+import { formatRelativeTime } from "@/lib/relativeTime";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
 /** Conta todas as respostas (em qualquer nível), igual ao helper de mesmo nome em `PostCommentItem.tsx`/`EpisodeCommentItem.tsx`. */
@@ -57,7 +58,13 @@ export default function PostCommentDetailScreen() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { session } = useAuth();
-  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
+  /**
+   * A PEDIDO (2026-09-29, "porque ainda tá '29 de set' ao invés de
+   * numero de dias? exemplo: 2 d") — era `Intl.DateTimeFormat` (data
+   * absoluta); mesmo `formatRelativeTime`/`useNow` já usado em
+   * `PostCard.tsx`/`PostCommentItem.tsx`.
+   */
+  const now = useNow(30_000);
   const { id: postId, commentId } = useLocalSearchParams<{ id: string; commentId: string }>();
   const { tree, isLoading, sending, submit, remove, edit } = usePostComments(String(postId));
   const [body, setBody] = useState("");
@@ -185,7 +192,7 @@ export default function PostCommentDetailScreen() {
                     <Avatar uri={comment.authorAvatarUrl} name={comment.authorName} style={styles.avatar} textStyle={styles.avatarInitials} />
                     <Text style={styles.authorName}>{comment.authorName}</Text>
                     <Text variant="muted" style={styles.date}>
-                      {dateFormatter.format(new Date(comment.createdAt))}
+                      {formatRelativeTime(comment.createdAt, now, locale, t("feed.justNow"))}
                     </Text>
                   </Pressable>
                   <Text style={styles.body}>{comment.body}</Text>

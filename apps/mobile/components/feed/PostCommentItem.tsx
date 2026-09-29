@@ -8,7 +8,8 @@ import { Text, Button } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { useNow } from "@/lib/useNow";
+import { formatRelativeTime } from "@/lib/relativeTime";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
@@ -51,7 +52,15 @@ export function PostCommentItem({
   const { session } = useAuth();
   const isOwn = session?.user.id === comment.userId;
   const { t, locale } = useTranslation();
-  const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
+  /**
+   * A PEDIDO (2026-09-29, "porque ainda tá '29 de set' ao invés de
+   * numero de dias? exemplo: 2 d" — confirmado, quer o mesmo formato
+   * relativo do Feed) — era `Intl.DateTimeFormat` (data absoluta,
+   * nunca tinha sido trocado quando o Feed ganhou `formatRelativeTime`,
+   * porque o pedido original era só "no feed"). Mesmo hook/função do
+   * `PostCard.tsx`.
+   */
+  const now = useNow(30_000);
 
   const [editing, setEditing] = useState(false);
   const [editBody, setEditBody] = useState(comment.body ?? "");
@@ -142,7 +151,7 @@ export function PostCommentItem({
                 <Text style={styles.authorName}>{comment.authorName}</Text>
                 <VerifiedBadge tier={comment.authorVerifiedTier} size={fontSize.md} />
                 <Text variant="muted" style={styles.date}>
-                  {dateFormatter.format(new Date(comment.createdAt))}
+                  {formatRelativeTime(comment.createdAt, now, locale, t("feed.justNow"))}
                 </Text>
               </View>
             </Pressable>
