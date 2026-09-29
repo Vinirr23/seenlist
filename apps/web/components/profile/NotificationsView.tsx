@@ -52,6 +52,8 @@ function getNotificationMessage(n: AppNotification, t: (key: string, vars?: Reco
       return t("notifications.feedbackReply");
     case "post_like":
       return t("notifications.postLike", { name });
+    case "new_feedback":
+      return t("notifications.newFeedback", { message: n.message ?? "" });
   }
 }
 

@@ -16,7 +16,8 @@ export type NotificationType =
   | "recommendation"
   | "new_follower"
   | "feedback_reply"
-  | "post_like";
+  | "post_like"
+  | "new_feedback";
 
 export interface AppNotification {
   id: string;
@@ -30,7 +31,7 @@ export interface AppNotification {
    * é `post_like` — os outros tipos continuam linkando por
    * mediaType/mediaId como sempre.
    */
-  targetType: "comment" | "review" | "post" | "post_comment" | "profile" | null;
+  targetType: "comment" | "review" | "post" | "post_comment" | "profile" | "user_feedback" | null;
   targetId: string | null;
   mediaType: "movie" | "series" | null;
   mediaId: number | null;
