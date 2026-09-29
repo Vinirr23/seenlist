@@ -32,23 +32,19 @@ export default function TabsLayout() {
         <Tabs.Screen name="series" options={{ title: t("nav.series") }} />
         <Tabs.Screen name="movies" options={{ title: t("nav.movies") }} />
         {/*
-         * DECISÃO DE PRODUTO (a pedido, com base em dado real do painel
-         * de observabilidade) — aba Feed descontinuada. Os números: 20
-         * follows entre 383 usuários, 3 posts em 7 dias,
-         * posts/comentários por usuário ativo em 0,0. Sem grafo social,
-         * o Feed é estruturalmente uma tela vazia — e era a maior fonte
-         * de bug do app (crash em produção, Realtime quebrado).
-         *
-         * REVERSÍVEL: a rota (`app/(tabs)/feed.tsx`) e todo o código
-         * continuam existindo — `href: null` só tira da barra. Voltar é
-         * trocar por `options={{ title: "Feed" }}` e devolver as duas
-         * entradas em ROUTE_ICON/ROUTE_LABEL_KEY do
-         * `components/layout/DockNavegacao.tsx`.
-         *
-         * O social que FUNCIONA continua: avaliações com texto (1.324,
-         * nota média 4,27), comentários de episódio, recomendar, seguir.
+         * REVERTIDO (a pedido, 2026-09-29) — Feed tinha sido
+         * descontinuado da barra em 2026-08-22 (dado real do painel de
+         * observabilidade: 20 follows entre 383 usuários, 3 posts em 7
+         * dias, 0,0 posts/comentários por usuário ativo — era também a
+         * maior fonte de bug do app) e depois religado como SUB-ABA
+         * dentro de Explorar (2026-09-28, `explore.tsx`). Agora volta a
+         * ser aba própria de novo, com ícone e posição dedicados no dock
+         * (ver `ROUTE_ICON`/`ROUTE_LABEL_KEY`/`ABAS` em
+         * `components/layout/DockNavegacao.tsx`) — a sub-aba dentro de
+         * Explorar foi removida junto, pra não duplicar o mesmo destino
+         * em dois lugares da navegação.
          */}
-        <Tabs.Screen name="feed" options={{ href: null }} />
+        <Tabs.Screen name="feed" options={{ title: t("nav.feed") }} />
         <Tabs.Screen name="explore" options={{ title: t("nav.explore") }} />
         <Tabs.Screen name="profile" options={{ title: t("nav.profile") }} />
       </Tabs>

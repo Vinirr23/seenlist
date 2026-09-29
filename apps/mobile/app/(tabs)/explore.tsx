@@ -10,7 +10,6 @@ import { ExploreTabs, type ExploreTab } from "@/components/explore/ExploreTabs";
 import { ExploreMoviesTab } from "@/components/explore/ExploreMoviesTab";
 import { ExploreSeriesTab } from "@/components/explore/ExploreSeriesTab";
 import { ActivityFeedRow } from "@/components/explore/ActivityFeedRow";
-import { FeedTabContent } from "@/components/explore/FeedTabContent";
 import { useActivityFeed } from "@/lib/useActivityFeed";
 import { spacing } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
@@ -129,20 +128,20 @@ export default function ExploreScreen() {
             </View>
 
             {/*
-              * A PEDIDO (2026-09-28, "quero religar a aba feed... vai
-              * ficar como uma sub aba dentro de explorar") — mesmo
-              * padrão de montagem persistente das outras sub-abas
-              * (`subAbasVisitadas`, comentário acima): monta na 1ª
-              * visita, nunca desmonta de novo, só esconde com
-              * `display: "none"`. `FeedTabContent` é o mesmo componente
-              * usado pela rota solta `/feed` (ver aquele arquivo) — sem
-              * duplicar a lógica de posts/curtida/Realtime.
+              * REMOVIDO (a pedido, 2026-09-29 — "tirar feed de explorar
+              * e colocar na barra de navegação msm") — o Feed tinha
+              * virado sub-aba daqui em 2026-09-28; um dia depois, voltou
+              * a ser aba própria no dock (ver `ROUTE_ICON`/`ABAS` em
+              * `components/layout/DockNavegacao.tsx` e o `Tabs.Screen`
+              * em `app/(tabs)/_layout.tsx`). Mantendo o sub-aba aqui
+              * também deixaria o mesmo destino acessível por dois
+              * caminhos diferentes na navegação — removido pra não
+              * duplicar. O componente que servia essa sub-aba
+              * (`components/explore/FeedTabContent.tsx`, extraído
+              * exatamente pra isso) foi apagado junto — sem uso nenhum
+              * depois desta remoção; a aba `/feed` própria usa sua
+              * própria implementação, em `app/(tabs)/feed.tsx`.
               */}
-            {subAbasVisitadas.has("feed") && (
-              <View key="sub-aba-feed" style={[styles.flexFill, tab === "feed" ? undefined : styles.subAbaEscondida]}>
-                <FeedTabContent />
-              </View>
-            )}
             {subAbasVisitadas.has("activity") && (
               <View
                 key="sub-aba-activity"

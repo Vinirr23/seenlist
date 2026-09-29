@@ -7,17 +7,16 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 // versão RN de `apps/web/components/explore/ExploreTabs.tsx`: a
 // antiga aba única "Descobrir" (misturava séries e filmes) virou 3
 // abas dedicadas, mesma mudança já feita no web em 2026-08-21.
-export type ExploreTab = "feed" | "movies" | "series" | "activity";
+export type ExploreTab = "movies" | "series" | "activity";
 
 /**
- * A PEDIDO (2026-09-28, "quero religar a aba feed... vai ficar como uma
- * sub aba dentro de explorar, ficando assim: feed, filmes, séries e
- * atividade") — "feed" entrou como 1ª sub-aba, na ordem pedida. Mesmo
- * padrão visual das outras 3 (pílula própria, gel âmbar quando ativa) —
- * ver `FeedTabContent.tsx` pro conteúdo.
+ * REMOVIDO (a pedido, 2026-09-29 — "tirar feed de explorar e colocar na
+ * barra de navegação msm") — "feed" tinha entrado como 1ª sub-aba em
+ * 2026-09-28; virou aba própria no dock principal um dia depois (ver
+ * `components/layout/DockNavegacao.tsx`), então saiu daqui pra não
+ * duplicar o mesmo destino em dois lugares da navegação.
  */
 const TABS: { key: ExploreTab; labelKey: string }[] = [
-  { key: "feed", labelKey: "explore.tab.feed" },
   { key: "movies", labelKey: "explore.tab.movies" },
   { key: "series", labelKey: "explore.tab.series" },
   { key: "activity", labelKey: "explore.tab.activity" },

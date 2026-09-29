@@ -41,7 +41,7 @@ const GLOW_IMAGE = require("../../assets/images/glow-soft.png");
  * mapas passa a ser erro de compilação, em vez de aba sem rótulo
  * descoberta só no aparelho.
  */
-type TabRouteName = "series" | "movies" | "explore" | "profile";
+type TabRouteName = "series" | "movies" | "feed" | "explore" | "profile";
 
 /**
  * CORREÇÃO (2026-09-09, comparado ícone a ícone com o print do web — "a
@@ -74,6 +74,13 @@ type TabIcon =
 const ROUTE_ICON: Record<TabRouteName, TabIcon> = {
   series: { family: "feather", name: "tv" },
   movies: { family: "material", name: "movie-open-outline" },
+  // REVERTIDO (a pedido, 2026-09-29 — ver comentário em `ABAS`, abaixo)
+  // — Feed volta a ter ícone próprio no dock. `message-circle` (Feather)
+  // em vez de algo tipo "rss": o Feed aqui é posts/curtida/comentário
+  // entre pessoas que você segue (social), não assinatura de conteúdo —
+  // balão de conversa é o desenho mais próximo disso no próprio pacote
+  // já usado pelas outras abas.
+  feed: { family: "feather", name: "message-circle" },
   explore: { family: "feather", name: "compass" },
   profile: { family: "feather", name: "user" },
 };
@@ -93,6 +100,7 @@ function TabIconView({ icon, color, size }: { icon: TabIcon; color: string; size
 const ROUTE_LABEL_KEY: Record<TabRouteName, string> = {
   series: "nav.series",
   movies: "nav.movies",
+  feed: "nav.feed",
   explore: "nav.explore",
   profile: "nav.profile",
 };
@@ -100,11 +108,29 @@ const ROUTE_LABEL_KEY: Record<TabRouteName, string> = {
 /**
  * A ORDEM DAS ABAS, explícita. Antes ela vinha do `state.routes` do
  * navegador; agora a barra é renderizada FORA dele (ver `RootLayout`,
- * em `app/_layout.tsx`) e a lista precisa existir aqui. É a mesma ordem do
- * `tabs` do web (`lib/navigation.ts`), sem o Feed — que continua
- * existindo como rota, só não aparece na barra.
+ * em `app/_layout.tsx`) e a lista precisa existir aqui.
+ *
+ * REVERTIDO (a pedido, 2026-09-29) — Feed volta a ser aba própria
+ * (estava descontinuada da barra desde 2026-08-22, depois religada só
+ * como sub-aba de Explorar em 2026-09-28 — ver `app/(tabs)/_layout.tsx`
+ * e `app/(tabs)/explore.tsx`). Posição escolhida (a pedido, opção
+ * confirmada entre 3): entre Filmes e Explorar — mais perto da ordem
+ * original do web antes da descontinuação (TASK-072,
+ * `apps/web/lib/navigation.ts`), que colocava o Feed vizinho de
+ * Explorar. O SÓ MOBILE — o web continua sem Feed na barra por agora
+ * (decisão explícita de escopo).
+ *
+ * 5 abas em vez de 4 (era 327px de largura fixa, calibrada pra 4) —
+ * escolha confirmada de manter a MESMA largura do dock, com colunas
+ * ~18% mais estreitas (`dockItemWidth` já divide pelo `ABAS.length`,
+ * então nenhuma conta muda) em vez de alargar o dock. Único ponto pra
+ * acompanhar no teste real: `ITEM_GLOW_W`/`ITEM_STROKE_W` (abaixo) são
+ * FIXOS (não escalam com a largura da coluna) — com coluna mais
+ * estreita que 4 abas, o brilho da aba ativa pode encostar de leve nas
+ * colunas vizinhas; se incomodar no aparelho, é só reduzir esses dois
+ * valores.
  */
-const ABAS: readonly TabRouteName[] = ["series", "movies", "explore", "profile"];
+const ABAS: readonly TabRouteName[] = ["series", "movies", "feed", "explore", "profile"];
 
 /**
  * O caminho de cada aba. Literal (não `\`/${nome}\``) pro expo-router
@@ -114,6 +140,7 @@ const ABAS: readonly TabRouteName[] = ["series", "movies", "explore", "profile"]
 const ROUTE_HREF = {
   series: "/series",
   movies: "/movies",
+  feed: "/feed",
   explore: "/explore",
   profile: "/profile",
 } as const satisfies Record<TabRouteName, string>;
