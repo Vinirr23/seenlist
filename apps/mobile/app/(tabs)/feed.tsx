@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, ScrollView, FlatList, RefreshControl, Pressable, StyleSheet, type ListRenderItem } from "react-native";
-import * as Updates from "expo-updates";
 import { Feather } from "@expo/vector-icons";
 import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
@@ -182,10 +181,6 @@ export default function FeedScreen() {
 
   return (
     <Screen padded={false}>
-      {/* DIAGNÓSTICO TEMPORÁRIO (2026-09-29) — remover depois de confirmar se o update OTA está mesmo chegando no aparelho. */}
-      <Text style={{ fontSize: 10, color: "red", paddingHorizontal: spacing.md, paddingTop: 4 }}>
-        update: {Updates.updateId ?? "embutido/nenhum"} · embedded: {String(Updates.isEmbeddedLaunch)}
-      </Text>
       {newPostsCount > 0 && (
         <View style={styles.bannerWrapper}>
           <Pressable style={styles.banner} onPress={handleShowNewPosts}>
