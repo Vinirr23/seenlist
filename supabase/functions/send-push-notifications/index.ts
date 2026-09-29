@@ -103,6 +103,21 @@ function buildMessage(
           : `⭐ ${actorName ?? "Alguém"} curtiu sua avaliação`;
       return { title, body: "Toque para ver.", deepLink: link };
     }
+    /*
+     * NOVO (a pedido, 2026-09-29 — "curti um post mas não recebi
+     * notificação"). Causa raiz era `notify_like()` no banco: só
+     * tratava `target_type` comment/review, então curtida em POST
+     * nunca virou linha em `notifications` (ver migration
+     * `20260929000002_post_like_notifications.sql`). `n.target_id`
+     * aqui é o id do post curtido.
+     */
+    case "post_like": {
+      const title =
+        n.group_count > 1
+          ? `❤️ ${n.group_count} pessoas curtiram seu post`
+          : `❤️ ${actorName ?? "Alguém"} curtiu seu post`;
+      return { title, body: "Toque para ver.", deepLink: `/explore/posts/${n.target_id}` };
+    }
     case "recommendation": {
       const mediaType = n.target_media_type; // "movie" | "series"
       const mediaId = n.target_media_id;

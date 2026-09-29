@@ -41,7 +41,6 @@ export function VerifiedBadge({ tier, className }: VerifiedBadgeProps) {
       className={`inline-block h-[1em] w-[1em] shrink-0 align-[-0.1em] ${className ?? ""}`}
       aria-label={tier === "gold" ? "Conta oficial verificada" : "Conta verificada"}
       role="img"
-      style={tier === "gold" ? { filter: "drop-shadow(0 0 5px rgba(232,163,61,0.55))" } : undefined}
     >
       {tier === "gold" && (
         <defs>

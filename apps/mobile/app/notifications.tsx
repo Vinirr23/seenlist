@@ -47,15 +47,27 @@ function getNotificationMessage(n: AppNotification, t: (key: string, vars?: Reco
       return t("notifications.newFollower", { name });
     case "feedback_reply":
       return t("notifications.feedbackReply");
+    case "post_like":
+      return t("notifications.postLike", { name });
   }
 }
 
+/**
+ * CORREÇÃO (bug real, reportado — "curti um post mas não recebi
+ * notificação", 2026-09-29) — causa raiz era `notify_like()` no
+ * banco, que só tratava `target_type` comment/review (ver migration
+ * `20260929000002_post_like_notifications.sql`). `post_like` linka
+ * direto pro post (`targetId`), antes do fallback de mídia.
+ */
 function getNotificationRoute(n: AppNotification): string | null {
   if (n.type === "new_follower") {
     return n.actor?.username ? `/u/${n.actor.username}` : null;
   }
   if (n.type === "feedback_reply") {
     return "/settings/feedback";
+  }
+  if (n.type === "post_like") {
+    return n.targetId ? `/posts/${n.targetId}` : null;
   }
   if (n.mediaType && n.mediaId != null) {
     return n.mediaType === "movie" ? `/movies/${n.mediaId}` : `/series/${n.mediaId}`;

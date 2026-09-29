@@ -20,12 +20,23 @@ export type NotificationType =
   | "season_premiere"
   | "recommendation"
   | "new_follower"
-  | "feedback_reply";
+  | "feedback_reply"
+  | "post_like";
 
 export interface AppNotification {
   id: string;
   type: NotificationType;
   actor: { userId: string; username: string; displayName: string | null; avatarUrl: string | null } | null;
+  /**
+   * A PEDIDO (2026-09-29 — "curti um post mas não recebi
+   * notificação") — causa raiz: curtida em POST nunca tinha tipo de
+   * notificação nenhum (só comment/review). `targetType`/`targetId`
+   * passam a vir do banco pra dar link direto pro post quando o tipo
+   * é `post_like` — os outros tipos continuam linkando por
+   * mediaType/mediaId como sempre.
+   */
+  targetType: "comment" | "review" | "post" | "post_comment" | "profile" | null;
+  targetId: string | null;
   mediaType: "movie" | "series" | null;
   mediaId: number | null;
   mediaTitle: string | null;
@@ -43,7 +54,7 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
 
   const { data: rows, error } = await supabase
     .from("notifications")
-    .select("id, type, actor_id, target_media_type, target_media_id, payload, read_at, created_at")
+    .select("id, type, actor_id, target_type, target_id, target_media_type, target_media_id, payload, read_at, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -77,6 +88,8 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
       actor: actor
         ? { userId: actor.user_id, username: actor.username, displayName: actor.display_name, avatarUrl: actor.avatar_url }
         : null,
+      targetType: (row.target_type as AppNotification["targetType"]) ?? null,
+      targetId: row.target_id ?? null,
       mediaType: (row.target_media_type as "movie" | "series" | null) ?? null,
       mediaId: row.target_media_id ?? null,
       mediaTitle: summary?.title ?? null,
