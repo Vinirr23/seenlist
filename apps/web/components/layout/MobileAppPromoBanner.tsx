@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X, Smartphone, Bell, Zap, RefreshCw, ArrowUpRight } from "lucide-react";
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { Apple, GooglePlayIcon } from "@/components/landing/shared";
 
 /**
  * RENOMEADO de `AndroidAppPromoBanner.tsx` (2026-09-24, a pedido —
@@ -216,33 +217,34 @@ function DesktopAppBanner({ mounted, onDismiss }: { mounted: boolean; onDismiss:
       <p className="min-w-0 flex-1 truncate text-xs font-medium text-text">{t("androidPromo.desktopBannerText")}</p>
 
       {/*
-        * Nome de loja ("App Store"/"Google Play") em texto FIXO, sem
-        * chave de tradução — são nomes próprios de marca, iguais nos 3
-        * idiomas do app (mesmo raciocínio de não traduzir "Android"/
-        * "iOS" em lugar nenhum do resto do código). O rótulo mais
-        * longo ("Baixar na App Store", `androidPromo.ctaIos`) é do
-        * MODAL do celular, de propósito mais chamativo — aqui na
-        * faixa fina, com dois botões lado a lado num espaço estreito
-        * (coluna de ~430px, ver `TASK-014` em `app/(main)/layout.tsx`),
-        * o nome curto sozinho já deixa claro que é link de loja.
+        * A PEDIDO (2026-09-29 — "ao invés dos botões com os nomes
+        * troca pra os simbolos") — era o nome da loja em texto ("App
+        * Store"/"Google Play"); virou só o símbolo oficial de cada uma
+        * (mesmos ícones reais de `shared.tsx`/`StoreBadges`, os
+        * arquivos que o usuário mandou — `apple-mark.png`/
+        * `google-play-mark.webp` —, não um ícone genérico). Botão
+        * ficou um círculo pequeno só com o símbolo, sem texto, já que
+        * na faixa fina o símbolo sozinho já é reconhecível.
         */}
       <a
         href={APP_STORE_URL}
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleStoreClick}
-        className="shrink-0 whitespace-nowrap rounded-full border border-primary/30 px-2.5 py-1 text-[11px] font-semibold text-text"
+        aria-label="App Store"
+        className="flex shrink-0 items-center justify-center rounded-full border border-primary/30 p-1.5"
       >
-        App Store
+        <Apple className="h-4 w-4" />
       </a>
       <a
         href={PLAY_STORE_URL}
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleStoreClick}
-        className="shrink-0 whitespace-nowrap rounded-full border border-primary/30 px-2.5 py-1 text-[11px] font-semibold text-text"
+        aria-label="Google Play"
+        className="flex shrink-0 items-center justify-center rounded-full border border-primary/30 p-1.5"
       >
-        Google Play
+        <GooglePlayIcon className="h-4 w-4" />
       </a>
 
       <button type="button" onClick={onDismiss} aria-label={t("social.close")} className="shrink-0 text-muted">
