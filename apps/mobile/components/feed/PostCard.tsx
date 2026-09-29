@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { View, TextInput, Pressable, Share, Alert, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -8,8 +8,9 @@ import { editPost, deletePost } from "@/lib/posts";
 import { reportPost } from "@/lib/social/postReports";
 import { tmdbImageUrl } from "@/lib/library";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { Text, Button } from "@/components/ui";
+import { Text, Button, Glass } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
+import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { LikeButton } from "./LikeButton";
 import { CommentCount } from "./CommentCount";
@@ -22,7 +23,7 @@ import { useNow } from "@/lib/useNow";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
-import { colors, radius, spacing, fontSize, elevation } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const SITE_URL = "https://seenlist.app";
 
@@ -37,15 +38,23 @@ const SITE_URL = "https://seenlist.app";
  * `onDeleted` é opcional: quem usa o card decide o que fazer depois
  * de apagar (Feed recarrega a lista; a tela de detalhe do post volta
  * pro Feed, já que o post que ela mostrava deixou de existir).
+ *
+ * CORREÇÃO DE DESEMPENHO (2026-09-29, reportado — "a rolagem do feed
+ * está travando") — causa raiz: `feed.tsx` reconstrói `likeInfoByPostId`/
+ * `commentCountByPostId`/`pollDataByPostId` do ZERO (`fetchLikeInfoFor`
+ * etc.) toda vez que roda `loadInteractions()` — o que acontece a cada
+ * curtida/comentário/voto de enquete em QUALQUER post visível, de
+ * QUALQUER pessoa (a assinatura Realtime dispara isso, com debounce de
+ * 400ms). Como o Map é novo, `likeInfoByPostId.get(post.id)` devolve
+ * um objeto NOVO pra TODO post, mesmo pros que não mudaram nada — sem
+ * `memo`, isso forçava o React a re-renderizar TODOS os `PostCard`s
+ * visíveis de uma vez a cada evento de atividade no feed, e se isso
+ * cair no meio de uma rolagem, compete pelo mesmo frame que o scroll
+ * está tentando desenhar. `memo` com comparação por VALOR (não por
+ * referência do objeto) resolve sem mudar nenhum comportamento visível
+ * — só evita recalcular um card cujos dados de verdade não mudaram.
  */
-export function PostCard({
-  post,
-  detail = false,
-  onDeleted,
-  likeInfo,
-  commentCount,
-  pollInfo,
-}: {
+interface PostCardProps {
   post: Post;
   detail?: boolean;
   onDeleted?: () => void;
@@ -54,7 +63,9 @@ export function PostCard({
   commentCount?: number;
   /** TASK-163 — mesmo padrão de likeInfo/commentCount: Feed busca em lote e passa pronto. */
   pollInfo?: PollData;
-}) {
+}
+
+function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentCount, pollInfo }: PostCardProps) {
   const router = useRouter();
   const { session } = useAuth();
   const posterUrl = post.mediaPosterPath ? tmdbImageUrl(post.mediaPosterPath, "w185") : null;
@@ -156,7 +167,16 @@ export function PostCard({
    * de comportamento, sem trocar o componente dinamicamente.
    */
   return (
-    <Pressable style={styles.card} onPress={detail ? undefined : handlePress} disabled={detail}>
+    // A PEDIDO (2026-09-28, print real — "feed não recebeu glass") —
+    // este card ficou de fora do redesign "âmbar/vidro" (Aug/2026)
+    // porque o Feed estava desativado nessa época inteira (ver
+    // `SEENLIST-HANDOFF.md`, seção "Feed social"); reativar sozinho não
+    // corrige isso, então a mesma receita de `ReviewCard.tsx` ("vidro
+    // que falta", 2026-09-04) entra aqui agora: `Pressable` cuida só do
+    // toque (abrir detalhe), `Glass` cuida do visual (era `View` com
+    // `backgroundColor: colors.surface` chapado).
+    <Pressable onPress={detail ? undefined : handlePress} disabled={detail}>
+      <Glass style={styles.card}>
       <View style={styles.headerRow}>
         <Pressable
           style={styles.header}
@@ -167,9 +187,14 @@ export function PostCard({
         >
           <Avatar uri={post.authorAvatarUrl} name={post.authorName} style={styles.avatar} textStyle={styles.avatarInitials} />
           <View style={styles.headerText}>
-            <Text numberOfLines={1} style={styles.authorName}>
-              {post.authorName}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text numberOfLines={1} style={styles.authorName}>
+                {post.authorName}
+              </Text>
+              <VerifiedBadge tier={post.authorVerifiedTier} size={fontSize.sm} />
+              {/* DIAGNÓSTICO TEMPORÁRIO (2026-09-29) — remover depois de achar a causa do selo sumido no Feed. */}
+              <Text style={{ fontSize: 10, color: "red" }}>[{String(post.authorVerifiedTier)}]</Text>
+            </View>
             <Text numberOfLines={1} variant="muted" style={styles.meta}>
               @{post.authorUsername} · {formatRelativeTime(post.createdAt, now, locale, t("feed.justNow")) ?? dateFormatter.format(new Date(post.createdAt))}
             </Text>
@@ -191,7 +216,7 @@ export function PostCard({
       </View>
 
       {post.type === "review" && post.mediaTitle && (
-        <View style={styles.reviewCard}>
+        <Glass style={styles.reviewCard}>
           <View style={styles.reviewPoster}>
             {posterUrl ? (
               <Image source={{ uri: posterUrl }} style={styles.reviewPosterImage} contentFit="cover" />
@@ -215,7 +240,7 @@ export function PostCard({
               <Text style={styles.ratingText}>{(post.rating ?? 0).toFixed(1)}/5</Text>
             </View>
           </View>
-        </View>
+        </Glass>
       )}
 
       {editing ? (
@@ -262,16 +287,41 @@ export function PostCard({
           ]}
         />
       )}
+      </Glass>
     </Pressable>
   );
 }
 
+/**
+ * Comparador por VALOR (não por referência) — ver o comentário grande
+ * acima, em `PostCardComponent`. `post`/`detail`/`onDeleted` continuam
+ * comparados por referência (mudam só quando devem: `post` só troca
+ * de verdade num refetch real; `onDeleted`/`refetch` precisa ser
+ * estável na origem — ver `usePosts.ts` — senão nenhum `memo` aqui
+ * adianta). `pollInfo` é serializado: é pequeno (algumas opções de
+ * enquete) e comparar por valor certo aqui é mais barato que
+ * re-renderizar o card inteiro à toa.
+ */
+function arePropsEqual(prev: Readonly<PostCardProps>, next: Readonly<PostCardProps>): boolean {
+  if (prev.post !== next.post || prev.detail !== next.detail || prev.onDeleted !== next.onDeleted) {
+    return false;
+  }
+  if ((prev.likeInfo?.count ?? null) !== (next.likeInfo?.count ?? null) || (prev.likeInfo?.hasLiked ?? null) !== (next.likeInfo?.hasLiked ?? null)) {
+    return false;
+  }
+  if ((prev.commentCount ?? null) !== (next.commentCount ?? null)) {
+    return false;
+  }
+  const prevPoll = prev.pollInfo ? JSON.stringify(prev.pollInfo) : null;
+  const nextPoll = next.pollInfo ? JSON.stringify(next.pollInfo) : null;
+  return prevPoll === nextPoll;
+}
+
+export const PostCard = memo(PostCardComponent, arePropsEqual);
+
 const styles = StyleSheet.create({
+  // `Glass` já cuida de fundo/borda/blur — aqui só sobra o formato/recheio.
   card: {
-    ...elevation.low,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.md,
   },
@@ -304,7 +354,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   authorName: {
+    flexShrink: 1,
     fontSize: fontSize.sm,
     fontWeight: "700",
     color: colors.text,
@@ -313,13 +368,11 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: fontSize.xxs,
   },
+  // `Glass` já cuida de fundo/borda/blur — aqui só sobra o formato/recheio.
   reviewCard: {
     flexDirection: "row",
     gap: spacing.sm,
     marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
     borderRadius: radius.md,
     padding: spacing.sm,
   },
