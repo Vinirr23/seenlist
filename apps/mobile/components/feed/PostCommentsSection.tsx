@@ -4,7 +4,7 @@ import { usePostComments } from "@/lib/usePost";
 import type { CommentNode } from "@/lib/postComments";
 import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { PostCommentItem } from "./PostCommentItem";
-import { Text, Glass } from "@/components/ui";
+import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { hapticImpact } from "@/lib/haptics";
@@ -66,7 +66,14 @@ export function PostCommentsSection({ postId }: { postId: string }) {
 
   return (
     <View style={styles.wrapper}>
-      <Glass style={styles.composerArea}>
+      {/*
+        * A PEDIDO (2026-09-29, "comentar dentro de um post, tira o vidro
+        * e etc... deixa como o resto de feed está") — era `<Glass>`
+        * (mesma receita do composer de Episódio); virou `View` simples,
+        * sem fundo/borda arredondada, igual ao resto do Feed já
+        * redesenhado (`PostCard.tsx`, "feed igual Threads").
+        */}
+      <View style={styles.composerArea}>
         <View style={styles.inputRow}>
           <TextInput
             value={body}
@@ -79,7 +86,7 @@ export function PostCommentsSection({ postId }: { postId: string }) {
             <Text style={styles.sendButtonText}>{t("common.submit")}</Text>
           </Pressable>
         </View>
-      </Glass>
+      </View>
 
       {isLoading ? (
         <AvatarRowSkeleton count={3} />
@@ -108,12 +115,12 @@ const styles = StyleSheet.create({
   centerText: {
     paddingVertical: spacing.sm,
   },
-  // Mesmo raio (`radius.lg`) do composer de Episódio — `Glass` não
-  // define raio sozinho, precisa ficar aqui.
+  // A PEDIDO (2026-09-29, "tira o vidro, deixa como o resto do feed") —
+  // sem fundo/borda arredondada (era `Glass`); só o respiro em volta do
+  // campo continua (o próprio `input` já tem sua borda sólida).
   composerArea: {
     marginBottom: spacing.md,
-    borderRadius: radius.lg,
-    padding: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   inputRow: {
     flexDirection: "row",

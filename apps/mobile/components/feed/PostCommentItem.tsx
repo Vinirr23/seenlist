@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { CommentNode } from "@/lib/postComments";
 import { LikeButton } from "./LikeButton";
-import { Text, Button, Glass } from "@/components/ui";
+import { Text, Button } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -99,10 +99,15 @@ export function PostCommentItem({
     ]);
   }
 
-  // Mesmo critério do `EpisodeCommentItem.tsx` (porte do web,
-  // 2026-09-04): só o comentário-raiz (depth 0) vira card `Glass`;
-  // respostas (depth > 0) continuam sem card próprio, só indentação.
-  const Container = depth === 0 ? Glass : View;
+  /**
+   * A PEDIDO (2026-09-29, "comentar dentro de um post, tira o vidro e
+   * etc... deixa como o resto de feed está") — o comentário-raiz
+   * (depth 0) era um card `Glass` (mesmo critério do
+   * `EpisodeCommentItem.tsx`); virou `View` simples, sempre, igual às
+   * respostas (depth > 0) — indentação continua sendo o que distingue
+   * uma resposta de um comentário-raiz, não mais um card próprio.
+   */
+  const Container = View;
 
   return (
     <Container style={depth === 0 ? styles.card : styles.nested}>
@@ -190,12 +195,15 @@ export function PostCommentItem({
 const AVATAR_SIZE = 36;
 
 const styles = StyleSheet.create({
-  // Mesmo raio do comentário de Episódio (`radius.lg`) — `Glass` não
-  // define raio sozinho, então precisa ficar aqui.
+  // A PEDIDO (2026-09-29, "tira o vidro, deixa como o resto do feed") —
+  // sem fundo/borda arredondada (era `Glass`); separação entre um
+  // comentário-raiz e o próximo agora é só uma linha fina embaixo,
+  // mesma receita de `PostCard.tsx` ("feed igual Threads").
   card: {
-    borderRadius: radius.lg,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   nested: {
     marginTop: spacing.sm,
