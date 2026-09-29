@@ -257,15 +257,23 @@ export default function SeriesHomeScreen() {
    * `updatedAt` — uma série com episódio pendente de verdade nunca
    * mais perde vaga pra uma que talvez nem tenha nada pra mostrar.
    */
-  const continueWatching = useMemo(() => {
+  /**
+   * A PEDIDO (2026-09-29, "o botão 'ver tudo' sempre aparece, quero que
+   * só apareça quando a lista tiver mais do que o limite que existe")
+   * — a lista ordenada e filtrada, SEM o corte de `CONTINUE_LIMIT`
+   * ainda: precisa dela pra saber se sobrou algo além do que a Home já
+   * mostra (só o `.length` importa pro botão "Ver tudo" abaixo —
+   * `continueWatchingAll` nunca é usada pra desenhar nada na tela).
+   */
+  const continueWatchingAll = useMemo(() => {
     return recentSeries
       .filter((item) => item.status === "watching" || item.status === "up_to_date")
       .sort((a, b) => {
         if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
         return b.updatedAt.localeCompare(a.updatedAt);
-      })
-      .slice(0, CONTINUE_LIMIT);
+      });
   }, [recentSeries]);
+  const continueWatching = useMemo(() => continueWatchingAll.slice(0, CONTINUE_LIMIT), [continueWatchingAll]);
 
   /**
    * TASK-145 — busca o "próximo episódio pendente" de cada série de
@@ -707,8 +715,18 @@ export default function SeriesHomeScreen() {
             de lá (`MinhaListaSection.tsx`): só aparece quando há o que
             listar, e vem DEPOIS dos cards, tanto no modo grade quanto
             no de lista — o `viewMode` não muda onde ele entra.
+            *
+            * CORREÇÃO (2026-09-29, a pedido — "sempre aparece o botão
+            * 'ver tudo', quero que só apareça quando a lista tiver mais
+            * do que o limite que existe") — antes a condição era
+            * `visibleContinueWatching.length > 0` (aparecia sempre que
+            * tinha qualquer coisa pra mostrar, mesmo com só 1 série,
+            * sem mais nada além do que já estava na tela). Agora
+            * compara com `continueWatchingAll` (a lista de verdade,
+            * ANTES do corte de `CONTINUE_LIMIT`) — só aparece quando
+            * existe mais série além das já exibidas na Home.
           */}
-          {visibleContinueWatching.length > 0 && (
+          {continueWatchingAll.length > CONTINUE_LIMIT && (
             <ViewAllButton
               label={t("seriesHome.viewAllContinueWatching")}
               onPress={() => router.push("/series/continue-assistindo")}
@@ -776,11 +794,20 @@ export default function SeriesHomeScreen() {
                 assistindo" acima, agora que esta seção também tem
                 corte (`CONTINUE_LIMIT`, ver `visibleStaleSeries`) —
                 sem ele, as séries além do corte ficariam inacessíveis.
+                *
+                * CORREÇÃO (2026-09-29, a pedido — mesma correção do
+                * botão acima) — antes aparecia sempre (sem condição
+                * nenhuma além do `staleSeries.length > 0` do bloco por
+                * fora). Agora só aparece quando `staleSeries` (lista
+                * completa, sem corte) tem mais itens do que o limite
+                * já exibido (`CONTINUE_LIMIT`).
               */}
-              <ViewAllButton
-                label={t("seriesHome.viewAllStaleSeries")}
-                onPress={() => router.push("/series/continue-de-onde-parou")}
-              />
+              {staleSeries.length > CONTINUE_LIMIT && (
+                <ViewAllButton
+                  label={t("seriesHome.viewAllStaleSeries")}
+                  onPress={() => router.push("/series/continue-de-onde-parou")}
+                />
+              )}
             </View>
           )}
         </ScrollView>
