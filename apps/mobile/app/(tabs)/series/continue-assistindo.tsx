@@ -127,9 +127,21 @@ export default function ContinueWatchingAllScreen() {
 
   useEffect(loadNextEpisodes, [loadNextEpisodes]);
 
-  /* Mesma regra da Home: série "Em dia" só entra se tiver pendência real. */
+  /*
+   * Mesma regra da Home: série "Em dia" só entra se tiver pendência real.
+   *
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-30, mesmo fix de
+   * `app/(tabs)/series/index.tsx` — ver comentário completo lá) —
+   * tinha `item.status === "watching" || nextEpisodes.has(item.id)`:
+   * série "watching" sempre passava, pendência real ou não. No modo
+   * lista não aparecia (o próprio `ContinueWatchingListRow` se
+   * autoesconde sem `nextEpisode`), mas no modo grade
+   * (`PosterGrid`/`PosterGridItem`, sem trava nenhuma) a série
+   * continuava aparecendo — bug real reportado com print (Outlander
+   * sumiu da lista, continuou na grade).
+   */
   const visibleContinueWatching = useMemo(
-    () => continueWatching.filter((item) => item.status === "watching" || nextEpisodes.has(item.id)),
+    () => continueWatching.filter((item) => nextEpisodes.has(item.id)),
     [continueWatching, nextEpisodes]
   );
 

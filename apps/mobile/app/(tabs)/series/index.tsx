@@ -360,10 +360,38 @@ export default function SeriesHomeScreen() {
    * tempo, a seção inteira ficava sem nenhum card E sem nenhuma
    * mensagem, só espaço em branco. Calculado uma vez só, reaproveitado
    * pela checagem de vazio de verdade e pelo modo grade.
+   *
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-30, bug real reportado com print —
+   * Outlander saiu do modo LISTA mas continuou aparecendo no modo
+   * GRADE) — tinha `item.status === "watching" || nextEpisodes.has(item.id)`:
+   * uma série "watching" sempre passava por aqui, tivesse pendência
+   * real ou não. No modo lista isso não dava pra notar porque o
+   * próprio `ContinueWatchingListRow` se autoesconde quando
+   * `nextEpisode` é nulo — mas o modo grade (`PosterGrid`/
+   * `PosterGridItem`) não tem NENHUMA trava desse tipo, então a série
+   * continuava sendo desenhada ali mesmo sem episódio pendente de
+   * verdade. Raiz: o "OR" tornava a checagem de pendência opcional
+   * pra série "watching". Removido — agora as duas listas usam
+   * exatamente o mesmo critério (`nextEpisodes.has`), sem bypass.
    */
   const visibleContinueWatching = useMemo(
-    () => continueWatching.filter((item) => item.status === "watching" || nextEpisodes.has(item.id)),
+    () => continueWatching.filter((item) => nextEpisodes.has(item.id)),
     [continueWatching, nextEpisodes]
+  );
+
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-30, mesmo fix acima) — a seção
+   * "Faz um tempo que você não assiste" tinha o mesmo buraco: o modo
+   * GRADE (`<PosterGrid items={visibleStaleSeries}>`) desenhava
+   * `visibleStaleSeries` cru, sem nenhum filtro de pendência real —
+   * só o modo LISTA ficava protegido (mesmo autoesconde do
+   * `ContinueWatchingListRow`). Usado SÓ pelo modo grade desta seção;
+   * o modo lista continua usando `visibleStaleSeries` sem filtro
+   * (o autoesconde do card já resolve lá).
+   */
+  const visiblePendingStaleSeries = useMemo(
+    () => visibleStaleSeries.filter((item) => nextEpisodes.has(item.id)),
+    [visibleStaleSeries, nextEpisodes]
   );
 
   /**
@@ -755,7 +783,7 @@ export default function SeriesHomeScreen() {
                 <SectionTitle>{t("seriesHome.continueWhereYouLeftOff")}</SectionTitle>
               </View>
               {viewMode === "grid" ? (
-                <PosterGrid items={visibleStaleSeries} onPressItem={handlePressItem} />
+                <PosterGrid items={visiblePendingStaleSeries} onPressItem={handlePressItem} />
               ) : !nextEpisodesLoaded ? (
                 <LibraryListSkeleton />
               ) : (
