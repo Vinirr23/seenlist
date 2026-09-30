@@ -16,6 +16,16 @@ interface SeriesStatusRow {
   created_at: string;
   updated_at: string;
   total_watch_events: number | null;
+  /**
+   * A PEDIDO (2026-09-30, ordenação de "Continue assistindo" por
+   * "última alteração e novo episódio lançado") — ver comentário
+   * completo em `LibraryItem.lastNewEpisodeAt` (`@seenlist/types`).
+   * Opcional (não `| null` sem `?`) de propósito — mesma razão do
+   * equivalente no web (`library-state.ts`): evita quebrar qualquer
+   * lugar que já monte esse formato na mão, sem vir de uma consulta
+   * real. `buildLibraryItemsFromRows` trata ausência igual a `null`.
+   */
+  last_new_episode_at?: string | null;
 }
 
 export interface MediaSummary {
@@ -270,6 +280,7 @@ function buildLibraryItemsFromRows(
       lastActivityAt: agg?.lastWatchedAt && agg.lastWatchedAt > updatedAt ? agg.lastWatchedAt : updatedAt,
       watchedCount,
       totalWatchEvents: explicit?.total_watch_events ?? null,
+      lastNewEpisodeAt: explicit?.last_new_episode_at ?? null,
     };
   });
 
@@ -310,6 +321,7 @@ function buildLibraryItemsFromRows(
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
       lastActivityAt: entry.lastActivityAt,
+      lastNewEpisodeAt: entry.lastNewEpisodeAt,
       title: summary?.title ?? `Série #${entry.seriesId}`,
       originalTitle: summary?.originalTitle,
       year: summary?.year ?? null,
@@ -402,7 +414,7 @@ async function fetchLibraryItemsUncached(userId?: string, language = "pt-BR"): P
     Array.from({ length: Math.ceil((seriesStatusCount ?? 0) / SERIES_STATUS_PAGE_SIZE) }, (_, i) =>
       supabase
         .from("series_status")
-        .select("series_id, status, created_at, updated_at, total_watch_events")
+        .select("series_id, status, created_at, updated_at, total_watch_events, last_new_episode_at")
         .eq("user_id", targetUserId)
         // CORREÇÃO (paginação sem .order() — mesma causa raiz já
         // corrigida em seriesCategoryRecalc.ts/repair-series-categories/

@@ -158,6 +158,21 @@ export interface LibraryItem {
    * quebrar o que já funciona.
    */
   lastActivityAt: string;
+  /**
+   * Só séries. Carimbado só quando o recálculo automático
+   * (`recalculateUpToDateSeriesCategories`, mobile e web) detecta que
+   * um episódio GENUINAMENTE novo apareceu desde a última conferida —
+   * `null`/`undefined` quando nunca detectou nenhum ainda, ou pra
+   * filme. Diferente de `updatedAt`: esse campo NÃO é regravado em
+   * toda passada do recálculo, só quando a contagem de episódios
+   * lançados realmente sobe.
+   *
+   * Usado junto com `updatedAt` na ordenação de "Continue assistindo"
+   * (a pedido, 2026-09-30): pega a data mais recente entre os dois —
+   * "você mexeu na série" (`updatedAt`) ou "saiu episódio novo"
+   * (este campo) — o que for mais recente fica em cima.
+   */
+  lastNewEpisodeAt?: string | null;
   title: string;
   year: number | null;
   posterPath: string | null;

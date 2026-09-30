@@ -284,6 +284,17 @@ export type SeriesCategory = "watching" | "up_to_date" | "completed";
 export interface SeriesCategoryResolution {
   category: SeriesCategory;
   reason: string;
+  /**
+   * A PEDIDO (2026-09-30, ordenação de "Continue assistindo" por
+   * "última alteração e novo episódio lançado" — mesma mudança do
+   * mobile, `lib/seriesDetails.ts`/`resolveSeriesCategory`) — quantos
+   * episódios não-especiais já saíram (aired), segundo esta decisão.
+   * Usado por `recalculateUpToDateSeriesCategories` pra comparar
+   * "quantos existiam da última vez" contra "quantos existem agora" e
+   * detectar episódio genuinamente novo — ver `series_status.
+   * last_known_aired_count`/`last_new_episode_at`.
+   */
+  nonSpecialEpisodeCount: number;
 }
 
 export function resolveSeriesCategory(input: SeriesStatusInputs): SeriesCategoryResolution {
@@ -298,9 +309,10 @@ export function resolveSeriesCategory(input: SeriesStatusInputs): SeriesCategory
     return {
       category: "completed",
       reason: `Série encerrada oficialmente e todos os ${decision.nonSpecialEpisodeCount} episódios principais (excluindo especiais) assistidos — conferido episódio por episódio.`,
+      nonSpecialEpisodeCount: decision.nonSpecialEpisodeCount,
     };
   }
-  return { category: decision.category, reason: decision.reason };
+  return { category: decision.category, reason: decision.reason, nonSpecialEpisodeCount: decision.nonSpecialEpisodeCount };
 }
 
 /**

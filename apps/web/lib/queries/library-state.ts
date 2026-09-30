@@ -24,6 +24,20 @@ interface SeriesStatusRow {
   updated_at: string;
   /** TASK-027J — só para estatísticas, nunca para decidir status/progresso (isso continua vindo só de watched_episodes). */
   total_watch_events: number | null;
+  /**
+   * A PEDIDO (2026-09-30, ordenação de "Continue assistindo" por
+   * "última alteração e novo episódio lançado") — ver comentário
+   * completo em `LibraryItem.lastNewEpisodeAt` (`@seenlist/types`).
+   * Opcional (não `| null` sem `?`) de propósito — várias ferramentas
+   * de debug/import (`lib/tvtime-out-import/debug/*`,
+   * `diagnostics-detail/statusPipelineAudit.ts`) montam esse formato
+   * na mão, sem vir de uma consulta real ao banco, e não têm por que
+   * saber desse campo novo. `buildLibraryItemsFromRows` já trata
+   * ausência (`explicit?.last_new_episode_at ?? null`) exatamente
+   * como trataria `null` — nenhuma diferença de comportamento, só
+   * evita quebrar esses construtores manuais.
+   */
+  last_new_episode_at?: string | null;
 }
 
 export interface WatchedEpisodeStats {
@@ -338,6 +352,7 @@ export function buildLibraryItemsFromRows(
       lastActivityAt: agg?.lastWatchedAt && agg.lastWatchedAt > updatedAt ? agg.lastWatchedAt : updatedAt,
       watchedCount,
       totalWatchEvents: explicit?.total_watch_events ?? null,
+      lastNewEpisodeAt: explicit?.last_new_episode_at ?? null,
     };
   });
 
@@ -386,6 +401,7 @@ export function buildLibraryItemsFromRows(
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
       lastActivityAt: entry.lastActivityAt,
+      lastNewEpisodeAt: entry.lastNewEpisodeAt,
       title: summary?.title ?? `Série #${entry.seriesId}`,
       year: summary?.year ?? null,
       posterPath: summary?.posterPath ?? null,
@@ -472,7 +488,7 @@ export async function fetchLibraryItems(
       Array.from({ length: Math.ceil((seriesStatusCount ?? 0) / SERIES_STATUS_PAGE_SIZE) }, (_, i) =>
         supabase
           .from("series_status")
-          .select("series_id, status, created_at, updated_at, total_watch_events")
+          .select("series_id, status, created_at, updated_at, total_watch_events, last_new_episode_at")
           .eq("user_id", user.id)
           // CORREÇÃO (paginação sem .order() — mesma causa raiz já
           // corrigida em seriesCategoryRecalc.ts/repair-series-categories/

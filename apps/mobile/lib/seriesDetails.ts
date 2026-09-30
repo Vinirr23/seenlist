@@ -814,7 +814,7 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
    */
   const { data: statusRows, error: statusError } = await supabase
     .from("series_status")
-    .select("series_id, status")
+    .select("series_id, status, last_known_aired_count, last_new_episode_at")
     .eq("user_id", user.id)
     .in("status", ["up_to_date", "watching", "completed"]);
   if (statusError || !statusRows || statusRows.length === 0) return;
@@ -830,6 +830,20 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   // agora sempre devolve `LibraryStatus | undefined`, nunca `unknown`.
   const currentStatusBySeriesId = new Map<number, LibraryStatus>(
     statusRows.map((row) => [row.series_id as number, row.status as LibraryStatus])
+  );
+  /**
+   * A PEDIDO (2026-09-30, ordenação de "Continue assistindo" por
+   * "última alteração e novo episódio lançado") — ver comentário
+   * completo na migration `20260930000000_series_status_last_new_
+   * episode.sql` e em `LibraryItem.lastNewEpisodeAt` (`@seenlist/types`).
+   * Guardado aqui pra comparar "quantos episódios existiam da última
+   * vez" contra "quantos existem agora", mais abaixo.
+   */
+  const lastKnownAiredCountBySeriesId = new Map<number, number | null>(
+    statusRows.map((row) => [row.series_id as number, (row.last_known_aired_count as number | null) ?? null])
+  );
+  const lastNewEpisodeAtBySeriesId = new Map<number, string | null>(
+    statusRows.map((row) => [row.series_id as number, (row.last_new_episode_at as string | null) ?? null])
   );
 
   let watchedEpisodeKeysBySeriesId: Map<number, Set<string>>;
@@ -868,8 +882,24 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     return;
   }
 
-  const updates: { user_id: string; series_id: number; status: LibraryStatus; updated_at: string; status_computed_at: string }[] = [];
+  const updates: {
+    user_id: string;
+    series_id: number;
+    status: LibraryStatus;
+    updated_at: string;
+    status_computed_at: string;
+    last_known_aired_count: number;
+    last_new_episode_at: string | null;
+  }[] = [];
   const categoryBySeriesId = new Map<number, LibraryStatus>();
+  /**
+   * A PEDIDO (2026-09-30, ver comentário grande acima de
+   * `lastKnownAiredCountBySeriesId`) — quantos episódios não-especiais
+   * `resolveSeriesCategory` viu como "já saíram" NESTA passada, pra
+   * comparar contra `lastKnownAiredCountBySeriesId` (o que sabíamos da
+   * vez anterior) mais abaixo, na hora de gravar.
+   */
+  const nonSpecialEpisodeCountBySeriesId = new Map<number, number>();
   for (const seriesId of seriesIds) {
     const liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
     if (liveEpisodes.length === 0) continue; // TMDB não devolveu nada pra essa série desta vez — não mexe, mais seguro do que arriscar errado.
@@ -878,8 +908,15 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     const watchedEpisodeIds = watchedEpisodeIdsBySeriesId.get(seriesId) ?? new Set<number>();
     const ended = endedBySeriesId.get(seriesId) ?? false;
     const specialEpisodeKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
-    const { category } = resolveSeriesCategory({ watchedEpisodeKeys, liveEpisodes, ended, specialEpisodeKeys, watchedEpisodeIds });
+    const { category, nonSpecialEpisodeCount } = resolveSeriesCategory({
+      watchedEpisodeKeys,
+      liveEpisodes,
+      ended,
+      specialEpisodeKeys,
+      watchedEpisodeIds,
+    });
     categoryBySeriesId.set(seriesId, category);
+    nonSpecialEpisodeCountBySeriesId.set(seriesId, nonSpecialEpisodeCount);
   }
 
   /*
@@ -918,6 +955,17 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
    * buscado em lote acima, nenhuma chamada nova.
    */
   const upToDateSeriesIds = seriesIds.filter((id) => categoryBySeriesId.get(id) === "up_to_date");
+  /**
+   * A PEDIDO (2026-09-30) — série promovida pra "watching" por ESTE
+   * caminho ganhou episódio novo de verdade (é exatamente pra isso que
+   * este bloco existe — ver comentário grande acima), mas
+   * `nonSpecialEpisodeCountBySeriesId` não sabe disso: foi calculado
+   * ANTES, a partir da lista de temporadas, que ainda não tinha esse
+   * episódio específico (por isso a checagem extra foi precisa).
+   * Marcado à parte pra contar como "episódio novo" na hora de gravar,
+   * mesmo sem uma contagem atualizada pra comparar.
+   */
+  const forcedNewEpisodeSeriesIds = new Set<number>();
   if (upToDateSeriesIds.length > 0) {
     try {
       const response = await fetch(`${SITE_URL}/api/tmdb/upcoming`, {
@@ -936,6 +984,7 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
           const alreadyWatched = watchedKeys.has(`${ep.seasonNumber}-${ep.episodeNumber}`);
           if (!alreadyWatched) {
             categoryBySeriesId.set(ep.seriesId, "watching");
+            forcedNewEpisodeSeriesIds.add(ep.seriesId);
           }
         }
       }
@@ -967,12 +1016,33 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
     // garante um `string` de verdade, nunca `unknown`/`any` vazando
     // pra dentro de `shouldWriteSeriesCategory`.
     if (shouldWriteSeriesCategory(String(currentStatus ?? ""), newCategory as "watching" | "up_to_date" | "completed")) {
+      /**
+       * A PEDIDO (2026-09-30, ver comentário grande acima de
+       * `lastKnownAiredCountBySeriesId`) — compara "quantos episódios
+       * existem agora" com "quantos existiam da última vez que
+       * conferimos": só quando SOBE de verdade (ou quando este
+       * episódio veio do caminho `next_episode_to_air`, que por
+       * definição É um episódio novo — ver `forcedNewEpisodeSeriesIds`)
+       * é que carimba `last_new_episode_at`. Quando não há contagem
+       * anterior (série nunca conferida por esta rotina — biblioteca
+       * já existente antes desta mudança, ou série recém-adicionada),
+       * só INICIALIZA a contagem, sem carimbar nada — ver a migration
+       * pra explicação completa de por que a primeira vez não conta
+       * como "episódio novo".
+       */
+      const previousAiredCount = lastKnownAiredCountBySeriesId.get(seriesId) ?? null;
+      const currentAiredCount = nonSpecialEpisodeCountBySeriesId.get(seriesId) ?? previousAiredCount ?? 0;
+      const isGenuinelyNewEpisode =
+        forcedNewEpisodeSeriesIds.has(seriesId) || (previousAiredCount !== null && currentAiredCount > previousAiredCount);
+
       updates.push({
         user_id: user.id,
         series_id: seriesId,
         status: newCategory,
         updated_at: new Date().toISOString(),
         status_computed_at: recalcSnapshotAt,
+        last_known_aired_count: currentAiredCount,
+        last_new_episode_at: isGenuinelyNewEpisode ? new Date().toISOString() : lastNewEpisodeAtBySeriesId.get(seriesId) ?? null,
       });
     }
   }

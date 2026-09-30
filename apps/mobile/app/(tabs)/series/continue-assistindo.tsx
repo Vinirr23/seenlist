@@ -38,6 +38,17 @@ import { colors, spacing } from "@/lib/theme";
  */
 const STALE_AFTER_DAYS = 14;
 
+/**
+ * A PEDIDO (2026-09-30 — mesma mudança de `app/(tabs)/series/index.tsx`,
+ * ver comentário completo lá) — pega a data mais recente entre
+ * `updatedAt` (você mexeu na série) e `lastNewEpisodeAt` (saiu
+ * episódio novo, detectado pelo recálculo automático).
+ */
+function mostRecentActivityAt(item: LibraryItem): string {
+  const lastNewEpisodeAt = item.lastNewEpisodeAt;
+  return lastNewEpisodeAt && lastNewEpisodeAt > item.updatedAt ? lastNewEpisodeAt : item.updatedAt;
+}
+
 export default function ContinueWatchingAllScreen() {
   const router = useRouter();
   const { t, locale } = useTranslation();
@@ -90,7 +101,7 @@ export default function ContinueWatchingAllScreen() {
         .filter((item) => item.status === "watching" || item.status === "up_to_date")
         .sort((a, b) => {
           if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
-          return b.updatedAt.localeCompare(a.updatedAt);
+          return mostRecentActivityAt(b).localeCompare(mostRecentActivityAt(a));
         }),
     [recentSeries]
   );

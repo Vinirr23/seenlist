@@ -33,6 +33,22 @@ import { colors, spacing } from "@/lib/theme";
 const CONTINUE_LIMIT = 8;
 
 /**
+ * A PEDIDO (2026-09-30 — "quero que apareça por ordem de última
+ * alteração e novo episódio lançado") — pega a data mais recente
+ * entre `updatedAt` ("você mexeu na série": marcar episódio, mudar
+ * status) e `lastNewEpisodeAt` ("saiu episódio novo": só carimbado
+ * quando o recálculo automático detecta um aumento de verdade na
+ * contagem de episódios — ver `lib/seriesDetails.ts` e a migration
+ * `20260930000000_series_status_last_new_episode.sql`). O que for mais
+ * recente, dos dois motivos, decide a posição dentro do mesmo grupo de
+ * status.
+ */
+function mostRecentActivityAt(item: LibraryItem): string {
+  const lastNewEpisodeAt = item.lastNewEpisodeAt;
+  return lastNewEpisodeAt && lastNewEpisodeAt > item.updatedAt ? lastNewEpisodeAt : item.updatedAt;
+}
+
+/**
  * A PEDIDO — seção "Faz um tempo que você não assiste". Série que
  * está em "Assistindo" mas sem NENHUM episódio marcado há 2 semanas
  * desce automaticamente de "Continue assistindo" pra essa seção
@@ -270,7 +286,7 @@ export default function SeriesHomeScreen() {
       .filter((item) => item.status === "watching" || item.status === "up_to_date")
       .sort((a, b) => {
         if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
-        return b.updatedAt.localeCompare(a.updatedAt);
+        return mostRecentActivityAt(b).localeCompare(mostRecentActivityAt(a));
       });
   }, [recentSeries]);
   const continueWatching = useMemo(() => continueWatchingAll.slice(0, CONTINUE_LIMIT), [continueWatchingAll]);

@@ -1,7 +1,23 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "./library";
+
+/**
+ * A PEDIDO (2026-09-30 — "quero que apareça por ordem de última
+ * alteração e novo episódio lançado", mesma mudança do mobile,
+ * `app/(tabs)/series/index.tsx`) — pega a data mais recente entre
+ * `updatedAt` ("você mexeu na série") e `lastNewEpisodeAt` ("saiu
+ * episódio novo", só carimbado pelo recálculo automático quando a
+ * contagem de episódios lançados sobe de verdade — ver
+ * `lib/queries/seriesCategoryRecalc.ts` e a migration
+ * `20260930000000_series_status_last_new_episode.sql`).
+ */
+function mostRecentActivityAt(item: LibraryItem): string {
+  const lastNewEpisodeAt = item.lastNewEpisodeAt;
+  return lastNewEpisodeAt && lastNewEpisodeAt > item.updatedAt ? lastNewEpisodeAt : item.updatedAt;
+}
 
 export interface UseContinueWatchingSeriesOptions {
   /**
@@ -83,14 +99,15 @@ export function useContinueWatchingSeries({ limit }: UseContinueWatchingSeriesOp
   }, [series]);
 
   // Mesmo filtro + mesma ordenação em duas camadas de sempre
-  // (watching sempre antes de up_to_date, dentro de cada grupo por
-  // `updatedAt`) — ver histórico completo em `MinhaListaSection.tsx`.
+  // (watching sempre antes de up_to_date, dentro de cada grupo pela
+  // atividade mais recente) — ver histórico completo em
+  // `MinhaListaSection.tsx`.
   const continueWatchingCandidates = useMemo(() => {
     const sorted = recentSeries
       .filter((item) => item.status === "watching" || item.status === "up_to_date")
       .sort((a, b) => {
         if (a.status !== b.status) return a.status === "watching" ? -1 : 1;
-        return b.updatedAt.localeCompare(a.updatedAt);
+        return mostRecentActivityAt(b).localeCompare(mostRecentActivityAt(a));
       });
     /**
      * BUG REAL CORRIGIDO NA RAIZ (2026-09-02, causa raiz confirmada com
