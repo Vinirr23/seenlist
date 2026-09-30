@@ -173,24 +173,40 @@ export default function SeriesHomeScreen() {
   useFocusEffect(
     useCallback(() => {
       /**
-       * CORREÇÃO (2026-09-30, defesa extra — ver comentário completo
-       * em `lib/useLibraryItems.ts`) — `recalculateUpToDateSeries
-       * CategoriesThrottled()` já captura toda falha de rede/Supabase
-       * internamente (nunca rejeita nesses casos), mas pode rejeitar
-       * num caso raro (ex.: `AsyncStorage` falhando) — nesse caso,
-       * antes, `refetchSilently()` nunca rodava (ficava só no `.then()`
-       * anterior). Belt-and-suspenders: agora o `.catch()` também
-       * chama `refetchSilently()`, pra a lista tentar atualizar mesmo
-       * quando o passo de recálculo falha de um jeito inesperado.
+       * CORREÇÃO DE CAUSA RAIZ (2026-09-30 — bug real reportado: "2
+       * séries chegaram notificação de episódio novo, apareceram em
+       * 'Ver tudo' mas não em Home/Séries") — antes, esta busca só
+       * rodava DEPOIS de `recalculateUpToDateSeriesCategoriesThrottled()`
+       * terminar (`.then(() => refetchSilently())`). Só que quem
+       * detecta episódio novo e grava o status certo no banco é o job
+       * do SERVIDOR (`supabase/functions/daily-status-recalc` +
+       * `check-new-releases`) — na hora que a notificação chega, o
+       * banco já está correto. O recálculo daqui é client-side e
+       * redundante nesse caso (só existe pra pegar o que o servidor
+       * ainda não cobriu), mas faz várias chamadas à API do TMDB em
+       * lotes (`recalculateUpToDateSeriesCategories`, ver
+       * `lib/seriesDetails.ts`) — bem mais lento que a busca pura da
+       * biblioteca. Encadeado do jeito antigo, a Home ficava mostrando
+       * o cache antigo até esse recálculo pesado terminar, enquanto
+       * qualquer outra tela que busca a biblioteca "pura" (ex.: "Ver
+       * tudo", `continue-assistindo.tsx`) já mostrava certo na hora —
+       * exatamente o sintoma reportado.
+       *
+       * Corrigido buscando a biblioteca IMEDIATAMENTE (já reflete
+       * qualquer atualização feita pelo servidor, sem esperar nada) e
+       * rodando o recálculo em paralelo, por trás — ele busca de novo
+       * ao terminar só pra pegar o caso raro em que ELE (e não o
+       * servidor) foi quem promoveu alguma série, sem bloquear a
+       * exibição inicial.
        */
+      refetchSilently();
       recalculateUpToDateSeriesCategoriesThrottled()
         .then(() => refetchSilently())
         .catch((error) => {
           console.error("[SeriesHomeScreen] Falha ao recalcular categorias em foco", error);
           refetchSilently();
         });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [refetchSilently])
   );
 
   /**
