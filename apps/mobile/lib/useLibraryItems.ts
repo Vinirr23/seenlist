@@ -49,6 +49,21 @@ export interface UseLibraryItemsOptions {
 
 const CACHE_VERSION = 1;
 
+/**
+ * CORREÇÃO DE CAUSA RAIZ (2026-09-30, bug real reportado — "série que
+ * estou acompanhando hora aparece hora não aparece logo de cara" ao
+ * abrir o app) — investigação completa: `load()` já tinha um
+ * `try/catch` que captura qualquer falha de rede e só loga
+ * (`console.error`) + marca `isError`, sem tentar de novo. Numa rede
+ * ainda "acordando" (app recém-aberto, rádio do celular reconectando),
+ * essa falha é comum e passageira — mas sem retry automático, a tela
+ * fica presa no que já tinha (cache antigo, ou nada) até o próximo
+ * foco da tela (até 2h depois) ou até a pessoa puxar pra atualizar na
+ * mão. Uma única tentativa automática, com um atraso pequeno, cobre
+ * exatamente esse caso sem arriscar um loop de tentativas.
+ */
+const RETRY_DELAY_MS = 2500;
+
 function cacheKeyFor(userId: string | undefined, locale: string): string | null {
   if (!userId) return null;
   return `seenlist:library-items:v${CACHE_VERSION}:${userId}:${locale}`;
@@ -132,17 +147,26 @@ export function useLibraryItems(options: UseLibraryItemsOptions = {}): UseLibrar
   const hasLoadedOnce = useRef(false);
   const hasShownCache = useRef(false);
   const lastSignatureRef = useRef<string | null>(null);
+  /** Ver `RETRY_DELAY_MS` acima — cancelado no unmount, pra nunca tentar de novo numa tela que já saiu de cena. */
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+    };
+  }, []);
 
   const cacheKey = cacheKeyFor(userId, locale);
 
   const load = useCallback(
-    async (isRefresh: boolean) => {
+    async (isRefresh: boolean, isRetryAttempt = false) => {
       if (isRefresh) setRefreshing(true);
       // Se já mostramos algo (cache ou busca anterior), nunca mais
       // volta pro esqueleto cheio — só pro spinner de refresh (acima)
       // quando for puxar-pra-atualizar de verdade.
       else if (!hasLoadedOnce.current && !hasShownCache.current) setIsLoading(true);
-      setIsError(false);
+      if (!isRetryAttempt) setIsError(false);
 
       try {
         const data = await fetchLibraryItems(undefined, locale);
@@ -156,6 +180,7 @@ export function useLibraryItems(options: UseLibraryItemsOptions = {}): UseLibrar
           setItems(data);
         }
         hasLoadedOnce.current = true;
+        setIsError(false);
         if (cacheKey) {
           AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch((error) => {
             console.warn("[useLibraryItems] Falha ao salvar cache local — sem efeito na tela atual", error);
@@ -163,6 +188,14 @@ export function useLibraryItems(options: UseLibraryItemsOptions = {}): UseLibrar
         }
       } catch (error) {
         console.error("[useLibraryItems] Falha ao buscar a biblioteca", error);
+        if (!isRetryAttempt) {
+          // Ver `RETRY_DELAY_MS` acima — só UMA tentativa automática,
+          // silenciosa (não reativa `refreshing`/esqueleto de novo).
+          retryTimeoutRef.current = setTimeout(() => {
+            if (!unmountedRef.current) load(isRefresh, true);
+          }, RETRY_DELAY_MS);
+          return;
+        }
         setIsError(true);
       } finally {
         if (isRefresh) setRefreshing(false);

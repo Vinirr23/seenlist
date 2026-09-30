@@ -48,6 +48,9 @@ function mostRecentActivityAt(item: LibraryItem): string {
   return lastNewEpisodeAt && lastNewEpisodeAt > item.updatedAt ? lastNewEpisodeAt : item.updatedAt;
 }
 
+/** A PEDIDO (2026-09-30, ver comentário completo em `lib/useLibraryItems.ts`) — mesmo atraso de retry, usado aqui pra `loadNextEpisodes`. */
+const RETRY_DELAY_MS = 2500;
+
 /**
  * A PEDIDO — seção "Faz um tempo que você não assiste". Série que
  * está em "Assistindo" mas sem NENHUM episódio marcado há 2 semanas
@@ -169,9 +172,23 @@ export default function SeriesHomeScreen() {
    */
   useFocusEffect(
     useCallback(() => {
+      /**
+       * CORREÇÃO (2026-09-30, defesa extra — ver comentário completo
+       * em `lib/useLibraryItems.ts`) — `recalculateUpToDateSeries
+       * CategoriesThrottled()` já captura toda falha de rede/Supabase
+       * internamente (nunca rejeita nesses casos), mas pode rejeitar
+       * num caso raro (ex.: `AsyncStorage` falhando) — nesse caso,
+       * antes, `refetchSilently()` nunca rodava (ficava só no `.then()`
+       * anterior). Belt-and-suspenders: agora o `.catch()` também
+       * chama `refetchSilently()`, pra a lista tentar atualizar mesmo
+       * quando o passo de recálculo falha de um jeito inesperado.
+       */
       recalculateUpToDateSeriesCategoriesThrottled()
         .then(() => refetchSilently())
-        .catch((error) => console.error("[SeriesHomeScreen] Falha ao recalcular categorias em foco", error));
+        .catch((error) => {
+          console.error("[SeriesHomeScreen] Falha ao recalcular categorias em foco", error);
+          refetchSilently();
+        });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
@@ -432,25 +449,55 @@ export default function SeriesHomeScreen() {
    * baixo aparecerem.
    */
   const jaCarregouEpisodiosRef = useRef(false);
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-30, mesmo achado de
+   * `lib/useLibraryItems.ts` — ver comentário completo lá) — essa
+   * busca também engolia qualquer falha de rede em silêncio, sem
+   * tentar de novo. Como o modo GRADE depende inteiramente deste
+   * resultado pra decidir se uma série tem pendência real (desde a
+   * correção do bug do Outlander, 2026-09-30), uma falha passageira
+   * aqui podia fazer a série sumir da grade inteira até o próximo
+   * foco/puxar — mesmo sintoma "aparece/some" relatado. Uma única
+   * tentativa automática, mesmo atraso do `useLibraryItems`.
+   */
+  const nextEpisodesRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+      if (nextEpisodesRetryTimeoutRef.current) clearTimeout(nextEpisodesRetryTimeoutRef.current);
+    };
+  }, []);
 
-  const loadNextEpisodes = useCallback(() => {
-    if (listNeedingEpisodes.length === 0) return;
-    if (!jaCarregouEpisodiosRef.current) setNextEpisodesLoaded(false);
-    fetchNextEpisodesToWatch(listNeedingEpisodes.map((item) => item.id), locale)
-      .then((map) => {
-        setNextEpisodes(map);
-        jaCarregouEpisodiosRef.current = true;
-        setNextEpisodesLoaded(true);
-      })
-      .catch((error) => {
-        console.error("[SeriesHomeScreen] Falha ao buscar próximos episódios", error);
-        jaCarregouEpisodiosRef.current = true;
-        setNextEpisodesLoaded(true); // não trava no esqueleto pra sempre se der erro — cai pro cartão simples
-      });
+  const loadNextEpisodes = useCallback(
+    (isRetryAttempt = false) => {
+      if (listNeedingEpisodes.length === 0) return;
+      if (!jaCarregouEpisodiosRef.current) setNextEpisodesLoaded(false);
+      fetchNextEpisodesToWatch(listNeedingEpisodes.map((item) => item.id), locale)
+        .then((map) => {
+          setNextEpisodes(map);
+          jaCarregouEpisodiosRef.current = true;
+          setNextEpisodesLoaded(true);
+        })
+        .catch((error) => {
+          console.error("[SeriesHomeScreen] Falha ao buscar próximos episódios", error);
+          if (!isRetryAttempt) {
+            nextEpisodesRetryTimeoutRef.current = setTimeout(() => {
+              if (!unmountedRef.current) loadNextEpisodes(true);
+            }, RETRY_DELAY_MS);
+            return;
+          }
+          jaCarregouEpisodiosRef.current = true;
+          setNextEpisodesLoaded(true); // não trava no esqueleto pra sempre se der erro de novo — cai pro cartão simples
+        });
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listNeedingEpisodes.map((i) => i.id).join(","), locale]);
+    [listNeedingEpisodes.map((i) => i.id).join(","), locale]
+  );
 
-  useEffect(loadNextEpisodes, [loadNextEpisodes]);
+  useEffect(() => {
+    loadNextEpisodes();
+  }, [loadNextEpisodes]);
 
   /**
    * ESTABILIZADO (2026-09-17, réplica do fix do Perfil — "pode

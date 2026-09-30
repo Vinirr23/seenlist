@@ -49,6 +49,9 @@ function mostRecentActivityAt(item: LibraryItem): string {
   return lastNewEpisodeAt && lastNewEpisodeAt > item.updatedAt ? lastNewEpisodeAt : item.updatedAt;
 }
 
+/** A PEDIDO (2026-09-30, ver comentário completo em `lib/useLibraryItems.ts`) — mesmo atraso de retry, usado aqui pra `loadNextEpisodes`. */
+const RETRY_DELAY_MS = 2500;
+
 export default function ContinueWatchingAllScreen() {
   const router = useRouter();
   const { t, locale } = useTranslation();
@@ -111,32 +114,57 @@ export default function ContinueWatchingAllScreen() {
 
   /* Esqueleto só na PRIMEIRA carga — ver o comentário longo na Home; refetch com a lista já na tela é o que deixa a animação aparecer. */
   const jaCarregouEpisodiosRef = useRef(false);
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-09-30, mesmo achado de
+   * `lib/useLibraryItems.ts`/Home — ver comentário completo lá) — essa
+   * busca engolia qualquer falha de rede em silêncio, sem tentar de
+   * novo. Uma única tentativa automática, mesmo atraso da Home.
+   */
+  const nextEpisodesRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+      if (nextEpisodesRetryTimeoutRef.current) clearTimeout(nextEpisodesRetryTimeoutRef.current);
+    };
+  }, []);
 
-  const loadNextEpisodes = useCallback(() => {
-    if (continueWatching.length === 0) {
-      setNextEpisodesLoaded(true);
-      return;
-    }
-    if (!jaCarregouEpisodiosRef.current) setNextEpisodesLoaded(false);
-    fetchNextEpisodesToWatch(
-      continueWatching.map((item) => item.id),
-      locale
-    )
-      .then((map) => {
-        setNextEpisodes(map);
-        jaCarregouEpisodiosRef.current = true;
+  const loadNextEpisodes = useCallback(
+    (isRetryAttempt = false) => {
+      if (continueWatching.length === 0) {
         setNextEpisodesLoaded(true);
-      })
-      .catch((error) => {
-        console.error("[ContinueWatchingAllScreen] Falha ao buscar próximos episódios", error);
-        // Não trava no esqueleto pra sempre se der erro — mesma escolha da Home.
-        jaCarregouEpisodiosRef.current = true;
-        setNextEpisodesLoaded(true);
-      });
+        return;
+      }
+      if (!jaCarregouEpisodiosRef.current) setNextEpisodesLoaded(false);
+      fetchNextEpisodesToWatch(
+        continueWatching.map((item) => item.id),
+        locale
+      )
+        .then((map) => {
+          setNextEpisodes(map);
+          jaCarregouEpisodiosRef.current = true;
+          setNextEpisodesLoaded(true);
+        })
+        .catch((error) => {
+          console.error("[ContinueWatchingAllScreen] Falha ao buscar próximos episódios", error);
+          if (!isRetryAttempt) {
+            nextEpisodesRetryTimeoutRef.current = setTimeout(() => {
+              if (!unmountedRef.current) loadNextEpisodes(true);
+            }, RETRY_DELAY_MS);
+            return;
+          }
+          // Não trava no esqueleto pra sempre se der erro de novo — mesma escolha da Home.
+          jaCarregouEpisodiosRef.current = true;
+          setNextEpisodesLoaded(true);
+        });
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [continueWatching.map((i) => i.id).join(","), locale]);
+    [continueWatching.map((i) => i.id).join(","), locale]
+  );
 
-  useEffect(loadNextEpisodes, [loadNextEpisodes]);
+  useEffect(() => {
+    loadNextEpisodes();
+  }, [loadNextEpisodes]);
 
   /*
    * Mesma regra da Home: série "Em dia" só entra se tiver pendência real.
