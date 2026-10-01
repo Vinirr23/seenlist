@@ -485,11 +485,26 @@ export default function SeriesHomeScreen() {
     };
   }, []);
 
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-10-01, bug real reportado — "card
+   * demora a sumir, lista pula pra cima sem suavidade" ao marcar
+   * episódio) — antes devolvia `void`: `ContinueWatchingListRow` não
+   * tinha como saber QUANDO esta busca terminava de verdade, então
+   * apostava num tempo fixo pra desligar a animação de "linhas de
+   * baixo deslizam suavemente" — numa rede mais lenta (ou com mais
+   * buscas concorrentes ao mesmo tempo, caso real desde o fix de
+   * "Home não espera mais o recálculo", que já dispara uma busca ao
+   * focar), o tempo fixo vencia antes da busca de verdade, e a lista
+   * dava um salto seco. Agora devolve a Promise de verdade (nos 3
+   * casos: sem nada pra buscar, sucesso, e depois do retry) — ver uso
+   * em `handleMarkedWatched`, abaixo, e o comentário completo em
+   * `ContinueWatchingListRow.tsx`.
+   */
   const loadNextEpisodes = useCallback(
-    (isRetryAttempt = false) => {
-      if (listNeedingEpisodes.length === 0) return;
+    (isRetryAttempt = false): Promise<void> => {
+      if (listNeedingEpisodes.length === 0) return Promise.resolve();
       if (!jaCarregouEpisodiosRef.current) setNextEpisodesLoaded(false);
-      fetchNextEpisodesToWatch(listNeedingEpisodes.map((item) => item.id), locale)
+      return fetchNextEpisodesToWatch(listNeedingEpisodes.map((item) => item.id), locale)
         .then((map) => {
           setNextEpisodes(map);
           jaCarregouEpisodiosRef.current = true;
@@ -498,10 +513,12 @@ export default function SeriesHomeScreen() {
         .catch((error) => {
           console.error("[SeriesHomeScreen] Falha ao buscar próximos episódios", error);
           if (!isRetryAttempt) {
-            nextEpisodesRetryTimeoutRef.current = setTimeout(() => {
-              if (!unmountedRef.current) loadNextEpisodes(true);
-            }, RETRY_DELAY_MS);
-            return;
+            return new Promise<void>((resolve) => {
+              nextEpisodesRetryTimeoutRef.current = setTimeout(() => {
+                if (!unmountedRef.current) loadNextEpisodes(true).then(resolve, resolve);
+                else resolve();
+              }, RETRY_DELAY_MS);
+            });
           }
           jaCarregouEpisodiosRef.current = true;
           setNextEpisodesLoaded(true); // não trava no esqueleto pra sempre se der erro de novo — cai pro cartão simples
@@ -528,9 +545,19 @@ export default function SeriesHomeScreen() {
    * verdade agora que `refetchSilently` também é (correção de causa
    * raiz em `lib/useLibraryItems.ts`, mesma sessão).
    */
-  const handleMarkedWatched = useCallback(() => {
-    refetchSilently();
-    loadNextEpisodes();
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-10-01, ver comentário grande em
+   * `loadNextEpisodes`, acima) — antes disparava as duas buscas sem
+   * esperar nenhuma (`void`), então `ContinueWatchingListRow` não tinha
+   * como saber quando eram concluídas de verdade. Agora devolve a
+   * Promise das duas (`refetchSilently` já devolvia; `loadNextEpisodes`
+   * passou a devolver também) — o card espera essa Promise antes de
+   * desligar a animação de "linhas de baixo deslizam", eliminando o
+   * salto seco quando a rede demora mais que o normal.
+   */
+  const handleMarkedWatched = useCallback(async () => {
+    await refetchSilently();
+    await loadNextEpisodes();
   }, [refetchSilently, loadNextEpisodes]);
 
   /**

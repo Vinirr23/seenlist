@@ -63,13 +63,21 @@ export default function ContinueWhereYouLeftOffAllScreen() {
   /* Esqueleto só na PRIMEIRA carga — mesma regra de `continue-assistindo.tsx`/Home. */
   const jaCarregouEpisodiosRef = useRef(false);
 
-  const loadNextEpisodes = useCallback(() => {
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-10-01, mesmo achado da Home/"Ver tudo"
+   * — ver comentário completo em `series/index.tsx`/
+   * `ContinueWatchingListRow.tsx`) — devolve a Promise de verdade, pro
+   * card saber quando a busca REALMENTE terminou antes de desligar a
+   * animação de "linhas de baixo deslizam", em vez de confiar num tempo
+   * fixo que pode perder a corrida numa rede mais lenta.
+   */
+  const loadNextEpisodes = useCallback((): Promise<void> => {
     if (staleSeries.length === 0) {
       setNextEpisodesLoaded(true);
-      return;
+      return Promise.resolve();
     }
     if (!jaCarregouEpisodiosRef.current) setNextEpisodesLoaded(false);
-    fetchNextEpisodesToWatch(
+    return fetchNextEpisodesToWatch(
       staleSeries.map((item) => item.id),
       locale
     )
@@ -87,7 +95,9 @@ export default function ContinueWhereYouLeftOffAllScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staleSeries.map((i) => i.id).join(","), locale]);
 
-  useEffect(loadNextEpisodes, [loadNextEpisodes]);
+  useEffect(() => {
+    loadNextEpisodes();
+  }, [loadNextEpisodes]);
 
   const [transicoesAtivas, setTransicoesAtivas] = useState(0);
   const handleTransitionActiveChange = useCallback((active: boolean) => {
@@ -141,9 +151,10 @@ export default function ContinueWhereYouLeftOffAllScreen() {
                   nextEpisode={nextEpisodes.get(item.id) ?? null}
                   layoutActive={transicoesAtivas > 0}
                   onTransitionActiveChange={handleTransitionActiveChange}
-                  onMarkedWatched={() => {
-                    refetchSilently();
-                    loadNextEpisodes();
+                  /* CORREÇÃO DE CAUSA RAIZ (2026-10-01) — mesma correção da Home/"Ver tudo": devolve a Promise das duas buscas, pro card esperar a conclusão de verdade antes de desligar a animação de layout. */
+                  onMarkedWatched={async () => {
+                    await refetchSilently();
+                    await loadNextEpisodes();
                   }}
                   /* Igual à Home: só esta seção mostra "há quanto tempo" (ver `staleSince` em `index.tsx`). */
                   staleSince={item.lastActivityAt}

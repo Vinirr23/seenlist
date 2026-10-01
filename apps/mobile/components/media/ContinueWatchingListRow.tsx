@@ -184,7 +184,29 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
 }: {
   item: LibraryItem;
   nextEpisode: NextEpisodeToWatch | null;
-  onMarkedWatched: () => void;
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-10-01, bug real reportado — "card
+   * demora a sumir, lista pula pra cima sem suavidade") — antes era
+   * `() => void`: o pai dispara a busca (`refetchSilently`/
+   * `loadNextEpisodes`) mas este componente não tinha como saber QUANDO
+   * ela de fato terminava, então `desligarLayoutDepoisDaTransicao`
+   * (abaixo) apostava num tempo FIXO (`LAYOUT_TRANSITION_DURATION_MS`)
+   * contado a partir da hora de CHAMAR a busca, não da hora em que ela
+   * termina. Numa rede mais lenta (ou com mais buscas concorrentes —
+   * foi exatamente o caso aqui: o fix de "Home não espera mais o
+   * recálculo" fez a tela já disparar uma busca ao focar, que podia
+   * ainda estar em andamento quando a pessoa marcava um episódio logo
+   * em seguida), a busca de verdade demorava mais que o cronômetro —
+   * `layoutActive` desligava ANTES da lista encolher de verdade, e os
+   * cards de baixo davam um salto seco em vez de deslizar.
+   *
+   * Agora aceita opcionalmente uma Promise: se o pai devolver uma, este
+   * componente espera ela terminar de VERDADE antes de começar a
+   * contagem pra desligar a animação — não importa quanto tempo a rede
+   * leve. Continua aceitando uma função que não devolve nada (`void`),
+   * pra não quebrar quem ainda não precisa disso.
+   */
+  onMarkedWatched: () => void | Promise<void>;
   /**
    * Espelha `layoutActive`/`onTransitionActiveChange` de
    * `ContinueWatchingCard.tsx` (web) — ver comentário grande em
@@ -267,8 +289,15 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
    * lista já atualizada.
    */
   function handleExitComplete() {
-    onMarkedWatched();
-    desligarLayoutDepoisDaTransicao();
+    // Ver comentário grande em `onMarkedWatched`, na assinatura do
+    // componente — espera a busca de verdade terminar (seja ela
+    // instantânea ou uma Promise) antes de começar a contagem pra
+    // desligar `layoutActive`. `Promise.resolve(undefined)` resolve na
+    // hora quando o pai não devolve nada, mantendo o comportamento de
+    // antes pra quem ainda chama do jeito antigo.
+    Promise.resolve(onMarkedWatched()).finally(() => {
+      desligarLayoutDepoisDaTransicao();
+    });
   }
 
   const layoutOffTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -344,8 +373,11 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
         // refetch pode mudar a altura deste card (episódio com nome
         // mais longo, selo que aparece ou some) e mexer nos de baixo.
         // Desligar o layout antes disso fazia esse ajuste ser um salto.
-        onMarkedWatched();
-        desligarLayoutDepoisDaTransicao();
+        // MESMA CORREÇÃO de causa raiz do `handleExitComplete` — espera
+        // a busca de verdade terminar antes de desligar o layout.
+        Promise.resolve(onMarkedWatched()).finally(() => {
+          desligarLayoutDepoisDaTransicao();
+        });
       }
     }, CONFIRM_HOLD_MS);
   }

@@ -129,14 +129,23 @@ export default function ContinueWatchingAllScreen() {
     };
   }, []);
 
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-10-01, mesmo achado da Home — ver
+   * comentário completo em `series/index.tsx`/`ContinueWatchingListRow.tsx`)
+   * — devolve a Promise de verdade (nos 3 casos: sem nada pra buscar,
+   * sucesso, e depois do retry), pro card saber quando a busca REALMENTE
+   * terminou antes de desligar a animação de "linhas de baixo deslizam",
+   * em vez de confiar num tempo fixo que pode perder a corrida numa rede
+   * mais lenta.
+   */
   const loadNextEpisodes = useCallback(
-    (isRetryAttempt = false) => {
+    (isRetryAttempt = false): Promise<void> => {
       if (continueWatching.length === 0) {
         setNextEpisodesLoaded(true);
-        return;
+        return Promise.resolve();
       }
       if (!jaCarregouEpisodiosRef.current) setNextEpisodesLoaded(false);
-      fetchNextEpisodesToWatch(
+      return fetchNextEpisodesToWatch(
         continueWatching.map((item) => item.id),
         locale
       )
@@ -148,10 +157,12 @@ export default function ContinueWatchingAllScreen() {
         .catch((error) => {
           console.error("[ContinueWatchingAllScreen] Falha ao buscar próximos episódios", error);
           if (!isRetryAttempt) {
-            nextEpisodesRetryTimeoutRef.current = setTimeout(() => {
-              if (!unmountedRef.current) loadNextEpisodes(true);
-            }, RETRY_DELAY_MS);
-            return;
+            return new Promise<void>((resolve) => {
+              nextEpisodesRetryTimeoutRef.current = setTimeout(() => {
+                if (!unmountedRef.current) loadNextEpisodes(true).then(resolve, resolve);
+                else resolve();
+              }, RETRY_DELAY_MS);
+            });
           }
           // Não trava no esqueleto pra sempre se der erro de novo — mesma escolha da Home.
           jaCarregouEpisodiosRef.current = true;
@@ -238,9 +249,10 @@ export default function ContinueWatchingAllScreen() {
                   nextEpisode={nextEpisodes.get(item.id) ?? null}
                   layoutActive={transicoesAtivas > 0}
                   onTransitionActiveChange={handleTransitionActiveChange}
-                  onMarkedWatched={() => {
-                    refetchSilently();
-                    loadNextEpisodes();
+                  /* CORREÇÃO DE CAUSA RAIZ (2026-10-01) — mesma correção da Home: devolve a Promise das duas buscas, pro card esperar a conclusão de verdade antes de desligar a animação de layout. */
+                  onMarkedWatched={async () => {
+                    await refetchSilently();
+                    await loadNextEpisodes();
                   }}
                 />
               )
