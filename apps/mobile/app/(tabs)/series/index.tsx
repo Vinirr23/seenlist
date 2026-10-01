@@ -669,7 +669,18 @@ export default function SeriesHomeScreen() {
         >
           {!isError && !naoTemNadaRecente && (
             <View style={styles.sectionHeader}>
-              <SectionTitle>{t("seriesHome.continueWatching")}</SectionTitle>
+              {/*
+                * A PEDIDO (2026-10-01 — "deixa o 'assistir a seguir' de
+                * séries e filmes sem ser pílula") — era `<SectionTitle>`
+                * (a cápsula de vidro maiúscula portada do web em
+                * 2026-09-09). Trocado por `Text variant="subtitle"`, o
+                * mesmo título "comum" já usado nas telas-irmãs "Ver
+                * tudo" (`continue-assistindo.tsx`/
+                * `continue-de-onde-parou.tsx`) — só esta seção; "Continue
+                * de onde parou" (logo abaixo) e as pílulas de dia de "Em
+                * breve" continuam como estavam, sem pedido pra mudar.
+                */}
+              <Text variant="subtitle">{t("seriesHome.continueWatching")}</Text>
               <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
             </View>
           )}

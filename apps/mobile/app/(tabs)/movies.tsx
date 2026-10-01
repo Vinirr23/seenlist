@@ -9,7 +9,6 @@ import { useDiscoverList } from "@/lib/useDiscoverList";
 import { todayLocalKey } from "@/lib/localDate";
 import { Screen, Text, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
-import { SectionTitle } from "@/components/media/SectionTitle";
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
@@ -200,7 +199,17 @@ export default function MoviesScreen() {
             ListHeaderComponent={
               !isEmptyState ? (
                 <View style={styles.sectionHeader}>
-                  <SectionTitle>{t("moviesHome.watchlist")}</SectionTitle>
+                  {/*
+                    * A PEDIDO (2026-10-01 — "deixa o 'assistir a seguir'
+                    * de séries e filmes sem ser pílula") — era
+                    * `<SectionTitle>` (a cápsula de vidro maiúscula
+                    * portada do web em 2026-09-09). Trocado por
+                    * `Text variant="subtitle"`, o mesmo título "comum"
+                    * já usado nas telas-irmãs "Ver tudo"
+                    * (`continue-assistindo.tsx`/
+                    * `continue-de-onde-parou.tsx`).
+                    */}
+                  <Text variant="subtitle">{t("moviesHome.watchlist")}</Text>
                   <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
                 </View>
               ) : null
