@@ -386,6 +386,24 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
    * eliminar essa variável antes de investigar mais fundo com log real
    * do aparelho.
    */
+  /**
+   * Dispara quando o trecho de SAÍDA do slide (conteúdo antigo
+   * deslizando pra fora) termina — nesse momento o dado do episódio
+   * novo já chegou de verdade (só entramos nessa animação depois do
+   * `.then()` do refetch, ver `handleMarkWatched`). Troca o
+   * "congelado" (`frozenRef`) pro valor novo, força o re-render pra
+   * `display` pegar o episódio novo, e desliza de volta (entrada).
+   */
+  function handleAdvanceDataReady() {
+    if (!mountedRef.current) return;
+    frozenRef.current = latestNextEpisodeRef.current;
+    forceAdvanceRerender((n) => n + 1);
+    advanceTranslateX.value = ADVANCE_DISTANCE;
+    advanceTranslateX.value = withTiming(0, { duration: ADVANCE_IN_MS, easing: Easing.out(Easing.quad) }, (finished) => {
+      if (finished) scheduleOnRN(handleAdvanceSlideInComplete);
+    });
+  }
+
   function handleAdvanceSlideInComplete() {
     if (mountedRef.current) setPhase("idle");
   }
@@ -459,13 +477,21 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
         // o card voltava a `idle` SEM animação nenhuma e só reaparecia
         // com a info nova quando o refetch do pai terminasse — dava a
         // impressão de "a informação só muda", exatamente o relato do
-        // usuário. Agora: o conteúdo atual desliza pra fora (esquerda)
-        // e, assim que o episódio NOVO estiver disponível de verdade
-        // (depois do refetch), ele entra deslizando (direita) — ver
-        // `ADVANCE_DISTANCE`/`advanceContentStyle`.
+        // usuário.
+        //
+        // OPÇÃO A ESCOLHIDA (2026-10-01, depois de testar a V1 — "ficou
+        // uns 10 segundos limpo até aparecer o próximo episódio": a V1
+        // começava o slide-out NA HORA, em paralelo com o refetch, e só
+        // trazia o conteúdo novo quando a rede respondesse — numa rede
+        // lenta isso virava um vazio gigante). Mostrado um mockup com 2
+        // opções (ver `AskUserQuestion`); escolhida a que NUNCA fica em
+        // branco: o card continua mostrando o episódio ANTIGO, parado,
+        // sem nenhuma animação, até o dado novo chegar de verdade — só
+        // então desliza saindo e entrando, tudo de uma vez (ver
+        // `handleAdvanceDataReady`, abaixo). O toque + haptic já deram a
+        // confirmação imediata; o slide é só o "troquei de episódio".
         tintOpacity.value = withTiming(0, { duration: 200 });
         setPhase("advancing");
-        advanceTranslateX.value = withTiming(-ADVANCE_DISTANCE, { duration: ADVANCE_OUT_MS, easing: Easing.in(Easing.quad) });
 
         // Só agora avisa o pai (a escrita já foi disparada acima, em
         // paralelo) — isto só pede pro pai buscar o próximo estado
@@ -488,17 +514,12 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
           // guarda, o código abaixo mexia em shared values/estado de um
           // componente já desmontado.
           if (!mountedRef.current) return;
-          // O refetch do pai já deve ter atualizado a prop `nextEpisode`
-          // a esta altura (a Promise só resolve depois dele terminar) —
-          // troca o "congelado" pro valor novo NA MÃO (fora do fluxo
-          // normal de `idle`, ver `frozenRef` acima) e força um
-          // re-render pra `display` pegar o episódio novo já no início
-          // da entrada deslizando da direita.
-          frozenRef.current = latestNextEpisodeRef.current;
-          forceAdvanceRerender((n) => n + 1);
-          advanceTranslateX.value = ADVANCE_DISTANCE;
-          advanceTranslateX.value = withTiming(0, { duration: ADVANCE_IN_MS, easing: Easing.out(Easing.quad) }, (finished) => {
-            if (finished) scheduleOnRN(handleAdvanceSlideInComplete);
+          // Dado real JÁ está pronto aqui (é por isso que só começamos
+          // a animar agora, não antes) — desliza o conteúdo ANTIGO pra
+          // fora; `handleAdvanceDataReady` troca pro episódio novo e
+          // desliza de volta assim que esse primeiro trecho terminar.
+          advanceTranslateX.value = withTiming(-ADVANCE_DISTANCE, { duration: ADVANCE_OUT_MS, easing: Easing.in(Easing.quad) }, (finished) => {
+            if (finished) scheduleOnRN(handleAdvanceDataReady);
           });
         }).finally(() => {
           desligarLayoutDepoisDaTransicao();
