@@ -157,6 +157,21 @@ export default function SeriesHomeScreen() {
   );
 
   /**
+   * CORREÇÃO (2026-10-01, evitar erro de "usado antes de declarado") —
+   * `loadNextEpisodes` só é definido mais abaixo (depende de
+   * `listNeedingEpisodes`, calculado depois de `items` chegar), mas
+   * precisa ser chamado por ESTE `useFocusEffect`, que vem antes no
+   * arquivo. Referenciar `loadNextEpisodes` direto aqui (antes de ele
+   * existir) quebraria em tempo de execução (erro de JavaScript
+   * "Cannot access before initialization"). Um ref resolve: ele É
+   * declarado aqui (sem problema, é só um objeto mutável vazio no
+   * começo) e só GANHA o valor de verdade depois, no efeito logo após
+   * a definição de `loadNextEpisodes` — sem precisar mover nenhum bloco
+   * de lugar no arquivo.
+   */
+  const loadNextEpisodesRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
+  /**
    * TASK-143/151 — toda vez que a aba Séries ganha foco, recalcula
    * sozinho se alguma série "Em dia" ganhou episódio novo desde a
    * última vez (sem precisar marcar nada manualmente) — depois busca
@@ -200,6 +215,24 @@ export default function SeriesHomeScreen() {
        * exibição inicial.
        */
       refetchSilently();
+      /**
+       * CORREÇÃO DE CAUSA RAIZ (2026-10-01, bug real reportado — "marco
+       * ou desmarco episódio na tela de detalhes da série, não muda na
+       * Home/Séries") — faltava aqui. Este foco já rebuscava a
+       * BIBLIOTECA (`refetchSilently`, acima — status/categoria de cada
+       * série), mas nunca o "próximo episódio pra assistir" de cada
+       * card (`loadNextEpisodes`, que alimenta `nextEpisodes` — número/
+       * nome do episódio mostrado no `ContinueWatchingListRow`). Essa
+       * busca só rodava sozinha quando o CONJUNTO de séries precisando
+       * de episódio mudava de identidade (efeito logo abaixo, preso a
+       * `listNeedingEpisodes` via `loadNextEpisodes`) — marcar/desmarcar
+       * um episódio na tela de detalhes troca QUAL episódio está
+       * pendente, mas a série continua precisando de um (mesmo
+       * conjunto, mesma identidade), então aquele efeito nunca disparava
+       * de novo sozinho ao voltar pra Home. Agora o foco força a busca
+       * também, igual já fazia com a biblioteca.
+       */
+      loadNextEpisodesRef.current();
       recalculateUpToDateSeriesCategoriesThrottled()
         .then(() => refetchSilently())
         .catch((error) => {
@@ -530,6 +563,11 @@ export default function SeriesHomeScreen() {
 
   useEffect(() => {
     loadNextEpisodes();
+  }, [loadNextEpisodes]);
+
+  // Mantém `loadNextEpisodesRef` (declarado lá em cima, antes do `useFocusEffect`) sempre apontando pra versão mais recente — ver comentário grande nele.
+  useEffect(() => {
+    loadNextEpisodesRef.current = loadNextEpisodes;
   }, [loadNextEpisodes]);
 
   /**

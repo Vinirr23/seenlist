@@ -286,8 +286,36 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
   const [, forceAdvanceRerender] = useState(0);
 
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * CAUSA RAIZ DO CRASH REPORTADO (2026-10-01 — "a animação de deslizar
+   * limpa o card, trava e fecha o app") — a fase "advancing" dispara o
+   * refetch do pai (`onMarkedWatched`) EM PARALELO com o slide-out, e
+   * só mexe no card de novo (trocar `frozenRef`, `forceAdvanceRerender`,
+   * reanimar `advanceTranslateX`) quando esse refetch termina, no
+   * `.then()`. Só que marcar um episódio muda `lastActivityAt` da
+   * série — o que pode tirá-la da seção "Faz um tempo que você não
+   * assiste" (`staleSince`) e passá-la pra "Continue assistindo" (ou
+   * vice-versa). Como são DUAS listas/`.map()` separadas em
+   * `series/index.tsx`, essa troca de seção DESMONTA esta instância
+   * (não é só reordenar com a mesma `key` — é uma árvore diferente).
+   * Se isso acontecer ENQUANTO o `.then()` ainda não rodou, o callback
+   * mexe em `shared values` (Reanimated) e chama `setState` de um
+   * componente JÁ desmontado — é exatamente o tipo de coisa que trava
+   * a thread de UI do Reanimated e derruba o app inteiro (diferente de
+   * um `setState` comum em componente desmontado, que só geraria aviso).
+   *
+   * O colapso antigo ("exiting") nunca tinha esse risco: ele só chama
+   * `onMarkedWatched` DEPOIS da animação de saída terminar (quando o
+   * card já visualmente sumiu) — o "advancing" novo é que introduziu o
+   * refetch rodando EM PARALELO com uma animação que ainda mexe no
+   * componente depois. Correção: guarda simples — não mexe em NADA
+   * (ref, shared value, estado) se o componente já desmontou nesse
+   * meio tempo.
+   */
+  const mountedRef = useRef(true);
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       if (layoutOffTimeoutRef.current) clearTimeout(layoutOffTimeoutRef.current);
       if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
     };
@@ -433,6 +461,16 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
         // MESMA CORREÇÃO de causa raiz do `handleExitComplete` — espera
         // a busca de verdade terminar antes de desligar o layout.
         Promise.resolve(onMarkedWatched()).then(() => {
+          // CAUSA RAIZ DO CRASH ("limpa o card, trava e fecha o app") —
+          // ver comentário grande em `mountedRef`, acima. Marcar este
+          // episódio pode mudar `lastActivityAt` da série e tirá-la
+          // desta lista (ex.: sai de "Faz um tempo que você não
+          // assiste" e entra em "Continue assistindo") ANTES deste
+          // `.then()` rodar — o que desmonta esta instância de verdade
+          // (listas/`.map()` diferentes, não só reordenação). Sem esta
+          // guarda, o código abaixo mexia em shared values/estado de um
+          // componente já desmontado.
+          if (!mountedRef.current) return;
           // O refetch do pai já deve ter atualizado a prop `nextEpisode`
           // a esta altura (a Promise só resolve depois dele terminar) —
           // troca o "congelado" pro valor novo NA MÃO (fora do fluxo
@@ -443,7 +481,14 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
           forceAdvanceRerender((n) => n + 1);
           advanceTranslateX.value = ADVANCE_DISTANCE;
           advanceTranslateX.value = withTiming(0, { duration: ADVANCE_IN_MS, easing: Easing.out(Easing.quad) }, (finished) => {
-            if (finished) scheduleOnRN(() => setPhase("idle"));
+            // `mountedRef.current` é lido DEPOIS do `scheduleOnRN`, já
+            // na thread de JS — lido dentro do worklet (a própria
+            // função passada pro `withTiming`) ele não refletiria
+            // mudanças feitas depois que o worklet foi criado (threads
+            // diferentes); só a checagem do lado de cá (JS) é confiável.
+            if (finished) scheduleOnRN(() => {
+              if (mountedRef.current) setPhase("idle");
+            });
           });
         }).finally(() => {
           desligarLayoutDepoisDaTransicao();
