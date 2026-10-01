@@ -713,7 +713,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     /* NOVO (redesenho da tela de Filme, mockup aprovado 2026-09-25) — segunda aba. */
     "media.moreTab": "Mais",
     /* CORREÇÃO (2026-09-25 — "adiciona essa mesma tela dentro de 'mais' em filme que tinhamos deixado pra depois") — texto mudou de "em breve" pra convite: a aba já tem conteúdo (onde assistiu/nota/humor), só aparece depois de marcar assistido. */
-    "media.moreTabComingSoon": "Marque este filme como assistido pra avaliar, dizer onde assistiu e como se sentiu.",
+    /* A PEDIDO (2026-10-01 — "a frase na subaba 'mais' quando um filme ainda não foi assistido, muda pra..."; ajustada em seguida pelo próprio usuário pra esta versão final) — frase antiga listava as 3 seções (onde assistiu/nota/humor); agora é só o essencial, como pedido. */
+    "media.moreTabComingSoon": "Marque como assistido para avaliar e registrar sua experiência.",
     "media.status": "Status",
     /*
      * CORREÇÃO (bug real, reportado — "status está ended ao invés de em
@@ -1340,7 +1341,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "review.noOtherReviewsYet": "No other reviews yet.",
     "media.aboutTab": "About",
     "media.moreTab": "More",
-    "media.moreTabComingSoon": "Mark this movie as watched to rate it, say where you watched it, and how it made you feel.",
+    "media.moreTabComingSoon": "Mark it as watched to rate it and log your experience.",
     "media.status": "Status",
     "media.seriesStatus.Ended": "Ended",
     "media.seriesStatus.Returning Series": "Returning series",
@@ -1944,7 +1945,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "review.noOtherReviewsYet": "Aún no hay otras reseñas.",
     "media.aboutTab": "Acerca de",
     "media.moreTab": "Más",
-    "media.moreTabComingSoon": "Marca esta película como vista para valorarla, decir dónde la viste y cómo te sentiste.",
+    "media.moreTabComingSoon": "Márcala como vista para valorarla y registrar tu experiencia.",
     "media.status": "Estado",
     "media.seriesStatus.Ended": "Finalizada",
     "media.seriesStatus.Returning Series": "En emisión",

@@ -84,6 +84,31 @@ const EXIT_DURATION_MS = 550;
 const LAYOUT_TRANSITION_DURATION_MS = 520;
 
 /**
+ * "DESLIZA PRA O LADO" (2026-10-01, a pedido — "quando tem um card de
+ * uma série com vários episódios pra assistir, quando o usuário marca,
+ * só muda a informação dentro do card... que o card deslize pra o
+ * lado, como se tivesse tirando o episódio que acabou de ser
+ * marcado").
+ *
+ * Opção escolhida (entre 3 apresentadas): o bloco de conteúdo inteiro
+ * (pôster + info) sai deslizando pra ESQUERDA enquanto desaparece, e o
+ * próximo episódio já entra deslizando de dentro pra fora pela
+ * DIREITA — tudo dentro do mesmo espaço do card, sem mudar a altura da
+ * lista (diferente do colapso vertical que já existe pro caso "última
+ * episódio pendente", logo abaixo).
+ *
+ * A opacidade é amarrada ao MESMO valor que dirige o translateX
+ * (interpolação única, ver `advanceContentStyle`) — assim o conteúdo
+ * sempre termina invisível antes de "bater" no limite do deslocamento,
+ * sem precisar medir a largura real do card nem recortar com
+ * `overflow: hidden` (o que arriscaria cortar o selo "+N"/badges que
+ * ficam colados na borda).
+ */
+const ADVANCE_DISTANCE = 28;
+const ADVANCE_OUT_MS = 220;
+const ADVANCE_IN_MS = 260;
+
+/**
  * `mb-3` do web. Fica NO CARD, não como `gap` da lista, porque a
  * altura dele anima junto no colapso — com `gap` o espaço não
  * encolheria e sobraria um buraco durante a saída. É por isso que o
@@ -96,7 +121,7 @@ const RING_MAX_SCALE = 1.8;
 const PARTICLE_DISTANCE = 13;
 const PARTICLE_ANGLES = [0, 60, 120, 180, 240, 300].map((deg) => (deg * Math.PI) / 180);
 
-type Phase = "idle" | "confirming" | "exiting";
+type Phase = "idle" | "confirming" | "exiting" | "advancing";
 
 /**
  * Partícula isolada num componente próprio só pra poder chamar
@@ -246,6 +271,20 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
   if (phase === "idle") frozenRef.current = nextEpisode;
   const display = phase === "idle" ? nextEpisode : frozenRef.current;
 
+  /**
+   * Sempre espelha a prop `nextEpisode` mais recente, mesmo fora de
+   * `idle` — ao contrário de `frozenRef` (que só atualiza em `idle`),
+   * este ref existe só pra "advancing" (ver `handleMarkWatched`) saber
+   * o episódio NOVO assim que o refetch do pai terminar, sem depender
+   * de reabrir um closure antigo criado no momento do toque.
+   */
+  const latestNextEpisodeRef = useRef(nextEpisode);
+  useEffect(() => {
+    latestNextEpisodeRef.current = nextEpisode;
+  }, [nextEpisode]);
+  /** Só pra forçar um re-render quando `frozenRef.current` é trocado "na mão" no meio do "advancing" (mutar um ref não re-renderiza sozinho). */
+  const [, forceAdvanceRerender] = useState(0);
+
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     return () => {
@@ -263,6 +302,12 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
   // Colapso de altura/opacidade na saída — 1 = tamanho normal, 0 = colapsado.
   const collapseProgress = useSharedValue(1);
   const measuredHeight = useSharedValue(0);
+  /**
+   * "Desliza pra o lado" (fase "advancing") — 0 = conteúdo no lugar;
+   * negativo = deslizando/saindo pra esquerda; positivo = entrando
+   * vindo da direita. Ver `ADVANCE_DISTANCE` e `advanceContentStyle`.
+   */
+  const advanceTranslateX = useSharedValue(0);
 
   /**
    * CAUSA RAIZ DO "não tem a animação de slide pra cima, a tela
@@ -363,8 +408,20 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
         });
         tintOpacity.value = withTiming(0, { duration: EXIT_DURATION_MS * 0.7 });
       } else {
+        // A PEDIDO (2026-10-01 — "que o card deslize pra o lado, como
+        // se tivesse tirando o episódio que acabou de ser marcado") —
+        // antes disso era `tintOpacity -> 0; setPhase("idle")` direto:
+        // o card voltava a `idle` SEM animação nenhuma e só reaparecia
+        // com a info nova quando o refetch do pai terminasse — dava a
+        // impressão de "a informação só muda", exatamente o relato do
+        // usuário. Agora: o conteúdo atual desliza pra fora (esquerda)
+        // e, assim que o episódio NOVO estiver disponível de verdade
+        // (depois do refetch), ele entra deslizando (direita) — ver
+        // `ADVANCE_DISTANCE`/`advanceContentStyle`.
         tintOpacity.value = withTiming(0, { duration: 200 });
-        setPhase("idle");
+        setPhase("advancing");
+        advanceTranslateX.value = withTiming(-ADVANCE_DISTANCE, { duration: ADVANCE_OUT_MS, easing: Easing.in(Easing.quad) });
+
         // Só agora avisa o pai (a escrita já foi disparada acima, em
         // paralelo) — isto só pede pro pai buscar o próximo estado
         // real pra tela, depois que a coreografia visual já terminou.
@@ -375,7 +432,20 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
         // Desligar o layout antes disso fazia esse ajuste ser um salto.
         // MESMA CORREÇÃO de causa raiz do `handleExitComplete` — espera
         // a busca de verdade terminar antes de desligar o layout.
-        Promise.resolve(onMarkedWatched()).finally(() => {
+        Promise.resolve(onMarkedWatched()).then(() => {
+          // O refetch do pai já deve ter atualizado a prop `nextEpisode`
+          // a esta altura (a Promise só resolve depois dele terminar) —
+          // troca o "congelado" pro valor novo NA MÃO (fora do fluxo
+          // normal de `idle`, ver `frozenRef` acima) e força um
+          // re-render pra `display` pegar o episódio novo já no início
+          // da entrada deslizando da direita.
+          frozenRef.current = latestNextEpisodeRef.current;
+          forceAdvanceRerender((n) => n + 1);
+          advanceTranslateX.value = ADVANCE_DISTANCE;
+          advanceTranslateX.value = withTiming(0, { duration: ADVANCE_IN_MS, easing: Easing.out(Easing.quad) }, (finished) => {
+            if (finished) scheduleOnRN(() => setPhase("idle"));
+          });
+        }).finally(() => {
           desligarLayoutDepoisDaTransicao();
         });
       }
@@ -405,6 +475,18 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
       overflow: collapsing ? "hidden" : "visible",
     };
   });
+
+  /**
+   * Envolve pôster + info (ver JSX abaixo) — translateX dirige a
+   * opacidade junto (mesma interpolação): o conteúdo sempre termina
+   * INVISÍVEL exatamente quando chega no limite do deslocamento, sem
+   * precisar medir a largura real do card nem recortar com `overflow:
+   * hidden` (que arriscaria cortar o selo "+N" colado na borda).
+   */
+  const advanceContentStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(advanceTranslateX.value, [-ADVANCE_DISTANCE, 0, ADVANCE_DISTANCE], [0, 1, 0]),
+    transform: [{ translateX: advanceTranslateX.value }],
+  }));
 
   const destaque = opacidadeDoDestaque(priorityIndex);
 
@@ -484,15 +566,23 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
           style={StyleSheet.absoluteFill}
           onPress={() => router.push(`/episodes/${item.id}/${display.seasonNumber}/${display.episodeNumber}`)}
         />
-        <Pressable style={styles.posterWrapper} onPress={() => router.push(`/series/${item.id}`)}>
-          {posterUrl ? (
-            <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
-          ) : (
-            <Feather name="film" size={20} color={colors.muted} />
-          )}
-        </Pressable>
+        {/*
+          "DESLIZA PRA O LADO" (2026-10-01) — pôster + info embrulhados
+          juntos num `Animated.View` só pra receber o translateX/opacity
+          de `advanceContentStyle`. O botão de marcar (`buttonSlot`,
+          abaixo) fica DE FORA de propósito: é onde o dedo acabou de
+          tocar, não deve sair deslizando junto.
+        */}
+        <Animated.View style={[styles.advanceContent, advanceContentStyle]}>
+          <Pressable style={styles.posterWrapper} onPress={() => router.push(`/series/${item.id}`)}>
+            {posterUrl ? (
+              <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
+            ) : (
+              <Feather name="film" size={20} color={colors.muted} />
+            )}
+          </Pressable>
 
-        <View style={styles.info}>
+          <View style={styles.info}>
           <Pressable style={styles.seriesPill} onPress={() => router.push(`/series/${item.id}`)}>
             <Text numberOfLines={1} style={styles.seriesPillText}>
               {item.title.toUpperCase()}
@@ -547,7 +637,8 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
               </View>
             )
           )}
-        </View>
+          </View>
+        </Animated.View>
 
         <Animated.View style={[styles.buttonSlot, buttonWrapperStyle]}>
           <EpisodeWatchedButton
@@ -597,6 +688,21 @@ const styles = StyleSheet.create({
   },
   tint: {
     borderRadius: radius.md,
+  },
+  /**
+   * Embrulha pôster + info (ver "DESLIZA PRA O LADO" no JSX) — mesma
+   * `flexDirection`/`gap` que `row` tinha entre esses dois filhos,
+   * porque agora eles são filhos DESTE container, não mais do `row`
+   * diretamente. `minWidth: 0` deixa o texto de `info` (flex:1 lá
+   * dentro) truncar com `numberOfLines` em vez de forçar a linha a
+   * crescer — mesmo motivo já documentado em `info`, abaixo.
+   */
+  advanceContent: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   posterWrapper: {
     /**

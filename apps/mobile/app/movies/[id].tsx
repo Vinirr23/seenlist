@@ -233,6 +233,14 @@ export default function MovieDetailScreen() {
     }
     if (status === "want_to_watch" || status === "watching") {
       changeStatus("watched");
+      // A PEDIDO (2026-10-01 — "ao marcar o botão de assistido em
+      // filme, a tela deve deslizar de 'sobre' pra 'mais'... hoje só
+      // marca o botão") — antes disso o toque no check só mudava a cor
+      // do botão; a pessoa tinha que lembrar de trocar de aba sozinha
+      // pra ver onde assistiu/nota/humor, que só aparecem depois de
+      // marcado (`watched &&`, ver JSX da aba "Mais"). Agora o próprio
+      // marcar já leva pra lá.
+      setTab("mais");
       return;
     }
     changeStatus("want_to_watch");
