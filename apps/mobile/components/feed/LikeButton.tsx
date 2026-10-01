@@ -6,8 +6,6 @@ import { hapticTick } from "@/lib/haptics";
 import { Text } from "@/components/ui";
 import { colors, spacing, fontSize } from "@/lib/theme";
 
-const AnimatedIcon = Animated.createAnimatedComponent(MaterialCommunityIcons);
-
 export function LikeButton({
   targetType,
   targetId,
@@ -27,6 +25,18 @@ export function LikeButton({
    * inverso ficaria estranho). `Animated` em vez de Reanimated: mesmo
    * padrão já usado em `ConfettiBurst.tsx`, sem dependência nova, pra
    * um efeito isolado de escala que não precisa rodar na UI thread.
+   *
+   * CORREÇÃO DE CAUSA RAIZ (2026-10-01, erro real no emulador —
+   * "this._icon.setNativeProps is not a function") — a 1ª versão
+   * animava o `MaterialCommunityIcons` DIRETO via
+   * `Animated.createAnimatedComponent(MaterialCommunityIcons)`. Esse
+   * componente de ícone (do pacote por trás do `@expo/vector-icons`)
+   * não implementa `setNativeProps` do jeito que a API antiga do
+   * `Animated` exige pra atualizar o `transform` sem re-render — falha
+   * na New Architecture, que este app já usa. Em vez de animar o
+   * ÍCONE, anima a `View` que o envolve (abaixo, no JSX) — o ícone
+   * continua um `MaterialCommunityIcons` comum, sem nenhum wrapper
+   * especial.
    */
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -117,12 +127,13 @@ export function LikeButton({
         * compartilhado com o Feed, então o coração cresce lá também
         * (decisão consciente, não colateral).
         */}
-      <AnimatedIcon
-        name={hasLiked ? "heart" : "heart-outline"}
-        size={22}
-        color={hasLiked ? colors.like : colors.muted}
-        style={{ transform: [{ scale }] }}
-      />
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <MaterialCommunityIcons
+          name={hasLiked ? "heart" : "heart-outline"}
+          size={22}
+          color={hasLiked ? colors.like : colors.muted}
+        />
+      </Animated.View>
       <Text style={[styles.count, hasLiked && styles.countActive]}>{count ?? 0}</Text>
     </Pressable>
   );
