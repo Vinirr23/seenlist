@@ -593,9 +593,25 @@ export default function SeriesHomeScreen() {
    * desligar a animação de "linhas de baixo deslizam", eliminando o
    * salto seco quando a rede demora mais que o normal.
    */
+  /**
+   * CORREÇÃO DE DESEMPENHO (2026-10-01, a pedido — "pelo menos uns 3
+   * segundos até carregar os dados" no slide do card) — as duas
+   * buscas rodavam uma DEPOIS da outra (`await`/`await`), mas são
+   * independentes: `refetchSilently` busca a BIBLIOTECA inteira
+   * (`fetchLibraryItems`, em `useLibraryItems.ts`); `loadNextEpisodes`
+   * busca o "próximo episódio" de cada série (`fetchNextEpisodesToWatch`,
+   * TMDB + tabela `watched_episodes`) — nenhuma lê o resultado da
+   * outra. `loadNextEpisodes` já usa a lista de séries (`listNeedingEpisodes`)
+   * capturada no fechamento desta função no momento do toque, não o
+   * que `refetchSilently` acabou de buscar — ou seja, rodar em
+   * paralelo não muda ESSE comportamento (já era assim mesmo em
+   * sequência: o React só troca a referência da função depois de
+   * re-renderizar, não no meio do `await`). Com `Promise.all`, o
+   * tempo total passa a ser o da busca mais lenta das duas, não a
+   * SOMA das duas.
+   */
   const handleMarkedWatched = useCallback(async () => {
-    await refetchSilently();
-    await loadNextEpisodes();
+    await Promise.all([refetchSilently(), loadNextEpisodes()]);
   }, [refetchSilently, loadNextEpisodes]);
 
   /**
