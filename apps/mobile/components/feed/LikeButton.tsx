@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
-import { Pressable, StyleSheet } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Pressable, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { fetchHasLiked, fetchLikeCount, toggleLike, type LikeTargetType } from "@/lib/social/likes";
 import { hapticTick } from "@/lib/haptics";
 import { Text } from "@/components/ui";
 import { colors, spacing, fontSize } from "@/lib/theme";
+
+const AnimatedIcon = Animated.createAnimatedComponent(MaterialCommunityIcons);
 
 export function LikeButton({
   targetType,
@@ -19,6 +21,14 @@ export function LikeButton({
   const [count, setCount] = useState<number | null>(initial?.count ?? null);
   const [hasLiked, setHasLiked] = useState(initial?.hasLiked ?? false);
   const [busy, setBusy] = useState(false);
+  /**
+   * MICRO-INTERAÇÃO (a pedido, 2026-10-01 — "coração de curtir com
+   * pop") — só ao CURTIR (não ao descurtir, de propósito — o efeito
+   * inverso ficaria estranho). `Animated` em vez de Reanimated: mesmo
+   * padrão já usado em `ConfettiBurst.tsx`, sem dependência nova, pra
+   * um efeito isolado de escala que não precisa rodar na UI thread.
+   */
+  const scale = useRef(new Animated.Value(1)).current;
 
   /**
    * CORREÇÃO (bug real, achado por diagnóstico na tela — "curtida
@@ -68,6 +78,13 @@ export function LikeButton({
     // Otimista: atualiza a tela antes da resposta do servidor, desfaz se der erro.
     setHasLiked(!wasLiked);
     setCount(wasLiked ? count - 1 : count + 1);
+    if (!wasLiked) {
+      scale.setValue(1);
+      Animated.sequence([
+        Animated.spring(scale, { toValue: 1.35, speed: 50, bounciness: 14, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, speed: 20, bounciness: 8, useNativeDriver: true }),
+      ]).start();
+    }
     try {
       await toggleLike(targetType, targetId, wasLiked);
     } catch (error) {
@@ -100,10 +117,11 @@ export function LikeButton({
         * compartilhado com o Feed, então o coração cresce lá também
         * (decisão consciente, não colateral).
         */}
-      <MaterialCommunityIcons
+      <AnimatedIcon
         name={hasLiked ? "heart" : "heart-outline"}
         size={22}
         color={hasLiked ? colors.like : colors.muted}
+        style={{ transform: [{ scale }] }}
       />
       <Text style={[styles.count, hasLiked && styles.countActive]}>{count ?? 0}</Text>
     </Pressable>

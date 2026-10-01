@@ -1,4 +1,5 @@
 export * from "./Text";
+export * from "./CountingNumber";
 export * from "./Button";
 export * from "./Input";
 export * from "./Screen";

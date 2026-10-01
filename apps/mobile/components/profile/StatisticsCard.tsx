@@ -6,7 +6,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useProfileStats } from "@/lib/useProfileStats";
 import { formatWatchDuration } from "@/lib/profileStats";
-import { Text, Skeleton, Glass, GelSurface } from "@/components/ui";
+import { Text, Skeleton, Glass, GelSurface, CountingNumber } from "@/components/ui";
 import { PageError } from "../media/PageError";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
@@ -142,14 +142,43 @@ export const StatisticsCard = memo(function StatisticsCard() {
     );
   }
 
-  const seriesTime = formatWatchDuration(stats.seriesWatchMinutes, t);
-  const movieTime = formatWatchDuration(stats.movieWatchMinutes, t);
-
-  const preview: { label: string; value: string; icon: keyof typeof Feather.glyphMap }[] = [
-    { label: t("profile.stats.episodesWatched"), value: numberFormatter.format(stats.episodesWatched), icon: "tv" },
-    { label: t("profile.stats.moviesWatched"), value: numberFormatter.format(stats.moviesCompleted), icon: "film" },
-    { label: t("profile.stats.timeWatchingSeries"), value: seriesTime.primary, icon: "clock" },
-    { label: t("profile.stats.timeWatchingMovies"), value: movieTime.primary, icon: "video" },
+  /**
+   * MICRO-INTERAÇÃO (a pedido, 2026-10-01 — "números do Perfil
+   * contando") — cada métrica agora guarda o valor BRUTO (`rawValue`)
+   * + um `formatter` próprio, em vez de só a string já pronta. O
+   * `CountingNumber` (abaixo, no JSX) anima de 0 até `rawValue`,
+   * chamando `formatter` a cada quadro — nos dois contadores simples
+   * é só `numberFormatter.format`; nas duas durações é a MESMA
+   * `formatWatchDuration` de sempre, aplicada ao número de minutos
+   * ainda em animação — por isso o texto troca de unidade sozinho
+   * durante a contagem ("0 horas" → "3 dias" → ... → "1 ano"), sem
+   * duplicar a lógica de formatação em lugar nenhum.
+   */
+  const preview: { label: string; rawValue: number; formatter: (n: number) => string; icon: keyof typeof Feather.glyphMap }[] = [
+    {
+      label: t("profile.stats.episodesWatched"),
+      rawValue: stats.episodesWatched,
+      formatter: (n) => numberFormatter.format(n),
+      icon: "tv",
+    },
+    {
+      label: t("profile.stats.moviesWatched"),
+      rawValue: stats.moviesCompleted,
+      formatter: (n) => numberFormatter.format(n),
+      icon: "film",
+    },
+    {
+      label: t("profile.stats.timeWatchingSeries"),
+      rawValue: stats.seriesWatchMinutes,
+      formatter: (n) => formatWatchDuration(n, t).primary,
+      icon: "clock",
+    },
+    {
+      label: t("profile.stats.timeWatchingMovies"),
+      rawValue: stats.movieWatchMinutes,
+      formatter: (n) => formatWatchDuration(n, t).primary,
+      icon: "video",
+    },
   ];
 
   /*
@@ -222,9 +251,7 @@ export const StatisticsCard = memo(function StatisticsCard() {
              */}
             <Feather name={item.icon} size={16} color={colors.primary} />
             <View style={styles.gridItemText}>
-              <Text style={styles.value} numberOfLines={1}>
-                {item.value}
-              </Text>
+              <CountingNumber value={item.rawValue} formatter={item.formatter} style={styles.value} numberOfLines={1} />
               {/*
                * CORREÇÃO (2026-09-03, achada comparando print real
                * mobile x web lado a lado, a pedido — "ainda não está
