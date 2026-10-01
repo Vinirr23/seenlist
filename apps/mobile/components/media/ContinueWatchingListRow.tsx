@@ -84,29 +84,16 @@ const EXIT_DURATION_MS = 550;
 const LAYOUT_TRANSITION_DURATION_MS = 520;
 
 /**
- * "DESLIZA PRA O LADO" (2026-10-01, a pedido — "quando tem um card de
- * uma série com vários episódios pra assistir, quando o usuário marca,
- * só muda a informação dentro do card... que o card deslize pra o
- * lado, como se tivesse tirando o episódio que acabou de ser
- * marcado").
- *
- * Opção escolhida (entre 3 apresentadas): o bloco de conteúdo inteiro
- * (pôster + info) sai deslizando pra ESQUERDA enquanto desaparece, e o
- * próximo episódio já entra deslizando de dentro pra fora pela
- * DIREITA — tudo dentro do mesmo espaço do card, sem mudar a altura da
- * lista (diferente do colapso vertical que já existe pro caso "última
- * episódio pendente", logo abaixo).
- *
- * A opacidade é amarrada ao MESMO valor que dirige o translateX
- * (interpolação única, ver `advanceContentStyle`) — assim o conteúdo
- * sempre termina invisível antes de "bater" no limite do deslocamento,
- * sem precisar medir a largura real do card nem recortar com
- * `overflow: hidden` (o que arriscaria cortar o selo "+N"/badges que
- * ficam colados na borda).
+ * REMOVIDO (2026-10-01, a pedido — "tira a animação", o deslizar
+ * lateral estava dando trabalho demais de depurar num bug sem causa
+ * raiz encontrada ainda). Existia aqui um "desliza pra o lado": pôster
+ * + info saindo pela esquerda e o próximo episódio entrando pela
+ * direita, quando a série continua com episódio pendente depois de
+ * marcar. A troca agora é instantânea (ver o ramo `else` em
+ * `handleMarkWatched`) — continua esperando o dado real chegar antes
+ * de trocar (nunca mostra nada em branco, mesma garantia de antes), só
+ * sem o movimento lateral.
  */
-const ADVANCE_DISTANCE = 28;
-const ADVANCE_OUT_MS = 220;
-const ADVANCE_IN_MS = 260;
 
 /**
  * `mb-3` do web. Fica NO CARD, não como `gap` da lista, porque a
@@ -282,17 +269,14 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
   useEffect(() => {
     latestNextEpisodeRef.current = nextEpisode;
   }, [nextEpisode]);
-  /** Só pra forçar um re-render quando `frozenRef.current` é trocado "na mão" no meio do "advancing" (mutar um ref não re-renderiza sozinho). */
-  const [, forceAdvanceRerender] = useState(0);
-
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
-   * CAUSA RAIZ DO CRASH REPORTADO (2026-10-01 — "a animação de deslizar
-   * limpa o card, trava e fecha o app") — a fase "advancing" dispara o
-   * refetch do pai (`onMarkedWatched`) EM PARALELO com o slide-out, e
-   * só mexe no card de novo (trocar `frozenRef`, `forceAdvanceRerender`,
-   * reanimar `advanceTranslateX`) quando esse refetch termina, no
-   * `.then()`. Só que marcar um episódio muda `lastActivityAt` da
+   * CAUSA RAIZ DO CRASH REPORTADO (2026-10-01 — reproduzido quando a
+   * fase "advancing" ainda deslizava o card; a guarda abaixo continua
+   * valendo mesmo sem o slide) — a fase "advancing" dispara o refetch
+   * do pai (`onMarkedWatched`) e só mexe no card de novo (trocar
+   * `frozenRef`, voltar `phase` pra "idle") quando esse refetch
+   * termina, no `.then()`. Só que marcar um episódio muda `lastActivityAt` da
    * série — o que pode tirá-la da seção "Faz um tempo que você não
    * assiste" (`staleSince`) e passá-la pra "Continue assistindo" (ou
    * vice-versa). Como são DUAS listas/`.map()` separadas em
@@ -330,12 +314,6 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
   // Colapso de altura/opacidade na saída — 1 = tamanho normal, 0 = colapsado.
   const collapseProgress = useSharedValue(1);
   const measuredHeight = useSharedValue(0);
-  /**
-   * "Desliza pra o lado" (fase "advancing") — 0 = conteúdo no lugar;
-   * negativo = deslizando/saindo pra esquerda; positivo = entrando
-   * vindo da direita. Ver `ADVANCE_DISTANCE` e `advanceContentStyle`.
-   */
-  const advanceTranslateX = useSharedValue(0);
 
   /**
    * CAUSA RAIZ DO "não tem a animação de slide pra cima, a tela
@@ -371,41 +349,6 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
     Promise.resolve(onMarkedWatched()).finally(() => {
       desligarLayoutDepoisDaTransicao();
     });
-  }
-
-  /**
-   * TENTATIVA DE CORREÇÃO ADICIONAL (2026-10-01, crash do slide ainda
-   * reproduzindo mesmo depois da guarda de `mountedRef`) — até agora
-   * `scheduleOnRN` só era chamado de UM jeito neste arquivo inteiro
-   * (`scheduleOnRN(handleExitComplete)`, uma função NOMEADA declarada
-   * no nível do componente). O "advancing" introduziu o único outro
-   * caso: uma arrow function criada NA HORA, dentro do callback do
-   * `withTiming` (que já é um worklet) — um padrão nunca testado antes
-   * neste componente. Alinhando com o único jeito comprovado (função
-   * nomeada, declarada aqui fora, igual a `handleExitComplete`), pra
-   * eliminar essa variável antes de investigar mais fundo com log real
-   * do aparelho.
-   */
-  /**
-   * Dispara quando o trecho de SAÍDA do slide (conteúdo antigo
-   * deslizando pra fora) termina — nesse momento o dado do episódio
-   * novo já chegou de verdade (só entramos nessa animação depois do
-   * `.then()` do refetch, ver `handleMarkWatched`). Troca o
-   * "congelado" (`frozenRef`) pro valor novo, força o re-render pra
-   * `display` pegar o episódio novo, e desliza de volta (entrada).
-   */
-  function handleAdvanceDataReady() {
-    if (!mountedRef.current) return;
-    frozenRef.current = latestNextEpisodeRef.current;
-    forceAdvanceRerender((n) => n + 1);
-    advanceTranslateX.value = ADVANCE_DISTANCE;
-    advanceTranslateX.value = withTiming(0, { duration: ADVANCE_IN_MS, easing: Easing.out(Easing.quad) }, (finished) => {
-      if (finished) scheduleOnRN(handleAdvanceSlideInComplete);
-    });
-  }
-
-  function handleAdvanceSlideInComplete() {
-    if (mountedRef.current) setPhase("idle");
   }
 
   const layoutOffTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -471,25 +414,13 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
         });
         tintOpacity.value = withTiming(0, { duration: EXIT_DURATION_MS * 0.7 });
       } else {
-        // A PEDIDO (2026-10-01 — "que o card deslize pra o lado, como
-        // se tivesse tirando o episódio que acabou de ser marcado") —
-        // antes disso era `tintOpacity -> 0; setPhase("idle")` direto:
-        // o card voltava a `idle` SEM animação nenhuma e só reaparecia
-        // com a info nova quando o refetch do pai terminasse — dava a
-        // impressão de "a informação só muda", exatamente o relato do
-        // usuário.
-        //
-        // OPÇÃO A ESCOLHIDA (2026-10-01, depois de testar a V1 — "ficou
-        // uns 10 segundos limpo até aparecer o próximo episódio": a V1
-        // começava o slide-out NA HORA, em paralelo com o refetch, e só
-        // trazia o conteúdo novo quando a rede respondesse — numa rede
-        // lenta isso virava um vazio gigante). Mostrado um mockup com 2
-        // opções (ver `AskUserQuestion`); escolhida a que NUNCA fica em
-        // branco: o card continua mostrando o episódio ANTIGO, parado,
-        // sem nenhuma animação, até o dado novo chegar de verdade — só
-        // então desliza saindo e entrando, tudo de uma vez (ver
-        // `handleAdvanceDataReady`, abaixo). O toque + haptic já deram a
-        // confirmação imediata; o slide é só o "troquei de episódio".
+        // SEM SLIDE (2026-10-01, a pedido — "tira a animação": o
+        // deslizar lateral estava dando trabalho demais de depurar sem
+        // causa raiz encontrada ainda). Mantém a MESMA garantia que já
+        // resolvia o relato original ("a informação só muda", sem
+        // feedback nenhum) — o card continua mostrando o episódio
+        // ANTIGO, parado, até o dado novo chegar de verdade — só que
+        // agora troca na hora, sem deslizar.
         tintOpacity.value = withTiming(0, { duration: 200 });
         setPhase("advancing");
 
@@ -514,13 +445,10 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
           // guarda, o código abaixo mexia em shared values/estado de um
           // componente já desmontado.
           if (!mountedRef.current) return;
-          // Dado real JÁ está pronto aqui (é por isso que só começamos
-          // a animar agora, não antes) — desliza o conteúdo ANTIGO pra
-          // fora; `handleAdvanceDataReady` troca pro episódio novo e
-          // desliza de volta assim que esse primeiro trecho terminar.
-          advanceTranslateX.value = withTiming(-ADVANCE_DISTANCE, { duration: ADVANCE_OUT_MS, easing: Easing.in(Easing.quad) }, (finished) => {
-            if (finished) scheduleOnRN(handleAdvanceDataReady);
-          });
+          // Troca pro episódio novo e volta a `idle` na hora — sem
+          // animação de transição.
+          frozenRef.current = latestNextEpisodeRef.current;
+          setPhase("idle");
         }).finally(() => {
           desligarLayoutDepoisDaTransicao();
         });
@@ -551,18 +479,6 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
       overflow: collapsing ? "hidden" : "visible",
     };
   });
-
-  /**
-   * Envolve pôster + info (ver JSX abaixo) — translateX dirige a
-   * opacidade junto (mesma interpolação): o conteúdo sempre termina
-   * INVISÍVEL exatamente quando chega no limite do deslocamento, sem
-   * precisar medir a largura real do card nem recortar com `overflow:
-   * hidden` (que arriscaria cortar o selo "+N" colado na borda).
-   */
-  const advanceContentStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(advanceTranslateX.value, [-ADVANCE_DISTANCE, 0, ADVANCE_DISTANCE], [0, 1, 0]),
-    transform: [{ translateX: advanceTranslateX.value }],
-  }));
 
   const destaque = opacidadeDoDestaque(priorityIndex);
 
@@ -643,13 +559,12 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
           onPress={() => router.push(`/episodes/${item.id}/${display.seasonNumber}/${display.episodeNumber}`)}
         />
         {/*
-          "DESLIZA PRA O LADO" (2026-10-01) — pôster + info embrulhados
-          juntos num `Animated.View` só pra receber o translateX/opacity
-          de `advanceContentStyle`. O botão de marcar (`buttonSlot`,
-          abaixo) fica DE FORA de propósito: é onde o dedo acabou de
-          tocar, não deve sair deslizando junto.
+          Pôster + info embrulhados juntos só por layout (`advanceContent`
+          define o flexDirection/gap entre os dois) — não é mais
+          animado (ver comentário grande acima de `ADVANCE_DISTANCE`,
+          removido em 2026-10-01).
         */}
-        <Animated.View style={[styles.advanceContent, advanceContentStyle]}>
+        <View style={styles.advanceContent}>
           <Pressable style={styles.posterWrapper} onPress={() => router.push(`/series/${item.id}`)}>
             {posterUrl ? (
               <Image source={{ uri: posterUrl }} style={styles.poster} contentFit="cover" />
@@ -714,7 +629,7 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
             )
           )}
           </View>
-        </Animated.View>
+        </View>
 
         <Animated.View style={[styles.buttonSlot, buttonWrapperStyle]}>
           <EpisodeWatchedButton

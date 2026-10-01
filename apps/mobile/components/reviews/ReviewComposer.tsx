@@ -23,7 +23,20 @@ export interface ReviewComposerProps {
    * continua igual, não tem esse componente duplicado em lugar nenhum.
    */
   showRating?: boolean;
-  onSubmit: (rating: number, reviewText: string | null, shareToFeed: boolean) => void;
+  /**
+   * BUG REAL CORRIGIDO (2026-10-01, reportado — avaliação "zerada" no
+   * Feed) — `rating` agora é `number | null`, não só `number`. Quando
+   * `showRating` é `false` (filme, "Ver todas as avaliações" — ver
+   * comentário da prop acima), as estrelas nem aparecem aqui pra
+   * pessoa mexer; o estado interno `rating` só existia pra "lembrar" a
+   * nota que já existe (`initialRating`), nunca pra registrar uma nota
+   * NOVA. Antes isso era mandado pra cá do mesmo jeito que uma nota de
+   * verdade — se não havia nota nenhuma ainda, ia `0`, e quem recebe
+   * gravava um "0" de verdade no banco. Agora manda `null` nesse caso
+   * ("não mexer na nota") — quem recebe decide o que fazer (ver
+   * `ReviewsFullView.tsx`/`handleSubmit`).
+   */
+  onSubmit: (rating: number | null, reviewText: string | null, shareToFeed: boolean) => void;
   /**
    * PORTE DO WEB (2026-09-09, comparado no print) — "Remover minha
    * avaliação" mora DENTRO do card, na mesma linha do botão de salvar
@@ -124,7 +137,7 @@ export function ReviewComposer({
         <Pressable
           style={[styles.saveButton, naoPodeSalvar && styles.desabilitado]}
           disabled={naoPodeSalvar}
-          onPress={() => onSubmit(rating, text.trim() || null, shareToFeed)}
+          onPress={() => onSubmit(showRating ? rating : null, text.trim() || null, shareToFeed)}
         >
           {isPending === true ? (
             <ActivityIndicator size="small" color={colors.background} />

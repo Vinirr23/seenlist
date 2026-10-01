@@ -6,6 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { useMovieDetails, useMovieStatus, useIsMovieFavorite, useMovieAddedCount } from "@/lib/useMovieDetails";
 import { dismissRecommendation } from "@/lib/recommendations";
 import { fetchMyReview, upsertReview, type Review } from "@/lib/social/reviews";
+import { syncReviewPostRating } from "@/lib/posts";
 import { useReviewAggregate } from "@/lib/social/useReviewAggregate";
 import { StarRating } from "@/components/reviews/StarRating";
 import { MOVIE_DETAILS_GLOW_BLOBS } from "@/lib/glowBlobs";
@@ -194,10 +195,23 @@ export default function MovieDetailScreen() {
     });
   }
 
+  /**
+   * BUG REAL CORRIGIDO (2026-10-01, reportado — post de review ficando
+   * preso numa nota antiga) — nota rápida aqui NUNCA passava por
+   * `createReviewPost`; se a pessoa já tinha um post de review
+   * publicado (de quando avaliou pela tela "Ver todas as avaliações"),
+   * ele ficava com a nota velha pra sempre. `syncReviewPostRating`
+   * (ver comentário grande em `lib/posts.ts`) resolve isso sem
+   * precisar saber se existe post ou não — é um no-op silencioso
+   * quando não existe.
+   */
   function handleRate(rating: number) {
     setMyReview((prev) => ({ ...reviewOuVazio(prev), rating }));
     upsertReview({ mediaType: "movie", mediaId: numericId }, { rating }).catch((error) => {
       console.error("[MovieDetailScreen] Falha ao salvar nota", error);
+    });
+    syncReviewPostRating("movie", numericId, rating).catch((error) => {
+      console.error("[MovieDetailScreen] Falha ao sincronizar nota do post já publicado", error);
     });
   }
 

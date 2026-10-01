@@ -7,7 +7,7 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 // versão RN de `apps/web/components/explore/ExploreTabs.tsx`: a
 // antiga aba única "Descobrir" (misturava séries e filmes) virou 3
 // abas dedicadas, mesma mudança já feita no web em 2026-08-21.
-export type ExploreTab = "movies" | "series" | "activity";
+export type ExploreTab = "movies" | "series";
 
 /**
  * REMOVIDO (a pedido, 2026-09-29 — "tirar feed de explorar e colocar na
@@ -15,11 +15,17 @@ export type ExploreTab = "movies" | "series" | "activity";
  * 2026-09-28; virou aba própria no dock principal um dia depois (ver
  * `components/layout/DockNavegacao.tsx`), então saiu daqui pra não
  * duplicar o mesmo destino em dois lugares da navegação.
+ *
+ * REMOVIDO (a pedido, 2026-10-01 — Activity Cards no Feed) — "activity"
+ * saiu também: a mesma informação (terminou série/filme, avaliou,
+ * adicionou à watchlist) passou a aparecer direto no Feed, como cards
+ * ricos (`components/feed/ActivityCard.tsx`) — manter a sub-aba aqui
+ * também duplicaria o mesmo conteúdo em dois lugares, decisão
+ * explícita de remover em vez de manter os dois.
  */
 const TABS: { key: ExploreTab; labelKey: string }[] = [
   { key: "movies", labelKey: "explore.tab.movies" },
   { key: "series", labelKey: "explore.tab.series" },
-  { key: "activity", labelKey: "explore.tab.activity" },
 ];
 
 /**

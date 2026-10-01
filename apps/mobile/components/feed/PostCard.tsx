@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import { View, TextInput, Pressable, Share, Alert, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import type { Post } from "@/lib/posts";
 import { editPost, deletePost } from "@/lib/posts";
 import { reportPost } from "@/lib/social/postReports";
@@ -13,6 +13,7 @@ import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { LikeButton } from "./LikeButton";
+import { AnimatedStar } from "./AnimatedStar";
 import { CommentCount } from "./CommentCount";
 import { PostCommentsSection } from "./PostCommentsSection";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
@@ -67,7 +68,7 @@ interface PostCardProps {
 function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentCount, pollInfo }: PostCardProps) {
   const router = useRouter();
   const { session } = useAuth();
-  const posterUrl = post.mediaPosterPath ? tmdbImageUrl(post.mediaPosterPath, "w185") : null;
+  const posterUrl = post.mediaPosterPath ? tmdbImageUrl(post.mediaPosterPath, "w342") : null;
   const isOwner = session?.user.id === post.userId;
   const { t, locale } = useTranslation();
   const now = useNow(30_000);
@@ -242,11 +243,13 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
             </Text>
             <View style={styles.starsRow}>
               {Array.from({ length: 5 }).map((_, i) => (
-                <MaterialCommunityIcons
+                <AnimatedStar
                   key={i}
-                  name={i < (post.rating ?? 0) ? "star" : "star-outline"}
-                  size={15}
-                  color={i < (post.rating ?? 0) ? colors.primary : colors.border}
+                  index={i}
+                  filled={i < (post.rating ?? 0)}
+                  size={17}
+                  color={colors.primary}
+                  emptyColor={colors.border}
                 />
               ))}
               <Text style={styles.ratingText}>{(post.rating ?? 0).toFixed(1)}/5</Text>
@@ -388,15 +391,27 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xxs,
   },
   // A PEDIDO (2026-09-29, "feed igual Threads") — sem caixa/fundo ao redor, só a linha (poster + info) dentro do corpo do post.
+  //
+  // CAPA MAIOR (2026-10-01, documento de UX — "o Feed precisa mostrar
+  // capas maiores (...) praticamente funcionam como ícones") — 44×64
+  // → 84×126 (dobro, mesma proporção 2:3 do pôster do TMDB; `posterUrl`
+  // também subiu de "w185" pra "w342" pra não esticar uma imagem
+  // pequena demais pro tamanho novo). Fica do mesmo porte do pôster do
+  // Activity Card (ver `ActivityCard.tsx`) — consistência entre os dois
+  // tipos de card que mostram pôster no Feed. NÃO virou o tratamento
+  // "backdrop" de tela cheia do mockup do documento — isso exigiria
+  // buscar e guardar uma imagem (backdrop) que a tabela `posts` nunca
+  // armazenou, dado novo que a mudança pedida ("capas maiores") não
+  // exige; mesma decisão consciente já tomada no `ActivityCard.tsx`.
   reviewCard: {
     flexDirection: "row",
-    gap: spacing.sm,
+    gap: spacing.md,
     marginTop: spacing.sm,
   },
   reviewPoster: {
-    width: 44,
-    height: 64,
-    borderRadius: radius.sm,
+    width: 84,
+    height: 126,
+    borderRadius: radius.md,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
@@ -409,11 +424,11 @@ const styles = StyleSheet.create({
   reviewInfo: {
     flex: 1,
     justifyContent: "center",
-    gap: 4,
+    gap: 6,
   },
   reviewTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
+    fontSize: fontSize.md,
+    fontWeight: "700",
     color: colors.text,
   },
   starsRow: {

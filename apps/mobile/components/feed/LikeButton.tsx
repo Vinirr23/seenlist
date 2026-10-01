@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { fetchHasLiked, fetchLikeCount, toggleLike, type LikeTargetType } from "@/lib/social/likes";
 import { hapticTick } from "@/lib/haptics";
 import { Text } from "@/components/ui";
+import { LikeBurst } from "./LikeBurst";
 import { colors, spacing, fontSize } from "@/lib/theme";
 
 export function LikeButton({
@@ -39,6 +40,8 @@ export function LikeButton({
    * especial.
    */
   const scale = useRef(new Animated.Value(1)).current;
+  /** A PEDIDO (2026-10-01 — "+ partículas mínimas") — `null` = sem burst na tela; um número (token) monta um `LikeBurst` novo, que se desmonta sozinho (`onDone`). */
+  const [burstToken, setBurstToken] = useState<number | null>(null);
 
   /**
    * CORREÇÃO (bug real, achado por diagnóstico na tela — "curtida
@@ -94,6 +97,7 @@ export function LikeButton({
         Animated.spring(scale, { toValue: 1.35, speed: 50, bounciness: 14, useNativeDriver: true }),
         Animated.spring(scale, { toValue: 1, speed: 20, bounciness: 8, useNativeDriver: true }),
       ]).start();
+      setBurstToken(Date.now());
     }
     try {
       await toggleLike(targetType, targetId, wasLiked);
@@ -127,12 +131,13 @@ export function LikeButton({
         * compartilhado com o Feed, então o coração cresce lá também
         * (decisão consciente, não colateral).
         */}
-      <Animated.View style={{ transform: [{ scale }] }}>
+      <Animated.View style={[styles.heartWrapper, { transform: [{ scale }] }]}>
         <MaterialCommunityIcons
           name={hasLiked ? "heart" : "heart-outline"}
           size={22}
           color={hasLiked ? colors.like : colors.muted}
         />
+        {burstToken !== null && <LikeBurst key={burstToken} onDone={() => setBurstToken(null)} />}
       </Animated.View>
       <Text style={[styles.count, hasLiked && styles.countActive]}>{count ?? 0}</Text>
     </Pressable>
@@ -144,6 +149,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+  },
+  // `position: "relative"` é o que faz o `LikeBurst` (absoluto, `top/left: "50%"`) se ancorar no coração, não na tela inteira.
+  heartWrapper: {
+    position: "relative",
   },
   // A PEDIDO (mockup "Opção B", 2026-09-25) — 12px → 15px, acompanhando
   // o ícone acima e o `actionLabel` dos comentários (mesmo tamanho de

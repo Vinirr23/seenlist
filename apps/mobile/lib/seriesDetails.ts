@@ -678,16 +678,57 @@ async function fetchSeriesEpisodesAtExportWithRetry(
   return result;
 }
 
+type LiveEpisode = { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number };
+
+/**
+ * CORREÇÃO DE DESEMPENHO (2026-10-01, a pedido — "é possível melhorar
+ * ainda mais?" a velocidade do slide ao marcar episódio) — ACHADO: esta
+ * função batia na rota `/api/tmdb/series-episodes-at-export` (TMDB) de
+ * novo, para TODAS as séries pendentes, toda vez que `loadNextEpisodes`
+ * rodava — inclusive ao marcar 1 episódio de 1 série só. O que de fato
+ * muda numa marcação é só QUAIS episódios já foram assistidos
+ * (`watched_episodes`, buscado à parte em `fetchNextEpisodesToWatch`) —
+ * o catálogo de episódios da própria série (nomes, datas de exibição)
+ * quase nunca muda de uma marcação pra outra.
+ *
+ * Mesmo padrão de cache já usado acima (`seriesDetailsCache`), mesmo
+ * TTL (5 min, `LIVE_EPISODES_TTL_MS`) — favorece consistência com o
+ * resto do arquivo. NÃO estreita o escopo da busca (continua buscando
+ * TODAS as séries que precisam, não só a que acabou de ser marcada —
+ * essa mudança foi revertida antes por risco de corrida/perda de
+ * retry): só evita bater de novo na rede quando o catálogo de uma
+ * série já foi buscado há pouco. Falha ou cache-miss continua indo
+ * pela rota de sempre, com o mesmo retry (`fetchSeriesEpisodesAtExportWithRetry`)
+ * — nada muda pra quem não está no cache.
+ */
+const LIVE_EPISODES_TTL_MS = 5 * 60 * 1000;
+const liveEpisodesCache = new Map<string, { data: LiveEpisode[]; expiresAt: number }>();
+
 export async function fetchLiveEpisodesBySeriesId(
   seriesIds: number[],
   language = "pt-BR"
-): Promise<Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[]>> {
-  const result = new Map<number, { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[]>();
-  const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
-  const chunkResults = await Promise.all(chunks.map((idsChunk) => fetchSeriesEpisodesAtExportWithRetry(idsChunk, language)));
-  for (const chunkResult of chunkResults) {
-    for (const [id, episodes] of chunkResult) result.set(id, episodes);
+): Promise<Map<number, LiveEpisode[]>> {
+  const result = new Map<number, LiveEpisode[]>();
+  const now = Date.now();
+  const idsToFetch: number[] = [];
+
+  for (const seriesId of seriesIds) {
+    const cached = liveEpisodesCache.get(`${seriesId}:${language}`);
+    if (cached && cached.expiresAt > now) result.set(seriesId, cached.data);
+    else idsToFetch.push(seriesId);
   }
+
+  if (idsToFetch.length > 0) {
+    const chunks = chunkArray(idsToFetch, TMDB_EPISODES_CHUNK_SIZE);
+    const chunkResults = await Promise.all(chunks.map((idsChunk) => fetchSeriesEpisodesAtExportWithRetry(idsChunk, language)));
+    for (const chunkResult of chunkResults) {
+      for (const [id, episodes] of chunkResult) {
+        result.set(id, episodes);
+        liveEpisodesCache.set(`${id}:${language}`, { data: episodes, expiresAt: now + LIVE_EPISODES_TTL_MS });
+      }
+    }
+  }
+
   return result;
 }
 

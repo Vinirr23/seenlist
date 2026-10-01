@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Alert, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import type { ReviewTarget } from "@/lib/social/reviews";
 import { useReviews } from "@/lib/social/useReviews";
-import { createReviewPost } from "@/lib/posts";
+import { createReviewPost, syncReviewPostRating } from "@/lib/posts";
 import {
   shouldShowRecommendPrompt,
   markRecommendPromptShown,
@@ -74,10 +74,25 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
    * Religar a caixa não introduz esse comportamento — só o torna
    * visível/intencional de novo, como era antes de 2026-08-22.
    */
-  async function handleSubmit(rating: number, reviewText: string | null, shareToFeed: boolean) {
+  /**
+   * BUG REAL CORRIGIDO (2026-10-01, reportado — nota "zerada" no post
+   * do Feed, e post dessincronizado de uma nota dada depois) —
+   * `rating` agora é `number | null` (vem do `ReviewComposer`: `null`
+   * quando esta tela não edita nota, `showRating: false`, caso de
+   * filme). `effectiveRating` resolve pra nota de verdade a usar no
+   * post/convite de recomendar: a que acabou de ser enviada (série,
+   * ou filme com `showRating: true`), OU a que já existia (`myReview`,
+   * ainda não recarregado pelo `submit()` acima — por isso usa o
+   * valor local, não espera recarregar) quando esta tela só mexeu no
+   * texto. `null` nos dois (nunca houve nota) não dispara nem convite
+   * de recomendar nem grava nota no post.
+   */
+  async function handleSubmit(rating: number | null, reviewText: string | null, shareToFeed: boolean) {
     setPostError(null);
     const ok = await submit(rating, reviewText, false);
     if (!ok) return;
+
+    const effectiveRating = rating ?? myReview?.rating ?? null;
 
     /*
      * A PEDIDO — convite pra recomendar depois de nota alta. Roda
@@ -85,11 +100,23 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
      * interrompe o fluxo principal), e as regras de quando aparecer
      * ficam todas em `lib/recommendPrompt.ts`.
      */
-    shouldShowRecommendPrompt(rating, { mediaType: target.mediaType, mediaId: target.mediaId }).then((show) => {
-      if (!show) return;
-      setPromptRating(rating);
-      markRecommendPromptShown();
-    });
+    if (effectiveRating !== null) {
+      shouldShowRecommendPrompt(effectiveRating, { mediaType: target.mediaType, mediaId: target.mediaId }).then((show) => {
+        if (!show) return;
+        setPromptRating(effectiveRating);
+        markRecommendPromptShown();
+      });
+    }
+
+    // Mantém um post de review já publicado anteriormente (se existir)
+    // com a nota ATUAL — ver comentário grande em `syncReviewPostRating`
+    // (`lib/posts.ts`). Sem isso, só a avaliação em si ficaria
+    // atualizada; o post já no Feed continuaria preso na nota antiga.
+    if (effectiveRating !== null) {
+      syncReviewPostRating(target.mediaType, target.mediaId, effectiveRating).catch((error) => {
+        console.error("[ReviewsFullView] Falha ao sincronizar nota do post já publicado", error);
+      });
+    }
 
     if (!shareToFeed) return;
 
@@ -99,7 +126,7 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
         mediaId: target.mediaId,
         mediaTitle: media.title,
         mediaPosterPath: media.posterPath,
-        rating,
+        rating: effectiveRating,
       });
     } catch (error) {
       console.error("[ReviewsFullView] Avaliação salva, mas falhou ao publicar no Feed", error);

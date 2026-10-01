@@ -105,11 +105,25 @@ export function useReviews(target: ReviewTarget) {
     }, [target.mediaType, target.mediaId])
   );
 
+  /**
+   * BUG REAL CORRIGIDO (2026-10-01, reportado — "avaliação não pegou,
+   * aparece sem estrelas") — `rating` passou a aceitar `null` ("não
+   * mexer na nota"), não só `number`. Antes, a tela de filme sem
+   * estrelas visíveis (`showRating: false`, comentário-only) sempre
+   * mandava `rating=0` pra cá, que SEMPRE ia dentro do `upsertReview`
+   * — escrevia uma nota "0" de verdade no banco mesmo quando a pessoa
+   * nunca tocou numa estrela. Agora, `rating === null` tira a chave do
+   * payload inteiramente (`upsertReview` só grava campo que `!==
+   * undefined`) — não sobrescreve nota nenhuma, preserva o que já
+   * existia (inclusive `null`, se nunca houve nota).
+   */
   const submit = useCallback(
-    async (rating: number, reviewText: string | null, containsSpoiler: boolean) => {
+    async (rating: number | null, reviewText: string | null, containsSpoiler: boolean) => {
       setSaving(true);
       try {
-        await upsertReview(target, { rating, reviewText, containsSpoiler });
+        const payload: { rating?: number; reviewText: string | null; containsSpoiler: boolean } = { reviewText, containsSpoiler };
+        if (rating !== null) payload.rating = rating;
+        await upsertReview(target, payload);
         await load();
         return true;
       } catch (error) {

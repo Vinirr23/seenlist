@@ -67,15 +67,47 @@ function mapRow(row: PostRow, profile: ProfileRow): Post {
   };
 }
 
+export type FeedScope = "forYou" | "following";
+
+/**
+ * A PEDIDO (2026-10-01, header do Feed — "Para você / Seguindo") —
+ * `scope` opcional, igual ao `direction` de `lib/followList.ts` (mesmo
+ * padrão de query condicional, `let query = ...; if (...) query =
+ * query.foo(...)`). "forYou" (padrão) mantém o comportamento de
+ * sempre, sem filtro nenhum. "following" filtra pelos IDs que o
+ * usuário atual segue (tabela `follows`, mesma consulta já usada em
+ * `lib/activityFeed.ts`) — ninguém seguido ainda retorna lista vazia
+ * sem bater no banco de posts à toa.
+ */
 /** Idêntico a `usePosts` do web (lib/queries/posts.ts), sem react-query — chamada direta, mesmo padrão de lib/library.ts. */
-export async function fetchPosts(): Promise<Post[]> {
-  const { data: rows, error } = await supabase
+export async function fetchPosts(scope: FeedScope = "forYou"): Promise<Post[]> {
+  let query = supabase
     .from("posts")
     .select(POST_COLUMNS)
     .in("type", POST_TYPES)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(POSTS_LIMIT);
+
+  if (scope === "following") {
+    const {
+      data: { user },
+    } = await getCurrentAuthUser();
+    if (!user) return [];
+
+    const { data: followRows, error: followError } = await supabase.from("follows").select("following_id").eq("follower_id", user.id);
+    if (followError) {
+      console.error("[posts] Falha ao buscar lista de quem o usuário segue", followError);
+      throw followError;
+    }
+
+    const followingIds = [...new Set((followRows ?? []).map((r) => r.following_id as string))];
+    if (followingIds.length === 0) return []; // não segue ninguém ainda
+
+    query = query.in("user_id", followingIds);
+  }
+
+  const { data: rows, error } = await query;
 
   if (error) {
     console.error("[posts] Falha ao buscar posts", error);
@@ -146,9 +178,21 @@ export async function deletePost(postId: string): Promise<void> {
  * banco (`posts_one_review_per_media_idx`, já criado — mesmo banco
  * do web) é a segunda linha de defesa.
  */
+/**
+ * BUG REAL CORRIGIDO (2026-10-01, reportado — post de review de filme
+ * "congelado" com 0 estrelas enquanto a nota real já tinha mudado) —
+ * `rating` passou a aceitar `null` (era sempre `number`): a tela
+ * "Ver todas as avaliações" de filme esconde as estrelas
+ * (`showRating: false`, `ReviewComposer.tsx`) e antes mandava sempre
+ * `rating=0` quando a pessoa ainda não tinha avaliado nada — criava
+ * post (e review) com nota 0 "de verdade" no banco. Agora `null` =
+ * "sem nota pra gravar aqui", e o campo some do payload em vez de
+ * escrever 0 — ver `ReviewsFullView.tsx`/`handleSubmit` pra quem
+ * decide o valor efetivo (nota nova, ou a que já existia).
+ */
 export async function createReviewPost(
   body: string,
-  review: { mediaType: "movie" | "series"; mediaId: number; mediaTitle: string; mediaPosterPath: string | null; rating: number }
+  review: { mediaType: "movie" | "series"; mediaId: number; mediaTitle: string; mediaPosterPath: string | null; rating: number | null }
 ): Promise<void> {
   const {
     data: { user },
@@ -187,6 +231,41 @@ export async function createReviewPost(
     media_id: review.mediaId,
     ...payload,
   });
+  if (error) throw error;
+}
+
+/**
+ * BUG REAL CORRIGIDO (2026-10-01, reportado — post de review "Filmaçoo!!!"
+ * mostrando 0 estrelas enquanto o card de atividade da mesma pessoa
+ * pro mesmo filme já mostrava 5) — `createReviewPost` só grava a nota
+ * no post NA HORA de publicar; se a pessoa avalia de novo depois (nota
+ * rápida pela aba "Mais" do filme, `app/movies/[id].tsx`/`handleRate`,
+ * que NUNCA passa por `createReviewPost`), o post antigo fica com a
+ * nota velha pra sempre — a `reviews` (fonte do Activity Card) e o
+ * `posts` (fonte deste post) são duas linhas independentes que podem
+ * ficar fora de sincronia.
+ *
+ * Chamar isto depois de qualquer avaliação nova (ver `handleRate` em
+ * `app/movies/[id].tsx` e `handleSubmit` em `ReviewsFullView.tsx`)
+ * mantém o post já publicado (se existir) com a nota atual — `UPDATE`
+ * sem `WHERE` encontrar linha nenhuma é um no-op silencioso (não
+ * existe post pra essa mídia ainda), por isso não precisa checar
+ * existência antes.
+ */
+export async function syncReviewPostRating(mediaType: "movie" | "series", mediaId: number, rating: number): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("posts")
+    .update({ rating })
+    .eq("user_id", user.id)
+    .eq("type", "review")
+    .eq("media_type", mediaType)
+    .eq("media_id", mediaId)
+    .is("deleted_at", null);
   if (error) throw error;
 }
 

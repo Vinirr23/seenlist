@@ -1,19 +1,13 @@
 import { useEffect, useState } from "react";
-import { View, ScrollView, FlatList, StyleSheet } from "react-native";
+import { ScrollView, View, StyleSheet } from "react-native";
 import { Screen, GlassTargetProvider, AmbientGlow, type GlowBlob } from "@/components/ui";
-import { PageError } from "@/components/media/PageError";
-import { EmptyShelf } from "@/components/media/EmptyShelf";
-import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
 import { SearchBar } from "@/components/explore/SearchBar";
 import { SearchResults } from "@/components/explore/SearchResults";
 import { ExploreTabs, type ExploreTab } from "@/components/explore/ExploreTabs";
 import { ExploreMoviesTab } from "@/components/explore/ExploreMoviesTab";
 import { ExploreSeriesTab } from "@/components/explore/ExploreSeriesTab";
-import { ActivityFeedRow } from "@/components/explore/ActivityFeedRow";
-import { useActivityFeed } from "@/lib/useActivityFeed";
 import { spacing } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
-import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * PORTE DO WEB (2026-09-02 — "vamos implementar as mudanças que
@@ -48,6 +42,20 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * portadas 1:1; `left`/`right` do web são % — convertidos pra pixel
  * assumindo ~400px de referência, mesma técnica já usada em
  * `PROFILE_GLOW_BLOBS`).
+ *
+ * REMOVIDO (a pedido, 2026-10-01 — Activity Cards no Feed, documento
+ * de UX "o Feed parece estático") — a 3ª sub-aba, "Atividade"
+ * (um componente `ActivityTabContent` que existia aqui nesta tela),
+ * saiu inteira: a mesma informação (quem terminou/avaliou/adicionou à
+ * watchlist) passou a aparecer direto no Feed, como cards ricos com
+ * poster (`components/feed/ActivityCard.tsx`, via `lib/activityFeed.ts`
+ * — mesma função de busca, reaproveitada, não duplicada). Decisão
+ * explícita: manter as duas telas mostrando a mesma coisa seria
+ * duplicação sem ganho nenhum. `ExploreTab` (`ExploreTabs.tsx`) ficou
+ * só com "movies"/"series"; `lib/useActivityFeed.ts` e
+ * `components/explore/ActivityFeedRow.tsx` ficaram sem uso (não
+ * apagados — mesmo critério já usado pra outros arquivos órfãos deste
+ * projeto, apagar é decisão à parte).
  */
 const EXPLORE_GLOW_BLOBS: GlowBlob[] = [
   { color: "rgba(27,75,122,0.45)", top: 40, left: -110, size: 256 },
@@ -81,27 +89,13 @@ export default function ExploreScreen() {
    * cache) sem contradizer a decisão deliberada de não cachear esses
    * hooks.
    *
-   * CORREÇÃO (mesmo dia — reportado depois: "dentro de explorar na sub
-   * aba atividade tem o mesmo bug") — a 1ª versão deste fix só cobria
-   * Filmes/Séries; a sub-aba Atividade continuava num `tab === "activity"
-   * ? <ActivityTabContent /> : <ScrollView>...</ScrollView>` no nível de
-   * cima, que desmontava a `ScrollView` (e tudo dentro, inclusive
-   * Filmes/Séries já "mantidos") toda vez que se ia pra Atividade e
-   * voltava. Unificado: as 3 sub-abas agora são irmãs sempre
-   * renderizadas (montam na 1ª visita, sem nunca desmontar de novo),
-   * cada uma só escondida com `display: "none"` quando não é a ativa.
-   *
-   * CORREÇÃO (mesmo dia, 2ª rodada — testado no aparelho: Filmes↔Séries
-   * parou de recarregar, mas ir pra Atividade e voltar pra Filmes/Séries
-   * ainda recarregava) — o bloco de Atividade só passou a existir
-   * DEPOIS da 1ª visita (`subAbasVisitadas.has("activity") && (...)`);
-   * sem uma `key` fixa, o React pode reconciliar os irmãos deste
-   * fragmento por POSIÇÃO — o bloco de Atividade aparecendo/sumindo do
-   * meio da lista de filhos deslocava a posição da `ScrollView` de
-   * Filmes/Séries logo abaixo, e o React tratava isso como um elemento
-   * novo (desmontando o antigo). `key` fixa em cada bloco ("sub-aba-
-   * activity"/"sub-aba-discover"/"sub-aba-movies"/"sub-aba-series")
-   * ancora a identidade de cada um, independente de posição.
+   * SIMPLIFICADO (2026-10-01, Activity Cards no Feed) — a sub-aba
+   * "Atividade" que motivou a versão anterior deste comentário (irmãs
+   * sempre renderizadas, `key` fixa por posição) saiu da tela (ver
+   * comentário grande acima) — com só "movies"/"series" sobrando,
+   * `subAbasVisitadas` continua útil (evita re-buscar ao voltar pra
+   * uma sub-aba já vista), mas não precisa mais do `View` irmão extra
+   * nem da checagem de 3 vias que existia antes.
    */
   const [subAbasVisitadas, setSubAbasVisitadas] = useState<Set<ExploreTab>>(() => new Set([tab]));
   useEffect(() => {
@@ -142,58 +136,20 @@ export default function ExploreScreen() {
               * depois desta remoção; a aba `/feed` própria usa sua
               * própria implementação, em `app/(tabs)/feed.tsx`.
               */}
-            {subAbasVisitadas.has("activity") && (
-              <View
-                key="sub-aba-activity"
-                style={[styles.flexFill, tab === "activity" ? undefined : styles.subAbaEscondida]}
-              >
-                <ActivityTabContent />
-              </View>
-            )}
-            {(subAbasVisitadas.has("movies") || subAbasVisitadas.has("series")) && (
-              <ScrollView
-                key="sub-aba-discover"
-                /*
-                 * BUG REAL CORRIGIDO (2026-09-28, reportado com print —
-                 * "post cortado, só quando rolo a tela que aparece os de
-                 * baixo"/"sem respiro entre o botão + e a barra
-                 * nativa"/"feed não recebeu glass") — esta condição só
-                 * escondia esta `ScrollView` quando `tab === "activity"`;
-                 * ao adicionar "feed" como 4ª sub-aba (ver comentário
-                 * acima), ela ficou de fora da checagem — com `tab ===
-                 * "feed"`, esta `ScrollView` continuava MONTADA E VISÍVEL
-                 * ao lado do bloco do Feed (irmã na mesma coluna flex),
-                 * disputando a altura disponível com o `View` `flex: 1`
-                 * do Feed e espremendo a área visível dele. Isso explicava
-                 * os 3 sintomas de uma vez: FlatList do Feed cortada
-                 * (precisando rolar pra ver o que sobrava escondido fora
-                 * da área espremida); o botão flutuante "+"
-                 * (`CreatePostButton`, `position: absolute, bottom: 88 +
-                 * insets.bottom`) posicionado relativo ao fundo do
-                 * container ESPREMIDO, não ao fundo real da tela — perto
-                 * demais da barra nativa; e as manchas de vidro
-                 * (`AmbientGlow`) do Explorar, que cobrem a tela inteira
-                 * mas ficavam viúvas atrás da área extra ocupada por esta
-                 * `ScrollView` fantasma, dando a impressão de tela chapada
-                 * na parte de baixo. Corrigido: mesma regra de
-                 * mutualmente-exclusivo já usada nas outras 3 sub-abas —
-                 * só fica visível quando `tab` é "movies" ou "series".
-                 */
-                style={tab === "movies" || tab === "series" ? undefined : styles.subAbaEscondida}
-                contentContainerStyle={[styles.discoverContent, { paddingBottom: tabBarClearance }]}
-              >
-                {subAbasVisitadas.has("movies") && (
-                  <View key="sub-aba-movies" style={tab === "movies" ? undefined : styles.subAbaEscondida}>
-                    <ExploreMoviesTab />
-                  </View>
-                )}
-                {subAbasVisitadas.has("series") && (
-                  <View key="sub-aba-series" style={tab === "series" ? undefined : styles.subAbaEscondida}>
-                    <ExploreSeriesTab />
-                  </View>
-                )}
-              </ScrollView>
-            )}
+            <ScrollView
+              contentContainerStyle={[styles.discoverContent, { paddingBottom: tabBarClearance }]}
+            >
+              {subAbasVisitadas.has("movies") && (
+                <View key="sub-aba-movies" style={tab === "movies" ? undefined : styles.subAbaEscondida}>
+                  <ExploreMoviesTab />
+                </View>
+              )}
+              {subAbasVisitadas.has("series") && (
+                <View key="sub-aba-series" style={tab === "series" ? undefined : styles.subAbaEscondida}>
+                  <ExploreSeriesTab />
+                </View>
+              )}
+            </ScrollView>
           </>
         )}
       </GlassTargetProvider>
@@ -201,84 +157,7 @@ export default function ExploreScreen() {
   );
 }
 
-function ActivityTabContent() {
-  const tabBarClearance = useTabBarClearance();
-  const { items, isLoading, isError, refetch } = useActivityFeed();
-  const { t } = useTranslation();
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingActivity}>
-        <PostCardSkeleton />
-      </View>
-    );
-  }
-  if (isError) {
-    return (
-      <View style={styles.emptyActivity}>
-        <PageError message={t("explore.errorLoadActivity")} onRetry={() => refetch()} />
-      </View>
-    );
-  }
-  if (!items || items.length === 0) {
-    return (
-      // FASE 2 (consistência visual sistêmica, 2026-09-26) — era
-      // `<Text variant="muted">` solto; `EmptyShelf` já é o padrão
-      // único de estado vazio do app. A mensagem já sugere seguir
-      // gente — ganhou o `actionLabel` real que faltava, indo direto
-      // pra `discover-people` (mesma tela/rótulo do sino de "Descobrir
-      // pessoas").
-      <View style={styles.emptyActivity}>
-        <EmptyShelf
-          icon="users"
-          message={t("explore.emptyActivityFollowSuggestion")}
-          actionLabel={t("social.discoverPeople")}
-          actionHref="/discover-people"
-        />
-      </View>
-    );
-  }
-
-  return (
-    // CORREÇÃO (2026-09-04, "vidro que falta") — a borda de tela e o
-    // respiro entre linhas moram aqui agora: cada `ActivityFeedRow`
-    // virou um cartão de vidro (antes era linha crua com `border-b`, e
-    // era ela mesma quem punha a borda de tela por dentro).
-    //
-    // CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance —
-    // item 6 da Etapa 1B: "Explorar > Atividade → FlatList") — era
-    // `ScrollView` + `.map()`, montando de uma vez todo item vindo de
-    // `fetchActivityFeed` (até 40 — `.slice(0, 40)` em
-    // `lib/activityFeed.ts`; o número exato é 40, não ~60 como estimado
-    // na auditoria original). Mesmo padrão já aprovado nesta mesma
-    // etapa pro Feed principal (`app/(tabs)/feed.tsx`) e na Etapa 1A
-    // pros carrosséis — `FlatList` virtualiza, só monta o que está
-    // perto da tela. SEM `getItemLayout`: a altura da linha não é fixa
-    // (o texto de `ActivityFeedRow` — nome + ação + título — pode
-    // quebrar em mais de uma linha dependendo do conteúdo, sem
-    // `numberOfLines`), então declarar uma altura fixa aqui erraria o
-    // posicionamento em vez de ajudar. Vidro, layout, ações, navegação
-    // e os estados de carregamento/vazio/erro acima continuam
-    // exatamente iguais — só a forma de desenhar a lista mudou. Esta
-    // aba nunca teve "puxar pra atualizar" (nenhum `RefreshControl`
-    // antes da correção) — não é adicionado agora, por não fazer parte
-    // do escopo desta etapa.
-    <FlatList
-      data={items}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={[styles.activityList, { paddingBottom: tabBarClearance }]}
-      initialNumToRender={8}
-      windowSize={7}
-      maxToRenderPerBatch={8}
-      renderItem={({ item }) => <ActivityFeedRow item={item} />}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
-  flexFill: {
-    flex: 1,
-  },
   subAbaEscondida: {
     display: "none",
   },
@@ -307,20 +186,5 @@ const styles = StyleSheet.create({
   discoverContent: {
     paddingTop: spacing.xs,
     paddingBottom: spacing.xl,
-  },
-  activityList: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  loadingActivity: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-  },
-  emptyActivity: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.xl,
   },
 });
