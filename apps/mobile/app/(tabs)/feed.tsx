@@ -17,7 +17,7 @@ import { FeedItemEnter } from "@/components/feed/FeedItemEnter";
 import { CreatePostButton } from "@/components/feed/CreatePostButton";
 import { fetchLikeInfoFor, fetchCommentCountsFor } from "@/lib/social/likes";
 import { fetchPollDataFor, type PollData } from "@/lib/social/polls";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { colors, spacing, radius, elevation, fontSize } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -25,7 +25,8 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
 /**
  * TASK-095/153 — Feed nativo: lista de posts reais do Supabase, curtida
  * de verdade, contagem de comentários real, Realtime (curtidas/
- * comentários/enquetes/posts novos).
+ * comentários/enquetes/posts novos/atividade automática nova — ver
+ * `hasNewFeedItems`, abaixo).
  *
  * HISTÓRICO DE NAVEGAÇÃO (raiz de um bug real corrigido em 2026-09-29,
  * "Cannot find module '@/components/explore/FeedTabContent'"):
@@ -81,15 +82,28 @@ export default function FeedScreen() {
   const [commentCountByPostId, setCommentCountByPostId] = useState<Map<string, number>>(new Map());
   const [pollDataByPostId, setPollDataByPostId] = useState<Map<string, PollData>>(new Map());
   const [interactionsLoaded, setInteractionsLoaded] = useState(false);
-  const [newPostsCount, setNewPostsCount] = useState(0);
+  /**
+   * UNIFICADO (2026-10-01, a pedido — "quero um único estado/indicador
+   * de novidades do Feed, e não contadores visuais separados para
+   * posts e atividades") — antes era `newPostsCount` (um número, só
+   * de `posts`). Agora é um booleano só, aceso por QUALQUER sinal de
+   * "pode haver conteúdo novo" (post escrito OU atividade automática
+   * — ver os dois `useEffect` de Realtime abaixo). Deliberadamente
+   * SEM contagem: os eventos de banco não correspondem 1:1 às
+   * `FeedEntry`s finais (agrupamento, dedup, janela de 7 dias de
+   * `activityFeed.ts` podem descartar ou fundir o que gerou o
+   * evento) — um número aqui seria só aparência de precisão, por
+   * isso a UI mostra só "existe novidade ou não", nunca "quantas".
+   */
+  const [hasNewFeedItems, setHasNewFeedItems] = useState(false);
   /** Timer do debounce curto de recarga por evento Realtime (ver o `useEffect` do canal `realtime-feed-interactions`, abaixo). */
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * A PEDIDO (2026-10-01, "fechar corretamente a interação que já
    * existe antes de adicionar novos comportamentos automáticos") — só
-   * pra permitir `scrollToOffset` depois do toque no banner "↑ N posts
-   * novos" (ver `handleShowNewPosts`, abaixo). Deliberadamente SEM
-   * `onScroll`/tracking de posição — fora do escopo desta mudança.
+   * pra permitir `scrollToOffset` depois do toque no banner "↑
+   * Novidades" (ver `handleShowNewContent`, abaixo). Deliberadamente
+   * SEM `onScroll`/tracking de posição — fora do escopo desta mudança.
    */
   const listRef = useRef<FlatList<FeedEntry>>(null);
 
@@ -160,17 +174,15 @@ export default function FeedScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- proposital: `postIds` é um array NOVO a cada render (`entries?.filter(...)`), incluí-lo faria este efeito desmontar/remontar o canal a cada render à toa; `postIdsKey` (string derivada, já na lista) é quem de fato representa esse valor pra fins de dependência — reconstrói `visiblePostIds` sempre que o CONTEÚDO muda, não a referência.
   }, [loadInteractions, postIdsKey]);
 
-  // Post novo de qualquer pessoa NÃO entra sozinho na lista (empurraria
-  // o que a pessoa já está lendo) — só conta, mostra um aviso, e busca
-  // de verdade quando tocado. Só escuta a tabela `posts` (não atividade
-  // automática) — sem Realtime em `series_status`/`movie_status`/
-  // `reviews` ainda, então um Activity Card novo só aparece na próxima
-  // troca de aba ou puxada pra atualizar, não ao vivo.
+  // Post novo de qualquer pessoa liga o indicador único de novidade
+  // (`hasNewFeedItems`) — não entra sozinho na lista (empurraria o que
+  // a pessoa já está lendo), só avisa, e busca de verdade quando
+  // tocado (ver `handleShowNewContent`, abaixo).
   useEffect(() => {
     const channel = supabase
       .channel("realtime-feed-new-posts")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => {
-        setNewPostsCount((n) => n + 1);
+        setHasNewFeedItems(true);
       })
       .subscribe();
 
@@ -180,26 +192,104 @@ export default function FeedScreen() {
   }, []);
 
   /**
+   * ATIVIDADE AUTOMÁTICA NO REALTIME (2026-10-01, a pedido — "hoje
+   * `posts` possuem Realtime... mas novas atividades só aparecem após
+   * refresh") — cobre as 3 fontes que faltavam (`movie_status`,
+   * `series_status`, `reviews` — ver `lib/activityFeed.ts`). Um canal
+   * só, três `.on()` (mesmo idioma já usado no canal
+   * `realtime-feed-interactions`, acima, pra `likes`/`post_comments`/
+   * `poll_votes`), `event: "*"` (INSERT conta pra status/review novos,
+   * UPDATE conta pra troca de status ou review editada — ambos são
+   * "pode ter novidade" igualmente válidos, e decidir qual exatamente
+   * vale a pena é papel do `refetch()`/`activityFeed.ts`, não deste
+   * handler).
+   *
+   * OS HANDLERS NÃO INTERPRETAM O PAYLOAD DE PROPÓSITO — só ligam
+   * `hasNewFeedItems`. Nenhuma das regras de `activityFeed.ts` (janela
+   * de 7 dias, limite por fonte, o que conta como "completed" vs
+   * "watchlist") é replicada aqui — réplica dessas regras no cliente
+   * seria exatamente o que foi pedido pra evitar, e o `refetch()`
+   * continua sendo a única fonte de verdade de quais atividades
+   * aparecem.
+   *
+   * EXCLUSÃO DO PRÓPRIO USUÁRIO — filtro `user_id=neq.<id>` direto no
+   * servidor (mesmo mecanismo que `target_type=eq.post` já usa no
+   * canal de curtidas, acima; `user_id` existe nas 3 tabelas, confirmado
+   * nas migrations). Dá pra fazer de forma simples e confiável porque
+   * é filtro de infraestrutura puro — não decide nada sobre o que é ou
+   * não uma activity, só "não é deste usuário". Precisa do id do
+   * usuário ANTES de assinar — por isso o `useEffect` passou a ter uma
+   * função `async` interna (`getCurrentAuthUser`, já usado em outros
+   * lugares do app); se a sessão ainda não estiver pronta ou a busca
+   * falhar, assina SEM filtro (prefere avisar demais — inclusive da
+   * própria ação do usuário — a arriscar nunca avisar).
+   */
+  useEffect(() => {
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    async function setup() {
+      let currentUserId: string | null = null;
+      try {
+        const {
+          data: { user },
+        } = await getCurrentAuthUser();
+        currentUserId = user?.id ?? null;
+      } catch (error) {
+        console.error("[FeedScreen] Falha ao buscar usuário atual pro filtro de Realtime (seguindo sem filtro)", error);
+      }
+      if (cancelled) return;
+
+      const excludeSelfFilter = currentUserId ? `user_id=neq.${currentUserId}` : undefined;
+      const markNewActivity = () => setHasNewFeedItems(true);
+
+      channel = supabase
+        .channel("realtime-feed-new-activity")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "movie_status", ...(excludeSelfFilter ? { filter: excludeSelfFilter } : {}) },
+          markNewActivity
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "series_status", ...(excludeSelfFilter ? { filter: excludeSelfFilter } : {}) },
+          markNewActivity
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "reviews", ...(excludeSelfFilter ? { filter: excludeSelfFilter } : {}) },
+          markNewActivity
+        )
+        .subscribe();
+    }
+
+    setup();
+
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
+
+  /**
    * A PEDIDO (2026-10-01, "fechar corretamente a interação que já
-   * existe antes de adicionar novos comportamentos automáticos") —
-   * antes só chamava `refetch()` sem esperar nem rolar pro topo
-   * depois: o conteúdo novo entrava lá no início do array, mas se a
-   * pessoa já tivesse rolado a tela pra baixo, continuava vendo
-   * exatamente o que já estava vendo, sem indicação de que algo
-   * mudou. Agora: zera o contador (igual antes), ESPERA `refetch()`
-   * terminar e só rola pro topo se ele de fato trouxe dados novos —
-   * `refetch()` devolve `true`/`false` (ver `load` em
-   * `useFeedEntries.ts`), o MESMO sinal de erro que já existia
-   * (`isError`), só exposto no valor resolvido da Promise em vez de
-   * só no state — pra não criar nenhum sistema de erro novo. Em
-   * falha, não rola nada: a tela já mostra o estado de erro existente
-   * (`isError` → `<PageError>`), rolar pro topo nesse caso pareceria
+   * existe antes de adicionar novos comportamentos automáticos", e
+   * depois unificado em "novidades" genéricas) — NÃO zera o indicador
+   * antes de chamar `refetch()` (diferente da versão anterior, que
+   * zerava o contador na hora do toque) — só depois de confirmado que
+   * `refetch()` realmente trouxe dados novos. `refetch()` devolve
+   * `true`/`false` (ver `load` em `useFeedEntries.ts`), o MESMO sinal
+   * de erro que já existia (`isError`), só exposto no valor resolvido
+   * da Promise — sem sistema de erro novo. Em falha: não limpa
+   * `hasNewFeedItems` (o indicador continua visível, permitindo tocar
+   * de novo) e não rola a tela — a tela já mostra o erro existente
+   * (`isError` → `<PageError>`); rolar pro topo nesse caso pareceria
    * que dados novos chegaram quando não chegou nada.
    */
-  async function handleShowNewPosts() {
-    setNewPostsCount(0);
+  async function handleShowNewContent() {
     const success = await refetch();
     if (success) {
+      setHasNewFeedItems(false);
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
   }
@@ -279,13 +369,11 @@ export default function FeedScreen() {
        * afetado por essa troca.
        */}
       <View style={styles.body}>
-        {newPostsCount > 0 && (
+        {hasNewFeedItems && (
           <View style={styles.bannerWrapper}>
-            <Pressable style={styles.banner} onPress={handleShowNewPosts}>
+            <Pressable style={styles.banner} onPress={handleShowNewContent}>
               <Feather name="arrow-up" size={14} color={colors.background} strokeWidth={2.5} />
-              <Text style={styles.bannerText}>
-                {newPostsCount === 1 ? t("feed.newPostAvailable") : t("feed.newPostsAvailable", { count: newPostsCount })}
-              </Text>
+              <Text style={styles.bannerText}>{t("feed.newContentAvailable")}</Text>
             </Pressable>
           </View>
         )}
