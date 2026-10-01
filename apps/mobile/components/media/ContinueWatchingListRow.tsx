@@ -373,6 +373,23 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
     });
   }
 
+  /**
+   * TENTATIVA DE CORREÇÃO ADICIONAL (2026-10-01, crash do slide ainda
+   * reproduzindo mesmo depois da guarda de `mountedRef`) — até agora
+   * `scheduleOnRN` só era chamado de UM jeito neste arquivo inteiro
+   * (`scheduleOnRN(handleExitComplete)`, uma função NOMEADA declarada
+   * no nível do componente). O "advancing" introduziu o único outro
+   * caso: uma arrow function criada NA HORA, dentro do callback do
+   * `withTiming` (que já é um worklet) — um padrão nunca testado antes
+   * neste componente. Alinhando com o único jeito comprovado (função
+   * nomeada, declarada aqui fora, igual a `handleExitComplete`), pra
+   * eliminar essa variável antes de investigar mais fundo com log real
+   * do aparelho.
+   */
+  function handleAdvanceSlideInComplete() {
+    if (mountedRef.current) setPhase("idle");
+  }
+
   const layoutOffTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   function desligarLayoutDepoisDaTransicao() {
     if (layoutOffTimeoutRef.current) clearTimeout(layoutOffTimeoutRef.current);
@@ -481,14 +498,7 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
           forceAdvanceRerender((n) => n + 1);
           advanceTranslateX.value = ADVANCE_DISTANCE;
           advanceTranslateX.value = withTiming(0, { duration: ADVANCE_IN_MS, easing: Easing.out(Easing.quad) }, (finished) => {
-            // `mountedRef.current` é lido DEPOIS do `scheduleOnRN`, já
-            // na thread de JS — lido dentro do worklet (a própria
-            // função passada pro `withTiming`) ele não refletiria
-            // mudanças feitas depois que o worklet foi criado (threads
-            // diferentes); só a checagem do lado de cá (JS) é confiável.
-            if (finished) scheduleOnRN(() => {
-              if (mountedRef.current) setPhase("idle");
-            });
+            if (finished) scheduleOnRN(handleAdvanceSlideInComplete);
           });
         }).finally(() => {
           desligarLayoutDepoisDaTransicao();
