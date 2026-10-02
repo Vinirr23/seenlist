@@ -188,13 +188,19 @@ function QuickAddButtonInline({ item }: { item: QuickAddTarget }) {
  *     sequência de banners enormes") → `CompletedActivityHeroCard`
  *     (pôster em tela cheia).
  *   - "completed" NÃO elegível (throttled) → `StandardActivityCard`
- *     tier="compact" — mesmo tamanho visual de "adicionou à lista",
- *     mas mantém o ícone de check e o verbo "terminou/assistiu"
- *     (continua semanticamente uma conclusão, só não ganha o
- *     tratamento grande).
+ *     tier="compact" — mantém o ícone de check e o verbo
+ *     "terminou/assistiu" (continua semanticamente uma conclusão, só
+ *     não ganha o tratamento grande).
  *   - "rated" (tem estrelas) → tier="medium" (pôster maior, mesmo
  *     tamanho já usado em `PostCard.tsx` pra review com texto).
- *   - "watchlist" → tier="compact" (pôster pequeno).
+ *   - "watchlist" → tier="medium" (2026-10-02, reportado com print —
+ *     "o card 'adicionou à lista' ficou minúsculo e desproporcional
+ *     perto do 'avaliou'" — ANTES era tier="compact", visivelmente
+ *     menor que "rated" sem motivo de hierarquia pedido por ninguém;
+ *     agora os dois usam o mesmo tamanho de pôster. "completed" não
+ *     elegível a Hero continua em "compact" de propósito — não foi
+ *     reportado e é o único nível que ainda faz sentido menor,
+ *     semanticamente "rebaixado" pelo throttle de Hero).
  *
  * BOTÃO "+" (2026-10-01, a pedido — "todo card que apareça, tenha o
  * (+) igual em explorar", escopo confirmado: SÓ cards de atividade) —
@@ -207,7 +213,7 @@ export function ActivityCard({ item, heroEligible = false }: { item: ActivityIte
     return <StandardActivityCard item={item} tier="compact" />;
   }
   if (item.activityType === "rated") return <StandardActivityCard item={item} tier="medium" />;
-  return <StandardActivityCard item={item} tier="compact" />;
+  return <StandardActivityCard item={item} tier="medium" />;
 }
 
 function StandardActivityCard({ item, tier }: { item: ActivityItem; tier: "medium" | "compact" }) {
