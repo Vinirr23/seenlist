@@ -465,49 +465,84 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
         // espera o dado novo, troca, e o conteúdo novo desliza de volta
         // vindo da direita.
         tintOpacity.value = withTiming(0, { duration: 200 });
-        setPhase("advancing");
         advanceIn.value = 0;
         advanceOut.value = 0;
         advanceOut.value = withTiming(1, { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) });
 
-        // Só agora avisa o pai (a escrita já foi disparada acima, em
-        // paralelo) — isto só pede pro pai buscar o próximo estado
-        // real pra tela, depois que a coreografia visual já terminou.
-        //
-        // MESMA ORDEM do `handleExitComplete` (ver o comentário lá): o
-        // refetch pode mudar a altura deste card (episódio com nome
-        // mais longo, selo que aparece ou some) e mexer nos de baixo.
-        // Desligar o layout antes disso fazia esse ajuste ser um salto.
-        // MESMA CORREÇÃO de causa raiz do `handleExitComplete` — espera
-        // a busca de verdade terminar antes de desligar o layout.
-        //
-        // `Promise.all` com um tempo mínimo (não corrida): garante que o
-        // slide pra fora sempre tem tempo de terminar visualmente antes
-        // da troca de conteúdo, numa rede rápida; numa rede lenta,
-        // continua esperando o dado de verdade (mesmo comportamento de
-        // antes), só que com o conteúdo "estacionado" à esquerda em vez
-        // de parado no lugar.
-        const tempoMinimoDeSaida = new Promise<void>((resolve) => setTimeout(resolve, ADVANCE_SLIDE_DURATION_MS));
-        Promise.all([onMarkedWatched(), tempoMinimoDeSaida]).then(() => {
-          // CAUSA RAIZ DO CRASH ("limpa o card, trava e fecha o app") —
-          // ver comentário grande em `mountedRef`, acima. Marcar este
-          // episódio pode mudar `lastActivityAt` da série e tirá-la
-          // desta lista (ex.: sai de "Faz um tempo que você não
-          // assiste" e entra em "Continue assistindo") ANTES deste
-          // `.then()` rodar — o que desmonta esta instância de verdade
-          // (listas/`.map()` diferentes, não só reordenação). Sem esta
-          // guarda, o código abaixo mexia em shared values/estado de um
-          // componente já desmontado.
-          if (!mountedRef.current) return;
-          // Troca pro episódio novo e volta a `idle` — o conteúdo troca
-          // exatamente no instante em que `advanceIn` começa a animar
-          // (de "entrando pela direita" pra posição normal).
-          frozenRef.current = latestNextEpisodeRef.current;
-          setPhase("idle");
-          advanceIn.value = 0;
-          advanceIn.value = withTiming(1, { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) });
-        }).finally(() => {
-          desligarLayoutDepoisDaTransicao();
+        // CORREÇÃO DE CAUSA RAIZ (2026-10-02, reportado — "dá uma
+        // travada durante o deslize", toda vez, logo no início do
+        // slide, sempre no iPhone) — diagnóstico feito SEM assumir
+        // nada (perguntei frequência, momento exato e plataforma antes
+        // de tentar qualquer correção):
+        //   - toda vez, de forma consistente -> não é variação de
+        //     rede/tempo de resposta, é determinístico;
+        //   - logo no início do slide pra fora, antes de qualquer
+        //     movimento visível -> é o PRIMEIRO frame da animação que
+        //     está travando, não o meio do percurso;
+        //   - sempre no iPhone -> plataforma com BlurView nativo real
+        //     pra esta variante do `Glass` ("card"), mas isso por si só
+        //     não prova a causa (ver abaixo).
+        // Antes desta correção, no MESMO tick de JS que inicia
+        // `advanceOut`/`tintOpacity` (as animações Reanimated), também
+        // disparava `setPhase("advancing")` (gera um re-render React
+        // completo deste card) E o `onMarkedWatched()` (dispara o
+        // refetch pesado da biblioteca inteira, ver correção de cache
+        // em `lib/library.ts`). Mesmo já resolvida a lentidão de rede
+        // daquele refetch, DISPARAR o refetch e fazer o React
+        // reconciliar/commitar o re-render ainda é trabalho síncrono de
+        // JS que compete, no mesmo frame, com o primeiro commit da
+        // animação Reanimated — exatamente a classe de bug "trava bem
+        // no início, sempre, de forma determinística".
+        // Correção: todo esse trabalho (setPhase + o disparo do
+        // refetch) passa pro frame SEGUINTE via `requestAnimationFrame`.
+        // As animações Reanimated (`tintOpacity`, `advanceOut`, acima)
+        // continuam síncronas — já são puro UI thread, não competem com
+        // nada. Isto é a correção mais bem fundamentada que encontrei
+        // sem um profiler no dispositivo; se a travada persistir,
+        // "não pare até encontrar a causa raiz" continua valendo — ver
+        // comentário grande acima de `ADVANCE_SLIDE_DISTANCE`.
+        requestAnimationFrame(() => {
+          setPhase("advancing");
+
+          // Só agora avisa o pai (a escrita já foi disparada acima, em
+          // paralelo) — isto só pede pro pai buscar o próximo estado
+          // real pra tela, depois que a coreografia visual já terminou.
+          //
+          // MESMA ORDEM do `handleExitComplete` (ver o comentário lá): o
+          // refetch pode mudar a altura deste card (episódio com nome
+          // mais longo, selo que aparece ou some) e mexer nos de baixo.
+          // Desligar o layout antes disso fazia esse ajuste ser um salto.
+          // MESMA CORREÇÃO de causa raiz do `handleExitComplete` — espera
+          // a busca de verdade terminar antes de desligar o layout.
+          //
+          // `Promise.all` com um tempo mínimo (não corrida): garante que o
+          // slide pra fora sempre tem tempo de terminar visualmente antes
+          // da troca de conteúdo, numa rede rápida; numa rede lenta,
+          // continua esperando o dado de verdade (mesmo comportamento de
+          // antes), só que com o conteúdo "estacionado" à esquerda em vez
+          // de parado no lugar.
+          const tempoMinimoDeSaida = new Promise<void>((resolve) => setTimeout(resolve, ADVANCE_SLIDE_DURATION_MS));
+          Promise.all([onMarkedWatched(), tempoMinimoDeSaida]).then(() => {
+            // CAUSA RAIZ DO CRASH ("limpa o card, trava e fecha o app") —
+            // ver comentário grande em `mountedRef`, acima. Marcar este
+            // episódio pode mudar `lastActivityAt` da série e tirá-la
+            // desta lista (ex.: sai de "Faz um tempo que você não
+            // assiste" e entra em "Continue assistindo") ANTES deste
+            // `.then()` rodar — o que desmonta esta instância de verdade
+            // (listas/`.map()` diferentes, não só reordenação). Sem esta
+            // guarda, o código abaixo mexia em shared values/estado de um
+            // componente já desmontado.
+            if (!mountedRef.current) return;
+            // Troca pro episódio novo e volta a `idle` — o conteúdo troca
+            // exatamente no instante em que `advanceIn` começa a animar
+            // (de "entrando pela direita" pra posição normal).
+            frozenRef.current = latestNextEpisodeRef.current;
+            setPhase("idle");
+            advanceIn.value = 0;
+            advanceIn.value = withTiming(1, { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) });
+          }).finally(() => {
+            desligarLayoutDepoisDaTransicao();
+          });
         });
       }
     }, CONFIRM_HOLD_MS);
