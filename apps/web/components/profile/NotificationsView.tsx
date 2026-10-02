@@ -58,6 +58,8 @@ function getNotificationMessage(n: AppNotification, t: (key: string, vars?: Reco
       return t("notifications.newFeedback", { message: n.message ?? "" });
     case "verified_badge":
       return t("notifications.verifiedBadge");
+    case "verified_badge_granted":
+      return t("notifications.verifiedBadgeGranted");
   }
 }
 
@@ -100,7 +102,7 @@ function getNotificationHref(n: AppNotification): string | null {
   if (n.type === "post_like") {
     return n.targetId ? `/explore/posts/${n.targetId}` : null;
   }
-  if (n.type === "verified_badge") {
+  if (n.type === "verified_badge" || n.type === "verified_badge_granted") {
     return "/profile";
   }
   if (n.mediaType && n.mediaId != null) {
@@ -172,7 +174,7 @@ export function NotificationsView() {
                     <Avatar src={n.actor.avatarUrl} name={n.actor.displayName ?? n.actor.username} className="h-full w-full" />
                   ) : n.mediaPosterPath ? (
                     <Image src={tmdbImage(n.mediaPosterPath, "w185") ?? ""} alt="" fill sizes="44px" className="object-cover" />
-                  ) : n.type === "verified_badge" && currentUser?.verifiedTier ? (
+                  ) : (n.type === "verified_badge" || n.type === "verified_badge_granted") && currentUser?.verifiedTier ? (
                     /*
                       A PEDIDO (2026-09-29 — "sino padrão" pra quem não
                       tem selo) — quem TEM selo (gold/blue) vê o próprio

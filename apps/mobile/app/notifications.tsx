@@ -55,6 +55,8 @@ function getNotificationMessage(n: AppNotification, t: (key: string, vars?: Reco
       return t("notifications.newFeedback", { message: n.message ?? "" });
     case "verified_badge":
       return t("notifications.verifiedBadge");
+    case "verified_badge_granted":
+      return t("notifications.verifiedBadgeGranted");
   }
 }
 
@@ -92,7 +94,7 @@ function getNotificationRoute(n: AppNotification): string | null {
   if (n.type === "post_like") {
     return n.targetId ? `/posts/${n.targetId}` : null;
   }
-  if (n.type === "verified_badge") {
+  if (n.type === "verified_badge" || n.type === "verified_badge_granted") {
     return "/profile";
   }
   if (n.mediaType && n.mediaId != null) {
@@ -182,7 +184,7 @@ export default function NotificationsScreen() {
                         <Avatar uri={n.actor.avatarUrl} name={n.actor.displayName ?? n.actor.username} style={styles.avatar} textStyle={styles.avatarInitials} />
                       ) : n.mediaPosterPath ? (
                         <Image source={{ uri: tmdbImageUrl(n.mediaPosterPath, "w185") ?? undefined }} style={styles.avatar} />
-                      ) : n.type === "verified_badge" && currentUser?.verifiedTier ? (
+                      ) : (n.type === "verified_badge" || n.type === "verified_badge_granted") && currentUser?.verifiedTier ? (
                         /*
                           A PEDIDO (2026-09-29 — "sino padrão" pra quem
                           não tem selo) — quem TEM selo vê o próprio

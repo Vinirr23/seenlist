@@ -23,7 +23,17 @@ export type NotificationType =
   | "feedback_reply"
   | "post_like"
   | "new_feedback"
-  | "verified_badge";
+  | "verified_badge"
+  // A PEDIDO (2026-10-02 — "manda a notificação pro raylissonx", que
+  // ganhou o selo DEPOIS do lançamento) — `verified_badge` original
+  // (ver comentário em `app/notifications.tsx`) é o envio ÚNICO do
+  // lançamento (29/09), texto fixo "chegaram os selos... primeiros
+  // 100 cadastrados". Pra alguém que ganha o selo depois disso, esse
+  // texto não faz sentido (não houve "chegada" nenhuma pra ele agora).
+  // Tipo novo, texto próprio ("você recebeu o selo"), mesmo ícone
+  // (selo do próprio `verified_tier` do usuário — resolvido no client,
+  // igual ao tipo original).
+  | "verified_badge_granted";
 
 export interface AppNotification {
   id: string;

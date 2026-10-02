@@ -18,7 +18,12 @@ export type NotificationType =
   | "feedback_reply"
   | "post_like"
   | "new_feedback"
-  | "verified_badge";
+  | "verified_badge"
+  // A PEDIDO (2026-10-02 — mesmo motivo do mobile, ver
+  // `apps/mobile/lib/notifications.ts`) — `verified_badge` é o envio
+  // ÚNICO do lançamento (29/09); pra quem ganha o selo DEPOIS, texto
+  // próprio, mesmo ícone.
+  | "verified_badge_granted";
 
 export interface AppNotification {
   id: string;

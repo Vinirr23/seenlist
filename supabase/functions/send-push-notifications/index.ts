@@ -170,6 +170,22 @@ function buildMessage(
         deepLink: "/profile",
       };
     }
+    /*
+     * NOVO (a pedido, 2026-10-02 — "manda a notificação pro
+     * raylissonx", que ganhou o selo DEPOIS do envio único acima) —
+     * `verified_badge` é o lançamento (29/09), texto fixo "chegaram os
+     * selos... primeiros 100 cadastrados" — não faz sentido reenviar
+     * esse texto pra quem ganha o selo numa atribuição avulsa,
+     * posterior. Tipo novo, texto próprio, mesmo padrão (sem
+     * ator/mídia).
+     */
+    case "verified_badge_granted": {
+      return {
+        title: "✅ Você tem o selo de verificação!",
+        body: "Seu perfil no SeenList agora mostra o selo de verificação ✨",
+        deepLink: "/profile",
+      };
+    }
     default:
       return null;
   }
