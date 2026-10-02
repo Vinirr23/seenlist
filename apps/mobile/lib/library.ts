@@ -477,7 +477,36 @@ async function fetchLibraryItemsUncached(userId?: string, language = "pt-BR"): P
     if (row.status === "removed") validSeriesIds.delete(row.series_id);
   }
 
-  const summaries = await fetchDisplaySummaries(
+  /*
+   * CORREÇÃO DE CAUSA RAIZ (2026-10-02, reportado — "lentidão ao
+   * marcar episódio continua mesmo sem a animação de slide") —
+   * `fetchLibraryItems` roda a cada marcação (`handleMarkedWatched`,
+   * `app/(tabs)/series/index.tsx`, via `refetchSilently`), e até
+   * agora buscava resumo (título/pôster/ano) de TODA a biblioteca
+   * pela versão SEM cache (`fetchDisplaySummaries`), batendo direto na
+   * rota `/api/tmdb/library-summaries` — a MESMA rota com gargalo de
+   * conexão já confirmado com dado real noutra auditoria deste
+   * projeto (plano Nano do Supabase, pool de só 15 conexões;
+   * chamadas concorrentes competem por conexão e ficam mais lentas,
+   * chegou a gerar timeout de verdade num teste anterior).
+   *
+   * Por causa desse gargalo já conhecido, toda outra busca de resumo
+   * do app foi corrigida pra usar `fetchDisplaySummariesCached`
+   * (cache em memória de 5 min, ver a função acima) —
+   * `trending.ts`, `activityFeed.ts`, `useFeedEntries.ts`,
+   * `seriesDetails.ts`. Esta função (biblioteca) tinha ficado de fora
+   * dessa correção, e é justamente o caminho que roda a cada episódio
+   * marcado — ou seja, toda marcação reabria a disputa pelo mesmo
+   * pool de conexões, independente de qualquer animação.
+   *
+   * Troca pra `fetchDisplaySummariesCached`: título/pôster/ano de
+   * itens já vistos nos últimos 5 minutos (praticamente sempre o caso
+   * — a tela acabou de carregar) deixam de bater na rede, vira
+   * leitura em memória. Status, progresso e episódio assistido
+   * continuam vindo direto do Supabase, sempre frescos — nada disso
+   * passa por este cache, que é só do resumo do TMDB.
+   */
+  const summaries = await fetchDisplaySummariesCached(
     movieRows.map((row) => row.movie_id),
     [...validSeriesIds],
     language
