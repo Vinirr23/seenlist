@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -734,6 +734,35 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
           {phase !== "idle" ? (
             <View style={[styles.statusBadge, { backgroundColor: colors.success }]}>
               <Text style={[styles.statusBadgeText, { color: colors.background }]}>✓ {t("episode.watched")}</Text>
+              {/*
+                CORREÇÃO (2026-10-02, reportado — "dá uma travada
+                durante o deslize", toda vez, 1-2s, só este card parado
+                enquanto o resto do app responde normal) — diagnóstico
+                feito sem assumir nada (perguntei alcance da trava,
+                duração e se dependia de rede antes de mudar qualquer
+                código): não é jank de frame nem contenção de thread (a
+                correção anterior via `requestAnimationFrame`, que
+                tratava essa hipótese, não mudou nada — ver comentário
+                grande acima de `ADVANCE_SLIDE_DISTANCE`). É uma ESPERA
+                REAL: depois do deslize de saída (`ADVANCE_SLIDE_DISTANCE`,
+                rápido e sutil, só 20px) o card "estaciona" e aguarda de
+                verdade a escrita do episódio assistido + a busca do
+                próximo episódio no servidor (1-2s, típico dessa
+                viagem de ida e volta) — sem NENHUMA pista visual nesse
+                meio tempo, o que lê como "travado" mesmo sem ter
+                travado nada. Antes da animação essa mesma espera já
+                existia, só não aparecia como "parada" porque não havia
+                expectativa de movimento contínuo.
+                Fix: um spinner pequeno e discreto SÓ durante a fase
+                "advancing" (a janela de espera de verdade) — não
+                durante "confirming" (a barrinha de segurar já dá seu
+                próprio feedback) nem "exiting". Não resolve o tempo de
+                espera em si (é rede real), só deixa claro que algo
+                está em andamento.
+              */}
+              {phase === "advancing" && (
+                <ActivityIndicator size="small" color={colors.background} style={styles.advancingSpinner} />
+              )}
             </View>
           ) : (
             !!badge && (
@@ -953,6 +982,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     marginTop: 3,
+    /*
+     * CORREÇÃO (2026-10-02 — ver comentário grande junto do spinner da
+     * fase "advancing", no JSX) — precisa virar row pra caber o
+     * spinner ao lado do texto. Com só o `Text` (caso comum, sem
+     * spinner) o comportamento visual não muda nada.
+     */
+    flexDirection: "row",
+    alignItems: "center",
   },
   statusBadgeText: {
     fontSize: 9,
@@ -960,6 +997,17 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily[600],
     /* `tracking-wide` = 0.025em, que em 9px dá ~0.23. */
     letterSpacing: 0.23,
+  },
+  /**
+   * `ActivityIndicator` não aceita um tamanho fino em px no iOS (só
+   * "small"/"large", bem maior que o selo de 9px) — encolhido via
+   * `transform.scale` pra caber dentro da cápsula sem esticar a altura
+   * dela (`transform` não afeta o layout/medida reservada, só o
+   * desenho).
+   */
+  advancingSpinner: {
+    marginLeft: 4,
+    transform: [{ scale: 0.55 }],
   },
   buttonSlot: {
     alignItems: "center",
