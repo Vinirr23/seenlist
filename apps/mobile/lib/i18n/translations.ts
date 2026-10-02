@@ -512,6 +512,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.activityGroupMixedRated": "avaliou {count}",
     "feed.activityGroupShowMore": "Ver mais {count} títulos",
     "feed.activityGroupShowLess": "Ver menos",
+    "feed.activityMultiVerbJoiner": "e",
 
     "explore.vote": "voto",
     "explore.votes": "votos",
@@ -1180,6 +1181,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.activityGroupMixedRated": "rated {count}",
     "feed.activityGroupShowMore": "Show {count} more titles",
     "feed.activityGroupShowLess": "Show less",
+    "feed.activityMultiVerbJoiner": "and",
 
     "explore.vote": "vote",
     "explore.votes": "votes",
@@ -1804,6 +1806,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.activityGroupMixedRated": "calificó {count}",
     "feed.activityGroupShowMore": "Ver {count} títulos más",
     "feed.activityGroupShowLess": "Ver menos",
+    "feed.activityMultiVerbJoiner": "y",
 
     "explore.vote": "voto",
     "explore.votes": "votos",

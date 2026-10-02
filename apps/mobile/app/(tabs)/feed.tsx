@@ -9,7 +9,7 @@ import { useFeedEntries, fetchFollowedIds, type FeedEntry } from "@/lib/useFeedE
 import { ACTIVITY_WINDOW_DAYS, SERIES_ACTIVITY_STATUSES, MOVIE_ACTIVITY_STATUSES } from "@/lib/activityFeed";
 import type { FeedScope } from "@/lib/posts";
 import { PostCard } from "@/components/feed/PostCard";
-import { ActivityCard } from "@/components/feed/ActivityCard";
+import { ActivityCard, MultiActionActivityCard } from "@/components/feed/ActivityCard";
 import { ActivityGroupCard } from "@/components/feed/ActivityGroupCard";
 import { FeedTrendingModule } from "@/components/feed/FeedTrendingModule";
 import { FeedFriendsWatchingModule } from "@/components/feed/FeedFriendsWatchingModule";
@@ -459,6 +459,12 @@ export default function FeedScreen() {
           return (
             <FeedItemEnter index={index}>
               <ActivityGroupCard group={item.group} />
+            </FeedItemEnter>
+          );
+        case "activityMulti":
+          return (
+            <FeedItemEnter index={index}>
+              <MultiActionActivityCard item={item.item} />
             </FeedItemEnter>
           );
         case "trending":

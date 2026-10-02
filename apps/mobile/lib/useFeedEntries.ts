@@ -17,10 +17,42 @@ export interface ActivityGroup {
   items: ActivityItem[];
 }
 
+/**
+ * MESMO TÍTULO, VÁRIAS AÇÕES (2026-10-02, reportado com print — "terminar
+ * e avaliar o título duplica o poster dele, quando deveria aparecer tipo
+ * um hero e as ações") — ver comentário grande de `groupConsecutiveActivity`,
+ * abaixo, pra causa raiz completa. Representa o caso em que um cluster de
+ * atividade consecutiva (mesmo usuário, mesma janela de tempo) é sobre
+ * UM ÚNICO título (ex.: "terminou" + "avaliou" a mesma série em sequência)
+ * — em vez de virar um `ActivityGroup` (grade de pôsteres, pensada pra
+ * TÍTULOS DIFERENTES), essas ações se fundem num item só, com a lista de
+ * ações ordenada cronologicamente (mais antiga primeiro — ordem em que
+ * aconteceram de verdade).
+ */
+export interface MergedActivityItem {
+  // Junção dos ids originais (ex.: "abc+def") — só usado pra formar a key/id da entrada no Feed, não é um id de linha real em nenhuma tabela.
+  id: string;
+  userId: string;
+  userName: string;
+  userUsername: string;
+  userAvatarUrl: string | null;
+  userVerifiedTier: ActivityItem["userVerifiedTier"];
+  mediaType: "movie" | "series";
+  mediaId: number;
+  mediaTitle: string;
+  mediaPosterPath: string | null;
+  // Ação mais recente das duas (mesmo critério de `createdAt` usado pro resto do Feed/ranking).
+  createdAt: string;
+  actions: ActivityItem["activityType"][];
+  // Nota de uma das ações, se "rated" estiver entre `actions` — `null` senão.
+  rating: number | null;
+}
+
 export type FeedEntry =
   | { kind: "post"; id: string; createdAt: string; post: Post }
   | { kind: "activity"; id: string; createdAt: string; activity: ActivityItem; heroEligible: boolean }
   | { kind: "activityGroup"; id: string; createdAt: string; group: ActivityGroup }
+  | { kind: "activityMulti"; id: string; createdAt: string; item: MergedActivityItem }
   | { kind: "trending"; id: string; createdAt: string; items: TrendingItem[] }
   | { kind: "friendsWatching"; id: string; createdAt: string; items: FriendsWatchingItem[] };
 
@@ -148,15 +180,78 @@ function dedupeReviewActivity(posts: Post[], activity: ActivityItem[]): Activity
  * total do grupo ultrapasse a janela, desde que cada passo individual
  * esteja dentro dela). Cluster de 1 item só = devolve o item como
  * estava (passthrough, sem virar grupo); cluster de 2+ = vira
- * `ActivityGroup`. A renderização (ver `ActivityGroupCard.tsx`) decide
- * sozinha se mostra o resumo "mesmo tipo" ou o resumo "misto" — não
- * precisa de sub-divisão por tipo aqui, só o agrupamento por
- * usuário+tempo.
+ * `ActivityGroup`, EXCETO quando todo o cluster é sobre o MESMO título
+ * (ver comentário grande de `mergeSameMediaCluster`, abaixo) — nesse
+ * caso vira um `MergedActivityItem`. A renderização (ver
+ * `ActivityGroupCard.tsx`) decide sozinha se mostra o resumo "mesmo
+ * tipo" ou o resumo "misto" — não precisa de sub-divisão por tipo
+ * aqui, só o agrupamento por usuário+tempo.
  */
 const GROUP_WINDOW_MS = 15 * 60 * 1000;
 
-function groupConsecutiveActivity(activity: ActivityItem[]): (ActivityItem | ActivityGroup)[] {
-  const result: (ActivityItem | ActivityGroup)[] = [];
+/**
+ * MESMO TÍTULO NÃO VIRA GRADE DE PÔSTERES (2026-10-02, reportado com
+ * print — "terminar e avaliar o título, duplica o poster dele, quando
+ * deveria aparecer tipo um hero e as ações") — CAUSA RAIZ:
+ * `groupConsecutiveActivity` (acima) agrupa só por usuário+tempo, sem
+ * olhar se é o MESMO título — um cluster "terminou X, avaliou X" (2
+ * ações, poucos minutos de diferença) batia na mesma regra
+ * `cluster.length >= 2` que um cluster de títulos DIFERENTES, virando
+ * um `ActivityGroup` com 2 itens apontando pro MESMO `mediaId`;
+ * `ActivityGroupCard` (pensado pra vários títulos lado a lado)
+ * simplesmente desenhava o mesmo pôster duas vezes.
+ *
+ * Correção: depois de fechar um cluster de 2+, `groupConsecutiveActivity`
+ * confere se TODOS os itens têm o mesmo `mediaId`+`mediaType` — se sim,
+ * não é uma "rajada de títulos diferentes" (o caso que `ActivityGroup`
+ * resolve), é a MESMA atividade vista por 2+ ações — funde num
+ * `MergedActivityItem` aqui, renderizado como card único com uma
+ * pílula por ação (`ActivityCard.tsx`, `MultiActionActivityCard`),
+ * nunca como grade de pôsteres. Opção B escolhida entre 3 mockups
+ * apresentados (A: hero cheio com pílulas sobre o pôster; B: card
+ * padrão com verbo combinado "terminou e avaliou" + estrelas, igual ao
+ * post de avaliação; C: selos sobrepostos no pôster) — pedido
+ * explícito: "a opção B... adiciona acima do pôster o 'assistiu e
+ * avaliou' com os símbolos".
+ *
+ * ESCOPO (reportando de propósito, não decisão silenciosa): clusters
+ * MISTOS (pelo menos 2 títulos diferentes) continuam exatamente como
+ * antes, mesmo que 2 dos itens dentro dele TAMBÉM compartilhem título
+ * — ex. "terminou A, avaliou A, adicionou B à lista" num cluster de 3
+ * ainda vira um `ActivityGroup` de 3 pôsteres (A duplicado). Caso não
+ * reportado, deliberadamente fora do escopo desta correção — avisar se
+ * acontecer na prática.
+ */
+function mergeSameMediaCluster(cluster: ActivityItem[]): MergedActivityItem {
+  // `cluster` chega na mesma ordem de `activity` (mais recente
+  // primeiro, ver comentário grande de `groupConsecutiveActivity`,
+  // acima) — `head` é a ação mais recente (usado pro `createdAt`,
+  // mesmo critério que `ActivityGroup` já usa com `items[0]`);
+  // invertido dá a ordem CRONOLÓGICA real (mais antiga primeiro), a
+  // ordem natural pra listar "terminou, depois avaliou" como aconteceu
+  // de verdade.
+  const head = cluster[0];
+  const chronological = [...cluster].reverse();
+  const ratedAction = chronological.find((it) => it.activityType === "rated");
+  return {
+    id: cluster.map((it) => it.id).join("+"),
+    userId: head.userId,
+    userName: head.userName,
+    userUsername: head.userUsername,
+    userAvatarUrl: head.userAvatarUrl,
+    userVerifiedTier: head.userVerifiedTier,
+    mediaType: head.mediaType,
+    mediaId: head.mediaId,
+    mediaTitle: head.mediaTitle,
+    mediaPosterPath: head.mediaPosterPath,
+    createdAt: head.createdAt,
+    actions: chronological.map((it) => it.activityType),
+    rating: ratedAction?.rating ?? null,
+  };
+}
+
+function groupConsecutiveActivity(activity: ActivityItem[]): (ActivityItem | ActivityGroup | MergedActivityItem)[] {
+  const result: (ActivityItem | ActivityGroup | MergedActivityItem)[] = [];
   let i = 0;
   while (i < activity.length) {
     const cluster: ActivityItem[] = [activity[i]];
@@ -169,14 +264,23 @@ function groupConsecutiveActivity(activity: ActivityItem[]): (ActivityItem | Act
       cluster.push(activity[j]);
       j++;
     }
-    result.push(cluster.length >= 2 ? { userId: activity[i].userId, items: cluster } : cluster[0]);
+    if (cluster.length >= 2) {
+      const sameMedia = cluster.every((it) => it.mediaId === cluster[0].mediaId && it.mediaType === cluster[0].mediaType);
+      result.push(sameMedia ? mergeSameMediaCluster(cluster) : { userId: activity[i].userId, items: cluster });
+    } else {
+      result.push(cluster[0]);
+    }
     i = j;
   }
   return result;
 }
 
-function isActivityGroup(entry: ActivityItem | ActivityGroup): entry is ActivityGroup {
+function isActivityGroup(entry: ActivityItem | ActivityGroup | MergedActivityItem): entry is ActivityGroup {
   return "items" in entry;
+}
+
+function isMergedActivity(entry: ActivityItem | ActivityGroup | MergedActivityItem): entry is MergedActivityItem {
+  return "actions" in entry;
 }
 
 /**
@@ -269,6 +373,7 @@ function entryAuthorId(entry: FeedEntry): string | null {
   if (entry.kind === "post") return entry.post.userId;
   if (entry.kind === "activity") return entry.activity.userId;
   if (entry.kind === "activityGroup") return entry.group.userId;
+  if (entry.kind === "activityMulti") return entry.item.userId;
   return null; // "trending"/"friendsWatching" não têm autor — nunca passam por `rankEntries` hoje (só `composeFeed` os insere depois), fica defensivo mesmo assim.
 }
 
@@ -276,6 +381,7 @@ function entryTypeMultiplier(entry: FeedEntry): number {
   if (entry.kind === "post") return TYPE_MULTIPLIER_POST;
   if (entry.kind === "activity") return activityTypeMultiplier(entry.activity.activityType);
   if (entry.kind === "activityGroup") return Math.max(...entry.group.items.map((item) => activityTypeMultiplier(item.activityType)));
+  if (entry.kind === "activityMulti") return Math.max(...entry.item.actions.map((a) => activityTypeMultiplier(a)));
   return 1;
 }
 
@@ -466,11 +572,15 @@ async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<{ ent
 
   const entries: FeedEntry[] = [
     ...posts.map((post): FeedEntry => ({ kind: "post", id: `post-${post.id}`, createdAt: post.createdAt, post })),
-    ...groupedActivity.map((entry): FeedEntry =>
-      isActivityGroup(entry)
-        ? { kind: "activityGroup", id: `activity-group-${entry.userId}-${entry.items[0].id}`, createdAt: entry.items[0].createdAt, group: entry }
-        : { kind: "activity", id: `activity-${entry.id}`, createdAt: entry.createdAt, activity: entry, heroEligible: false }
-    ),
+    ...groupedActivity.map((entry): FeedEntry => {
+      if (isActivityGroup(entry)) {
+        return { kind: "activityGroup", id: `activity-group-${entry.userId}-${entry.items[0].id}`, createdAt: entry.items[0].createdAt, group: entry };
+      }
+      if (isMergedActivity(entry)) {
+        return { kind: "activityMulti", id: `activity-multi-${entry.id}`, createdAt: entry.createdAt, item: entry };
+      }
+      return { kind: "activity", id: `activity-${entry.id}`, createdAt: entry.createdAt, activity: entry, heroEligible: false };
+    }),
   ];
 
   const ranked = rankEntries(entries, followedIds);

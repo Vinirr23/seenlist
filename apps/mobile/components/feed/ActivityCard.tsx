@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import type { ActivityItem } from "@/lib/activityFeed";
+import type { MergedActivityItem } from "@/lib/useFeedEntries";
 import { tmdbImageUrl } from "@/lib/library";
 import { fetchMovieStatusDetails, setMovieStatus } from "@/lib/movieDetails";
 import { fetchSeriesStatus, setSeriesStatus } from "@/lib/seriesDetails";
@@ -54,8 +55,16 @@ type QuickAddState = "idle" | "checking" | "hasStatus" | "added" | "error";
  *    assim que ele monta (igual à consulta que já existia no toque,
  *    só que também roda uma vez no mount). Custo: em listas longas,
  *    isso é uma chamada a mais por card visível conforme rola o feed.
+ *
+ * TIPO ALARGADO PRA `QuickAddTarget` (2026-10-02, junto da correção do
+ * "mesmo título duplicado no pôster") — só usa 3 campos (`userId`,
+ * `mediaId`, `mediaType`), que tanto `ActivityItem` quanto o novo
+ * `MergedActivityItem` (`lib/useFeedEntries.ts`) têm — deixa de exigir
+ * `ActivityItem` inteiro só pra aceitar os dois sem cast.
  */
-function useQuickAdd(item: ActivityItem) {
+type QuickAddTarget = Pick<ActivityItem, "userId" | "mediaId" | "mediaType">;
+
+function useQuickAdd(item: QuickAddTarget) {
   const { session } = useAuth();
   const isOwnPost = Boolean(session?.user?.id) && session!.user.id === item.userId;
   const [state, setState] = useState<QuickAddState>(isOwnPost ? "hasStatus" : "idle");
@@ -134,7 +143,7 @@ function useQuickAdd(item: ActivityItem) {
  * (não só quando ESTE botão adicionou — `hasStatus` cobre "já estava
  * na lista/assistindo/terminado antes de tocar aqui" também).
  */
-function QuickAddButtonInline({ item }: { item: ActivityItem }) {
+function QuickAddButtonInline({ item }: { item: QuickAddTarget }) {
   const { t } = useTranslation();
   const { state, handleQuickAdd } = useQuickAdd(item);
   const addDone = state === "hasStatus" || state === "added";
@@ -267,6 +276,131 @@ function StandardActivityCard({ item, tier }: { item: ActivityItem; tier: "mediu
             {item.mediaTitle}
           </Text>
           {item.activityType === "rated" && (
+            <View style={styles.starsRow}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <AnimatedStar
+                  key={i}
+                  index={i}
+                  filled={i < Math.round(item.rating ?? 0)}
+                  size={16}
+                  color={colors.primary}
+                  emptyColor={colors.border}
+                />
+              ))}
+              <Text style={styles.ratingText}>{(item.rating ?? 0).toFixed(1)}/5</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <QuickAddButtonInline item={item} />
+    </Pressable>
+  );
+}
+
+/**
+ * CARD DE "MESMO TÍTULO, VÁRIAS AÇÕES" (2026-10-02, reportado com
+ * print — "terminar e avaliar o título, duplica o poster dele, quando
+ * deveria aparecer tipo um hero e as ações") — ver comentário grande
+ * de `mergeSameMediaCluster`/`MergedActivityItem`, em
+ * `lib/useFeedEntries.ts`, pra causa raiz completa: quando o mesmo
+ * usuário faz 2+ ações sobre o MESMO título numa janela curta (ex.:
+ * terminou e avaliou a mesma série em sequência), essas ações já
+ * chegam aqui FUNDIDAS num `MergedActivityItem` em vez de virarem um
+ * `ActivityGroup` (grade de pôsteres — pensada pra títulos
+ * DIFERENTES, duplicava o pôster quando era o mesmo título).
+ *
+ * LAYOUT — Opção B de 3 mockups apresentados ao usuário (mockup:
+ * https://claude.ai/artifact/FPZR3Vd2rzYEpSLqz8qCcC), escolhida por
+ * pedido explícito: mesmo tamanho de card do `tier="medium"` comum
+ * (nada de virar um Hero em tela cheia por causa disso — múltiplas
+ * ações não deveriam pesar MAIS que uma única "completed" elegível a
+ * Hero), com uma linha de verbo COMBINADA acima do pôster (ex. "✓ ★
+ * terminou e avaliou", um ícone por ação + os verbos unidos pelo
+ * conector localizado `feed.activityMultiVerbJoiner`) — igual ao
+ * pedido: "adiciona acima do pôster o 'assistiu e avaliou' com os
+ * símbolos". Estrelas aparecem se "rated" estiver entre as ações,
+ * igual ao `StandardActivityCard` tier="medium".
+ *
+ * Ícones/verbos deduplicados (`uniqueActions`) — defensivo pro caso
+ * raro de 2 ações do MESMO tipo no cluster (ex.: avaliou, reavaliou
+ * dentro da janela); sem isso o verbo sairia repetido ("avaliou e
+ * avaliou").
+ */
+export function MultiActionActivityCard({ item }: { item: MergedActivityItem }) {
+  const router = useRouter();
+  const { t, locale } = useTranslation();
+  const now = useNow(30_000);
+  const posterUrl = item.mediaPosterPath ? tmdbImageUrl(item.mediaPosterPath, "w342") : null;
+  const uniqueActions = [...new Set(item.actions)];
+  const hasRated = uniqueActions.includes("rated");
+
+  const verbFor = (action: ActivityItem["activityType"]) =>
+    action === "rated"
+      ? t("feed.activityRated")
+      : action === "watchlist"
+        ? t("feed.activityWatchlist")
+        : item.mediaType === "series"
+          ? t("feed.activityCompletedSeries")
+          : t("feed.activityCompletedMovie");
+
+  const combinedVerb = uniqueActions.map(verbFor).join(` ${t("feed.activityMultiVerbJoiner")} `);
+
+  function handlePressMedia() {
+    router.push(item.mediaType === "movie" ? `/movies/${item.mediaId}` : `/series/${item.mediaId}`);
+  }
+
+  function handlePressUser(e: { stopPropagation: () => void }) {
+    e.stopPropagation();
+    router.push(`/u/${item.userUsername}`);
+  }
+
+  return (
+    <Pressable onPress={handlePressMedia} style={styles.card}>
+      <View style={styles.headerRow}>
+        <Pressable style={styles.header} onPress={handlePressUser}>
+          <Avatar uri={item.userAvatarUrl} name={item.userName} style={styles.avatar} textStyle={styles.avatarInitials} />
+          <View style={styles.headerText}>
+            <View style={styles.nameRow}>
+              <Text numberOfLines={1} style={styles.authorName}>
+                {item.userName}
+              </Text>
+              <VerifiedBadge tier={item.userVerifiedTier} size={fontSize.sm} />
+              <Text numberOfLines={1} variant="muted" style={styles.meta}>
+                {formatRelativeTime(item.createdAt, now, locale, t("feed.justNow"))}
+              </Text>
+            </View>
+            <View style={styles.verbRow}>
+              {uniqueActions.map((action) =>
+                action === "watchlist" ? (
+                  <Feather key={action} name="bookmark" size={11} color={colors.primary} />
+                ) : action === "completed" ? (
+                  <Feather key={action} name="check-circle" size={11} color={colors.success} />
+                ) : (
+                  <Feather key={action} name="star" size={11} color={colors.primary} />
+                )
+              )}
+              <Text variant="muted" style={styles.verb}>
+                {combinedVerb}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+      </View>
+
+      <View style={styles.mediaRow}>
+        <View style={styles.posterMedium}>
+          {posterUrl ? (
+            <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
+          ) : (
+            <Feather name="film" size={22} color={colors.muted} />
+          )}
+        </View>
+        <View style={styles.mediaInfo}>
+          <Text numberOfLines={2} style={styles.mediaTitle}>
+            {item.mediaTitle}
+          </Text>
+          {hasRated && (
             <View style={styles.starsRow}>
               {Array.from({ length: 5 }).map((_, i) => (
                 <AnimatedStar
