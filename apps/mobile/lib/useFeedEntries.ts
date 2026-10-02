@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, getCurrentAuthUser } from "./supabase";
 import type { Post, FeedScope } from "./posts";
 import { fetchPosts } from "./posts";
-import type { ActivityItem } from "./activityFeed";
-import { fetchActivityFeed } from "./activityFeed";
-import type { TrendingItem, FriendsWatchingItem } from "./trending";
-import { fetchTrendingMedia, fetchFriendsWatching } from "./trending";
+import type { ActivityItem, ActivityRawData } from "./activityFeed";
+import { fetchActivityRawData, buildActivityItems } from "./activityFeed";
+import type { TrendingItem, FriendsWatchingItem, TrendingRawData, FriendsWatchingRawData } from "./trending";
+import { fetchTrendingRawData, buildTrendingItems, fetchFriendsWatchingRawData, buildFriendsWatchingItems } from "./trending";
+import { fetchDisplaySummariesCached, type MediaSummary } from "./library";
 import { useTranslation } from "./i18n/LocaleProvider";
 
 export interface ActivityGroup {
@@ -48,28 +49,58 @@ const PATTERN_BREAK_INDEX = 5;
 const HERO_MIN_GAP = 6;
 
 /**
- * Busca o módulo de "quebra de padrão" certo pra cada aba — "Em alta"
- * (global) em "Para você", "Amigos assistindo" (só quem você segue)
- * em "Seguindo" — ver `lib/trending.ts`. Isolado num try/catch próprio
- * (não entra no `Promise.all` de posts+atividade): é um extra
- * decorativo, não o conteúdo principal do Feed — se falhar (rede,
- * RLS, o que for), o Feed continua funcionando normalmente sem o
- * módulo, em vez de a tela inteira cair por causa dele.
+ * Busca os DADOS BRUTOS (só banco, sem TMDB) do módulo de "quebra de
+ * padrão" certo pra cada aba — "Em alta" (global) em "Para você",
+ * "Amigos assistindo" (só quem você segue) em "Seguindo" — ver
+ * `lib/trending.ts`. Isolado num try/catch próprio (não entra no
+ * `Promise.all` de posts+atividade): é um extra decorativo, não o
+ * conteúdo principal do Feed — se falhar (rede, RLS, o que for), o
+ * Feed continua funcionando normalmente sem o módulo, em vez de a
+ * tela inteira cair por causa dele.
+ *
+ * SEPARADA DA BUSCA DE RESUMOS (2026-10-02, reportado — "o feed demora
+ * pra carregar") — CAUSA RAIZ: esta função e `fetchActivityFeedSafe`
+ * cada uma batia, EM PARALELO, na mesma rota de resumos de mídia
+ * (`/api/tmdb/library-summaries`) — 2 idas à rede em vez de 1, bem no
+ * carregamento inicial (antes do conteúdo aparecer), competindo pelo
+ * pool de conexão (só 15, plano Nano do Supabase — gargalo já
+ * documentado noutra auditoria deste projeto). Agora só busca os IDS
+ * de mídia necessários (sem buscar o resumo em si); `fetchFeedEntries`,
+ * abaixo, combina esses ids com os de `fetchActivityRawData` numa
+ * ÚNICA chamada a `fetchDisplaySummariesCached`, depois usa
+ * `buildTrendingItems`/`buildFriendsWatchingItems` pra montar o
+ * módulo final.
  */
-async function fetchPatternBreakEntry(scope: FeedScope, locale: string): Promise<FeedEntry | null> {
+type PatternBreakRaw =
+  | { kind: "trending"; raw: TrendingRawData }
+  | { kind: "friendsWatching"; raw: FriendsWatchingRawData };
+
+async function fetchPatternBreakRawSafe(scope: FeedScope): Promise<PatternBreakRaw | null> {
   try {
     if (scope === "forYou") {
-      const items = await fetchTrendingMedia(locale);
-      if (items.length === 0) return null;
-      return { kind: "trending", id: "pattern-break-trending", createdAt: new Date().toISOString(), items };
+      return { kind: "trending", raw: await fetchTrendingRawData() };
     } else {
-      const items = await fetchFriendsWatching();
-      if (items.length === 0) return null;
-      return { kind: "friendsWatching", id: "pattern-break-friends-watching", createdAt: new Date().toISOString(), items };
+      return { kind: "friendsWatching", raw: await fetchFriendsWatchingRawData() };
     }
   } catch (error) {
-    console.error("[useFeedEntries] Falha ao buscar módulo de quebra de padrão (ignorado)", error);
+    console.error("[useFeedEntries] Falha ao buscar dados brutos do módulo de quebra de padrão (ignorado)", error);
     return null;
+  }
+}
+
+function buildPatternBreakEntry(
+  patternBreakRaw: PatternBreakRaw | null,
+  summaries: { movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }
+): FeedEntry | null {
+  if (!patternBreakRaw) return null;
+  if (patternBreakRaw.kind === "trending") {
+    const items = buildTrendingItems(patternBreakRaw.raw, summaries);
+    if (items.length === 0) return null;
+    return { kind: "trending", id: "pattern-break-trending", createdAt: new Date().toISOString(), items };
+  } else {
+    const items = buildFriendsWatchingItems(patternBreakRaw.raw, summaries);
+    if (items.length === 0) return null;
+    return { kind: "friendsWatching", id: "pattern-break-friends-watching", createdAt: new Date().toISOString(), items };
   }
 }
 
@@ -274,7 +305,7 @@ function rankEntries(entries: FeedEntry[], followedIds: Set<string>): FeedEntry[
  * reaproveitável, então esta é nova, mas a CONSULTA em si — `follows`
  * filtrado por `follower_id` — já existia de sobra no app; não é uma
  * tabela nova nem uma query mais pesada que as que já existem).
- * Isolada em try/catch próprio, igual a `fetchPatternBreakEntry` — é
+ * Isolada em try/catch próprio, igual a `fetchPatternBreakRawSafe` — é
  * um sinal SECUNDÁRIO do ranking (boost, não filtro): se falhar, o
  * ranking simplesmente usa social=1× pra todo mundo (equivalente a
  * ninguém seguido), em vez de quebrar o Feed inteiro por causa disso.
@@ -322,7 +353,7 @@ function composeFeed(ranked: FeedEntry[], specialModule: FeedEntry | null): Feed
  * funcional, achado Médio — "`fetchFeedEntries` usa `Promise.all` com
  * `fetchPosts`/`fetchActivityFeed`; se só uma falhar, o Feed inteiro cai
  * em `PageError`, mesmo a outra tendo retornado normalmente"). Mesmo
- * padrão já usado por `fetchPatternBreakEntry`/`fetchFollowedIds`, acima
+ * padrão já usado por `fetchPatternBreakRawSafe`/`fetchFollowedIds`, acima
  * — tenta, loga qual fonte falhou, nunca deixa a exceção subir sozinha —
  * só que aqui devolvendo `null` em vez de `[]`/`new Set()`: as duas
  * fontes já têm casos legítimos de resposta vazia (ninguém seguido
@@ -343,13 +374,40 @@ async function fetchPostsSafe(scope: FeedScope): Promise<Post[] | null> {
   }
 }
 
-async function fetchActivityFeedSafe(scope: FeedScope, locale: string): Promise<ActivityItem[] | null> {
+async function fetchActivityRawSafe(scope: FeedScope): Promise<ActivityRawData | null> {
   try {
-    return await fetchActivityFeed(scope, locale);
+    return await fetchActivityRawData(scope);
   } catch (error) {
-    console.error("[useFeedEntries] Falha ao buscar ATIVIDADE AUTOMÁTICA do Feed — Feed continua com os posts, se essa 2ª fonte funcionar", error);
+    console.error("[useFeedEntries] Falha ao buscar ATIVIDADE AUTOMÁTICA do Feed (dados brutos) — Feed continua com os posts, se essa 2ª fonte funcionar", error);
     return null;
   }
+}
+
+/**
+ * JUNTA OS IDS DE MÍDIA DAS 2 FONTES (2026-10-02, reportado — "o feed
+ * demora pra carregar") — ver comentário grande de
+ * `fetchPatternBreakRawSafe`, acima, pra causa raiz completa. Em vez
+ * de atividade automática e módulo de quebra de padrão baterem cada
+ * uma na sua própria `fetchDisplaySummariesCached`, `fetchFeedEntries`
+ * busca os ids das duas aqui e faz UMA chamada só, combinada.
+ */
+function collectCombinedMediaIds(
+  activityRaw: ActivityRawData | null,
+  patternBreakRaw: PatternBreakRaw | null
+): { movieIds: number[]; seriesIds: number[] } {
+  const movieIds = new Set<number>();
+  const seriesIds = new Set<number>();
+  if (activityRaw) {
+    activityRaw.movieIds.forEach((id) => movieIds.add(id));
+    activityRaw.seriesIds.forEach((id) => seriesIds.add(id));
+  }
+  if (patternBreakRaw?.kind === "trending") {
+    patternBreakRaw.raw.topMovieIds.forEach(([id]) => movieIds.add(id));
+    patternBreakRaw.raw.topSeriesIds.forEach(([id]) => seriesIds.add(id));
+  } else if (patternBreakRaw?.kind === "friendsWatching") {
+    patternBreakRaw.raw.topSeries.forEach(([id]) => seriesIds.add(id));
+  }
+  return { movieIds: [...movieIds], seriesIds: [...seriesIds] };
 }
 
 async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<{ entries: FeedEntry[]; hadPartialFailure: boolean }> {
@@ -360,10 +418,16 @@ async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<{ ent
   // nenhum no resultado. `Promise.resolve(new Set())` mantém o mesmo
   // formato de `Promise.all` abaixo sem ramificar a função em dois
   // caminhos.
-  const [postsOrNull, rawActivityOrNull, patternBreak, followedIds] = await Promise.all([
+  //
+  // NENHUMA destas 4 chamadas bate no TMDB/`fetchDisplaySummariesCached`
+  // mais (2026-10-02, ver `fetchPatternBreakRawSafe`/`fetchActivityRawSafe`,
+  // acima) — são só leituras de banco, paralelas como sempre. A ÚNICA
+  // chamada de resumos de mídia do Feed inteiro acontece logo abaixo,
+  // combinando os ids das duas fontes que precisam dela.
+  const [postsOrNull, activityRawOrNull, patternBreakRaw, followedIds] = await Promise.all([
     fetchPostsSafe(scope),
-    fetchActivityFeedSafe(scope, locale),
-    fetchPatternBreakEntry(scope, locale),
+    fetchActivityRawSafe(scope),
+    fetchPatternBreakRawSafe(scope),
     scope === "forYou" ? fetchFollowedIds() : Promise.resolve(new Set<string>()),
   ]);
 
@@ -371,13 +435,29 @@ async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<{ ent
   // `catch`/`setIsError(true)` que `load()` já tinha antes desta mudança
   // (ver comentário grande de `load`, abaixo) — nenhum sistema de erro
   // novo, só preserva o `PageError` pro caso em que ele já fazia sentido.
-  if (postsOrNull === null && rawActivityOrNull === null) {
+  if (postsOrNull === null && activityRawOrNull === null) {
     throw new Error("[useFeedEntries] Falha ao buscar as duas fontes do Feed (posts e atividade) — ver os 2 erros individuais logados acima.");
   }
 
-  const hadPartialFailure = postsOrNull === null || rawActivityOrNull === null;
+  const hadPartialFailure = postsOrNull === null || activityRawOrNull === null;
   const posts = postsOrNull ?? [];
-  const rawActivity = rawActivityOrNull ?? [];
+
+  const { movieIds, seriesIds } = collectCombinedMediaIds(activityRawOrNull, patternBreakRaw);
+  let summaries: { movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> } = { movies: {}, series: {} };
+  try {
+    summaries = await fetchDisplaySummariesCached(movieIds, seriesIds, locale);
+  } catch (error) {
+    // `fetchDisplaySummariesCached`/a rota por trás já toleram falha
+    // ponto a ponto por título (devolvem o que conseguiram) — este
+    // catch é só defensivo, pro caso raríssimo de ela rejeitar a
+    // promise inteira; itens sem resumo já são descartados normalmente
+    // por `buildActivityItems`/`buildTrendingItems`/`buildFriendsWatchingItems`
+    // (todos checam `if (!summary) continue`).
+    console.error("[useFeedEntries] Falha ao buscar resumos de mídia combinados (pôster/título) — itens sem cache ficam sem aparecer", error);
+  }
+
+  const rawActivity = activityRawOrNull ? buildActivityItems(activityRawOrNull, summaries) : [];
+  const patternBreak = buildPatternBreakEntry(patternBreakRaw, summaries);
 
   const dedupedActivity = dedupeReviewActivity(posts, rawActivity);
   const groupedActivity = groupConsecutiveActivity(dedupedActivity);

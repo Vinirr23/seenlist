@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -8,6 +8,7 @@ import type { ActivityItem } from "@/lib/activityFeed";
 import { tmdbImageUrl } from "@/lib/library";
 import { fetchMovieStatusDetails, setMovieStatus } from "@/lib/movieDetails";
 import { fetchSeriesStatus, setSeriesStatus } from "@/lib/seriesDetails";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { Text } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
@@ -23,15 +24,66 @@ type QuickAddState = "idle" | "checking" | "hasStatus" | "added" | "error";
  * HOOK COMPARTILHADO DE "+" RÁPIDO (2026-10-01, extraído da
  * `CompletedActivityHeroCard` — a pedido, "todo card que apareça,
  * tenha o (+) igual em explorar", escopo confirmado como SÓ os cards
- * de atividade, NUNCA `PostCard`/post social de verdade) — mesma
- * lógica de sempre (confere status atual só NO TOQUE do botão, nunca
- * ao montar o card; nunca REBAIXA quem já está
- * "assistindo"/"assistido"/"terminado" de volta pra "assistir
- * depois"), agora reaproveitada pelas 3 variantes de card
- * (hero/médio/compacto) em vez de só a hero ter o botão.
+ * de atividade, NUNCA `PostCard`/post social de verdade), agora
+ * reaproveitada pelas 3 variantes de card (hero/médio/compacto) em
+ * vez de só a hero ter o botão.
+ *
+ * BUG CORRIGIDO — CAUSA RAIZ (2026-10-02, reportado com 3 prints: "A
+ * Hipótese do Amor" já na sua lista mostrando a bandeira vazia, e o
+ * post de Re:Zero — seu próprio post de ter terminado a série —
+ * mostrando o (+) desmarcado) — antes, o hook SEMPRE nascia em
+ * `"idle"` e só conferia o status real no TOQUE do botão (decisão de
+ * uma sessão anterior, pra nunca gastar uma consulta por card ao
+ * montar a lista). Isso fazia o ícone mentir visualmente: ele promete
+ * mostrar se o título já está na sua lista, mas na prática começava
+ * sempre "vazio", existisse status ou não.
+ *
+ * Correção em duas partes, escolhidas com o usuário (trade-off de
+ * performance explicado e aprovado):
+ *
+ * 1) POST PRÓPRIO (ex.: Re:Zero) — SEM NENHUM custo extra: se
+ *    `item.userId` é o usuário logado, o próprio fato do post existir
+ *    já PROVA que ele tem status pra essa mídia (foi ele quem gerou o
+ *    evento que virou o post) — não precisa perguntar nada ao banco,
+ *    só comparar com `session.user.id` (já em memória via
+ *    `useAuth()`).
+ * 2) POST DE OUTRA PESSOA (ex.: "A Hipótese do Amor", postado pela
+ *    Mililikinha, mas que TAMBÉM está na lista do usuário atual, por
+ *    coincidência) — aí não tem como saber sem perguntar: escolhida a
+ *    opção "conferir 1 por 1, ao aparecer" — 1 consulta por card
+ *    assim que ele monta (igual à consulta que já existia no toque,
+ *    só que também roda uma vez no mount). Custo: em listas longas,
+ *    isso é uma chamada a mais por card visível conforme rola o feed.
  */
 function useQuickAdd(item: ActivityItem) {
-  const [state, setState] = useState<QuickAddState>("idle");
+  const { session } = useAuth();
+  const isOwnPost = Boolean(session?.user?.id) && session!.user.id === item.userId;
+  const [state, setState] = useState<QuickAddState>(isOwnPost ? "hasStatus" : "idle");
+
+  useEffect(() => {
+    if (isOwnPost) return;
+    let cancelled = false;
+
+    async function checkInitialStatus() {
+      try {
+        const hasStatus =
+          item.mediaType === "movie"
+            ? Boolean((await fetchMovieStatusDetails(item.mediaId)).status)
+            : Boolean(await fetchSeriesStatus(item.mediaId));
+        if (!cancelled && hasStatus) {
+          setState("hasStatus");
+        }
+      } catch (error) {
+        console.error("[ActivityCard] Falha ao conferir status inicial", error);
+      }
+    }
+
+    checkInitialStatus();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwnPost, item.mediaId, item.mediaType]);
 
   async function handleQuickAdd(e: { stopPropagation: () => void }) {
     e.stopPropagation();
@@ -100,9 +152,9 @@ function QuickAddButtonInline({ item }: { item: ActivityItem }) {
       {addBusy ? (
         <ActivityIndicator size="small" color={colors.primary} />
       ) : addDone ? (
-        <Ionicons name="bookmark" size={15} color={colors.primary} />
+        <Ionicons name="bookmark" size={18} color={colors.primary} />
       ) : (
-        <Ionicons name="bookmark-outline" size={15} color={colors.primary} />
+        <Ionicons name="bookmark-outline" size={18} color={colors.primary} />
       )}
     </Pressable>
   );
@@ -498,12 +550,14 @@ const styles = StyleSheet.create({
   // com o resto do card. Virou só o ícone (contorno/preenchido, ver
   // `QuickAddButtonInline` acima), sem caixa ao redor — ainda com área
   // de toque confortável via `hitSlop`.
+  // AUMENTADO (2026-10-02, a pedido — "aumenta um pouco o botão
+  // bandeira de adicionar") — ícone 15→18, área de toque 28×28→32×32.
   quickAddButtonInline: {
     position: "absolute",
     top: spacing.md,
     right: spacing.sm,
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -1,5 +1,5 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
-import { fetchDisplaySummariesCached } from "@/lib/library";
+import { fetchDisplaySummariesCached, type MediaSummary } from "@/lib/library";
 
 export interface TrendingItem {
   mediaType: "movie" | "series";
@@ -48,8 +48,24 @@ interface StatusRow {
  * `TRENDING_ROW_LIMIT` (300 por tabela) é generoso pro tamanho atual
  * do app (base de ~383 usuários, ver comentário em
  * `lib/activityFeed.ts` antigo) — revisar se a base crescer muito.
+ *
+ * SEPARADA EM 2 ETAPAS (2026-10-02, reportado — "o feed demora pra
+ * carregar") — mesma causa raiz/correção documentada em
+ * `lib/activityFeed.ts`/`fetchActivityRawData`: esta função e a
+ * atividade automática cada uma batia SEPARADAMENTE em
+ * `fetchDisplaySummariesCached` (rota com gargalo de conexão
+ * documentado noutra auditoria). `fetchTrendingRawData` (só banco) +
+ * `buildTrendingItems` (monta com resumos já buscados) — `useFeedEntries.ts`
+ * combina os ids daqui com os de `activityFeed.ts` numa chamada só.
+ * `fetchTrendingMedia` continua idêntica por fora, pra quem ainda
+ * chamar assim.
  */
-export async function fetchTrendingMedia(language = "pt-BR"): Promise<TrendingItem[]> {
+export interface TrendingRawData {
+  topSeriesIds: [number, number][];
+  topMovieIds: [number, number][];
+}
+
+export async function fetchTrendingRawData(): Promise<TrendingRawData> {
   const since = new Date();
   since.setDate(since.getDate() - TRENDING_WINDOW_DAYS);
   const sinceIso = since.toISOString();
@@ -74,28 +90,38 @@ export async function fetchTrendingMedia(language = "pt-BR"): Promise<TrendingIt
   const seriesCounts = countByMediaId((seriesResult.data ?? []).map((r) => ({ user_id: r.user_id, media_id: r.series_id })));
   const movieCounts = countByMediaId((movieResult.data ?? []).map((r) => ({ user_id: r.user_id, media_id: r.movie_id })));
 
-  const topSeriesIds = topEntries(seriesCounts, TRENDING_RESULT_LIMIT);
-  const topMovieIds = topEntries(movieCounts, TRENDING_RESULT_LIMIT);
+  return {
+    topSeriesIds: topEntries(seriesCounts, TRENDING_RESULT_LIMIT),
+    topMovieIds: topEntries(movieCounts, TRENDING_RESULT_LIMIT),
+  };
+}
 
-  const summaries = await fetchDisplaySummariesCached(
-    topMovieIds.map(([id]) => id),
-    topSeriesIds.map(([id]) => id),
-    language
-  );
-
+export function buildTrendingItems(
+  raw: TrendingRawData,
+  summaries: { movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }
+): TrendingItem[] {
   const items: TrendingItem[] = [];
-  for (const [id, count] of topSeriesIds) {
+  for (const [id, count] of raw.topSeriesIds) {
     const summary = summaries.series[id];
     if (!summary) continue;
     items.push({ mediaType: "series", mediaId: id, mediaTitle: summary.title, mediaPosterPath: summary.posterPath, watcherCount: count });
   }
-  for (const [id, count] of topMovieIds) {
+  for (const [id, count] of raw.topMovieIds) {
     const summary = summaries.movies[id];
     if (!summary) continue;
     items.push({ mediaType: "movie", mediaId: id, mediaTitle: summary.title, mediaPosterPath: summary.posterPath, watcherCount: count });
   }
-
   return items.sort((a, b) => b.watcherCount - a.watcherCount).slice(0, TRENDING_RESULT_LIMIT);
+}
+
+export async function fetchTrendingMedia(language = "pt-BR"): Promise<TrendingItem[]> {
+  const raw = await fetchTrendingRawData();
+  const summaries = await fetchDisplaySummariesCached(
+    raw.topMovieIds.map(([id]) => id),
+    raw.topSeriesIds.map(([id]) => id),
+    language
+  );
+  return buildTrendingItems(raw, summaries);
 }
 
 function countByMediaId(rows: StatusRow[]): Map<number, number> {
@@ -143,17 +169,29 @@ interface FriendsProfileRow {
  * `[]` quando o usuário não segue ninguém, ou ninguém que segue está
  * assistindo nada recente — módulo simplesmente não aparece (ver
  * `lib/useFeedEntries.ts`).
+ *
+ * SEPARADA EM 2 ETAPAS (2026-10-02) — mesma causa raiz/correção de
+ * `fetchTrendingMedia`, acima: `fetchFriendsWatchingRawData` (banco —
+ * `follows`/`series_status`/`profiles`, nenhum TMDB) + `buildFriendsWatchingItems`
+ * (monta com resumos já buscados por fora). A consulta de `profiles`
+ * não precisa do resumo de mídia pra nada — sai do `Promise.all` que
+ * antes batia junto com `fetchDisplaySummariesCached` sem problema.
  */
-export async function fetchFriendsWatching(): Promise<FriendsWatchingItem[]> {
+export interface FriendsWatchingRawData {
+  topSeries: [number, string[]][];
+  profileById: Map<string, FriendsProfileRow>;
+}
+
+export async function fetchFriendsWatchingRawData(): Promise<FriendsWatchingRawData> {
   const {
     data: { user: viewer },
   } = await getCurrentAuthUser();
-  if (!viewer) return [];
+  if (!viewer) return { topSeries: [], profileById: new Map() };
 
   const { data: followRows, error: followError } = await supabase.from("follows").select("following_id").eq("follower_id", viewer.id);
   if (followError) throw followError;
   const followedIds = (followRows ?? []).map((r) => r.following_id);
-  if (followedIds.length === 0) return [];
+  if (followedIds.length === 0) return { topSeries: [], profileById: new Map() };
 
   const since = new Date();
   since.setDate(since.getDate() - FRIENDS_WATCHING_WINDOW_DAYS);
@@ -169,7 +207,7 @@ export async function fetchFriendsWatching(): Promise<FriendsWatchingItem[]> {
   if (error) throw error;
 
   const rows = (data ?? []) as FriendsStatusRow[];
-  if (rows.length === 0) return [];
+  if (rows.length === 0) return { topSeries: [], profileById: new Map() };
 
   const bySeries = new Map<number, string[]>();
   for (const row of rows) {
@@ -179,30 +217,39 @@ export async function fetchFriendsWatching(): Promise<FriendsWatchingItem[]> {
   }
 
   const topSeries = [...bySeries.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, FRIENDS_WATCHING_RESULT_LIMIT);
-  if (topSeries.length === 0) return [];
+  if (topSeries.length === 0) return { topSeries: [], profileById: new Map() };
 
   const allAvatarUserIds = [...new Set(topSeries.flatMap(([, userIds]) => userIds.slice(0, FRIENDS_WATCHING_AVATAR_LIMIT)))];
-
-  const [summaries, profilesResult] = await Promise.all([
-    fetchDisplaySummariesCached(
-      [],
-      topSeries.map(([seriesId]) => seriesId)
-    ),
-    supabase.from("profiles").select("user_id, username, display_name, avatar_url").in("user_id", allAvatarUserIds),
-  ]);
-
+  const profilesResult = await supabase.from("profiles").select("user_id, username, display_name, avatar_url").in("user_id", allAvatarUserIds);
   const profileById = new Map(((profilesResult.data ?? []) as FriendsProfileRow[]).map((p) => [p.user_id, p]));
 
+  return { topSeries, profileById };
+}
+
+export function buildFriendsWatchingItems(
+  raw: FriendsWatchingRawData,
+  summaries: { movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }
+): FriendsWatchingItem[] {
   const items: FriendsWatchingItem[] = [];
-  for (const [seriesId, userIds] of topSeries) {
+  for (const [seriesId, userIds] of raw.topSeries) {
     const summary = summaries.series[seriesId];
     if (!summary) continue;
     const watchers: FriendWatcher[] = userIds
       .slice(0, FRIENDS_WATCHING_AVATAR_LIMIT)
-      .map((userId) => profileById.get(userId))
+      .map((userId) => raw.profileById.get(userId))
       .filter((p): p is FriendsProfileRow => !!p)
       .map((p) => ({ userId: p.user_id, name: p.display_name || p.username, avatarUrl: p.avatar_url }));
     items.push({ mediaId: seriesId, mediaTitle: summary.title, mediaPosterPath: summary.posterPath, watchers, totalCount: userIds.length });
   }
   return items;
+}
+
+export async function fetchFriendsWatching(): Promise<FriendsWatchingItem[]> {
+  const raw = await fetchFriendsWatchingRawData();
+  if (raw.topSeries.length === 0) return [];
+  const summaries = await fetchDisplaySummariesCached(
+    [],
+    raw.topSeries.map(([seriesId]) => seriesId)
+  );
+  return buildFriendsWatchingItems(raw, summaries);
 }

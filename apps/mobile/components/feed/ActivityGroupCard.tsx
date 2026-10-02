@@ -164,7 +164,7 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
         </View>
       )}
 
-      <View style={styles.postersRow}>
+      <View style={[styles.postersRow, expanded && styles.postersRowExpanded]}>
         {visiblePosters.map((item) => {
           const posterUrl = item.mediaPosterPath ? tmdbImageUrl(item.mediaPosterPath, "w185") : null;
           return (
@@ -177,7 +177,22 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
             // `PressableScale` não herda isso do `style` passado (só
             // `flex: 1` — mesmo padrão já usado em
             // `EpisodeWatchedButton.tsx`/`checkWrap`).
-            <PressableScale key={item.id} style={styles.posterWrap} onPress={() => handlePressItem(item)}>
+            //
+            // TAMANHO FIXO SÓ QUANDO EXPANDIDO (2026-10-02, reportado
+            // com print — "no emulador ficou numa linha só, no celular
+            // quebrou pra 2ª linha") — CAUSA RAIZ: `posterWrap` (91×132
+            // fixo) + `postersRow` com `flexWrap: "wrap"` sempre ligado
+            // significavam que COUBESSE ou não na largura real da tela,
+            // o React Native só tinha 2 saídas — encolher (não fazia,
+            // tile tem tamanho FIXO, sem `flexShrink`) ou quebrar linha.
+            // No emulador (mais largo) cabia; no aparelho real (mais
+            // estreito) não. Recolhido (não expandido — só aqui, o modo
+            // "Ver tudo" abaixo continua com o tamanho fixo de sempre),
+            // `posterWrapFlex` troca pra `flex: 1` + `aspectRatio`
+            // (91/132, a mesma proporção) — os tiles dividem a largura
+            // disponível em partes iguais, sempre cabendo numa linha só,
+            // em qualquer tamanho de tela.
+            <PressableScale key={item.id} style={expanded ? styles.posterWrap : styles.posterWrapFlex} onPress={() => handlePressItem(item)}>
               <View style={styles.posterInner}>
                 {posterUrl ? (
                   <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
@@ -189,8 +204,12 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
           );
         })}
         {extraCount > 0 && (
+          // Ver comentário grande acima (`posterWrapFlex`) — "+N" só
+          // aparece quando NÃO expandido (`extraCount` sempre 0 quando
+          // `expanded`), por isso usa sempre a variante flexível, sem
+          // condicional.
           <Pressable
-            style={styles.morePill}
+            style={styles.morePillFlex}
             onPress={handlePressMore}
             hitSlop={8}
             accessibilityRole="button"
@@ -309,12 +328,20 @@ const styles = StyleSheet.create({
   // inteiro visível (ex.: 15 itens), uma única linha sem quebra
   // sairia da tela; `gap` já cobre o espaçamento nas duas direções
   // quando quebra pra mais de uma linha.
+  //
+  // RECOLHIDO NÃO QUEBRA MAIS (2026-10-02) — `flexWrap: "wrap"` saiu
+  // do estilo base (agora o padrão é "nowrap"); só é religado via
+  // `postersRowExpanded` quando `expanded === true` (grade "Ver
+  // tudo", que precisa quebrar linha de propósito). Ver comentário
+  // grande em `posterWrapFlex`, abaixo, pra causa raiz completa.
   postersRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     alignItems: "center",
     gap: spacing.xs,
     marginTop: spacing.sm,
+  },
+  postersRowExpanded: {
+    flexWrap: "wrap",
   },
   // Ajustado NOVE vezes (2026-10-01, feedback de design) — era 44×64
   // (tier compacto puro); 1ª rodada 56×82; 2ª rodada 62×90 (~+11%
@@ -324,9 +351,37 @@ const styles = StyleSheet.create({
   // 93×135); 8ª rodada 92×133 (+1% sobre 91×132); 9ª rodada
   // (comentário atual) — "foi muito, reverte esses 1%" — de volta a
   // 91×132 (valor da 7ª rodada).
+  //
+  // Usado SÓ no modo expandido ("Ver tudo") a partir de 2026-10-02 —
+  // ver `posterWrapFlex` pra causa raiz; tamanho fixo aqui continua
+  // intocado, as 9 rodadas de ajuste acima seguem valendo.
   posterWrap: {
     width: 91,
     height: 132,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    overflow: "hidden",
+  },
+  // TAMANHO FLEXÍVEL SÓ NO MODO RECOLHIDO (2026-10-02, reportado com
+  // print — "no emulador ficou numa linha só, no celular quebrou pra
+  // 2ª linha") — CAUSA RAIZ: `posterWrap` tem largura FIXA (91px); 3
+  // pôsteres + a pastilha "+N" (também fixa) davam 4 × 91px + 3 gaps
+  // de `spacing.xs`(4px) = 376px, mais o padding horizontal da tela
+  // (`spacing.md`×2 = 32px) = 408px mínimos — mais largo que telas
+  // reais comuns (~375-393px), mesmo cabendo no emulador (mais largo).
+  // Como nada tinha `flexShrink` e a linha tinha `flexWrap: "wrap"`
+  // ligado sempre, a única saída era quebrar pra 2ª linha.
+  //
+  // Correção: no modo recolhido (não expandido), cada tile usa
+  // `flex: 1` + `aspectRatio` (91/132, a MESMA proporção das 9
+  // rodadas de ajuste) em vez de `width`/`height` fixos — os até 4
+  // tiles dividem igualmente a largura disponível da `postersRow`,
+  // sempre cabendo numa única linha, em qualquer largura de tela. O
+  // modo expandido ("Ver tudo") continua usando `posterWrap` (fixo),
+  // sem nenhuma mudança — ele já quebra linha de propósito.
+  posterWrapFlex: {
+    flex: 1,
+    aspectRatio: 91 / 132,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
     overflow: "hidden",
@@ -343,9 +398,27 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  // Usado SÓ pela pastilha "Ver menos" (sempre no modo expandido —
+  // ver `morePillFlex` pra causa raiz); tamanho fixo aqui continua
+  // intocado.
   morePill: {
     width: 91,
     height: 132,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: spacing.xs,
+  },
+  // Variante flexível da pastilha "+N" (2026-10-02) — ver comentário
+  // grande em `posterWrapFlex`, acima, pra causa raiz completa. A
+  // pastilha "+N" só aparece no modo RECOLHIDO (`extraCount` é sempre
+  // 0 quando `expanded === true`, já que aí `visiblePosters` mostra
+  // o grupo inteiro), então usa sempre esta variante, sem condicional.
+  morePillFlex: {
+    flex: 1,
+    aspectRatio: 91 / 132,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
     alignItems: "center",

@@ -1,5 +1,5 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
-import { fetchDisplaySummariesCached } from "@/lib/library";
+import { fetchDisplaySummariesCached, type MediaSummary } from "@/lib/library";
 import type { VerifiedTier } from "./publicProfile";
 import type { FeedScope } from "./posts";
 
@@ -101,19 +101,53 @@ const LIMIT_PER_SOURCE_GLOBAL = 25;
  *    mesmos títulos que outra tela já buscou há pouco.
  * 5. `userVerifiedTier` novo campo (mesmo padrão de `lib/posts.ts`) —
  *    o card rico mostra o selo de verificado igual ao post normal.
+ *
+ * SEPARADA EM 2 ETAPAS (2026-10-02, reportado — "o feed demora pra
+ * carregar") — CAUSA RAIZ: esta função e `fetchTrendingMedia`/
+ * `fetchFriendsWatching` (`lib/trending.ts`), chamadas em PARALELO por
+ * `useFeedEntries.ts`, cada uma disparava sua PRÓPRIA chamada
+ * independente a `fetchDisplaySummariesCached` (que bate na rota
+ * `/api/tmdb/library-summaries` do servidor) — 2 idas à rede em vez de
+ * 1, bem no carregamento inicial (antes do conteúdo aparecer). Essa
+ * MESMA rota já tem gargalo documentado noutra auditoria deste projeto
+ * (pool de só 15 conexões do plano Nano do Supabase — chamadas
+ * concorrentes disputam conexão e ficam mais lentas).
+ *
+ * Esta função virou 2 etapas: `fetchActivityRawData` (tudo que é só
+ * banco — sem TMDB) + `buildActivityItems` (monta os itens a partir de
+ * resumos JÁ BUSCADOS). `fetchActivityFeed`, abaixo, continua existindo
+ * IDÊNTICA pra quem ainda chama assim (`lib/useActivityFeed.ts`) — só
+ * que agora por dentro é as 2 etapas em sequência. `useFeedEntries.ts`
+ * é quem passou a chamar as etapas separadas, combinando os ids desta
+ * função com os de `trending.ts` numa ÚNICA chamada a
+ * `fetchDisplaySummariesCached` pros dois.
  */
-export async function fetchActivityFeed(scope: FeedScope = "following", language = "pt-BR"): Promise<ActivityItem[]> {
+export interface ActivityRawData {
+  typedSeriesRows: SeriesStatusActivityRow[];
+  typedMovieRows: MovieStatusActivityRow[];
+  typedReviewRows: ReviewActivityRow[];
+  profileById: Map<string, ActivityProfileRow>;
+  movieIds: number[];
+  seriesIds: number[];
+}
+
+export async function fetchActivityRawData(scope: FeedScope = "following"): Promise<ActivityRawData> {
   const {
     data: { user: viewer },
   } = await getCurrentAuthUser();
-  if (!viewer) return [];
+  if (!viewer) {
+    return { typedSeriesRows: [], typedMovieRows: [], typedReviewRows: [], profileById: new Map(), movieIds: [], seriesIds: [] };
+  }
 
   let followedIds: string[] | null = null;
   if (scope === "following") {
     const { data: followRows, error: followError } = await supabase.from("follows").select("following_id").eq("follower_id", viewer.id);
     if (followError) throw followError;
     followedIds = (followRows ?? []).map((r) => r.following_id);
-    if (followedIds.length === 0) return []; // não segue ninguém ainda
+    if (followedIds.length === 0) {
+      // não segue ninguém ainda
+      return { typedSeriesRows: [], typedMovieRows: [], typedReviewRows: [], profileById: new Map(), movieIds: [], seriesIds: [] };
+    }
   }
 
   const since = new Date();
@@ -200,8 +234,21 @@ export async function fetchActivityFeed(scope: FeedScope = "following", language
     ]),
   ];
 
-  const summaries = await fetchDisplaySummariesCached(movieIds, seriesIds, language);
+  return { typedSeriesRows, typedMovieRows, typedReviewRows, profileById, movieIds, seriesIds };
+}
 
+/**
+ * Monta os `ActivityItem[]` a partir de dados JÁ buscados (ver
+ * comentário grande de `fetchActivityRawData`, acima) — `summaries`
+ * agora vem de FORA (combinado com os ids de `trending.ts` numa única
+ * chamada, em `useFeedEntries.ts`), em vez de cada fonte buscar o seu
+ * próprio.
+ */
+export function buildActivityItems(
+  raw: ActivityRawData,
+  summaries: { movies: Record<number, MediaSummary>; series: Record<number, MediaSummary> }
+): ActivityItem[] {
+  const { typedSeriesRows, typedMovieRows, typedReviewRows, profileById } = raw;
   const items: ActivityItem[] = [];
 
   for (const row of typedSeriesRows) {
@@ -269,4 +316,16 @@ export async function fetchActivityFeed(scope: FeedScope = "following", language
   }
 
   return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 40);
+}
+
+/**
+ * VERSÃO "1 TIRO SÓ" (continua existindo, idêntica por fora) — pra
+ * quem ainda chama assim sem precisar combinar com outra fonte
+ * (`lib/useActivityFeed.ts`). Por dentro, agora é só as 2 etapas acima
+ * em sequência — ver comentário grande de `fetchActivityRawData`.
+ */
+export async function fetchActivityFeed(scope: FeedScope = "following", language = "pt-BR"): Promise<ActivityItem[]> {
+  const raw = await fetchActivityRawData(scope);
+  const summaries = await fetchDisplaySummariesCached(raw.movieIds, raw.seriesIds, language);
+  return buildActivityItems(raw, summaries);
 }
