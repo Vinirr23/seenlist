@@ -192,7 +192,28 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
             // (91/132, a mesma proporção) — os tiles dividem a largura
             // disponível em partes iguais, sempre cabendo numa linha só,
             // em qualquer tamanho de tela.
-            <PressableScale key={item.id} style={expanded ? styles.posterWrap : styles.posterWrapFlex} onPress={() => handlePressItem(item)}>
+            //
+            // BUG REAL CORRIGIDO (2026-10-02, reportado com print —
+            // "o card vazio fica bugado depois que aperto nele e
+            // aperto em 'Ver menos'") — CAUSA RAIZ: os 3 primeiros
+            // pôsteres continuam sendo o MESMO nó nativo ao
+            // expandir/recolher (`key={item.id}` não muda, só o
+            // `style` trocava entre `posterWrap` FIXO e
+            // `posterWrapFlex` flexível) — o React Native não estava
+            // reconhecendo a troca de tamanho fixo→flexível de volta
+            // corretamente, deixando o layout "preso" na largura fixa
+            // de 91px mesmo depois de recolher. Com isso, a pastilha
+            // "+N" (recém-montada, sem esse problema) sobrava só o
+            // espaço que tinha restado — ficava fina/espremida, não
+            // dividindo a linha igualmente como devia. Incluir
+            // `expanded` na `key` força o React a desmontar/remontar
+            // um nó nativo NOVO a cada troca de modo, sem esse estado
+            // de layout "grudado" sobrando de um modo pro outro.
+            <PressableScale
+              key={`${item.id}-${expanded ? "expanded" : "collapsed"}`}
+              style={expanded ? styles.posterWrap : styles.posterWrapFlex}
+              onPress={() => handlePressItem(item)}
+            >
               <View style={styles.posterInner}>
                 {posterUrl ? (
                   <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
@@ -348,16 +369,24 @@ const styles = StyleSheet.create({
   // sobre 56×82); 3ª rodada 71×104 (+15% sobre 62×90); 4ª rodada
   // 82×120 (+15% sobre 71×104); 5ª rodada 89×130 (+8% sobre 82×120);
   // 6ª rodada 93×135 (+4% sobre 89×130); 7ª rodada 91×132 (-2% sobre
-  // 93×135); 8ª rodada 92×133 (+1% sobre 91×132); 9ª rodada
-  // (comentário atual) — "foi muito, reverte esses 1%" — de volta a
-  // 91×132 (valor da 7ª rodada).
+  // 93×135); 8ª rodada 92×133 (+1% sobre 91×132); 9ª rodada —
+  // "foi muito, reverte esses 1%" — de volta a 91×132 (valor da 7ª
+  // rodada). Usado SÓ no modo expandido ("Ver tudo") a partir de
+  // 2026-10-02 (recolhido virou flexível — ver `posterWrapFlex`).
   //
-  // Usado SÓ no modo expandido ("Ver tudo") a partir de 2026-10-02 —
-  // ver `posterWrapFlex` pra causa raiz; tamanho fixo aqui continua
-  // intocado, as 9 rodadas de ajuste acima seguem valendo.
+  // REDUZIDO PRA 76×110 (2026-10-02, reportado com print — "fica uma
+  // lista de 3 em 3 cards ao invés de 4 em 4") — CAUSA RAIZ: 4
+  // pôsteres de 91×132 lado a lado + 3 gaps (`spacing.xs`) + padding
+  // horizontal da tela (`spacing.md`×2) somam ~408px, mais largo que
+  // a maioria das telas de celular reais (~360-393px) — só cabia 3
+  // por linha. 76×110 preserva a MESMA proporção (91/132 ≈ 76/110,
+  // diferença <0,3%) e cabe 4 por linha até em telas de 360px de
+  // largura (Android comum), com folga. Decisão do usuário: só o modo
+  // expandido encolhe — o recolhido (`posterWrapFlex`, 3 pôsteres +
+  // "+N") continua do tamanho que já tinha, sem mudança nenhuma ali.
   posterWrap: {
-    width: 91,
-    height: 132,
+    width: 76,
+    height: 110,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
     overflow: "hidden",
@@ -399,11 +428,13 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   // Usado SÓ pela pastilha "Ver menos" (sempre no modo expandido —
-  // ver `morePillFlex` pra causa raiz); tamanho fixo aqui continua
-  // intocado.
+  // ver `morePillFlex` pra causa raiz). Tamanho reduzido junto com
+  // `posterWrap` (2026-10-02, "4 em vez de 3 por linha") — precisa
+  // continuar do MESMO tamanho dos pôsteres do modo expandido, senão
+  // a grade fica com um tile de tamanho diferente dos outros.
   morePill: {
-    width: 91,
-    height: 132,
+    width: 76,
+    height: 110,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
     alignItems: "center",
