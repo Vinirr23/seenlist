@@ -15,13 +15,13 @@ import { formatRelativeTime } from "@/lib/relativeTime";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const POSTER_DISPLAY_LIMIT = 3;
-// Recolhido tem SEMPRE até 4 "slots" flexíveis na linha (até 3
-// pôsteres + a pastilha "+N", só aparece quando há mais itens que
-// `POSTER_DISPLAY_LIMIT` — exatamente quando a expansão existe). Ver
-// comentário grande de `expandedTileSize`, abaixo.
-const EXPANDED_COLUMNS = 4;
+// Grade de referência: SEMPRE 4 colunas (até 3 pôsteres + a pastilha
+// "+N"), mesmo quando o grupo tem menos itens que isso — ver comentário
+// grande de `tileSize`, abaixo, pra causa raiz completa (2026-10-02,
+// 2º report: "grupos de 2 títulos com pôsteres gigantes").
+const GRID_COLUMNS = 4;
 // Mesma proporção usada nos pôsteres desde sempre (9 rodadas de ajuste,
-// ver `posterWrapFlex`/histórico) — 91/132.
+// ver histórico em `posterWrapBase`) — 91/132.
 const POSTER_ASPECT_RATIO = 91 / 132;
 
 /**
@@ -73,32 +73,45 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
   const now = useNow(30_000);
   const head = group.items[0];
   const [expanded, setExpanded] = useState(false);
-  // MEDIDO, NÃO ADIVINHADO (2026-10-02, reportado com print — "não dá
-  // pra deixar a grade expandida do mesmo tamanho da grade com 3
-  // posts e um vazio?") — a 1ª tentativa (76×110 fixo) cabia 4 por
-  // linha, mas num tamanho DIFERENTE do recolhido (que divide a
-  // largura real da tela entre até 4 "slots" flexíveis — até 3
-  // pôsteres + a pastilha "+N"). Em vez de adivinhar outro número
-  // fixo, mede a largura REAL da própria `postersRow` (`onLayout`,
-  // mesmo padrão já usado no Feed/Perfil pra medidas dinâmicas) — essa
-  // largura é A MESMA em qualquer modo (collapsed/expanded, é o mesmo
-  // container) — e calcula o tamanho de 4 colunas com a MESMA fórmula
-  // que o `flex: 1` do modo recolhido já usa por baixo dos panos
-  // (`(larguraDaLinha - gaps) / colunas`) — resultado: pixel idêntico
-  // ao recolhido, em qualquer tamanho de tela, sem número mágico.
+  // MEDIDO, NÃO ADIVINHADO, e agora ÚNICO PRA TUDO (2026-10-02 — 2
+  // reports seguidos sobre o mesmo cálculo).
+  //
+  // 1º report: "não dá pra deixar a grade expandida do mesmo tamanho
+  // da grade com 3 posts e um vazio?" — corrigido medindo a largura
+  // REAL da `postersRow` (`onLayout`) e dividindo em `GRID_COLUMNS`
+  // colunas, só pro modo expandido; o recolhido continuou usando
+  // `flex: 1` (dividia a largura pelos tiles REALMENTE presentes).
+  //
+  // 2º report, CAUSA RAIZ do 1º fix: "grupos de 2 títulos com
+  // pôsteres gigantes, maiores que o Hero" — o `flex: 1` do recolhido
+  // divide a largura disponível pelos tiles que EXISTEM na linha, não
+  // por um número fixo de colunas. Com 3+ itens, sempre há 3 ou 4
+  // tiles (pôsteres + "+N") disputando a largura, resultado compacto.
+  // Com só 1-2 itens, não há pastilha "+N" (`extraCount` é 0), então
+  // sobram só 1-2 tiles pra dividir a linha INTEIRA entre si — cada um
+  // vira ~50-100% da largura da tela, bem maior que o Hero.
+  //
+  // Correção definitiva: todo tile (recolhido OU expandido, pôster,
+  // "+N" ou "Ver menos") usa o MESMO tamanho MEDIDO abaixo — a largura
+  // real da linha dividida sempre por `GRID_COLUMNS` (4), nunca pelo
+  // número de itens presentes. Um grupo de 2 fica com 2 tiles do
+  // tamanho "padrão" (igual ao de um grupo de 3+) e sobra espaço vazio
+  // na linha — exatamente o pedido ("padronizaria os pôsteres... pra
+  // algo próximo do tamanho usado nos grupos de 3, inclusive com 2").
+  // Também elimina de vez o próprio `flex: 1` do recolhido, raiz do
+  // bug — sem mais nenhuma troca fixo↔flexível entre os modos, então o
+  // hack de incluir o modo na `key` (ver abaixo) deixou de ser
+  // necessário, mas continua por segurança/zero custo.
   const [rowWidth, setRowWidth] = useState(0);
 
   function handleRowLayout(e: LayoutChangeEvent) {
     setRowWidth(e.nativeEvent.layout.width);
   }
 
-  const expandedTileWidth = rowWidth > 0 ? (rowWidth - spacing.xs * (EXPANDED_COLUMNS - 1)) / EXPANDED_COLUMNS : null;
-  // Antes da 1ª medição (só no 1º frame, nunca mais depois —
-  // `postersRow` já existe collapsed ou expanded, sempre mede):
-  // fallback conservador, nunca chega a aparecer na prática.
-  const expandedTileSize = expandedTileWidth
-    ? { width: expandedTileWidth, height: expandedTileWidth / POSTER_ASPECT_RATIO }
-    : { width: 76, height: 110 };
+  const tileWidth = rowWidth > 0 ? (rowWidth - spacing.xs * (GRID_COLUMNS - 1)) / GRID_COLUMNS : null;
+  // Antes da 1ª medição (só no 1º frame): fallback conservador, nunca
+  // chega a aparecer na prática (`postersRow` sempre mede on-mount).
+  const tileSize = tileWidth ? { width: tileWidth, height: tileWidth / POSTER_ASPECT_RATIO } : { width: 76, height: 110 };
 
   const types = new Set(group.items.map((i) => i.activityType));
   const allSameType = types.size === 1;
@@ -212,22 +225,21 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
             // `flex: 1` — mesmo padrão já usado em
             // `EpisodeWatchedButton.tsx`/`checkWrap`).
             //
-            // RECOLHIDO (`posterWrapFlex`, flex:1 + aspectRatio) vs
-            // EXPANDIDO (tamanho MEDIDO via `onLayout` — ver comentário
-            // grande de `expandedTileSize`, no topo do componente, pra
-            // todo o histórico: linha única sem quebrar no recolhido,
-            // 4 colunas pixel-idênticas ao recolhido no expandido).
+            // TAMANHO ÚNICO (recolhido OU expandido — ver comentário
+            // grande de `tileSize`, no topo do componente, pra todo o
+            // histórico/causa raiz).
             //
-            // `key` inclui o modo (2026-10-02, bug real corrigido — "o
-            // card vazio fica bugado depois de expandir/recolher") —
-            // sem isso, o MESMO nó nativo trocava de tamanho
-            // fixo↔flexível e o React Native não recalculava o layout
-            // direito, deixando a pastilha "+N" espremida no espaço
-            // que sobrava. Incluir o modo na `key` força recriar o nó
-            // a cada troca, sem esse estado "grudado".
+            // `key` inclui o modo (2026-10-02, bug real corrigido na
+            // época — "o card vazio fica bugado depois de
+            // expandir/recolher", quando o recolhido ainda usava
+            // `flex: 1` e o expandido tamanho fixo medido; a troca
+            // fixo↔flexível no mesmo nó nativo confundia o layout do
+            // React Native). Hoje os dois modos usam o MESMO mecanismo
+            // de tamanho, então o bug não pode mais acontecer — a `key`
+            // ficou só como segurança de zero custo, não removida.
             <PressableScale
               key={`${item.id}-${expanded ? "expanded" : "collapsed"}`}
-              style={expanded ? [styles.posterWrapBase, expandedTileSize] : styles.posterWrapFlex}
+              style={[styles.posterWrapBase, tileSize]}
               onPress={() => handlePressItem(item)}
             >
               <View style={styles.posterInner}>
@@ -241,12 +253,12 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
           );
         })}
         {extraCount > 0 && (
-          // Ver comentário grande acima (`posterWrapFlex`) — "+N" só
-          // aparece quando NÃO expandido (`extraCount` sempre 0 quando
-          // `expanded`), por isso usa sempre a variante flexível, sem
-          // condicional.
+          // "+N" só aparece quando NÃO expandido (`extraCount` sempre 0
+          // quando `expanded`) — mesmo `tileSize` MEDIDO dos pôsteres
+          // (ver comentário grande de `tileSize`, no topo do
+          // componente), não mais uma variante flexível própria.
           <Pressable
-            style={styles.morePillFlex}
+            style={[styles.morePillBase, tileSize]}
             onPress={handlePressMore}
             hitSlop={8}
             accessibilityRole="button"
@@ -257,7 +269,7 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
         )}
         {canCollapse && (
           <Pressable
-            style={[styles.morePillBase, expandedTileSize]}
+            style={[styles.morePillBase, tileSize]}
             onPress={handlePressLess}
             hitSlop={8}
             accessibilityRole="button"
@@ -366,11 +378,14 @@ const styles = StyleSheet.create({
   // sairia da tela; `gap` já cobre o espaçamento nas duas direções
   // quando quebra pra mais de uma linha.
   //
-  // RECOLHIDO NÃO QUEBRA MAIS (2026-10-02) — `flexWrap: "wrap"` saiu
-  // do estilo base (agora o padrão é "nowrap"); só é religado via
+  // RECOLHIDO NÃO QUEBRA (2026-10-02) — `flexWrap: "wrap"` saiu do
+  // estilo base (padrão é "nowrap"); só é religado via
   // `postersRowExpanded` quando `expanded === true` (grade "Ver
-  // tudo", que precisa quebrar linha de propósito). Ver comentário
-  // grande em `posterWrapFlex`, abaixo, pra causa raiz completa.
+  // tudo", que precisa quebrar linha de propósito). Com todo tile
+  // usando o mesmo `tileSize` MEDIDO (4 colunas, ver comentário grande
+  // no topo do componente) em vez de `flex: 1`, a linha recolhida
+  // nunca ultrapassa a largura real da tela — não tem mais como
+  // quebrar.
   postersRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -385,43 +400,21 @@ const styles = StyleSheet.create({
   // "foi muito, reverte esses 1%" — de volta a 91×132 (valor da 7ª
   // rodada). Essa PROPORÇÃO (`POSTER_ASPECT_RATIO`, 91/132) é o que
   // sobrevive de todo esse histórico — o TAMANHO fixo em si não é mais
-  // usado desde 2026-10-02 (ver `expandedTileSize`, no topo do
-  // componente): nem o recolhido (`posterWrapFlex`, flex+aspectRatio)
-  // nem o expandido (`width`/`height` MEDIDOS, aplicados por fora,
-  // junto com este `posterWrapBase`) têm `width`/`height` fixos aqui.
+  // usado desde 2026-10-02 (ver `tileSize`, no topo do componente):
+  // nenhum modo (recolhido ou expandido) tem `width`/`height` fixos
+  // aqui, só `width`/`height` MEDIDOS aplicados por fora.
   //
-  // RENOMEADO DE `posterWrap` (2026-10-02, reportado 2x com print —
-  // primeiro "3 em vez de 4 por linha" quando era 91×132 fixo, depois
-  // "não dá pra ficar do mesmo tamanho do recolhido?" quando a 1ª
-  // correção reduziu pra 76×110 fixo, mas sem bater com o tamanho real
-  // do recolhido, que é dinâmico) — vira só a parte do estilo que NÃO
-  // muda (cor/borda/raio/corte), com `width`/`height` aplicados por
-  // fora via `expandedTileSize` (calculado medindo a própria
-  // `postersRow`, mesma largura em qualquer modo — pixel idêntico ao
-  // recolhido, sem precisar adivinhar nenhum número).
+  // RENOMEADO DE `posterWrap` (2026-10-02, 3 reports em sequência —
+  // "3 em vez de 4 por linha" com 91×132 fixo; "não dá pra ficar do
+  // mesmo tamanho do recolhido?" com 76×110 fixo; "grupos de 2 títulos
+  // com pôsteres gigantes" quando o recolhido ainda dividia a largura
+  // só pelos tiles PRESENTES via `flex: 1`) — vira só a parte do
+  // estilo que NÃO muda (cor/borda/raio/corte); `width`/`height` vêm
+  // de fora via `tileSize`, o MESMO em qualquer modo e qualquer
+  // quantidade de itens no grupo (sempre a largura da `postersRow`
+  // dividida em `GRID_COLUMNS` colunas — nunca pelo número de tiles
+  // realmente presentes, essa era a causa raiz do 3º report).
   posterWrapBase: {
-    borderRadius: radius.sm,
-    backgroundColor: colors.surface,
-    overflow: "hidden",
-  },
-  // TAMANHO FLEXÍVEL NO MODO RECOLHIDO (2026-10-02, reportado com
-  // print — "no emulador ficou numa linha só, no celular quebrou pra
-  // 2ª linha") — CAUSA RAIZ: o tile tinha largura FIXA; 3 pôsteres +
-  // a pastilha "+N" (também fixa) ultrapassavam a largura real de
-  // telas de celular comuns, e como nada tinha `flexShrink` e a linha
-  // tinha `flexWrap: "wrap"` ligado sempre, a única saída era quebrar
-  // pra 2ª linha.
-  //
-  // Correção: no modo recolhido (não expandido), cada tile usa
-  // `flex: 1` + `aspectRatio` (`POSTER_ASPECT_RATIO`) em vez de
-  // `width`/`height` fixos — os até 4 tiles dividem igualmente a
-  // largura disponível da `postersRow`, sempre cabendo numa única
-  // linha, em qualquer largura de tela. O modo expandido ("Ver tudo")
-  // usa `posterWrapBase` + `expandedTileSize` (medido — ver comentário
-  // grande no topo do componente), pixel idêntico a este cálculo.
-  posterWrapFlex: {
-    flex: 1,
-    aspectRatio: 91 / 132,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
     overflow: "hidden",
@@ -438,28 +431,12 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  // Usado SÓ pela pastilha "Ver menos" (sempre no modo expandido — ver
-  // `morePillFlex` pra causa raiz). `width`/`height` vêm de fora via
-  // `expandedTileSize` (2026-10-02 — ver comentário grande de
-  // `posterWrapBase`/topo do componente) — precisa continuar do MESMO
-  // tamanho MEDIDO dos pôsteres do modo expandido, senão a grade fica
-  // com um tile de tamanho diferente dos outros.
+  // Usada pela pastilha "+N" (recolhido) E "Ver menos" (expandido) —
+  // `width`/`height` vêm de fora via `tileSize` (2026-10-02 — ver
+  // comentário grande no topo do componente), o MESMO tamanho MEDIDO
+  // dos pôsteres, em qualquer modo, senão a grade fica com um tile de
+  // tamanho diferente dos outros.
   morePillBase: {
-    borderRadius: radius.sm,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    paddingHorizontal: spacing.xs,
-  },
-  // Variante flexível da pastilha "+N" (2026-10-02) — ver comentário
-  // grande em `posterWrapFlex`, acima, pra causa raiz completa. A
-  // pastilha "+N" só aparece no modo RECOLHIDO (`extraCount` é sempre
-  // 0 quando `expanded === true`, já que aí `visiblePosters` mostra
-  // o grupo inteiro), então usa sempre esta variante, sem condicional.
-  morePillFlex: {
-    flex: 1,
-    aspectRatio: 91 / 132,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
     alignItems: "center",
