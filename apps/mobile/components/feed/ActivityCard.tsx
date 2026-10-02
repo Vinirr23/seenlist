@@ -299,15 +299,29 @@ function CompletedActivityHeroCard({ item }: { item: ActivityItem }) {
         <Pressable style={styles.heroHeader} onPress={handlePressUser} hitSlop={4}>
           <Avatar uri={item.userAvatarUrl} name={item.userName} style={styles.heroAvatar} textStyle={styles.heroAvatarInitials} />
           <View style={styles.heroHeaderText}>
+            {/*
+             * CORREÇÃO (2026-10-01, reportado com print — "por que o
+             * horário aqui está embaixo em vez de do lado do nome, como
+             * é o padrão?") — CAUSA RAIZ: este cabeçalho (Hero) foi
+             * montado à parte (2026-10-01, baseado num layout de
+             * referência de outro app) e nunca recebeu a correção que
+             * `PostCard.tsx` já tinha (2026-09-29, "horário do lado do
+             * nome, igual Threads") — o horário vivia num `<Text>`
+             * PRÓPRIO, fora de `heroNameRow`, por isso caía numa 2ª
+             * linha embaixo do nome+selo. Agora entra DENTRO de
+             * `heroNameRow`, mesma posição/comportamento de
+             * `PostCard.tsx`/`StandardActivityCard` (`flexShrink: 0` —
+             * nunca é espremido antes do nome truncar primeiro).
+             */}
             <View style={styles.heroNameRow}>
               <Text numberOfLines={1} style={styles.heroAuthorName}>
                 {item.userName}
               </Text>
               <VerifiedBadge tier={item.userVerifiedTier} size={fontSize.sm} />
+              <Text numberOfLines={1} style={styles.heroMeta}>
+                {formatRelativeTime(item.createdAt, now, locale, t("feed.justNow"))}
+              </Text>
             </View>
-            <Text numberOfLines={1} style={styles.heroMeta}>
-              {formatRelativeTime(item.createdAt, now, locale, t("feed.justNow"))}
-            </Text>
           </View>
         </Pressable>
 
@@ -575,8 +589,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
+  // Ver comentário de correção acima — agora inline em `heroNameRow`
+  // (era uma 2ª linha, com `marginTop: 1`). `flexShrink: 0` igual ao
+  // `meta` de `PostCard.tsx`/`StandardActivityCard` — nunca cede
+  // espaço antes do nome truncar primeiro.
   heroMeta: {
-    marginTop: 1,
+    flexShrink: 0,
     fontSize: fontSize.xxs,
     color: colors.muted,
   },

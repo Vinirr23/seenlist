@@ -52,7 +52,17 @@ interface ActivityProfileRow {
   verified_tier?: VerifiedTier;
 }
 
-const ACTIVITY_WINDOW_DAYS = 7;
+/**
+ * EXPORTADAS (2026-10-01, a pedido — o filtro server-side do Realtime
+ * de `realtime-feed-new-activity`, em `app/(tabs)/feed.tsx`, precisa
+ * dos MESMOS valores usados aqui pra montar `status=in.(...)`/
+ * `created_at=gte....` sem duplicar o literal solto e sem replicar o
+ * resto desta função) — só os 3 valores que já existiam como
+ * constante/array inline, agora reaproveitáveis por quem precisar.
+ */
+export const ACTIVITY_WINDOW_DAYS = 7;
+export const SERIES_ACTIVITY_STATUSES = ["completed", "want_to_watch"] as const;
+export const MOVIE_ACTIVITY_STATUSES = ["watched", "want_to_watch"] as const;
 const LIMIT_PER_SOURCE_FOLLOWING = 15;
 const LIMIT_PER_SOURCE_GLOBAL = 25;
 
@@ -114,7 +124,7 @@ export async function fetchActivityFeed(scope: FeedScope = "following", language
   let seriesQuery = supabase
     .from("series_status")
     .select("user_id, series_id, status, updated_at")
-    .in("status", ["completed", "want_to_watch"])
+    .in("status", SERIES_ACTIVITY_STATUSES)
     .gte("updated_at", sinceIso)
     .order("updated_at", { ascending: false })
     .limit(limit);
@@ -123,7 +133,7 @@ export async function fetchActivityFeed(scope: FeedScope = "following", language
   let movieQuery = supabase
     .from("movie_status")
     .select("user_id, movie_id, status, updated_at")
-    .in("status", ["watched", "want_to_watch"])
+    .in("status", MOVIE_ACTIVITY_STATUSES)
     .gte("updated_at", sinceIso)
     .order("updated_at", { ascending: false })
     .limit(limit);

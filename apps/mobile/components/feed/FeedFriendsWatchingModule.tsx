@@ -1,10 +1,10 @@
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { FriendsWatchingItem } from "@/lib/trending";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, PressableScale } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
@@ -74,32 +74,39 @@ export function FeedFriendsWatchingModule({ items }: { items: FriendsWatchingIte
           const posterUrl = item.mediaPosterPath ? tmdbImageUrl(item.mediaPosterPath, "w185") : null;
           const extraCount = item.totalCount - item.watchers.length;
           return (
-            <Pressable key={item.mediaId} style={styles.item} onPress={() => router.push(`/series/${item.mediaId}`)}>
-              <View style={styles.posterWrap}>
-                <View style={styles.poster}>
-                  {posterUrl ? (
-                    <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
-                  ) : (
-                    <Feather name="film" size={18} color={colors.muted} />
-                  )}
+            // FEEDBACK DE TOQUE (2026-10-01, a pedido — achado da
+            // auditoria UI/UX) — `PressableScale` em vez de `Pressable`
+            // puro; `alignItems` de `item` migrou pra `itemInner` pelo
+            // mesmo motivo de `FeedTrendingModule.tsx` (o `Animated.View`
+            // interno do `PressableScale` só recebe `flex: 1`).
+            <PressableScale key={item.mediaId} style={styles.item} onPress={() => router.push(`/series/${item.mediaId}`)}>
+              <View style={styles.itemInner}>
+                <View style={styles.posterWrap}>
+                  <View style={styles.poster}>
+                    {posterUrl ? (
+                      <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
+                    ) : (
+                      <Feather name="film" size={18} color={colors.muted} />
+                    )}
+                  </View>
+                  <View style={styles.avatarStack}>
+                    {item.watchers.map((watcher, i) => (
+                      <Avatar
+                        key={watcher.userId}
+                        uri={watcher.avatarUrl}
+                        name={watcher.name}
+                        style={[styles.avatar, i > 0 && { marginLeft: -AVATAR_OVERLAP }]}
+                        textStyle={styles.avatarInitials}
+                      />
+                    ))}
+                    {extraCount > 0 && <Text style={styles.moreCount}>+{extraCount}</Text>}
+                  </View>
                 </View>
-                <View style={styles.avatarStack}>
-                  {item.watchers.map((watcher, i) => (
-                    <Avatar
-                      key={watcher.userId}
-                      uri={watcher.avatarUrl}
-                      name={watcher.name}
-                      style={[styles.avatar, i > 0 && { marginLeft: -AVATAR_OVERLAP }]}
-                      textStyle={styles.avatarInitials}
-                    />
-                  ))}
-                  {extraCount > 0 && <Text style={styles.moreCount}>+{extraCount}</Text>}
-                </View>
+                <Text numberOfLines={1} style={styles.mediaTitle}>
+                  {item.mediaTitle}
+                </Text>
               </View>
-              <Text numberOfLines={1} style={styles.mediaTitle}>
-                {item.mediaTitle}
-              </Text>
-            </Pressable>
+            </PressableScale>
           );
         })}
       </View>
@@ -134,6 +141,10 @@ const styles = StyleSheet.create({
   // (reserva só o tanto necessário pro avatar sobreposto) + a margem
   // pequena do próprio `mediaTitle`, em vez de um `gap` uniforme.
   item: {
+    flex: 1,
+  },
+  // Ver comentário de `PressableScale`, acima — mesmo `alignItems` que `item` tinha antes, só movido pra dentro do `Animated.View` real.
+  itemInner: {
     flex: 1,
     alignItems: "center",
   },

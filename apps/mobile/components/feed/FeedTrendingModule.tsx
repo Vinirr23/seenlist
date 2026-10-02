@@ -1,10 +1,10 @@
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { TrendingItem } from "@/lib/trending";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, PressableScale } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
@@ -55,22 +55,32 @@ export function FeedTrendingModule({ items }: { items: TrendingItem[] }) {
         {visible.map((item) => {
           const posterUrl = item.mediaPosterPath ? tmdbImageUrl(item.mediaPosterPath, "w185") : null;
           return (
-            <Pressable
+            // FEEDBACK DE TOQUE (2026-10-01, a pedido — achado da
+            // auditoria UI/UX) — `PressableScale` em vez de `Pressable`
+            // puro; `alignItems`/`gap` de `item` migraram pra
+            // `itemInner` porque o `Animated.View` interno do
+            // `PressableScale` só recebe `flex: 1` (não herda o resto
+            // de `style`) — sem esse wrapper, pôster e título perderiam
+            // a centralização e o respiro de 4px entre os dois (mesmo
+            // padrão já usado em `EpisodeWatchedButton.tsx`/`checkWrap`).
+            <PressableScale
               key={`${item.mediaType}-${item.mediaId}`}
               style={styles.item}
               onPress={() => router.push(item.mediaType === "movie" ? `/movies/${item.mediaId}` : `/series/${item.mediaId}`)}
             >
-              <View style={styles.poster}>
-                {posterUrl ? (
-                  <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
-                ) : (
-                  <Feather name="film" size={18} color={colors.muted} />
-                )}
+              <View style={styles.itemInner}>
+                <View style={styles.poster}>
+                  {posterUrl ? (
+                    <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
+                  ) : (
+                    <Feather name="film" size={18} color={colors.muted} />
+                  )}
+                </View>
+                <Text numberOfLines={1} style={styles.mediaTitle}>
+                  {item.mediaTitle}
+                </Text>
               </View>
-              <Text numberOfLines={1} style={styles.mediaTitle}>
-                {item.mediaTitle}
-              </Text>
-            </Pressable>
+            </PressableScale>
           );
         })}
       </View>
@@ -103,6 +113,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   item: {
+    flex: 1,
+  },
+  // Ver comentário de `PressableScale`, acima — mesmo `alignItems`/`gap` que `item` tinha antes, só movidos pra dentro do `Animated.View` real.
+  itemInner: {
     flex: 1,
     alignItems: "center",
     gap: 4,

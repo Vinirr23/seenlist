@@ -267,19 +267,24 @@ function rankEntries(entries: FeedEntry[], followedIds: Set<string>): FeedEntry[
 }
 
 /**
- * BUSCA MÍNIMA DE `followedIds` (2026-10-01, só pro ranking — ver
- * comentário grande de `rankEntries`, acima). Mesmo padrão de query já
- * usado em `posts.ts`/`activityFeed.ts`/`trending.ts` (nenhum arquivo
- * exportava isso como função reaproveitável, então esta é nova, mas a
- * CONSULTA em si — `follows` filtrado por `follower_id` — já existia
- * de sobra no app; não é uma tabela nova nem uma query mais pesada que
- * as que já existem). Isolada em try/catch próprio, igual a
- * `fetchPatternBreakEntry` — é um sinal SECUNDÁRIO do ranking (boost,
- * não filtro): se falhar, o ranking simplesmente usa social=1× pra
- * todo mundo (equivalente a ninguém seguido), em vez de quebrar o
- * Feed inteiro por causa disso.
+ * BUSCA MÍNIMA DE `followedIds` (2026-10-01, originalmente só pro
+ * ranking — ver comentário grande de `rankEntries`, acima). Mesmo
+ * padrão de query já usado em `posts.ts`/`activityFeed.ts`/
+ * `trending.ts` (nenhum arquivo exportava isso como função
+ * reaproveitável, então esta é nova, mas a CONSULTA em si — `follows`
+ * filtrado por `follower_id` — já existia de sobra no app; não é uma
+ * tabela nova nem uma query mais pesada que as que já existem).
+ * Isolada em try/catch próprio, igual a `fetchPatternBreakEntry` — é
+ * um sinal SECUNDÁRIO do ranking (boost, não filtro): se falhar, o
+ * ranking simplesmente usa social=1× pra todo mundo (equivalente a
+ * ninguém seguido), em vez de quebrar o Feed inteiro por causa disso.
+ *
+ * EXPORTADA (2026-10-01, a pedido — reaproveitada pelo filtro do
+ * Realtime de `realtime-feed-new-activity` em `app/(tabs)/feed.tsx`
+ * pra saber quem o usuário segue na aba "Seguindo", sem duplicar esta
+ * consulta).
  */
-async function fetchFollowedIds(): Promise<Set<string>> {
+export async function fetchFollowedIds(): Promise<Set<string>> {
   try {
     const {
       data: { user },
@@ -312,7 +317,42 @@ function composeFeed(ranked: FeedEntry[], specialModule: FeedEntry | null): Feed
   return composed;
 }
 
-async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<FeedEntry[]> {
+/**
+ * ISOLAMENTO DE FALHA ENTRE AS 2 FONTES PRINCIPAIS (2026-10-01, auditoria
+ * funcional, achado Médio — "`fetchFeedEntries` usa `Promise.all` com
+ * `fetchPosts`/`fetchActivityFeed`; se só uma falhar, o Feed inteiro cai
+ * em `PageError`, mesmo a outra tendo retornado normalmente"). Mesmo
+ * padrão já usado por `fetchPatternBreakEntry`/`fetchFollowedIds`, acima
+ * — tenta, loga qual fonte falhou, nunca deixa a exceção subir sozinha —
+ * só que aqui devolvendo `null` em vez de `[]`/`new Set()`: as duas
+ * fontes já têm casos legítimos de resposta vazia (ninguém seguido
+ * ainda, sem posts/atividade no período) e `[]` continua significando
+ * exatamente isso, sem mudança nenhuma — `null` é o único jeito de dizer
+ * "a fonte falhou" sem reaproveitar um valor que já tinha outro
+ * significado. Deliberadamente NÃO mexe em `fetchPosts`/
+ * `fetchActivityFeed` em si (continuam lançando normalmente pra quem
+ * mais as chama, ex. `usePosts.ts`) — o isolamento é só aqui, no ponto
+ * de composição do Feed.
+ */
+async function fetchPostsSafe(scope: FeedScope): Promise<Post[] | null> {
+  try {
+    return await fetchPosts(scope);
+  } catch (error) {
+    console.error("[useFeedEntries] Falha ao buscar POSTS do Feed — Feed continua com a atividade automática, se essa 2ª fonte funcionar", error);
+    return null;
+  }
+}
+
+async function fetchActivityFeedSafe(scope: FeedScope, locale: string): Promise<ActivityItem[] | null> {
+  try {
+    return await fetchActivityFeed(scope, locale);
+  } catch (error) {
+    console.error("[useFeedEntries] Falha ao buscar ATIVIDADE AUTOMÁTICA do Feed — Feed continua com os posts, se essa 2ª fonte funcionar", error);
+    return null;
+  }
+}
+
+async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<{ entries: FeedEntry[]; hadPartialFailure: boolean }> {
   // `followedIds` só é buscado em "forYou" — ver comentário grande de
   // `rankEntries`, acima: em "following" todo conteúdo já é de gente
   // seguida, o boost social seria uniforme (1.15× pra tudo) e NÃO
@@ -320,12 +360,25 @@ async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<FeedE
   // nenhum no resultado. `Promise.resolve(new Set())` mantém o mesmo
   // formato de `Promise.all` abaixo sem ramificar a função em dois
   // caminhos.
-  const [posts, rawActivity, patternBreak, followedIds] = await Promise.all([
-    fetchPosts(scope),
-    fetchActivityFeed(scope, locale),
+  const [postsOrNull, rawActivityOrNull, patternBreak, followedIds] = await Promise.all([
+    fetchPostsSafe(scope),
+    fetchActivityFeedSafe(scope, locale),
     fetchPatternBreakEntry(scope, locale),
     scope === "forYou" ? fetchFollowedIds() : Promise.resolve(new Set<string>()),
   ]);
+
+  // AS DUAS FALHARAM — não tem o que mostrar; relança pra cair no MESMO
+  // `catch`/`setIsError(true)` que `load()` já tinha antes desta mudança
+  // (ver comentário grande de `load`, abaixo) — nenhum sistema de erro
+  // novo, só preserva o `PageError` pro caso em que ele já fazia sentido.
+  if (postsOrNull === null && rawActivityOrNull === null) {
+    throw new Error("[useFeedEntries] Falha ao buscar as duas fontes do Feed (posts e atividade) — ver os 2 erros individuais logados acima.");
+  }
+
+  const hadPartialFailure = postsOrNull === null || rawActivityOrNull === null;
+  const posts = postsOrNull ?? [];
+  const rawActivity = rawActivityOrNull ?? [];
+
   const dedupedActivity = dedupeReviewActivity(posts, rawActivity);
   const groupedActivity = groupConsecutiveActivity(dedupedActivity);
 
@@ -348,7 +401,7 @@ async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<FeedE
   // atividade ISOLADA merece destaque"). Continua sendo a ÚLTIMA
   // passada de propósito — sua semântica ("N entradas desde o último
   // Hero") só faz sentido sobre a ordem final já composta.
-  return applyHeroThrottle(composed);
+  return { entries: applyHeroThrottle(composed), hadPartialFailure };
 }
 
 /**
@@ -388,6 +441,20 @@ export function useFeedEntries(scope: FeedScope = "forYou") {
    * valor antigo) nem criar nenhum sistema de erro novo: continua
    * sendo o MESMO catch/`setIsError(true)` de sempre, só que agora
    * ele também devolve `false` pra quem está esperando a Promise.
+   *
+   * FALHA PARCIAL NÃO É `isError` (2026-10-01, achado Médio da
+   * auditoria, ver `fetchFeedEntries`/`fetchPostsSafe`/
+   * `fetchActivityFeedSafe`, acima) — `isError`/`PageError` continuam
+   * reservados pro caso em que NENHUMA fonte trouxe nada (`fetchFeedEntries`
+   * relança nesse caso só, é o único jeito de chegar neste `catch`
+   * agora). Falha parcial atualiza `entries` normalmente com o que
+   * funcionou (`setEntries(data.entries)`, igual sucesso total) — o
+   * Feed continua utilizável — mas o booleano devolvido pra quem chamou
+   * `load`/`refetch` é `false` mesmo assim: é o mesmo sinal que
+   * `handleShowNewContent` (`feed.tsx`) já usa pra decidir se limpa
+   * "↑ Novidades" e rola a tela — uma falha parcial não pode limpar o
+   * indicador, porque a novidade sinalizada pelo Realtime pode estar
+   * justamente na fonte que falhou agora.
    */
   const load = useCallback(
     async (isRefresh: boolean, targetKey: string, targetScope: FeedScope, targetLocale: string): Promise<boolean> => {
@@ -397,11 +464,11 @@ export function useFeedEntries(scope: FeedScope = "forYou") {
 
       try {
         const data = await fetchFeedEntries(targetScope, targetLocale);
-        cacheRef.current.set(targetKey, data);
-        if (keyRef.current === targetKey) setEntries(data);
-        return true;
+        cacheRef.current.set(targetKey, data.entries);
+        if (keyRef.current === targetKey) setEntries(data.entries);
+        return !data.hadPartialFailure;
       } catch (error) {
-        console.error("[useFeedEntries] Falha ao buscar feed", error);
+        console.error("[useFeedEntries] Falha ao buscar feed (as duas fontes falharam)", error);
         if (keyRef.current === targetKey) setIsError(true);
         return false;
       } finally {

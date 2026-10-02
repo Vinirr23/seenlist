@@ -510,6 +510,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.activityGroupMixedCompleted": "terminou {count}",
     "feed.activityGroupMixedWatchlist": "adicionou {count}",
     "feed.activityGroupMixedRated": "avaliou {count}",
+    "feed.activityGroupShowMore": "Ver mais {count} títulos",
+    "feed.activityGroupShowLess": "Ver menos",
 
     "explore.vote": "voto",
     "explore.votes": "votos",
@@ -1176,6 +1178,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.activityGroupMixedCompleted": "finished {count}",
     "feed.activityGroupMixedWatchlist": "added {count}",
     "feed.activityGroupMixedRated": "rated {count}",
+    "feed.activityGroupShowMore": "Show {count} more titles",
+    "feed.activityGroupShowLess": "Show less",
 
     "explore.vote": "vote",
     "explore.votes": "votes",
@@ -1798,6 +1802,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.activityGroupMixedCompleted": "terminó {count}",
     "feed.activityGroupMixedWatchlist": "agregó {count}",
     "feed.activityGroupMixedRated": "calificó {count}",
+    "feed.activityGroupShowMore": "Ver {count} títulos más",
+    "feed.activityGroupShowLess": "Ver menos",
 
     "explore.vote": "voto",
     "explore.votes": "votos",

@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { createTextPost } from "@/lib/posts";
 import { createPollPost } from "@/lib/social/polls";
 import { pickImageFromLibrary, uploadPostImage } from "@/lib/imageUpload";
-import { Text, Button } from "@/components/ui";
+import { Text, Button, PressableScale } from "@/components/ui";
 import { hapticTick, hapticSuccess } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
@@ -164,13 +164,26 @@ export function CreatePostButton({ onCreated }: { onCreated: () => void }) {
        * ainda pode precisar de ajuste fino depois de ver no aparelho.
        * E ~15% menor (56→48, ícone 24→20).
        */}
-      <Pressable
+      {/*
+       * FEEDBACK DE TOQUE (2026-10-01, a pedido — achado da auditoria
+       * UI/UX: o "+" de criar post era o único FAB do app sem nenhum
+       * retorno visual ao toque) — `PressableScale` em vez de
+       * `Pressable` puro; `alignItems`/`justifyContent` de `fab`
+       * migraram pra `fabIconWrap` porque o `Animated.View` interno do
+       * `PressableScale` só recebe `flex: 1` (não herda o resto de
+       * `style`) — sem esse wrapper o ícone nasceria no canto
+       * superior-esquerdo do círculo em vez de centralizado (mesmo
+       * padrão já usado em `EpisodeWatchedButton.tsx`/`checkWrap`).
+       */}
+      <PressableScale
         hitSlop={8}
         style={[styles.fab, { bottom: tabBarClearance, right: spacing.xxl }]}
         onPress={handleOpen}
       >
-        <Feather name="plus" size={20} color={colors.background} />
-      </Pressable>
+        <View style={styles.fabIconWrap}>
+          <Feather name="plus" size={20} color={colors.background} />
+        </View>
+      </PressableScale>
 
       {/*
        * BUG REAL CORRIGIDO (2026-09-29, print real — "Post atrás da
@@ -368,13 +381,17 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
     shadowColor: elevation.high.shadowColor,
     shadowOpacity: elevation.high.shadowOpacity,
     shadowRadius: elevation.high.shadowRadius,
     shadowOffset: elevation.high.shadowOffset,
     elevation: elevation.high.elevation,
+  },
+  // Ver comentário de `PressableScale`, acima — mesmo `alignItems`/`justifyContent` que `fab` tinha antes, só movidos pra dentro do `Animated.View` real.
+  fabIconWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   overlay: {
     flex: 1,

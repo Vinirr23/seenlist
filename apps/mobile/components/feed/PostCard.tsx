@@ -238,7 +238,7 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
             )}
           </View>
           <View style={styles.reviewInfo}>
-            <Text numberOfLines={1} style={styles.reviewTitle}>
+            <Text numberOfLines={2} style={styles.reviewTitle}>
               {post.mediaTitle}
             </Text>
             <View style={styles.starsRow}>
@@ -426,8 +426,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
+  // ALINHADO COM `ActivityCard.tsx` (2026-10-01, a pedido — achado da
+  // auditoria UI/UX: mesmo papel visual — pôster 84×126 + título ao
+  // lado — tratado diferente nos dois lugares: aqui truncava em 1
+  // linha com `fontSize.md`; lá (tier "medium") já usava 2 linhas com
+  // `fontSize.smPlus`). Era `fontSize.md`/`numberOfLines={1}` (ver a
+  // prop, acima).
   reviewTitle: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.smPlus,
     fontWeight: "700",
     color: colors.text,
   },

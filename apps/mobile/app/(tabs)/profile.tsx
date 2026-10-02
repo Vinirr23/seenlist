@@ -332,14 +332,22 @@ export default function ProfileScreen() {
                   * de baixo), lidas como "degrau"/sombra artificial em
                   * vez de gradual. Substituídas por UM `LinearGradient`
                   * só, cobrindo a foto INTEIRA (mesmo `pointerEvents`,
-                  * mesma posição) — começa no mesmo tom do véu
-                  * (`rgba(11,14,20,0.38)`) no topo e termina em
+                  * mesma posição) — da cor escura no topo até
                   * `colors.background` 100% opaco embaixo (a mesma cor
                   * da faixa lisa logo abaixo dela) — uma ÚNICA rampa
                   * contínua, sem degrau nenhum no meio do caminho.
+                  *
+                  * "MENOS ESCURA" (2026-10-02, a pedido) — tom inicial do
+                  * véu caiu de `rgba(11,14,20,0.38)` pra
+                  * `rgba(11,14,20,0.20)` (quase metade da opacidade) — a
+                  * foto fica mais visível perto do topo. O fim da rampa
+                  * continua 100% opaco em `colors.background` (não mudou)
+                  * — preserva o contraste de nome/@ (`shortRow`, sempre
+                  * apoiado na faixa lisa, sem foto atrás) e a transição
+                  * suave pro resto da tela.
                   */}
                 <LinearGradient
-                  colors={["rgba(11,14,20,0.38)", colors.background]}
+                  colors={["rgba(11,14,20,0.20)", colors.background]}
                   style={styles.bannerDarken}
                   pointerEvents="none"
                 />

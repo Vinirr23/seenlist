@@ -5,7 +5,8 @@ import { Screen, Text } from "@/components/ui";
 import { PageError } from "@/components/media/PageError";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { PostCardSkeleton } from "@/components/media/PostCardSkeleton";
-import { useFeedEntries, type FeedEntry } from "@/lib/useFeedEntries";
+import { useFeedEntries, fetchFollowedIds, type FeedEntry } from "@/lib/useFeedEntries";
+import { ACTIVITY_WINDOW_DAYS, SERIES_ACTIVITY_STATUSES, MOVIE_ACTIVITY_STATUSES } from "@/lib/activityFeed";
 import type { FeedScope } from "@/lib/posts";
 import { PostCard } from "@/components/feed/PostCard";
 import { ActivityCard } from "@/components/feed/ActivityCard";
@@ -96,6 +97,22 @@ export default function FeedScreen() {
    * isso a UI mostra só "existe novidade ou não", nunca "quantas".
    */
   const [hasNewFeedItems, setHasNewFeedItems] = useState(false);
+  /**
+   * POLIMENTO FINAL (2026-10-01, a pedido — achado da auditoria UI/UX:
+   * "banner '↑ Novidades' sobrepõe o topo do 1º item") — CAUSA RAIZ: o
+   * banner é `position: "absolute"` (ver `bannerWrapper`, abaixo) pra
+   * ficar ancorado no topo independente do scroll, mas isso significa
+   * que ele NUNCA empurrava o conteúdo pra baixo — `content.paddingTop`
+   * (fixo, `spacing.sm`) é o mesmo com ou sem banner, e o banner nasce
+   * exatamente nesse mesmo offset, cobrindo o cabeçalho do 1º card.
+   * Correção MÍNIMA: mede a altura real do banner (via `onLayout` —
+   * varia por idioma/tamanho de fonte, não dá pra chutar um número
+   * fixo) e soma como `paddingTop` extra do conteúdo só quando
+   * `hasNewFeedItems` está true — sem mudar o design nem a posição
+   * visual da pílula em si (continua absoluta, continua no mesmo
+   * `top`/mesmas cores/mesmo formato).
+   */
+  const [bannerHeight, setBannerHeight] = useState(0);
   /** Timer do debounce curto de recarga por evento Realtime (ver o `useEffect` do canal `realtime-feed-interactions`, abaixo). */
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
@@ -194,35 +211,76 @@ export default function FeedScreen() {
   /**
    * ATIVIDADE AUTOMÁTICA NO REALTIME (2026-10-01, a pedido — "hoje
    * `posts` possuem Realtime... mas novas atividades só aparecem após
-   * refresh") — cobre as 3 fontes que faltavam (`movie_status`,
-   * `series_status`, `reviews` — ver `lib/activityFeed.ts`). Um canal
-   * só, três `.on()` (mesmo idioma já usado no canal
-   * `realtime-feed-interactions`, acima, pra `likes`/`post_comments`/
-   * `poll_votes`), `event: "*"` (INSERT conta pra status/review novos,
-   * UPDATE conta pra troca de status ou review editada — ambos são
-   * "pode ter novidade" igualmente válidos, e decidir qual exatamente
-   * vale a pena é papel do `refetch()`/`activityFeed.ts`, não deste
-   * handler).
+   * refresh"; REFEITO no mesmo dia — auditoria funcional apontou
+   * Alto: o filtro original só excluía o próprio usuário, então o job
+   * periódico de recálculo de categorias de série (que só toca
+   * `updated_at` de séries que CONTINUAM "watching") acendia
+   * `hasNewFeedItems` sem nunca poder virar nada visível no refetch;
+   * e na aba "Seguindo" o canal não respeitava `followedIds` nenhum —
+   * evento de QUALQUER usuário acendia o indicador, mesmo um que a
+   * pessoa não segue.
    *
-   * OS HANDLERS NÃO INTERPRETAM O PAYLOAD DE PROPÓSITO — só ligam
-   * `hasNewFeedItems`. Nenhuma das regras de `activityFeed.ts` (janela
-   * de 7 dias, limite por fonte, o que conta como "completed" vs
-   * "watchlist") é replicada aqui — réplica dessas regras no cliente
-   * seria exatamente o que foi pedido pra evitar, e o `refetch()`
-   * continua sendo a única fonte de verdade de quais atividades
-   * aparecem.
+   * FILTROS COMBINADOS COM AND (vírgula) direto no servidor —
+   * `"Filters now compose. Separate them with a comma and every
+   * condition has to match"`
+   * (https://supabase.com/blog/postgres-changes-filters-and-column-selection).
+   * VALIDADO AO VIVO em 2026-10-01 contra este projeto, com
+   * `@supabase/supabase-js@2.45.4` (anterior ao anúncio deste recurso) —
+   * `scripts/realtime-filter-test.mjs`, rodado no PC (a sessão do
+   * Claude não tem saída de rede pro Supabase), cobriu os 10 casos
+   * pedidos (watching→watching não sinaliza = o próprio achado Alto;
+   * →completed/want_to_watch sinaliza; review antiga fora da janela
+   * não sinaliza; rating chegando via UPDATE sinaliza; Following
+   * inclui/exclui certo; troca de aba sem duplicar) — 10/10 passaram.
+   * O único caso que o filtro server-side não barra sozinho é a review
+   * de episódio (season/episode) — esperado, ver nota logo abaixo —
+   * exatamente por isso o bloqueio fica no callback, não no filtro.
    *
-   * EXCLUSÃO DO PRÓPRIO USUÁRIO — filtro `user_id=neq.<id>` direto no
-   * servidor (mesmo mecanismo que `target_type=eq.post` já usa no
-   * canal de curtidas, acima; `user_id` existe nas 3 tabelas, confirmado
-   * nas migrations). Dá pra fazer de forma simples e confiável porque
-   * é filtro de infraestrutura puro — não decide nada sobre o que é ou
-   * não uma activity, só "não é deste usuário". Precisa do id do
-   * usuário ANTES de assinar — por isso o `useEffect` passou a ter uma
-   * função `async` interna (`getCurrentAuthUser`, já usado em outros
-   * lugares do app); se a sessão ainda não estiver pronta ou a busca
-   * falhar, assina SEM filtro (prefere avisar demais — inclusive da
-   * própria ação do usuário — a arriscar nunca avisar).
+   * `movie_status`/`series_status` — filtro server-side sempre inclui
+   * `status=in.(...)`, usando os MESMOS arrays exportados de
+   * `lib/activityFeed.ts` (nunca duplica o literal) — sozinho já
+   * resolve o falso positivo do recálculo de "watching", porque aquele
+   * job nunca muda `status` pra um desses valores. `event: "*"`
+   * mantido — INSERT cobre status novo, UPDATE cobre a TRANSIÇÃO pra
+   * um desses valores (ex.: "watching" → "completed"), ambos
+   * legítimos.
+   *
+   * `reviews` — filtro server-side sempre inclui `created_at=gte.<since>`
+   * (mesma `ACTIVITY_WINDOW_DAYS` de `activityFeed.ts`, calculada uma
+   * vez ao montar o efeito) — resolve o falso positivo de EDITAR uma
+   * review antiga (linha criada fora da janela: filtro nunca bate,
+   * mesmo com UPDATE). `event: "*"` MANTIDO DE PROPÓSITO, não vira
+   * `"INSERT"` — conferido em código (`lib/social/reviews.ts`,
+   * `upsertReview`/`onConflict`, e as chamadas separadas por campo em
+   * `app/movies/[id].tsx:193-220`) que uma nota nova de verdade
+   * costuma chegar como `UPDATE` numa linha que já existia (criada
+   * antes por `watchedPlatform`/humor/texto, com a nota só depois) —
+   * `"INSERT"` perderia esse caso. As 3 condições que faltam
+   * (`rating`/`season_number`/`episode_number`) são conferidas no
+   * CALLBACK, direto no payload que o Realtime já entrega de graça —
+   * sem replicar o resto de `activityFeed.ts` (sem TMDB, sem join de
+   * perfil, sem paginação).
+   *
+   * EXCLUSÃO DO PRÓPRIO USUÁRIO — na aba "Para você", via
+   * `user_id=neq.<id>` server-side, combinado com vírgula junto da
+   * condição de status/data. Na aba "Seguindo", implícita: o usuário
+   * nunca está no próprio `followedIds`.
+   *
+   * ABA "SEGUINDO" SEM SUBSCRIPTION POR USUÁRIO — busca `followedIds`
+   * UMA VEZ ao montar o efeito (reaproveita `fetchFollowedIds()` de
+   * `useFeedEntries.ts`, não duplica a consulta). 0 seguidos → nenhum
+   * listener destas 3 tabelas é criado (ninguém cujo evento
+   * importaria). 1–100 seguidos → combinado server-side via
+   * `user_id=in.(...)` (dentro do limite oficial do operador). Mais
+   * de 100 → sem condição de `user_id` no filtro (estouraria o
+   * limite), e a checagem vira um `Set.has` barato dentro do
+   * callback — o fallback mínimo combinado, nunca uma subscription
+   * por seguido.
+   *
+   * Depende de `scope` agora (antes era `[]`) — trocar de aba
+   * desmonta o canal anterior e conecta um novo já com o filtro certo
+   * pra aba nova; evento raro (toque manual na aba), sem assinaturas
+   * duplicadas — o cleanup de sempre roda antes do próximo `setup()`.
    */
   useEffect(() => {
     let cancelled = false;
@@ -236,30 +294,77 @@ export default function FeedScreen() {
         } = await getCurrentAuthUser();
         currentUserId = user?.id ?? null;
       } catch (error) {
-        console.error("[FeedScreen] Falha ao buscar usuário atual pro filtro de Realtime (seguindo sem filtro)", error);
+        console.error("[FeedScreen] Falha ao buscar usuário atual pro filtro de Realtime (seguindo sem filtro de autor)", error);
       }
       if (cancelled) return;
 
-      const excludeSelfFilter = currentUserId ? `user_id=neq.${currentUserId}` : undefined;
+      let followedIds: Set<string> | null = null;
+      if (scope === "following") {
+        // Já isolada em try/catch própria (ver useFeedEntries.ts) — falha vira Set vazio, mesmo tratamento de "ninguém seguido".
+        followedIds = await fetchFollowedIds();
+        if (cancelled) return;
+        if (followedIds.size === 0) return; // ninguém seguido — nenhum evento destas 3 tabelas poderia importar
+      }
+
+      const MAX_IN_FILTER_VALUES = 100; // limite documentado do operador `in` do Realtime
+      const followedIdsArray = followedIds ? [...followedIds] : null;
+      const followedIdsFitServerSide = followedIdsArray !== null && followedIdsArray.length <= MAX_IN_FILTER_VALUES;
+
+      // Parte do filtro relativa a QUEM — server-side quando dá (sempre no "Para você"; no "Seguindo" só até 100 seguidos).
+      let authorFilter: string | null = null;
+      if (scope === "following") {
+        if (followedIdsFitServerSide) authorFilter = `user_id=in.(${followedIdsArray!.join(",")})`;
+        // > 100 seguidos: sem condição de autor aqui — vira checagem no callback via `followedIds.has(...)`.
+      } else if (currentUserId) {
+        authorFilter = `user_id=neq.${currentUserId}`;
+      }
+
+      function combineFilters(base: string): string {
+        return authorFilter ? `${base},${authorFilter}` : base;
+      }
+
+      // Só entra em cena quando o filtro server-side não cobriu `followedIds` (caso > 100 seguidos) — nos outros casos sempre `false` (já resolvido pelo filtro).
+      function failsClientAuthorCheck(userId: string | undefined): boolean {
+        if (scope === "following" && !followedIdsFitServerSide) {
+          return !userId || !followedIds!.has(userId);
+        }
+        return false;
+      }
+
       const markNewActivity = () => setHasNewFeedItems(true);
+
+      function handleStatusEvent(payload: { new?: Record<string, unknown>; old?: Record<string, unknown> }) {
+        const userId = (payload.new?.user_id ?? payload.old?.user_id) as string | undefined;
+        if (failsClientAuthorCheck(userId)) return;
+        markNewActivity();
+      }
+
+      const since = new Date();
+      since.setDate(since.getDate() - ACTIVITY_WINDOW_DAYS);
+      const sinceIso = since.toISOString();
+
+      function handleReviewEvent(payload: { new?: Record<string, unknown>; old?: Record<string, unknown> }) {
+        const row = payload.new;
+        if (!row) return; // DELETE de review é sempre soft-delete (UPDATE em `deleted_at`) — não deveria ocorrer, defensivo mesmo assim
+        if (row.rating == null) return;
+        if (row.season_number != null || row.episode_number != null) return;
+        if (failsClientAuthorCheck(row.user_id as string | undefined)) return;
+        markNewActivity();
+      }
 
       channel = supabase
         .channel("realtime-feed-new-activity")
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "movie_status", ...(excludeSelfFilter ? { filter: excludeSelfFilter } : {}) },
-          markNewActivity
+          { event: "*", schema: "public", table: "series_status", filter: combineFilters(`status=in.(${SERIES_ACTIVITY_STATUSES.join(",")})`) },
+          handleStatusEvent
         )
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "series_status", ...(excludeSelfFilter ? { filter: excludeSelfFilter } : {}) },
-          markNewActivity
+          { event: "*", schema: "public", table: "movie_status", filter: combineFilters(`status=in.(${MOVIE_ACTIVITY_STATUSES.join(",")})`) },
+          handleStatusEvent
         )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "reviews", ...(excludeSelfFilter ? { filter: excludeSelfFilter } : {}) },
-          markNewActivity
-        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: combineFilters(`created_at=gte.${sinceIso}`) }, handleReviewEvent)
         .subscribe();
     }
 
@@ -269,7 +374,7 @@ export default function FeedScreen() {
       cancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
-  }, []);
+  }, [scope]);
 
   /**
    * A PEDIDO (2026-10-01, "fechar corretamente a interação que já
@@ -291,6 +396,28 @@ export default function FeedScreen() {
     if (success) {
       setHasNewFeedItems(false);
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+  }
+
+  /**
+   * POLIMENTO FINAL (2026-10-01, a pedido — achado da auditoria UI/UX:
+   * "pull-to-refresh não limpa o indicador '↑ Novidades'") — antes, os
+   * 4 `RefreshControl` da tela chamavam `onRefresh={refetch}` direto:
+   * os dados atualizavam, mas `hasNewFeedItems` nunca era reavaliado,
+   * então a pílula continuava visível mesmo depois de a pessoa já ter
+   * puxado pra atualizar. Mesma regra de `handleShowNewContent` (acima)
+   * — só apaga o aviso quando `refetch()` confirma sucesso (`true`);
+   * em falha total/parcial, mantém visível (permite tentar nos dois
+   * jeitos: puxando de novo OU tocando a pílula). DELIBERADAMENTE sem
+   * `scrollToOffset` aqui (diferente do toque na pílula) — puxar pra
+   * atualizar já é, por si, um gesto manual no topo da lista; rolar a
+   * tela sozinho por cima disso seria um movimento que a pessoa não
+   * pediu.
+   */
+  async function handlePullToRefresh() {
+    const success = await refetch();
+    if (success) {
+      setHasNewFeedItems(false);
     }
   }
 
@@ -353,6 +480,11 @@ export default function FeedScreen() {
     [refetch, likeInfoByPostId, commentCountByPostId, pollDataByPostId]
   );
 
+  // Ver comentário grande de `bannerHeight`, acima — espaço extra só
+  // existe enquanto o banner está de fato visível, do tamanho real
+  // medido dele (não um valor fixo chutado).
+  const reservedTopStyle = hasNewFeedItems ? { paddingTop: spacing.sm + bannerHeight } : undefined;
+
   return (
     <Screen padded={false}>
       <FeedHeader scope={scope} onChangeScope={setScope} />
@@ -371,7 +503,7 @@ export default function FeedScreen() {
       <View style={styles.body}>
         {hasNewFeedItems && (
           <View style={styles.bannerWrapper}>
-            <Pressable style={styles.banner} onPress={handleShowNewContent}>
+            <Pressable style={styles.banner} onPress={handleShowNewContent} onLayout={(e) => setBannerHeight(e.nativeEvent.layout.height)}>
               <Feather name="arrow-up" size={14} color={colors.background} strokeWidth={2.5} />
               <Text style={styles.bannerText}>{t("feed.newContentAvailable")}</Text>
             </Pressable>
@@ -380,17 +512,17 @@ export default function FeedScreen() {
 
         {isError ? (
           <ScrollView
-            contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+            contentContainerStyle={[styles.content, reservedTopStyle, { paddingBottom: tabBarClearance }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />}
           >
             <PageError message={t("feed.errorLoadFeed")} onRetry={() => refetch()} />
           </ScrollView>
         ) : isLoading ? (
           <ScrollView
-            contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+            contentContainerStyle={[styles.content, reservedTopStyle, { paddingBottom: tabBarClearance }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />}
           >
-            <PostCardSkeleton />
+            <PostCardSkeleton bare />
           </ScrollView>
         ) : !entries || entries.length === 0 ? (
           // `EmptyShelf` é o padrão único de estado vazio do app. Sem
@@ -399,11 +531,20 @@ export default function FeedScreen() {
           // nesta tela. Mensagem muda por aba (2026-10-01): "Seguindo"
           // vazio não é o mesmo problema de "Para você" vazio (lista de
           // seguidos vazia/sem posts recentes vs. Feed geral vazio).
+          //
+          // ÍCONE POR ABA (2026-10-01, a pedido — achado da auditoria
+          // UI/UX: "edit-3" [lápis] não combina com a mensagem de
+          // "Seguindo vazio", que fala de encontrar PESSOAS pra seguir,
+          // não de escrever algo) — "Para você" vazio continua com
+          // "edit-3" (mensagem de lá É sobre escrever o 1º post);
+          // "Seguindo" vazio passa a usar "users" (mesmo ícone já usado
+          // no cabeçalho do módulo "Seus amigos estão assistindo", ver
+          // `FeedFriendsWatchingModule.tsx`).
           <ScrollView
-            contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+            contentContainerStyle={[styles.content, reservedTopStyle, { paddingBottom: tabBarClearance }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />}
           >
-            <EmptyShelf icon="edit-3" message={scope === "following" ? t("feed.emptyFollowing") : t("feed.emptyFeed")} />
+            <EmptyShelf icon={scope === "following" ? "users" : "edit-3"} message={scope === "following" ? t("feed.emptyFollowing") : t("feed.emptyFeed")} />
           </ScrollView>
         ) : (
           // `FlatList` virtualiza — chegou a ter até 30 `PostCard`s ricos
@@ -414,8 +555,8 @@ export default function FeedScreen() {
             ref={listRef}
             data={entries}
             keyExtractor={(entry) => entry.id}
-            contentContainerStyle={[styles.content, styles.list, { paddingBottom: tabBarClearance }]}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
+            contentContainerStyle={[styles.content, styles.list, reservedTopStyle, { paddingBottom: tabBarClearance }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />}
             initialNumToRender={6}
             windowSize={7}
             maxToRenderPerBatch={6}

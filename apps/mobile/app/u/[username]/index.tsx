@@ -226,8 +226,20 @@ export default function PublicProfileScreen() {
                     />
                   }
                 >
+                  {/*
+                    * "MENOS ESCURA" (2026-10-02, a pedido — "perfil
+                    * usuário e público", mesma correção já aplicada no
+                    * Perfil próprio, `app/(tabs)/profile.tsx`) — tom
+                    * inicial do véu caiu de `rgba(11,14,20,0.38)` pra
+                    * `rgba(11,14,20,0.20)` (quase metade da opacidade) —
+                    * a foto fica mais visível perto do topo. O fim da
+                    * rampa continua 100% opaco em `colors.background`
+                    * (não mudou) — preserva o contraste de nome/@
+                    * (sempre apoiado na faixa lisa, sem foto atrás) e a
+                    * transição suave pro resto da tela.
+                    */}
                   <LinearGradient
-                    colors={["rgba(11,14,20,0.38)", colors.background]}
+                    colors={["rgba(11,14,20,0.20)", colors.background]}
                     style={styles.bannerDarken}
                     pointerEvents="none"
                   />

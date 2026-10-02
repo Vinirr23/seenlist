@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -5,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import type { ActivityGroup } from "@/lib/useFeedEntries";
 import type { ActivityItem } from "@/lib/activityFeed";
 import { tmdbImageUrl } from "@/lib/library";
-import { Text } from "@/components/ui";
+import { Text, PressableScale } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -36,6 +37,15 @@ const POSTER_DISPLAY_LIMIT = 3;
  * cada um leva pro detalhe daquele título específico), com "+N" se
  * houver mais itens no grupo do que cabe.
  *
+ * "+N" EXPANDE A LISTA INLINE (2026-10-01, a pedido — antes era só
+ * decorativo, tocar não fazia nada) — toque troca `expanded` pra
+ * `true` e mostra TODOS os itens do grupo nesta mesma linha, que
+ * passa a quebrar (`flexWrap: "wrap"`) em vez de cortar. Com o grupo
+ * expandido, o pedaço que antes era o "+N" vira um tile "Ver menos"
+ * (mesmo tamanho dos pôsteres) que volta `expanded` pra `false` — a
+ * pedido explícito, depois de reportado que não tinha como recolher
+ * de novo.
+ *
  * SEM botão de watchlist aqui (decisão não confirmada com o usuário,
  * só a mais razoável dentre as não especificadas — um grupo tem N
  * títulos diferentes, um botão só por card não faria sentido sem
@@ -54,11 +64,23 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
   const { t, locale } = useTranslation();
   const now = useNow(30_000);
   const head = group.items[0];
+  const [expanded, setExpanded] = useState(false);
 
   const types = new Set(group.items.map((i) => i.activityType));
   const allSameType = types.size === 1;
-  const visiblePosters = group.items.slice(0, POSTER_DISPLAY_LIMIT);
+  const visiblePosters = expanded ? group.items : group.items.slice(0, POSTER_DISPLAY_LIMIT);
   const extraCount = group.items.length - visiblePosters.length;
+  const canCollapse = expanded && group.items.length > POSTER_DISPLAY_LIMIT;
+
+  function handlePressMore(e: { stopPropagation: () => void }) {
+    e.stopPropagation();
+    setExpanded(true);
+  }
+
+  function handlePressLess(e: { stopPropagation: () => void }) {
+    e.stopPropagation();
+    setExpanded(false);
+  }
 
   function handlePressUser(e: { stopPropagation: () => void }) {
     e.stopPropagation();
@@ -146,19 +168,48 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
         {visiblePosters.map((item) => {
           const posterUrl = item.mediaPosterPath ? tmdbImageUrl(item.mediaPosterPath, "w185") : null;
           return (
-            <Pressable key={item.id} style={styles.posterWrap} onPress={() => handlePressItem(item)}>
-              {posterUrl ? (
-                <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
-              ) : (
-                <Feather name="film" size={16} color={colors.muted} />
-              )}
-            </Pressable>
+            // FEEDBACK DE TOQUE (2026-10-01, a pedido — achado da
+            // auditoria UI/UX: pôster clicável sem nenhum retorno
+            // visual ao toque) — `PressableScale` em vez de
+            // `Pressable` puro; `posterInner` carrega
+            // `alignItems`/`justifyContent` (centraliza o ícone de
+            // fallback) porque o `Animated.View` interno do
+            // `PressableScale` não herda isso do `style` passado (só
+            // `flex: 1` — mesmo padrão já usado em
+            // `EpisodeWatchedButton.tsx`/`checkWrap`).
+            <PressableScale key={item.id} style={styles.posterWrap} onPress={() => handlePressItem(item)}>
+              <View style={styles.posterInner}>
+                {posterUrl ? (
+                  <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
+                ) : (
+                  <Feather name="film" size={16} color={colors.muted} />
+                )}
+              </View>
+            </PressableScale>
           );
         })}
         {extraCount > 0 && (
-          <View style={styles.morePill}>
+          <Pressable
+            style={styles.morePill}
+            onPress={handlePressMore}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t("feed.activityGroupShowMore", { count: extraCount })}
+          >
             <Text style={styles.morePillText}>+{extraCount}</Text>
-          </View>
+          </Pressable>
+        )}
+        {canCollapse && (
+          <Pressable
+            style={styles.morePill}
+            onPress={handlePressLess}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t("feed.activityGroupShowLess")}
+          >
+            <Feather name="chevron-up" size={18} color={colors.primary} />
+            <Text style={styles.lessPillText}>{t("feed.activityGroupShowLess")}</Text>
+          </Pressable>
         )}
       </View>
     </View>
@@ -254,41 +305,66 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.text,
   },
+  // `flexWrap` (2026-10-01, junto da expansão do "+N") — com o grupo
+  // inteiro visível (ex.: 15 itens), uma única linha sem quebra
+  // sairia da tela; `gap` já cobre o espaçamento nas duas direções
+  // quando quebra pra mais de uma linha.
   postersRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: spacing.xs,
     marginTop: spacing.sm,
   },
-  // Aumentado DUAS vezes (2026-10-01, feedback de design) — era 44×64
-  // (tier compacto puro); 1ª rodada subiu pra 56×82; 2ª rodada
-  // (comentário atual) — "aumentaria os posters do agrupamento uns
-  // 8-12%... são a informação principal e ainda há espaço horizontal"
-  // — 62×90 (~+11% sobre 56×82).
+  // Ajustado NOVE vezes (2026-10-01, feedback de design) — era 44×64
+  // (tier compacto puro); 1ª rodada 56×82; 2ª rodada 62×90 (~+11%
+  // sobre 56×82); 3ª rodada 71×104 (+15% sobre 62×90); 4ª rodada
+  // 82×120 (+15% sobre 71×104); 5ª rodada 89×130 (+8% sobre 82×120);
+  // 6ª rodada 93×135 (+4% sobre 89×130); 7ª rodada 91×132 (-2% sobre
+  // 93×135); 8ª rodada 92×133 (+1% sobre 91×132); 9ª rodada
+  // (comentário atual) — "foi muito, reverte esses 1%" — de volta a
+  // 91×132 (valor da 7ª rodada).
   posterWrap: {
-    width: 62,
-    height: 90,
+    width: 91,
+    height: 132,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
+    overflow: "hidden",
+  },
+  // Ver comentário de `PressableScale`/`posterInner`, acima — mesmo
+  // `alignItems`/`justifyContent` que `posterWrap` tinha antes, só
+  // movidos pra dentro do `Animated.View` real (via este `View`).
+  posterInner: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
   },
   posterImage: {
     width: "100%",
     height: "100%",
   },
   morePill: {
-    width: 62,
-    height: 90,
+    width: 91,
+    height: 132,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: spacing.xs,
   },
   morePillText: {
     fontSize: fontSize.sm,
     fontWeight: "700",
     color: colors.text,
+  },
+  // Tile "Ver menos" (2026-10-01, a pedido — mesmo tamanho/estilo do
+  // "+N", reaproveita `morePill`) — texto menor que `morePillText`
+  // (que é só "+12", bem mais curto) pra caber em 2 linhas sem cortar.
+  lessPillText: {
+    fontSize: fontSize.xxs,
+    fontWeight: "700",
+    color: colors.primary,
+    textAlign: "center",
   },
 });
