@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase, getCurrentAuthUser } from "./supabase";
+import { useAuth } from "./auth/AuthProvider";
 import type { Post, FeedScope } from "./posts";
 import { fetchPosts } from "./posts";
 import type { ActivityItem, ActivityRawData } from "./activityFeed";
@@ -485,6 +487,36 @@ async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<{ ent
 }
 
 /**
+ * CACHE PERSISTENTE NO APARELHO (2026-10-02, reportado — "o feed ainda
+ * demora pra carregar, é possível ficar quase instantâneo?") — CAUSA
+ * RAIZ do que sobrou de lentidão depois da junção das 2 chamadas de
+ * resumo de mídia (sessão anterior): o cache de `useFeedEntries` era
+ * só EM MEMÓRIA (`cacheRef`, um `Map` que vive e morre com o processo
+ * JS) — ajuda ao trocar de aba "Para você"/"Seguindo" na MESMA
+ * sessão, mas toda vez que o app é aberto do zero (processo novo), a
+ * tela do Feed nasce sem nada, sempre esperando TODAS as consultas de
+ * rede (posts + atividade + módulo + resumos de mídia) terminarem
+ * antes de mostrar qualquer coisa — por mais rápidas que essas
+ * consultas sejam, isso nunca é "instantâneo".
+ *
+ * MESMO padrão já usado em `useLibraryItems.ts`/`useCurrentUser.ts`
+ * ("carregar instantaneamente", stale-while-revalidate): guarda a
+ * última lista buscada com sucesso no `AsyncStorage` do aparelho (por
+ * conta + aba + idioma). Ao montar, ANTES de qualquer busca de rede,
+ * tenta ler esse cache — se existir, mostra ele NA HORA (sem
+ * esqueleto nenhum) enquanto a busca de rede roda por trás, em
+ * silêncio, e substitui pelo dado fresco assim que chega. Sem cache
+ * (1º uso do app, ou depois de trocar de conta), continua caindo no
+ * comportamento de sempre (esqueleto até a 1ª busca terminar).
+ */
+const FEED_CACHE_VERSION = 1;
+
+function feedPersistKeyFor(userId: string | undefined, scope: FeedScope, locale: string): string | null {
+  if (!userId) return null;
+  return `seenlist:feed-entries:v${FEED_CACHE_VERSION}:${userId}:${scope}:${locale}`;
+}
+
+/**
  * ATIVIDADE NO FEED (2026-10-01, documento de UX — "o Feed parece
  * estático", prioridade escolhida: Activity Cards) — `usePosts.ts`
  * sozinho só buscava posts escritos; esta é a versão que o Feed usa
@@ -500,6 +532,8 @@ async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<{ ent
  */
 export function useFeedEntries(scope: FeedScope = "forYou") {
   const { locale } = useTranslation();
+  const { session } = useAuth();
+  const userId = session?.user?.id;
   const cacheKey = `${scope}:${locale}`;
   const cacheRef = useRef<Map<string, FeedEntry[]>>(new Map());
   const keyRef = useRef(cacheKey);
@@ -537,15 +571,32 @@ export function useFeedEntries(scope: FeedScope = "forYou") {
    * justamente na fonte que falhou agora.
    */
   const load = useCallback(
-    async (isRefresh: boolean, targetKey: string, targetScope: FeedScope, targetLocale: string): Promise<boolean> => {
+    async (
+      isRefresh: boolean,
+      targetKey: string,
+      targetScope: FeedScope,
+      targetLocale: string,
+      targetUserId: string | undefined,
+      // `silent` (2026-10-02, cache persistente — ver comentário grande
+      // acima) — true quando já mostramos o cache do disco na hora: a
+      // busca de rede continua acontecendo, mas sem reacender o
+      // esqueleto de carregamento por cima do que já está na tela.
+      silent = false
+    ): Promise<boolean> => {
       if (isRefresh) setRefreshing(true);
-      else setIsLoading(true);
+      else if (!silent) setIsLoading(true);
       setIsError(false);
 
       try {
         const data = await fetchFeedEntries(targetScope, targetLocale);
         cacheRef.current.set(targetKey, data.entries);
         if (keyRef.current === targetKey) setEntries(data.entries);
+        const persistKey = feedPersistKeyFor(targetUserId, targetScope, targetLocale);
+        if (persistKey) {
+          AsyncStorage.setItem(persistKey, JSON.stringify(data.entries)).catch((error) => {
+            console.warn("[useFeedEntries] Falha ao salvar cache local do Feed — sem efeito na tela atual", error);
+          });
+        }
         return !data.hadPartialFailure;
       } catch (error) {
         console.error("[useFeedEntries] Falha ao buscar feed (as duas fontes falharam)", error);
@@ -569,14 +620,46 @@ export function useFeedEntries(scope: FeedScope = "forYou") {
       setEntries(cached);
       setIsLoading(false);
       setIsError(false);
-    } else {
-      setEntries(null);
-      load(false, cacheKey, scope, locale);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `scope`/`locale` já estão representados em `cacheKey`
-  }, [cacheKey, load]);
 
-  const refetch = useCallback(() => load(true, keyRef.current, scope, locale), [load, scope, locale]);
+    // Nada em memória ainda (1ª vez que esta aba+idioma aparece NESTE
+    // processo do app) — tenta o cache do disco antes de qualquer
+    // busca de rede (ver comentário grande de `feedPersistKeyFor`,
+    // acima).
+    let cancelled = false;
+
+    async function init() {
+      const persistKey = feedPersistKeyFor(userId, scope, locale);
+      let shownFromDisk = false;
+      if (persistKey) {
+        try {
+          const raw = await AsyncStorage.getItem(persistKey);
+          if (!cancelled && raw && keyRef.current === cacheKey) {
+            const cached = JSON.parse(raw) as FeedEntry[];
+            cacheRef.current.set(cacheKey, cached);
+            setEntries(cached);
+            setIsLoading(false);
+            setIsError(false);
+            shownFromDisk = true;
+          }
+        } catch (error) {
+          console.warn("[useFeedEntries] Cache local do Feed corrompido ou ilegível — ignorando", error);
+        }
+      }
+      if (cancelled || keyRef.current !== cacheKey) return;
+      if (!shownFromDisk) setEntries(null);
+      load(false, cacheKey, scope, locale, userId, shownFromDisk);
+    }
+
+    init();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `scope`/`locale` já estão representados em `cacheKey`
+  }, [cacheKey, load, userId]);
+
+  const refetch = useCallback(() => load(true, keyRef.current, scope, locale, userId), [load, scope, locale, userId]);
 
   return { entries, isLoading, isError, refreshing, refetch };
 }
