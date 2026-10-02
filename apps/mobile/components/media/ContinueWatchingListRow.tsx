@@ -124,10 +124,35 @@ const LAYOUT_TRANSITION_DURATION_MS = 520;
  *
  * Sem segunda camada, sem medir largura de nada, sem depender do timing da
  * rede pra decidir SE anima (só decide o instante em que o "entrando" começa).
+ *
+ * SEQUÊNCIA INVERTIDA (2026-10-02, reportado com 2 prints — "trava
+ * durante o deslize" e depois, já com o spinner, "o spinner fica
+ * rodando enquanto a tela parece querer deslizar, parece bug
+ * visualmente") — o desenho ORIGINAL acima (passo 1) deslizava
+ * IMEDIATAMENTE ao entrar em "advancing", estacionava, e só DEPOIS
+ * mostrava o spinner, parado naquela posição intermediária durante a
+ * espera real de 1-2s pelo servidor (marcar episódio + buscar o
+ * próximo). Mesmo com o spinner, isso ainda lia como "travado no meio
+ * do gesto" — o movimento começava, parava de vez, e só retomava
+ * minutos (visualmente) depois.
+ *
+ * Virou: NENHUM movimento acontece enquanto espera. `advanceOut` fica
+ * parado em 0 (conteúdo atual no lugar normal, sem deslocamento, sem
+ * apagar) durante toda a espera — só o spinner no selo "✓ Assistido"
+ * sinaliza trabalho em andamento. O deslize (passos 1-3 acima, saída +
+ * troca + entrada) só COMEÇA depois que o dado real já chegou —
+ * `ADVANCE_MIN_WAIT_MS` é só uma espera mínima pra evitar o spinner
+ * piscar por uma fração de segundo numa resposta rápida demais, não
+ * mais uma garantia de tempo mínimo de saída (não tem mais saída
+ * acontecendo em paralelo com a espera). O resultado é uma única
+ * transição curta e com propósito — spinner some exatamente quando o
+ * deslize começa — em vez de "desliza, trava, destrava".
  */
 const ADVANCE_SLIDE_DISTANCE = 20;
 const ADVANCE_SLIDE_DURATION_MS = 230;
 const ADVANCE_PARKED_OPACITY = 0.4;
+/** Ver "SEQUÊNCIA INVERTIDA", acima — espera mínima só pra evitar o spinner piscar numa resposta muito rápida. */
+const ADVANCE_MIN_WAIT_MS = 250;
 
 /**
  * `mb-3` do web. Fica NO CARD, não como `gap` da lista, porque a
@@ -466,41 +491,21 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
         // vindo da direita.
         tintOpacity.value = withTiming(0, { duration: 200 });
         advanceIn.value = 0;
+        // SEQUÊNCIA INVERTIDA (ver comentário grande acima de
+        // `ADVANCE_SLIDE_DISTANCE`) — `advanceOut` NÃO anima aqui.
+        // Fica em 0 (conteúdo no lugar normal, sem deslocar/apagar)
+        // durante toda a espera real pelo servidor; só o spinner no
+        // selo "✓ Assistido" (JSX mais abaixo, `phase === "advancing"`)
+        // sinaliza que tem trabalho em andamento. O deslize de verdade
+        // só começa depois que o dado chega — ver dentro do
+        // `requestAnimationFrame` abaixo.
         advanceOut.value = 0;
-        advanceOut.value = withTiming(1, { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) });
 
-        // CORREÇÃO DE CAUSA RAIZ (2026-10-02, reportado — "dá uma
-        // travada durante o deslize", toda vez, logo no início do
-        // slide, sempre no iPhone) — diagnóstico feito SEM assumir
-        // nada (perguntei frequência, momento exato e plataforma antes
-        // de tentar qualquer correção):
-        //   - toda vez, de forma consistente -> não é variação de
-        //     rede/tempo de resposta, é determinístico;
-        //   - logo no início do slide pra fora, antes de qualquer
-        //     movimento visível -> é o PRIMEIRO frame da animação que
-        //     está travando, não o meio do percurso;
-        //   - sempre no iPhone -> plataforma com BlurView nativo real
-        //     pra esta variante do `Glass` ("card"), mas isso por si só
-        //     não prova a causa (ver abaixo).
-        // Antes desta correção, no MESMO tick de JS que inicia
-        // `advanceOut`/`tintOpacity` (as animações Reanimated), também
-        // disparava `setPhase("advancing")` (gera um re-render React
-        // completo deste card) E o `onMarkedWatched()` (dispara o
-        // refetch pesado da biblioteca inteira, ver correção de cache
-        // em `lib/library.ts`). Mesmo já resolvida a lentidão de rede
-        // daquele refetch, DISPARAR o refetch e fazer o React
-        // reconciliar/commitar o re-render ainda é trabalho síncrono de
-        // JS que compete, no mesmo frame, com o primeiro commit da
-        // animação Reanimated — exatamente a classe de bug "trava bem
-        // no início, sempre, de forma determinística".
-        // Correção: todo esse trabalho (setPhase + o disparo do
-        // refetch) passa pro frame SEGUINTE via `requestAnimationFrame`.
-        // As animações Reanimated (`tintOpacity`, `advanceOut`, acima)
-        // continuam síncronas — já são puro UI thread, não competem com
-        // nada. Isto é a correção mais bem fundamentada que encontrei
-        // sem um profiler no dispositivo; se a travada persistir,
-        // "não pare até encontrar a causa raiz" continua valendo — ver
-        // comentário grande acima de `ADVANCE_SLIDE_DISTANCE`.
+        // DEFERIDO (ver comentário grande sobre `requestAnimationFrame`
+        // na correção de 2026-10-02 anterior a esta, ainda válida: evita
+        // competir com o commit do primeiro frame de `tintOpacity`
+        // acima) — `setPhase` + o disparo do refetch ficam pro frame
+        // seguinte.
         requestAnimationFrame(() => {
           setPhase("advancing");
 
@@ -515,14 +520,12 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
           // MESMA CORREÇÃO de causa raiz do `handleExitComplete` — espera
           // a busca de verdade terminar antes de desligar o layout.
           //
-          // `Promise.all` com um tempo mínimo (não corrida): garante que o
-          // slide pra fora sempre tem tempo de terminar visualmente antes
-          // da troca de conteúdo, numa rede rápida; numa rede lenta,
-          // continua esperando o dado de verdade (mesmo comportamento de
-          // antes), só que com o conteúdo "estacionado" à esquerda em vez
-          // de parado no lugar.
-          const tempoMinimoDeSaida = new Promise<void>((resolve) => setTimeout(resolve, ADVANCE_SLIDE_DURATION_MS));
-          Promise.all([onMarkedWatched(), tempoMinimoDeSaida]).then(() => {
+          // `Promise.all` com um tempo mínimo (não corrida) — ver
+          // "SEQUÊNCIA INVERTIDA": o tempo mínimo agora só evita o
+          // spinner piscar numa resposta rápida demais, não mais
+          // garantir tempo de saída (não tem saída rodando em paralelo).
+          const tempoMinimoDeEspera = new Promise<void>((resolve) => setTimeout(resolve, ADVANCE_MIN_WAIT_MS));
+          Promise.all([onMarkedWatched(), tempoMinimoDeEspera]).then(() => {
             // CAUSA RAIZ DO CRASH ("limpa o card, trava e fecha o app") —
             // ver comentário grande em `mountedRef`, acima. Marcar este
             // episódio pode mudar `lastActivityAt` da série e tirá-la
@@ -533,13 +536,31 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
             // guarda, o código abaixo mexia em shared values/estado de um
             // componente já desmontado.
             if (!mountedRef.current) return;
-            // Troca pro episódio novo e volta a `idle` — o conteúdo troca
-            // exatamente no instante em que `advanceIn` começa a animar
-            // (de "entrando pela direita" pra posição normal).
-            frozenRef.current = latestNextEpisodeRef.current;
-            setPhase("idle");
-            advanceIn.value = 0;
-            advanceIn.value = withTiming(1, { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) });
+            // SÓ AGORA o deslize de verdade acontece — dado já em mãos,
+            // então saída + troca + entrada rodam em sequência, sem
+            // pausa nenhuma no meio (ver "SEQUÊNCIA INVERTIDA"). O
+            // spinner continua visível durante a saída (phase ainda é
+            // "advancing") e some exatamente quando a troca + entrada
+            // começam.
+            advanceOut.value = withTiming(
+              1,
+              { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) },
+              (finished) => {
+                if (!finished) return;
+                scheduleOnRN(() => {
+                  if (!mountedRef.current) return;
+                  // Troca pro episódio novo e volta a `idle` — o
+                  // conteúdo troca exatamente no instante em que
+                  // `advanceIn` começa a animar (de "entrando pela
+                  // direita" pra posição normal) — mesmo instante em
+                  // que o spinner some (phase volta a "idle").
+                  frozenRef.current = latestNextEpisodeRef.current;
+                  setPhase("idle");
+                  advanceIn.value = 0;
+                  advanceIn.value = withTiming(1, { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) });
+                });
+              }
+            );
           }).finally(() => {
             desligarLayoutDepoisDaTransicao();
           });
