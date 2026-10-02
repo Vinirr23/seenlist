@@ -542,25 +542,46 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
             // spinner continua visível durante a saída (phase ainda é
             // "advancing") e some exatamente quando a troca + entrada
             // começam.
-            advanceOut.value = withTiming(
-              1,
-              { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) },
-              (finished) => {
-                if (!finished) return;
-                scheduleOnRN(() => {
-                  if (!mountedRef.current) return;
-                  // Troca pro episódio novo e volta a `idle` — o
-                  // conteúdo troca exatamente no instante em que
-                  // `advanceIn` começa a animar (de "entrando pela
-                  // direita" pra posição normal) — mesmo instante em
-                  // que o spinner some (phase volta a "idle").
-                  frozenRef.current = latestNextEpisodeRef.current;
-                  setPhase("idle");
-                  advanceIn.value = 0;
-                  advanceIn.value = withTiming(1, { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) });
-                });
-              }
-            );
+            //
+            // CORREÇÃO DE CAUSA RAIZ (2026-10-02, reportado — "foi na
+            // sequência certa, mas fechou o app", logo na primeira
+            // versão desta troca de ordem) — a primeira tentativa usava
+            // o callback `finished` do PRÓPRIO `withTiming` (3º
+            // argumento) pra disparar a troca de conteúdo, chamando
+            // `scheduleOnRN(() => {...})` de dentro dele com um closure
+            // carregando `setPhase` (um state setter do React),
+            // `frozenRef`/`latestNextEpisodeRef` (refs do JS) e
+            // `advanceIn`. Esse callback `finished` é um WORKLET (roda
+            // na UI thread — é transformado automaticamente pelo babel
+            // do Reanimated por ser argumento de `withTiming`); todo
+            // closure referenciado dentro dele (inclusive dentro do
+            // `scheduleOnRN` aninhado) precisa ser capturado pra rodar
+            // na UI thread, o que NENHUM outro lugar deste arquivo faz
+            // com um state setter do React (compare com
+            // `handleExitComplete`, a poucas linhas acima, que usa uma
+            // função NOMEADA simples, sem fechar sobre `setPhase`) — é
+            // a diferença mais suspeita introduzida exatamente na
+            // versão que fechou o app.
+            //
+            // Revertido pro padrão já comprovado no resto do arquivo:
+            // um temporizador do lado JS (`setTimeout`), na MESMA
+            // duração da animação, sem tocar no callback nativo do
+            // `withTiming` — exatamente como o código já fazia antes
+            // desta sessão (`tempoMinimoDeSaida`), só que agora depois
+            // da espera em vez de antes.
+            advanceOut.value = withTiming(1, { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) });
+            setTimeout(() => {
+              if (!mountedRef.current) return;
+              // Troca pro episódio novo e volta a `idle` — o conteúdo
+              // troca exatamente no instante em que `advanceIn` começa
+              // a animar (de "entrando pela direita" pra posição
+              // normal) — mesmo instante em que o spinner some (phase
+              // volta a "idle").
+              frozenRef.current = latestNextEpisodeRef.current;
+              setPhase("idle");
+              advanceIn.value = 0;
+              advanceIn.value = withTiming(1, { duration: ADVANCE_SLIDE_DURATION_MS, easing: Easing.out(Easing.quad) });
+            }, ADVANCE_SLIDE_DURATION_MS);
           }).finally(() => {
             desligarLayoutDepoisDaTransicao();
           });
