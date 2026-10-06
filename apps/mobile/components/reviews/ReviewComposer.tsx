@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, TextInput, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text, Glass } from "@/components/ui";
@@ -88,6 +88,22 @@ export function ReviewComposer({
   const [shareToFeed, setShareToFeed] = useState(!hasExistingReview);
   // Sem estrelas nesta tela (`showRating: false`), a nota não é editada aqui — segue a que já existe (`initialRating`, vinda da aba "Mais"); só o texto trava/destrava salvar.
   const naoPodeSalvar = Boolean(isPending) || (showRating ? rating === 0 : text.trim().length === 0);
+  const temTexto = text.trim().length > 0;
+
+  /**
+   * REGRA (2026-10-06, "Activity vs. Post de Review", auditoria aprovada
+   * pelo usuário) — "Publicar também no Feed" só existe de verdade
+   * quando há opinião escrita. Sem isso seria possível marcar a caixa,
+   * apagar o texto e salvar — gerando um Post de Review vazio. Em vez
+   * de só desabilitar visualmente mantendo um estado "marcado" por
+   * baixo (o que ignoraria a intenção em silêncio), o estado real é
+   * desmarcado no momento em que o texto esvazia — ao digitar de novo,
+   * a pessoa precisa marcar de novo, de forma explícita.
+   */
+  useEffect(() => {
+    if (!temTexto && shareToFeed) setShareToFeed(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só reage a temTexto ficar false; não precisa rodar de novo por mudança em shareToFeed.
+  }, [temTexto]);
 
   return (
     <Glass style={styles.card}>
@@ -105,7 +121,11 @@ export function ReviewComposer({
       />
 
       {canShareToFeed && (
-        <Pressable style={styles.checkboxRow} onPress={() => setShareToFeed((v) => !v)}>
+        <Pressable
+          style={[styles.checkboxRow, !temTexto && styles.desabilitado]}
+          disabled={!temTexto}
+          onPress={() => setShareToFeed((v) => !v)}
+        >
           <View style={[styles.checkbox, shareToFeed && styles.checkboxChecked]}>
             {shareToFeed && <Feather name="check" size={11} color={colors.background} />}
           </View>

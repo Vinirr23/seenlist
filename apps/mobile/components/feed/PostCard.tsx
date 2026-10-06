@@ -254,6 +254,18 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
               ))}
               <Text style={styles.ratingText}>{(post.rating ?? 0).toFixed(1)}/5</Text>
             </View>
+            {/*
+              SNAPSHOT (2026-10-06, "Activity vs. Post de Review", auditoria
+              aprovada pelo usuário) — `reviewWatchedSnapshot` é fixado no
+              momento da publicação/republicação desta review
+              (`createReviewPost`, `lib/posts.ts`); não reflete o estado
+              atual da biblioteca, só o que era verdade quando a pessoa
+              publicou/republicou. Por isso aparece/some apenas quando a
+              review é editada e salva de novo — nunca por conta própria.
+            */}
+            {post.reviewWatchedSnapshot === true && (
+              <Text style={styles.watchedBadge}>{t("review.watchedBadge")}</Text>
+            )}
           </View>
         </View>
       )}
@@ -445,6 +457,13 @@ const styles = StyleSheet.create({
   ratingText: {
     marginLeft: spacing.xs,
     // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
+    fontSize: fontSize.xxs,
+    fontWeight: "600",
+    color: colors.muted,
+  },
+  /** Mesmo tom/peso de `ratingText` — selo discreto, não compete com as estrelas. */
+  watchedBadge: {
+    marginTop: 2,
     fontSize: fontSize.xxs,
     fontWeight: "600",
     color: colors.muted,

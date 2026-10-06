@@ -3,8 +3,8 @@ import { View, Pressable, StyleSheet, type LayoutChangeEvent } from "react-nativ
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import type { ActivityGroup } from "@/lib/useFeedEntries";
-import type { ActivityItem } from "@/lib/activityFeed";
+import { isMergedActivityItem, type ActivityGroup, type MergedActivityItem } from "@/lib/useFeedEntries";
+import type { ActivityItem, ActivityType } from "@/lib/activityFeed";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, PressableScale } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
@@ -66,12 +66,35 @@ const POSTER_ASPECT_RATIO = 91 / 132;
  * só examina `kind: "activity"`, nunca `"activityGroup"`): pedido
  * explícito — "não usaria Hero card quando isso acontecer... Hero
  * deveria aparecer quando uma atividade ISOLADA merece destaque".
+ *
+ * PÔSTER DUPLICADO QUANDO 1 TÍTULO TEM 2+ AÇÕES (2026-10-06, bug real
+ * reportado com print — "interagiu com 4 títulos" mostrando 6
+ * pôsteres, "Legítimo Rei" e "Cruzada" repetidos 2x cada) — CAUSA
+ * RAIZ: este componente desenhava 1 tile por item CRU de `group.items`,
+ * sem checar se 2 itens apontavam pro mesmo título. Corrigido na
+ * origem: `lib/useFeedEntries.ts` (`collapseSameMediaItems`, chamada
+ * por `groupConsecutiveActivity`) já funde títulos repetidos dentro do
+ * cluster ANTES de chegar aqui — `group.items` agora é uma mistura de
+ * `ActivityItem` (1 ação só) e `MergedActivityItem` (2+ ações no MESMO
+ * título, igual ao usado por `activityMulti`), sempre 1 entrada por
+ * título. Este componente só precisa saber desenhar as DUAS formas —
+ * `isMergedActivityItem` (type guard) decide qual é qual em cada tile;
+ * um `MergedActivityItem` ganha uma tarja de ícones (1 por ação única)
+ * sobreposta na base do pôster, pra não perder a informação de "fez
+ * mais de uma coisa com esse título" que o agrupamento por tipo único
+ * já preservava.
  */
 export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const now = useNow(30_000);
-  const head = group.items[0];
+  // `!` — `ActivityGroup` só existe pra um cluster de 2+ itens
+  // (`groupConsecutiveActivity`/`collapseSameMediaItems`, em
+  // `lib/useFeedEntries.ts`); `group.items` nunca é vazio. Achado real
+  // ao rodar `tsc --noEmit` de verdade no projeto (`noUncheckedIndexedAccess`),
+  // mesmo idioma já usado em `lib/anilist.ts:151`/
+  // `ProfileRecommendationsPreview.tsx:143`.
+  const head = group.items[0]!;
   const [expanded, setExpanded] = useState(false);
   // MEDIDO, NÃO ADIVINHADO, e agora ÚNICO PRA TUDO (2026-10-02 — 2
   // reports seguidos sobre o mesmo cálculo).
@@ -113,12 +136,6 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
   // chega a aparecer na prática (`postersRow` sempre mede on-mount).
   const tileSize = tileWidth ? { width: tileWidth, height: tileWidth / POSTER_ASPECT_RATIO } : { width: 76, height: 110 };
 
-  const types = new Set(group.items.map((i) => i.activityType));
-  const allSameType = types.size === 1;
-  const visiblePosters = expanded ? group.items : group.items.slice(0, POSTER_DISPLAY_LIMIT);
-  const extraCount = group.items.length - visiblePosters.length;
-  const canCollapse = expanded && group.items.length > POSTER_DISPLAY_LIMIT;
-
   function handlePressMore(e: { stopPropagation: () => void }) {
     e.stopPropagation();
     setExpanded(true);
@@ -134,15 +151,52 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
     router.push(`/u/${head.userUsername}`);
   }
 
-  function handlePressItem(item: ActivityItem) {
+  function handlePressItem(item: ActivityItem | MergedActivityItem) {
     router.push(item.mediaType === "movie" ? `/movies/${item.mediaId}` : `/series/${item.mediaId}`);
   }
 
+  // Ações de 1 item do grid — 1 só (`ActivityItem`) ou várias, já
+  // deduplicadas (`MergedActivityItem.actions`, ver `isMergedActivityItem`
+  // no topo do arquivo) — usado tanto pra `counts` (abaixo) quanto pra
+  // desenhar a tarja de ícones de um tile fundido.
+  function actionsOf(item: ActivityItem | MergedActivityItem): ActivityType[] {
+    return isMergedActivityItem(item) ? item.actions : [item.activityType];
+  }
+
+  // `allSameType` exige, além do mesmo tipo em todo item, que NENHUM
+  // item seja um `MergedActivityItem` — um título com 2+ ações já é por
+  // definição "misto" (ver comentário grande do componente, acima); não
+  // faz sentido entrar no resumo "mesmo tipo em todos" (frase +
+  // contagem de TÍTULOS) junto de itens de 1 ação só.
+  const hasMergedItem = group.items.some(isMergedActivityItem);
+  const types = new Set(group.items.flatMap(actionsOf));
+  const allSameType = !hasMergedItem && types.size === 1;
+  const visiblePosters = expanded ? group.items : group.items.slice(0, POSTER_DISPLAY_LIMIT);
+  const extraCount = group.items.length - visiblePosters.length;
+  const canCollapse = expanded && group.items.length > POSTER_DISPLAY_LIMIT;
+
+  // Tally de AÇÕES (não de títulos) — um `MergedActivityItem` contribui
+  // 1x pra cada tipo único entre suas `actions` (ex.: "terminou +
+  // avaliou" soma 1 em `completed` E 1 em `rated`); mesma semântica de
+  // antes da correção de 2026-10-06, só agora olhando `actionsOf(item)`
+  // em vez de `item.activityType` direto, pra não quebrar com itens
+  // fundidos. `group.items.length` (usado no cabeçalho/contador "N
+  // títulos", mais abaixo) já está correto desde a correção — é a
+  // contagem de ENTRADAS, e entradas agora são sempre 1 por título.
   const counts = {
-    completed: group.items.filter((i) => i.activityType === "completed").length,
-    watchlist: group.items.filter((i) => i.activityType === "watchlist").length,
-    rated: group.items.filter((i) => i.activityType === "rated").length,
+    completed: group.items.filter((i) => actionsOf(i).includes("completed")).length,
+    watchlist: group.items.filter((i) => actionsOf(i).includes("watchlist")).length,
+    rated: group.items.filter((i) => actionsOf(i).includes("rated")).length,
   };
+
+  // Tipo único do resumo "mesmo tipo em todos" — lido de `types` (já
+  // computado via `actionsOf`, cobre os 2 formatos de item), não mais
+  // de `head.activityType` direto: `head` pode ser um
+  // `MergedActivityItem` em outros ramos (quando `allSameType` é
+  // `false`), que não tem esse campo — só é lido aqui, guardado por
+  // `allSameType` (que já garante `types.size === 1` e nenhum item
+  // fundido), então sempre existe quando usado.
+  const singleActivityType: ActivityType | null = allSameType ? [...types][0] ?? null : null;
 
   return (
     <View style={styles.card}>
@@ -159,20 +213,20 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
                 {formatRelativeTime(head.createdAt, now, locale, t("feed.justNow"))}
               </Text>
             </View>
-            {allSameType ? (
+            {allSameType && singleActivityType ? (
               <View style={styles.verbRow}>
-                {head.activityType === "watchlist" ? (
+                {singleActivityType === "watchlist" ? (
                   <Feather name="bookmark" size={11} color={colors.primary} />
-                ) : head.activityType === "completed" ? (
+                ) : singleActivityType === "completed" ? (
                   <Feather name="check-circle" size={11} color={colors.success} />
                 ) : (
                   <Feather name="star" size={11} color={colors.primary} />
                 )}
                 <Text variant="muted" style={styles.verb}>
                   {t(
-                    head.activityType === "watchlist"
+                    singleActivityType === "watchlist"
                       ? "feed.activityGroupWatchlist"
-                      : head.activityType === "completed"
+                      : singleActivityType === "completed"
                         ? "feed.activityGroupCompleted"
                         : "feed.activityGroupRated",
                     { count: group.items.length }
@@ -247,6 +301,27 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
                   <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
                 ) : (
                   <Feather name="film" size={16} color={colors.muted} />
+                )}
+                {isMergedActivityItem(item) && (
+                  // TARJA DE ÍCONES (2026-10-06, ver comentário grande
+                  // do componente, no topo) — 1 ícone por ação única
+                  // deste título (mesmo critério de ícone/cor usado em
+                  // `MultiActionActivityCard`, `ActivityCard.tsx`),
+                  // sobreposta na base do pôster: é a única forma
+                  // compacta de preservar "fez mais de uma coisa com
+                  // esse título" dentro de um grid de pôsteres lado a
+                  // lado (sem linha de texto própria por item).
+                  <View style={styles.mergedBadgeStrip}>
+                    {[...new Set(item.actions)].map((action) =>
+                      action === "watchlist" ? (
+                        <Feather key={action} name="bookmark" size={9} color="#fff" />
+                      ) : action === "completed" ? (
+                        <Feather key={action} name="check-circle" size={9} color="#fff" />
+                      ) : (
+                        <Feather key={action} name="star" size={9} color="#fff" />
+                      )
+                    )}
+                  </View>
                 )}
               </View>
             </PressableScale>
@@ -430,6 +505,24 @@ const styles = StyleSheet.create({
   posterImage: {
     width: "100%",
     height: "100%",
+  },
+  // Tarja de ícones de um tile fundido (2026-10-06, ver comentário
+  // grande do componente, no topo) — faixa semi-transparente colada na
+  // base do pôster, ícones brancos (contraste garantido em qualquer
+  // pôster, claro ou escuro) centralizados. `position: "absolute"`
+  // dentro de `posterInner` (que tem `position: "relative"` por padrão
+  // no React Native, nenhum `View` precisa declarar isso explicitamente).
+  mergedBadgeStrip: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 3,
+    paddingVertical: 3,
+    backgroundColor: "rgba(0,0,0,0.55)",
   },
   // Usada pela pastilha "+N" (recolhido) E "Ver menos" (expandido) —
   // `width`/`height` vêm de fora via `tileSize` (2026-10-02 — ver

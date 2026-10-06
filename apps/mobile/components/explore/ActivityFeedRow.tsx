@@ -17,13 +17,37 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
  * morava aqui passou pro `contentContainerStyle` da lista em
  * `app/(tabs)/explore.tsx` — agora que cada linha é um cartão, o
  * respiro precisa ficar por fora dela.
+ *
+ * ARQUIVO ÓRFÃO (comentário em `app/(tabs)/explore.tsx`) — não
+ * renderizado em nenhuma tela hoje desde a reformulação do Explorar
+ * (abas ficaram só "movies"/"series"); mantido por convenção do
+ * projeto ("apagar é decisão à parte"), não apagado nesta correção.
+ *
+ * BUG REAL CORRIGIDO (2026-10-06, achado ao rodar `tsc --noEmit` de
+ * verdade — `Property 'action' does not exist on type 'ActivityItem'`)
+ * — CAUSA RAIZ: este arquivo lia `item.action`, um campo que nunca
+ * existiu em `ActivityItem` (`lib/activityFeed.ts` só tem
+ * `activityType: "completed" | "rated" | "watchlist"`) — provavelmente
+ * sobrou de uma versão anterior do tipo, antes de `activityType` ser
+ * nomeado assim. Corrigido pro MESMO padrão já usado em
+ * `ActivityCard.tsx`/`ActivityGroupCard.tsx` — deriva o verbo
+ * traduzido a partir de `activityType` (+ `mediaType`, pra "terminou"
+ * vs. "assistiu" de série/filme).
  */
 export function ActivityFeedRow({ item }: { item: ActivityItem }) {
   const router = useRouter();
   const posterUrl = tmdbImageUrl(item.mediaPosterPath, "w185");
   const href = item.mediaType === "movie" ? `/movies/${item.mediaId}` : `/series/${item.mediaId}`;
-  const { locale } = useTranslation();
+  const { t, locale } = useTranslation();
   const timeFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  const verb =
+    item.activityType === "watchlist"
+      ? t("feed.activityWatchlist")
+      : item.activityType === "rated"
+        ? t("feed.activityRated")
+        : item.mediaType === "series"
+          ? t("feed.activityCompletedSeries")
+          : t("feed.activityCompletedMovie");
 
   return (
     <Pressable onPress={() => router.push(href)}>
@@ -32,7 +56,7 @@ export function ActivityFeedRow({ item }: { item: ActivityItem }) {
 
         <View style={styles.info}>
           <Text style={styles.line}>
-            <Text style={styles.bold}>{item.userName}</Text> {item.action} <Text style={styles.bold}>{item.mediaTitle}</Text>
+            <Text style={styles.bold}>{item.userName}</Text> {verb} <Text style={styles.bold}>{item.mediaTitle}</Text>
           </Text>
           <Text variant="muted" style={styles.time}>
             {timeFormatter.format(new Date(item.createdAt))}

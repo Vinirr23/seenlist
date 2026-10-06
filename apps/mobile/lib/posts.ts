@@ -18,12 +18,23 @@ export interface Post {
   mediaTitle: string | null;
   mediaPosterPath: string | null;
   rating: number | null;
+  /**
+   * Snapshot, não referência (2026-10-06, "Activity vs. Post de Review")
+   * — `true`/`false`: estado de "assistido" NO MOMENTO em que esta
+   * review foi publicada ou republicada; `null` para posts antigos
+   * criados antes deste campo existir (nunca calculado, sem backfill
+   * artificial — ver `createReviewPost`). Nunca é o estado vivo da
+   * biblioteca: uma mudança em movie_status/series_status sem nova
+   * edição/publicação da review não altera este valor.
+   */
+  reviewWatchedSnapshot: boolean | null;
   createdAt: string;
 }
 
 const POSTS_LIMIT = 30;
 const POST_TYPES = ["text", "image", "review", "poll"] as const;
-const POST_COLUMNS = "id, user_id, type, body, image_url, media_type, media_id, media_title, media_poster_path, rating, created_at";
+const POST_COLUMNS =
+  "id, user_id, type, body, image_url, media_type, media_id, media_title, media_poster_path, rating, review_watched_snapshot, created_at";
 
 interface PostRow {
   id: string;
@@ -36,6 +47,7 @@ interface PostRow {
   media_title: string | null;
   media_poster_path: string | null;
   rating: number | string | null;
+  review_watched_snapshot: boolean | null;
   created_at: string;
 }
 
@@ -63,6 +75,7 @@ function mapRow(row: PostRow, profile: ProfileRow): Post {
     mediaTitle: row.media_title,
     mediaPosterPath: row.media_poster_path,
     rating: row.rating === null ? null : Number(row.rating),
+    reviewWatchedSnapshot: row.review_watched_snapshot,
     createdAt: row.created_at,
   };
 }
@@ -190,6 +203,40 @@ export async function deletePost(postId: string): Promise<void> {
  * escrever 0 — ver `ReviewsFullView.tsx`/`handleSubmit` pra quem
  * decide o valor efetivo (nota nova, ou a que já existia).
  */
+/**
+ * Snapshot "✓ assistiu" (2026-10-06, "Activity vs. Post de Review",
+ * auditoria aprovada pelo usuário) — consulta o status ATUAL em
+ * `movie_status`/`series_status` só no instante da publicação/
+ * republicação da review; o valor devolvido é gravado como campo fixo
+ * no post (`createReviewPost`, abaixo), não relido depois. Mesmo
+ * enum já usado em `activityFeed.ts`: filme usa `"watched"`, série usa
+ * `"completed"` (valores diferentes de propósito — ver comentário
+ * grande de `buildActivityItems`).
+ */
+async function computeReviewWatchedSnapshot(userId: string, mediaType: "movie" | "series", mediaId: number): Promise<boolean> {
+  const table = mediaType === "movie" ? "movie_status" : "series_status";
+  const idColumn = mediaType === "movie" ? "movie_id" : "series_id";
+  const watchedValue = mediaType === "movie" ? "watched" : "completed";
+
+  const { data, error } = await supabase.from(table).select("status").eq("user_id", userId).eq(idColumn, mediaId).maybeSingle();
+  if (error) throw error;
+  return data?.status === watchedValue;
+}
+
+/**
+ * REGRA (2026-10-06, "Activity vs. Post de Review", auditoria aprovada
+ * pelo usuário) — Post de Review só existe quando existe opinião
+ * publicada de verdade. `body` vazio/whitespace nunca cria post, aqui
+ * dentro, não só na UI (`ReviewComposer`/`ReviewsFullView`) — esta
+ * função é o único caminho real de escrita pra `posts` tipo review, e
+ * é aqui que a regra precisa valer pra qualquer chamador presente ou
+ * futuro. Se já existia um post publicado (a pessoa apagou todo o
+ * texto de uma review que estava no Feed), ele é removido em vez de
+ * ficar um post social vazio — a nota continua intacta em `reviews` e
+ * passa a aparecer como Activity `★ avaliou` (ver `dedupeReviewActivity`
+ * em `useFeedEntries.ts`, que só conta como review social um post com
+ * `body` não vazio).
+ */
 export async function createReviewPost(
   body: string,
   review: { mediaType: "movie" | "series"; mediaId: number; mediaTitle: string; mediaPosterPath: string | null; rating: number | null }
@@ -198,6 +245,8 @@ export async function createReviewPost(
     data: { user },
   } = await getCurrentAuthUser();
   if (!user) throw new Error("not authenticated");
+
+  const trimmedBody = body.trim();
 
   const { data: existing, error: findError } = await supabase
     .from("posts")
@@ -210,11 +259,22 @@ export async function createReviewPost(
     .maybeSingle();
   if (findError) throw findError;
 
+  if (!trimmedBody) {
+    if (existing) {
+      const { error } = await supabase.from("posts").update({ deleted_at: new Date().toISOString() }).eq("id", existing.id);
+      if (error) throw error;
+    }
+    return;
+  }
+
+  const reviewWatchedSnapshot = await computeReviewWatchedSnapshot(user.id, review.mediaType, review.mediaId);
+
   const payload = {
-    body: body.trim() || null,
+    body: trimmedBody,
     media_title: review.mediaTitle,
     media_poster_path: review.mediaPosterPath,
     rating: review.rating,
+    review_watched_snapshot: reviewWatchedSnapshot,
   };
 
   if (existing) {

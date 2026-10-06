@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, StyleSheet } from "react-native";
@@ -20,6 +20,7 @@ import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { DockNavegacao } from "@/components/layout/DockNavegacao";
+import { AnimatedSplash } from "@/components/layout/AnimatedSplash";
 import { colors } from "@/lib/theme";
 import { markFontsReady } from "@/lib/appReady";
 import { useInAppUpdateCheck } from "@/lib/inAppUpdate";
@@ -54,8 +55,19 @@ import { useOtaUpdateCheck } from "@/lib/otaUpdate";
  * (`useFonts` abaixo) também precisa terminar de carregar antes de
  * esconder, senão o app pisca com a fonte do sistema por um instante
  * antes de trocar pra Plus Jakarta Sans. As duas condições vivem em
- * `lib/appReady.ts` (`markFontsReady`/`markSessionReady`) — continua
- * sem piso de tempo fixo, só que agora esperando as duas, não só uma.
+ * `lib/appReady.ts` (`markFontsReady`/`markSessionReady`).
+ *
+ * CORREÇÃO (2026-10-06, splash animada aprovada em mockup) — quem
+ * chama `SplashScreen.hideAsync()` NÃO é mais este arquivo nem
+ * `lib/appReady.ts`: é `components/layout/AnimatedSplash.tsx`, que
+ * esconde a splash nativa assim que ELA PRÓPRIA pinta o primeiro
+ * frame (idêntico visualmente à splash nativa, então a troca não dá
+ * pra perceber) e só revela o app de verdade quando a animação
+ * (1200ms) E fontes+sessão (`lib/appReady.ts`) tiverem terminado — o
+ * que vier depois. Continua sem piso de tempo fixo NO SENTIDO
+ * ORIGINAL do comentário acima (não força um mínimo além do que o
+ * carregamento real precisa) — ver comentário grande em
+ * `AnimatedSplash.tsx` pro raciocínio completo.
  */
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Ignora — só pode falhar se chamado depois do auto-hide já ter
@@ -246,6 +258,15 @@ export default function RootLayout() {
    * do alvo e a barra é IRMÃ dele, não filha.
    */
   const alvoDaTela = useRef<View>(null);
+  /**
+   * Splash animada (ver `AnimatedSplash.tsx`) — montada uma vez, por
+   * padrão visível; ela mesma chama `onDone` quando sua própria saída
+   * (fontes+sessão prontas E animação terminada) acontece, e só então
+   * sai da árvore. Daqui pra frente não remonta mais nesta sessão do
+   * app (não é re-renderizada a cada navegação nem a cada retomada de
+   * primeiro plano).
+   */
+  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -260,6 +281,7 @@ export default function RootLayout() {
                   <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
                 </BlurTargetView>
                 <ChromeDeNavegacao alvoDaTela={alvoDaTela} />
+                {showAnimatedSplash && <AnimatedSplash onDone={() => setShowAnimatedSplash(false)} />}
               </ErrorBoundary>
             </View>
           </AuthProvider>

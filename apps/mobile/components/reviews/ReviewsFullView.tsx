@@ -118,10 +118,22 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
       });
     }
 
-    if (!shareToFeed) return;
+    /*
+     * REGRA (2026-10-06, "Activity vs. Post de Review", auditoria
+     * aprovada pelo usuário) — quando o texto fica vazio, `createReviewPost`
+     * precisa ser chamado DE QUALQUER FORMA (mesmo com `shareToFeed`
+     * false, que é o estado forçado pelo `ReviewComposer` quando não há
+     * texto): é ela quem apaga um post já publicado anteriormente, se
+     * existir — a nota continua em `reviews` e passa a aparecer como
+     * Activity. Só pula a chamada quando HÁ texto mas a pessoa optou
+     * explicitamente por não publicar (`shareToFeed` false) — nesse
+     * caso um post já existente, se houver, é mantido como está.
+     */
+    const trimmedText = (reviewText ?? "").trim();
+    if (!shareToFeed && trimmedText.length > 0) return;
 
     try {
-      await createReviewPost(reviewText ?? "", {
+      await createReviewPost(trimmedText, {
         mediaType: target.mediaType,
         mediaId: target.mediaId,
         mediaTitle: media.title,

@@ -14,7 +14,17 @@ import { useTranslation } from "./i18n/LocaleProvider";
 export interface ActivityGroup {
   userId: string;
   // Mais recente primeiro (mesma ordem de `activity` em `fetchFeedEntries` — ver `groupConsecutiveActivity`, abaixo). Identidade do usuário (nome/avatar/selo) vem de `items[0]` na UI — todos os itens são da MESMA pessoa, não precisa duplicar os campos aqui.
-  items: ActivityItem[];
+  //
+  // PODE TER `MergedActivityItem` MISTURADO (2026-10-06, bug real
+  // reportado com print — "Legítimo Rei" e "Cruzada" aparecendo 2x
+  // cada dentro do mesmo grupo misto, 1 pôster por ação crua) — ver
+  // comentário grande de `collapseSameMediaItems`, abaixo, pra causa
+  // raiz completa. Antes desta correção, `items` só tinha
+  // `ActivityItem` cru; agora, quando 2+ itens do cluster misto
+  // compartilham o MESMO título, eles chegam aqui já fundidos num
+  // `MergedActivityItem` (mesmo tipo usado por `activityMulti`) —
+  // 1 entrada por título, sempre.
+  items: (ActivityItem | MergedActivityItem)[];
 }
 
 /**
@@ -194,12 +204,47 @@ function buildPatternBreakEntry(
  * usuário + mesma mídia) é descartado. Compara só por autor+mídia —
  * não por data: um post publicado antes/depois da nota em si continua
  * sendo o mesmo evento aos olhos de quem vê o Feed.
+ *
+ * TAMBÉM COBRE "completed" (2026-10-06, 2º bug real reportado com
+ * print — post de review de "O Rebelde" aparecendo JUNTO com um card
+ * "✓ assistiu" separado do mesmo título) — CAUSA RAIZ: este filtro só
+ * comparava `activityType === "rated"` contra os posts de review,
+ * nunca `"completed"`. Marcar como assistido (`movie_status`/
+ * `series_status`) e escrever uma nota (`reviews`) são 2 escritas
+ * INDEPENDENTES no banco (confirmado em `app/movies/[id].tsx` —
+ * `handleToggleWatched` só grava status, `handleRate` só grava nota;
+ * nada exige uma pela outra) — então `buildActivityItems` sempre gera
+ * 2 `ActivityItem`s pro mesmo usuário+mídia quando as duas existem:
+ * um `"completed"` (do status) e um `"rated"` (da nota). O filtro
+ * antigo descartava só o `"rated"` quando havia post de review
+ * publicado pra aquele título — o `"completed"` sobrevivia inteiro,
+ * aparecendo como card "assistiu" separado ao lado do post. Mesma
+ * lógica do comentário acima se aplica: o post de review já representa
+ * a mídia como "vista" (é o pré-requisito de UI pra poder avaliar, ver
+ * `app/movies/[id].tsx`) — não precisa de um card de atividade crua
+ * repetindo isso.
+ *
+ * SÓ CONTA REVIEW COM TEXTO (2026-10-06, "Activity vs. Post de Review",
+ * auditoria aprovada pelo usuário) — `createReviewPost` agora nunca cria
+ * post com `body` vazio, mas posts antigos (criados antes da correção)
+ * podem existir vazios no banco e NÃO devem suprimir a Activity `★
+ * avaliou` correspondente — sem opinião publicada de verdade, não é
+ * "o mesmo evento, só mais rico", é só uma nota crua igual a qualquer
+ * outra. `p.body.trim()` filtra esse caso.
  */
 function dedupeReviewActivity(posts: Post[], activity: ActivityItem[]): ActivityItem[] {
   const reviewedKeys = new Set(
-    posts.filter((p) => p.type === "review" && p.mediaType && p.mediaId != null).map((p) => `${p.userId}:${p.mediaType}:${p.mediaId}`)
+    posts
+      .filter((p) => p.type === "review" && p.mediaType && p.mediaId != null && p.body.trim().length > 0)
+      .map((p) => `${p.userId}:${p.mediaType}:${p.mediaId}`)
   );
-  return activity.filter((item) => !(item.activityType === "rated" && reviewedKeys.has(`${item.userId}:${item.mediaType}:${item.mediaId}`)));
+  return activity.filter(
+    (item) =>
+      !(
+        (item.activityType === "rated" || item.activityType === "completed") &&
+        reviewedKeys.has(`${item.userId}:${item.mediaType}:${item.mediaId}`)
+      )
+  );
 }
 
 /**
@@ -257,14 +302,40 @@ const GROUP_WINDOW_MS = 15 * 60 * 1000;
  * explícito: "a opção B... adiciona acima do pôster o 'assistiu e
  * avaliou' com os símbolos".
  *
- * ESCOPO (reportando de propósito, não decisão silenciosa): clusters
- * MISTOS (pelo menos 2 títulos diferentes) continuam exatamente como
- * antes, mesmo que 2 dos itens dentro dele TAMBÉM compartilhem título
- * — ex. "terminou A, avaliou A, adicionou B à lista" num cluster de 3
- * ainda vira um `ActivityGroup` de 3 pôsteres (A duplicado). Caso não
- * reportado, deliberadamente fora do escopo desta correção — avisar se
- * acontecer na prática.
+ * ESCOPO ORIGINAL, AGORA FECHADO (2026-10-06, bug real reportado com
+ * print — "interagiu com 4 títulos" mostrando 6 pôsteres, "Legítimo
+ * Rei" e "Cruzada" cada um repetido 2x) — o parágrafo abaixo descrevia
+ * esse caso como deliberadamente fora de escopo; ACONTECEU na prática,
+ * então deixou de ser aceitável. CAUSA RAIZ confirmada:
+ * `ActivityGroupCard` desenha 1 pôster por item CRU de `group.items`,
+ * sem nenhuma deduplicação por `mediaId`/`mediaType` — um cluster misto
+ * com "terminou A, avaliou A, adicionou B à lista" virava um
+ * `ActivityGroup` de 3 itens, 2 deles apontando pro MESMO `mediaId`
+ * (A), logo 2 pôsteres idênticos de A lado a lado.
+ *
+ * Correção: `collapseSameMediaItems`, abaixo, roda ANTES de empacotar
+ * o `ActivityGroup` — agrupa por `mediaId`+`mediaType` dentro do
+ * cluster misto (preservando a ordem de primeira aparição) e funde
+ * qualquer subgrupo de 2+ itens do MESMO título usando a MESMA
+ * `mergeSameMediaCluster` já usada pelo caso "cluster inteiro é 1
+ * título só" — resultando no MESMO `MergedActivityItem` (badges de
+ * ação combinadas, 1 pôster) só que agora MISTURADO dentro de
+ * `group.items`, ao lado dos títulos que só tiveram 1 ação. 1 entrada
+ * por título, sempre — nunca mais pôster duplicado.
  */
+function collapseSameMediaItems(cluster: ActivityItem[]): (ActivityItem | MergedActivityItem)[] {
+  const seenMediaKeys = new Set<string>();
+  const result: (ActivityItem | MergedActivityItem)[] = [];
+  for (const item of cluster) {
+    const mediaKey = `${item.mediaType}:${item.mediaId}`;
+    if (seenMediaKeys.has(mediaKey)) continue; // já processado (junto com a 1ª ocorrência deste título) — não duplica.
+    seenMediaKeys.add(mediaKey);
+    const sameMediaItems = cluster.filter((it) => it.mediaType === item.mediaType && it.mediaId === item.mediaId);
+    result.push(sameMediaItems.length >= 2 ? mergeSameMediaCluster(sameMediaItems) : item);
+  }
+  return result;
+}
+
 function mergeSameMediaCluster(cluster: ActivityItem[]): MergedActivityItem {
   // `cluster` chega na mesma ordem de `activity` (mais recente
   // primeiro, ver comentário grande de `groupConsecutiveActivity`,
@@ -273,7 +344,14 @@ function mergeSameMediaCluster(cluster: ActivityItem[]): MergedActivityItem {
   // invertido dá a ordem CRONOLÓGICA real (mais antiga primeiro), a
   // ordem natural pra listar "terminou, depois avaliou" como aconteceu
   // de verdade.
-  const head = cluster[0];
+  //
+  // `cluster[0]!` é seguro por construção — as 2 chamadas existentes
+  // (cluster inteiro do mesmo título, ou subgrupo de `collapseSameMediaItems`)
+  // só passam arrays com 2+ itens pra esta função; `!` é só pra calar
+  // `noUncheckedIndexedAccess` (TS18048/TS2532 — achado real ao rodar
+  // `tsc --noEmit` de verdade no projeto, 2026-10-06), mesmo idioma já
+  // usado em `lib/anilist.ts:151`/`ProfileRecommendationsPreview.tsx:143`.
+  const head = cluster[0]!;
   const chronological = [...cluster].reverse();
   const ratedAction = chronological.find((it) => it.activityType === "rated");
   return {
@@ -293,25 +371,36 @@ function mergeSameMediaCluster(cluster: ActivityItem[]): MergedActivityItem {
   };
 }
 
+// AJUSTE DE TIPO, NÃO DE COMPORTAMENTO (2026-10-06, achado real ao
+// rodar `tsc --noEmit` de verdade no projeto — `noUncheckedIndexedAccess`
+// reprovava `activity[i]`/`activity[j]`/`cluster[0]`/`cluster[última]`
+// com TS2532/TS18048 em TODA esta função, preexistente de antes desta
+// sessão). Todo `!` abaixo é comprovadamente seguro pelo próprio
+// controle de fluxo: `i`/`j` nunca avançam além de `activity.length`
+// (guardado pelas condições dos 2 `while`) e `cluster` sempre tem pelo
+// menos 1 item antes de qualquer leitura por índice — mesmo idioma já
+// usado em `lib/anilist.ts:151`/`ProfileRecommendationsPreview.tsx:143`.
 function groupConsecutiveActivity(activity: ActivityItem[]): (ActivityItem | ActivityGroup | MergedActivityItem)[] {
   const result: (ActivityItem | ActivityGroup | MergedActivityItem)[] = [];
   let i = 0;
   while (i < activity.length) {
-    const cluster: ActivityItem[] = [activity[i]];
+    const cluster: ActivityItem[] = [activity[i]!];
     let j = i + 1;
     while (
       j < activity.length &&
-      activity[j].userId === activity[i].userId &&
-      new Date(cluster[cluster.length - 1].createdAt).getTime() - new Date(activity[j].createdAt).getTime() <= GROUP_WINDOW_MS
+      activity[j]!.userId === activity[i]!.userId &&
+      new Date(cluster[cluster.length - 1]!.createdAt).getTime() - new Date(activity[j]!.createdAt).getTime() <= GROUP_WINDOW_MS
     ) {
-      cluster.push(activity[j]);
+      cluster.push(activity[j]!);
       j++;
     }
     if (cluster.length >= 2) {
-      const sameMedia = cluster.every((it) => it.mediaId === cluster[0].mediaId && it.mediaType === cluster[0].mediaType);
-      result.push(sameMedia ? mergeSameMediaCluster(cluster) : { userId: activity[i].userId, items: cluster });
+      const sameMedia = cluster.every((it) => it.mediaId === cluster[0]!.mediaId && it.mediaType === cluster[0]!.mediaType);
+      result.push(
+        sameMedia ? mergeSameMediaCluster(cluster) : { userId: activity[i]!.userId, items: collapseSameMediaItems(cluster) }
+      );
     } else {
-      result.push(cluster[0]);
+      result.push(cluster[0]!);
     }
     i = j;
   }
@@ -324,6 +413,19 @@ function isActivityGroup(entry: ActivityItem | ActivityGroup | MergedActivityIte
 
 function isMergedActivity(entry: ActivityItem | ActivityGroup | MergedActivityItem): entry is MergedActivityItem {
   return "actions" in entry;
+}
+
+/**
+ * MESMO CHECK, PRA DENTRO DE `ActivityGroup.items` (2026-10-06, ver
+ * `collapseSameMediaItems`, acima) — exportado porque `ActivityGroupCard.tsx`
+ * agora também precisa diferenciar `ActivityItem` de `MergedActivityItem`
+ * ao desenhar cada tile do grid. Estruturalmente idêntico a
+ * `isMergedActivity` (mesmo `"actions" in item`), só com a assinatura de
+ * tipo certa pro union menor (`ActivityGroup.items` nunca contém um
+ * `ActivityGroup` dentro de si, então não precisa do 3º membro do union).
+ */
+export function isMergedActivityItem(item: ActivityItem | MergedActivityItem): item is MergedActivityItem {
+  return "actions" in item;
 }
 
 /**
@@ -417,10 +519,20 @@ function entryAuthorId(entry: FeedEntry): string | null {
   return null; // "trending"/"friendsWatching" não têm autor — nunca passam por `rankEntries` hoje (só `composeFeed` os insere depois), fica defensivo mesmo assim.
 }
 
+// Multiplicador de 1 item de `ActivityGroup.items` — agora pode ser um
+// `ActivityItem` cru OU um `MergedActivityItem` (2026-10-06, ver
+// `collapseSameMediaItems`/`isMergedActivityItem`, acima); usa o MAIOR
+// multiplicador entre as ações, nos dois casos (mesmo critério já usado
+// pro grupo inteiro e pro `activityMulti`, abaixo).
+function groupItemTypeMultiplier(item: ActivityItem | MergedActivityItem): number {
+  if (isMergedActivityItem(item)) return Math.max(...item.actions.map((a) => activityTypeMultiplier(a)));
+  return activityTypeMultiplier(item.activityType);
+}
+
 function entryTypeMultiplier(entry: FeedEntry): number {
   if (entry.kind === "post") return TYPE_MULTIPLIER_POST;
   if (entry.kind === "activity") return activityTypeMultiplier(entry.activity.activityType);
-  if (entry.kind === "activityGroup") return Math.max(...entry.group.items.map((item) => activityTypeMultiplier(item.activityType)));
+  if (entry.kind === "activityGroup") return Math.max(...entry.group.items.map(groupItemTypeMultiplier));
   if (entry.kind === "activityMulti") return Math.max(...entry.item.actions.map((a) => activityTypeMultiplier(a)));
   return 1;
 }
@@ -614,7 +726,14 @@ async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<{ ent
     ...posts.map((post): FeedEntry => ({ kind: "post", id: `post-${post.id}`, createdAt: post.createdAt, post })),
     ...groupedActivity.map((entry): FeedEntry => {
       if (isActivityGroup(entry)) {
-        return { kind: "activityGroup", id: `activity-group-${entry.userId}-${entry.items[0].id}`, createdAt: entry.items[0].createdAt, group: entry };
+        // `entry.items[0]!` — `ActivityGroup` só é criado (`groupConsecutiveActivity`,
+        // acima) a partir de um cluster de 2+ itens; `items` nunca é vazio.
+        return {
+          kind: "activityGroup",
+          id: `activity-group-${entry.userId}-${entry.items[0]!.id}`,
+          createdAt: entry.items[0]!.createdAt,
+          group: entry,
+        };
       }
       if (isMergedActivity(entry)) {
         return { kind: "activityMulti", id: `activity-multi-${entry.id}`, createdAt: entry.createdAt, item: entry };
