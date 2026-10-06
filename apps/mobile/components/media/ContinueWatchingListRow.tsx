@@ -35,6 +35,7 @@ import { Text, Glass } from "@/components/ui";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize, fontFamily } from "@/lib/theme";
 import { formatStaleSince } from "@/lib/relativeTime";
+import { PendingEpisodesSheet } from "@/components/media/PendingEpisodesSheet";
 
 const BADGE_LABEL_KEY: Record<"premiere" | "novo" | "mais-recente" | "em-breve", string> = {
   premiere: "seriesHome.badge.premiere",
@@ -306,6 +307,16 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [pulseKey, setPulseKey] = useState(0);
+  /**
+   * A PEDIDO (2026-10-02 — "abrir uma lista ali mesmo com o restante
+   * dos episódios", aprovado via mockup, Opção B: sheet) — aberta
+   * tocando no selo "+N" (JSX mais abaixo). Independente de `phase`
+   * (a máquina de estado da animação de marcar o PRÓXIMO episódio) —
+   * marcar um episódio de dentro da folha não passa pela mesma
+   * coreografia de slide, só pede um refetch (`onMarkedWatched`) pro
+   * card por trás atualizar quando a folha fechar.
+   */
+  const [showPendingSheet, setShowPendingSheet] = useState(false);
   /**
    * Congela o último episódio mostrado em `idle` — usado durante
    * `confirming`/`exiting` pra manter o card mostrando o episódio que
@@ -741,10 +752,30 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
             <View style={styles.codeRow}>
               <Text style={styles.code}>{code}</Text>
               {display.additionalPendingCount > 0 && (
-                /* No web o `+N` tem fundo: `rounded bg-primary/15 px-1 text-[10px] font-bold text-primary`. Aqui era texto solto. */
-                <View style={styles.plusBadgeBox}>
+                /*
+                  A PEDIDO (2026-10-02 — "abrir uma lista ali mesmo com
+                  o restante dos episódios", mockup Opção B aprovado) —
+                  virou `Pressable`: o selo "+N" tem fundo (`rounded
+                  bg-primary/15 px-1 text-[10px] font-bold text-primary`
+                  no web) e agora também abre a folha de pendentes.
+                  Aninhado dentro do `Pressable` que leva ao episódio
+                  (mesmo padrão já usado pela pílula da série e pelo
+                  `Pressable` de fundo do card inteiro, alguns
+                  componentes acima — o de MAIS DENTRO intercepta o
+                  toque, o RN não "vaza" pro de fora). Desligado durante
+                  `confirming`/`advancing`/`exiting` — não faz sentido
+                  abrir a lista de pendentes enquanto o card está no
+                  meio da própria coreografia de marcar o episódio
+                  atual.
+                */
+                <Pressable
+                  hitSlop={8}
+                  disabled={phase !== "idle"}
+                  onPress={() => setShowPendingSheet(true)}
+                  style={styles.plusBadgeBox}
+                >
                   <Text style={styles.plusBadge}>+{display.additionalPendingCount}</Text>
-                </View>
+                </Pressable>
               )}
             </View>
             <Text numberOfLines={1} variant="muted" style={styles.episodeName}>
@@ -839,6 +870,15 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
           )}
         </Animated.View>
       </Glass>
+
+      {showPendingSheet && (
+        <PendingEpisodesSheet
+          seriesId={item.id}
+          seriesTitle={item.title}
+          onMarkedWatched={() => Promise.resolve(onMarkedWatched())}
+          onClose={() => setShowPendingSheet(false)}
+        />
+      )}
     </Animated.View>
   );
 });

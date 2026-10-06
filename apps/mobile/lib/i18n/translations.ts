@@ -411,6 +411,16 @@ export const translations: Record<Locale, Record<string, string>> = {
     "series.allEpisodesTitle": "Todos os episódios",
     "episode.markSeriesTitle": "Marcar série inteira como assistida?",
     "episode.markSeriesMessage": "Todos os episódios desta série serão marcados como assistidos.",
+    /**
+     * A PEDIDO (2026-10-02 — "abrir uma lista ali mesmo com o restante
+     * dos episódios pra melhorar o fluxo", aprovado via mockup, Opção
+     * B: sheet) — folha de pendentes aberta direto do "+N" no card de
+     * "Continue assistindo".
+     */
+    "episode.pendingSingular": "pendente",
+    "episode.pendingPlural": "pendentes",
+    "episode.pendingSheetAllCaughtUp": "Nenhum episódio pendente.",
+    "episode.pendingSheetLoadError": "Não foi possível carregar os episódios pendentes.",
     "episode.unmarkSeriesTitle": "Desmarcar toda a série?",
     "episode.unmarkSeriesMessage": "Todos os episódios desta série voltarão para não assistido.",
     /*
@@ -1123,6 +1133,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "series.allEpisodesTitle": "All episodes",
     "episode.markSeriesTitle": "Mark the entire series as watched?",
     "episode.markSeriesMessage": "All episodes in this series will be marked as watched.",
+    "episode.pendingSingular": "pending",
+    "episode.pendingPlural": "pending",
+    "episode.pendingSheetAllCaughtUp": "No pending episodes.",
+    "episode.pendingSheetLoadError": "Couldn't load the pending episodes.",
     "episode.unmarkSeriesTitle": "Unmark the entire series?",
     "episode.unmarkSeriesMessage": "All episodes in this series will go back to unwatched.",
     "episode.seasonActionsTitle": "What do you want to do with this season?",
@@ -1749,6 +1763,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "series.allEpisodesTitle": "Todos los episodios",
     "episode.markSeriesTitle": "¿Marcar toda la serie como vista?",
     "episode.markSeriesMessage": "Todos los episodios de esta serie se marcarán como vistos.",
+    "episode.pendingSingular": "pendiente",
+    "episode.pendingPlural": "pendientes",
+    "episode.pendingSheetAllCaughtUp": "No hay episodios pendientes.",
+    "episode.pendingSheetLoadError": "No se pudieron cargar los episodios pendientes.",
     "episode.unmarkSeriesTitle": "¿Desmarcar toda la serie?",
     "episode.unmarkSeriesMessage": "Todos los episodios de esta serie volverán a no vistos.",
     "episode.seasonActionsTitle": "¿Qué quieres hacer con esta temporada?",

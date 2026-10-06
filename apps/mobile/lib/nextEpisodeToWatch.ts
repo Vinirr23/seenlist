@@ -29,6 +29,132 @@ interface WatchedEpisodesLookup {
   idsBySeriesId: Map<number, Set<number>>;
 }
 
+/**
+ * A PEDIDO (2026-10-02 — "abrir uma lista ali mesmo com o restante dos
+ * episódios pra melhorar o fluxo", aprovado via mockup, Opção B: sheet
+ * que sobe do rodapé) — cada episódio pendente, com o selo
+ * (NOVO/MAIS RECENTE/PREMIERE) já calculado pra ele, não só pro
+ * primeiro. Usado pela folha que abre direto do "+N" no card de
+ * "Continue assistindo".
+ */
+export interface PendingEpisode {
+  seasonNumber: number;
+  episodeNumber: number;
+  name: string;
+  airDate: string | null;
+  episodeId?: number;
+  badge: UpcomingBadge;
+}
+
+type RawPendingEpisode = { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number };
+
+/**
+ * EXTRAÍDA (2026-10-02, mesmo pedido acima) do corpo do laço que já
+ * existia dentro de `fetchNextEpisodesToWatch` — usada ali E por
+ * `fetchPendingEpisodesForSeries` (abaixo), pra NÃO duplicar esta
+ * lógica: já teve 3 rodadas de correção de bug real documentadas logo
+ * abaixo (Tanya the Evil, temporada sem data, Outlander T02) —
+ * duplicar arriscaria essas correções divergirem com o tempo entre as
+ * duas funções.
+ */
+function computePendingEpisodesForSeries(
+  liveEpisodes: RawPendingEpisode[],
+  watchedKeys: Set<string>,
+  watchedIds: Set<number>,
+  today: string
+): RawPendingEpisode[] {
+  /**
+   * CORREÇÃO (bug real, reportado — Tanya the Evil e Daemons do
+   * Reino das Sombras, animes em exibição semanal) — antes,
+   * `e.airDate !== null` excluía de vez qualquer episódio sem data
+   * de exibição conhecida, mesmo que já tivesse ido ao ar de
+   * verdade. O TMDB às vezes demora a preencher a data do episódio
+   * mais recente de um anime em exibição — o episódio existia,
+   * estava disponível, só a `airDate` ainda não tinha chegado.
+   * Resultado: episódio pendente de verdade nunca aparecia como
+   * "próximo a assistir". Agora só EXCLUI quando a data É
+   * CONHECIDA e está no futuro — data desconhecida (`null`) não
+   * exclui mais, mesmo espírito da correção já aplicada no web
+   * (`ContinueWatchingCard.tsx`).
+   *
+   * CORREÇÃO 2 (bug NOVO, introduzido pela correção acima —
+   * reportado "temporada nova confirmada mas SEM data de
+   * lançamento foi pra Continue assistindo à toa") — episódio sem
+   * data só conta como "pode já ter saído" se a MESMA temporada
+   * tiver pelo menos um outro episódio com data confirmada e já
+   * passada. Temporada inteira sem nenhuma data (especulação de
+   * futuro, ainda sem estreia) não conta mais — evita mostrar
+   * "próximo episódio" de uma temporada que nem tem previsão de
+   * estrear ainda.
+   *
+   * CORREÇÃO 3 (bug real, reportado com print — Outlander: Blood of
+   * My Blood T02, episódios 9/10 sem data aparecendo como "próximo a
+   * assistir", pulando na frente dos episódios 3-8, que TÊM data real
+   * ainda no futuro) — a CORREÇÃO 2 acima não bastava: uma temporada
+   * pode ter UM episódio antigo já ao ar (confirmando a temporada) E
+   * TAMBÉM ter episódios com data real futura conhecida — nesse caso
+   * a temporada já tem calendário de verdade, e um episódio sem data
+   * no meio dela não "pode já ter saído": é só um que o TMDB ainda
+   * não catalogou, quase certamente mais adiante que os que JÁ têm
+   * data futura. Diferente do caso do anime semanal (CORREÇÃO 1):
+   * lá a temporada não tinha NENHUMA data futura conhecida, só a
+   * ausência de data no episódio mais recente. Por isso a regra da
+   * CORREÇÃO 2 agora também exige que a temporada não tenha nenhum
+   * episódio com data futura conhecida — se tiver, o fallback de
+   * "sem data" não se aplica mais pra ela.
+   */
+  const seasonsWithConfirmedAiring = new Set(
+    liveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today).map((e) => e.seasonNumber)
+  );
+  const seasonsWithKnownFutureSchedule = new Set(
+    liveEpisodes.filter((e) => e.airDate !== null && e.airDate > today).map((e) => e.seasonNumber)
+  );
+  return liveEpisodes
+    .filter(
+      (e) =>
+        (e.airDate !== null && e.airDate <= today) ||
+        (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber) && !seasonsWithKnownFutureSchedule.has(e.seasonNumber))
+    )
+    // CORREÇÃO (2026-08-26 — "motor resistente") — ID FIXO da TMDB primeiro, cai pra chave (temporada-episódio) sem ele.
+    .filter((e) => !(e.episodeId !== undefined && watchedIds.has(e.episodeId)) && !watchedKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
+    .sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)
+    .map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, name: e.name, airDate: e.airDate, episodeId: e.episodeId }));
+}
+
+/**
+ * A PEDIDO (2026-10-02, ver comentário grande em `PendingEpisode`,
+ * acima) — a lista INTEIRA de pendentes de UMA série (não só o
+ * primeiro + contagem, que é o que `fetchNextEpisodesToWatch` devolve
+ * pro card). Usada só quando o usuário abre a folha de pendentes —
+ * não roda em lote pra toda a Home, então não tem o mesmo cuidado de
+ * paralelismo em massa que `fetchNextEpisodesToWatch` tem.
+ */
+export async function fetchPendingEpisodesForSeries(seriesId: number, language = "pt-BR"): Promise<PendingEpisode[]> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) return [];
+
+  const [liveEpisodesBySeriesId, watchedLookup] = await Promise.all([
+    fetchLiveEpisodesBySeriesId([seriesId], language),
+    fetchWatchedEpisodeKeysBySeriesId(user.id, [seriesId]),
+  ]);
+
+  const liveEpisodes = liveEpisodesBySeriesId.get(seriesId) ?? [];
+  const watchedKeys = watchedLookup.keysBySeriesId.get(seriesId) ?? new Set<string>();
+  const watchedIds = watchedLookup.idsBySeriesId.get(seriesId) ?? new Set<number>();
+
+  const pending = computePendingEpisodesForSeries(liveEpisodes, watchedKeys, watchedIds, todayLocalKey());
+  const badgeWatchedSet = new Set([...watchedKeys].map((key) => `${seriesId}-${key}`));
+
+  return pending.map((ep) => ({
+    ...ep,
+    badge: ep.airDate
+      ? computeBadge({ seriesId, seasonNumber: ep.seasonNumber, episodeNumber: ep.episodeNumber, airDate: ep.airDate }, badgeWatchedSet)
+      : null,
+  }));
+}
+
 /** Mesma paginação já usada em fetchLibraryItems/recalculateUpToDateSeriesCategories — evita o limite padrão de 1000 linhas cortar o resultado. */
 /** Mesma paginação paralela já usada em fetchLibraryItems/recalculateUpToDateSeriesCategories (TASK-149 — busca a contagem primeiro, depois todas as páginas ao mesmo tempo, em vez de uma de cada vez). */
 async function fetchWatchedEpisodeKeysBySeriesId(userId: string, seriesIds: number[]): Promise<WatchedEpisodesLookup> {
@@ -136,62 +262,11 @@ export async function fetchNextEpisodesToWatch(seriesIds: number[], language = "
     // CORREÇÃO (2026-08-26 — "motor resistente") — ver episodeIsWatched/comentário grande em seriesDetails.ts.
     const watchedIds = watchedIdsBySeriesId.get(seriesId) ?? new Set<number>();
 
-    /**
-     * CORREÇÃO (bug real, reportado — Tanya the Evil e Daemons do
-     * Reino das Sombras, animes em exibição semanal) — antes,
-     * `e.airDate !== null` excluía de vez qualquer episódio sem data
-     * de exibição conhecida, mesmo que já tivesse ido ao ar de
-     * verdade. O TMDB às vezes demora a preencher a data do episódio
-     * mais recente de um anime em exibição — o episódio existia,
-     * estava disponível, só a `airDate` ainda não tinha chegado.
-     * Resultado: episódio pendente de verdade nunca aparecia como
-     * "próximo a assistir". Agora só EXCLUI quando a data É
-     * CONHECIDA e está no futuro — data desconhecida (`null`) não
-     * exclui mais, mesmo espírito da correção já aplicada no web
-     * (`ContinueWatchingCard.tsx`).
-     *
-     * CORREÇÃO 2 (bug NOVO, introduzido pela correção acima —
-     * reportado "temporada nova confirmada mas SEM data de
-     * lançamento foi pra Continue assistindo à toa") — episódio sem
-     * data só conta como "pode já ter saído" se a MESMA temporada
-     * tiver pelo menos um outro episódio com data confirmada e já
-     * passada. Temporada inteira sem nenhuma data (especulação de
-     * futuro, ainda sem estreia) não conta mais — evita mostrar
-     * "próximo episódio" de uma temporada que nem tem previsão de
-     * estrear ainda.
-     *
-     * CORREÇÃO 3 (bug real, reportado com print — Outlander: Blood of
-     * My Blood T02, episódios 9/10 sem data aparecendo como "próximo a
-     * assistir", pulando na frente dos episódios 3-8, que TÊM data real
-     * ainda no futuro) — a CORREÇÃO 2 acima não bastava: uma temporada
-     * pode ter UM episódio antigo já ao ar (confirmando a temporada) E
-     * TAMBÉM ter episódios com data real futura conhecida — nesse caso
-     * a temporada já tem calendário de verdade, e um episódio sem data
-     * no meio dela não "pode já ter saído": é só um que o TMDB ainda
-     * não catalogou, quase certamente mais adiante que os que JÁ têm
-     * data futura. Diferente do caso do anime semanal (CORREÇÃO 1):
-     * lá a temporada não tinha NENHUMA data futura conhecida, só a
-     * ausência de data no episódio mais recente. Por isso a regra da
-     * CORREÇÃO 2 agora também exige que a temporada não tenha nenhum
-     * episódio com data futura conhecida — se tiver, o fallback de
-     * "sem data" não se aplica mais pra ela.
-     */
-    const seasonsWithConfirmedAiring = new Set(
-      liveEpisodes.filter((e) => e.airDate !== null && e.airDate <= today).map((e) => e.seasonNumber)
-    );
-    const seasonsWithKnownFutureSchedule = new Set(
-      liveEpisodes.filter((e) => e.airDate !== null && e.airDate > today).map((e) => e.seasonNumber)
-    );
-    const pending = liveEpisodes
-      .filter(
-        (e) =>
-          (e.airDate !== null && e.airDate <= today) ||
-          (e.airDate === null && seasonsWithConfirmedAiring.has(e.seasonNumber) && !seasonsWithKnownFutureSchedule.has(e.seasonNumber))
-      )
-      // CORREÇÃO (2026-08-26 — "motor resistente") — ID FIXO da TMDB primeiro, cai pra chave (temporada-episódio) sem ele.
-      .filter((e) => !(e.episodeId !== undefined && watchedIds.has(e.episodeId)) && !watchedKeys.has(`${e.seasonNumber}-${e.episodeNumber}`))
-      .sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)
-      .map((e) => ({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, name: e.name, airDate: e.airDate, episodeId: e.episodeId }));
+    // Filtro extraído pra `computePendingEpisodesForSeries` (ver
+    // comentário grande lá, com as 3 correções de bug real que essa
+    // lógica já teve) — reaproveitado também por
+    // `fetchPendingEpisodesForSeries`, abaixo neste arquivo.
+    const pending = computePendingEpisodesForSeries(liveEpisodes, watchedKeys, watchedIds, today);
 
     if (pending.length > 0) pendingBySeriesId.set(seriesId, pending);
   }
