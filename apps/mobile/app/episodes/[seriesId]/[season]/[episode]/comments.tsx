@@ -1,15 +1,28 @@
 import { ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { EpisodeCommentsSection } from "@/components/episode/EpisodeCommentsSection";
-import { Screen, GlassTargetProvider, AmbientGlow, ScreenHeader } from "@/components/ui";
-import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
-import { spacing } from "@/lib/theme";
+import { EpisodeCommentComposerButton } from "@/components/episode/EpisodeCommentComposerButton";
+import { useEpisodeComments } from "@/lib/social/useEpisodeComments";
+import { Screen, ScreenHeader } from "@/components/ui";
+import { spacing, colors } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
  * TASK-122 (episódio) — porta de `CommentsPageView.tsx`: tela própria
  * (não mais embutida na tela de detalhes do episódio), igual ao web.
+ *
+ * HOOK LEVANTADO PRA AQUI (2026-10-06, a pedido — "o (+) e no topo um
+ * quadrado pra escrever comentário são redundantes") — `useEpisodeComments(target)`
+ * antes era chamado DENTRO de `EpisodeCommentsSection` (que também
+ * tinha o composer inline). Esse composer saiu (ver comentário em
+ * `EpisodeCommentsSection.tsx`) e foi substituído pelo "+" dedicado
+ * (`EpisodeCommentComposerButton`, abaixo) — como agora DOIS lugares
+ * desta tela precisam do mesmo `submit`/`tree`/etc. (a lista e o
+ * composer), o hook subiu pra cá, chamado UMA SÓ VEZ (ele não tem
+ * cache compartilhado — chamar duas vezes criaria dois estados
+ * independentes, buscando/duplicando por conta própria), e desce como
+ * props pros dois.
  */
 export default function EpisodeCommentsScreen() {
   const { t } = useTranslation();
@@ -18,6 +31,10 @@ export default function EpisodeCommentsScreen() {
   const seasonNumber = Number(season);
   const episodeNumber = Number(episode);
   const espacoDoDock = useTabBarClearance();
+
+  const target = { mediaType: "series" as const, mediaId: seriesIdNum, seasonNumber, episodeNumber };
+  const { tree, isLoading, isError, sending, submit, remove, edit, retry } = useEpisodeComments(target);
+  const commentsBaseHref = `/episodes/${seriesIdNum}/${seasonNumber}/${episodeNumber}`;
 
   return (
     <Screen padded={false}>
@@ -31,22 +48,36 @@ export default function EpisodeCommentsScreen() {
       <ScreenHeader title={t("social.commentsTitle")} />
 
       {/*
-        * PORTE DO WEB (2026-09-04, "vidro que falta") — campo de manchas
-        * de `CommentsPageView.tsx` do web, que é exatamente o
-        * equivalente desta tela (ver `lib/glowBlobs.ts`). É ele que faz
-        * o composer e os cartões de comentário (`EpisodeCommentsSection`/
-        * `EpisodeCommentItem`, já convertidos pra `Glass`) terem o que
-        * borrar — sem isso eles caem no fallback "borda simples".
+        * VIDRO REMOVIDO (2026-10-06, a pedido — "em séries/episódios é
+        * só pra tirar o glass completamente e adicionar o (+)") — sem
+        * `GlassTargetProvider`/`AmbientGlow` nem alvo de borrão pro
+        * composer/cartões de comentário (`EpisodeCommentsSection`/
+        * `EpisodeCommentItem`, agora planos, mesma receita do Feed).
         */}
-      <GlassTargetProvider style={styles.flex} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
-          <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
-            <EpisodeCommentsSection
-              target={{ mediaType: "series", mediaId: seriesIdNum, seasonNumber, episodeNumber }}
-            />
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </GlassTargetProvider>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
+          <EpisodeCommentsSection
+            tree={tree}
+            isLoading={isLoading}
+            isError={isError}
+            retry={retry}
+            remove={remove}
+            edit={edit}
+            commentsBaseHref={commentsBaseHref}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/*
+        * "+" DE COMENTÁRIO (2026-10-06, a pedido) — era o
+        * `CreatePostButton` genérico do Feed (redundante com o
+        * composer que existia no topo da lista, e que só publicava no
+        * Feed geral, não como comentário de episódio de verdade — ver
+        * comentário grande em `EpisodeCommentComposerButton.tsx`).
+        * Agora é este componente dedicado, com "contém spoiler" e sem
+        * enquete, submetendo pelo `submit` deste hook.
+        */}
+      <EpisodeCommentComposerButton onSubmit={submit} sending={sending} />
     </Screen>
   );
 }
@@ -54,6 +85,7 @@ export default function EpisodeCommentsScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: spacing.md,

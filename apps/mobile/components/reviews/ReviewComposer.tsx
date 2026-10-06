@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, TextInput, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { Text, Glass } from "@/components/ui";
+import { Text } from "@/components/ui";
 import { StarRating } from "./StarRating";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
@@ -66,10 +66,11 @@ export interface ReviewComposerProps {
  * (mesma correção do bug real "review duplicada no Feed", já
  * corrigida em `lib/posts.ts`/`createReviewPost`).
  *
- * PORTE DO WEB (2026-09-04, "vidro que falta") — card vira `<Glass>`
- * (web, `ReviewFullComposer.tsx`: "mesma textura de card neutro do
- * resto do app; textarea/checkbox internos ficam como estão — campos
- * de formulário não recebem vidro").
+ * VIDRO REMOVIDO (2026-10-06, a pedido — "em séries/episódios é só
+ * pra tirar o glass completamente") — card virou superfície plana
+ * (`colors.surface`), mesma receita visual do Feed (sem blur/borrão).
+ * Era `<Glass>` desde o porte do web (2026-09-04); textarea/checkbox
+ * internos continuam como sempre estiveram, sem vidro.
  */
 export function ReviewComposer({
   initialRating = 0,
@@ -106,9 +107,26 @@ export function ReviewComposer({
   }, [temTexto]);
 
   return (
-    <Glass style={styles.card}>
+    <View style={styles.card}>
       {/* As estrelas ficavam CENTRALIZADAS; no web elas nascem no canto esquerdo do card, como qualquer outra linha do formulário. */}
-      {showRating && <StarRating value={rating} onChange={setRating} />}
+      {showRating && (
+        <View style={styles.ratingRow}>
+          <StarRating value={rating} onChange={setRating} />
+          {/*
+            PÍLULA COM A NOTA (2026-10-06, mockup "Opção B" escolhido —
+            https://claude.ai/artifact/59y79DxBCPvQgTS48Lh6Pa) — mesma
+            linguagem visual do selo de tipo de atividade já padronizado
+            no Feed (círculo/pílula na cor-marca). Só aparece com nota
+            dada (`rating > 0`) — sem nota ainda, não tem o que mostrar.
+          */}
+          {rating > 0 && (
+            <View style={styles.ratingPill}>
+              <View style={styles.ratingPillDot} />
+              <Text style={styles.ratingPillText}>{rating.toFixed(1)}</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <TextInput
         value={text}
@@ -166,17 +184,45 @@ export function ReviewComposer({
           )}
         </Pressable>
       </View>
-    </Glass>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // `Glass` não define raio — web usa `rounded-2xl` (16px) = `radius.lg`.
+  // PÍLULA COM A NOTA (2026-10-06, ver comentário grande no JSX, acima).
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  ratingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(232,163,61,0.14)",
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  ratingPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  ratingPillText: {
+    fontSize: fontSize.sm,
+    fontWeight: "800",
+    color: colors.primary,
+  },
   /** `space-y-3 ... p-3.5` = 12 entre as partes e 14 de recheio (era 8 e 16). */
   card: {
     gap: 12,
     borderRadius: radius.lg,
     padding: 14,
+    backgroundColor: colors.surface,
   },
   /** `rounded-lg border border-border bg-background px-3 py-2 text-sm`, `rows={3}`. */
   textArea: {

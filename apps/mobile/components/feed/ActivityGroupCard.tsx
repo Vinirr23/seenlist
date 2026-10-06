@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { isMergedActivityItem, type ActivityGroup, type MergedActivityItem } from "@/lib/useFeedEntries";
 import type { ActivityItem, ActivityType } from "@/lib/activityFeed";
+import { ActivityTypeChip } from "./ActivityCard";
 import { tmdbImageUrl } from "@/lib/library";
 import { Text, PressableScale } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
@@ -215,14 +216,9 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
             </View>
             {allSameType && singleActivityType ? (
               <View style={styles.verbRow}>
-                {singleActivityType === "watchlist" ? (
-                  <Feather name="bookmark" size={11} color={colors.primary} />
-                ) : singleActivityType === "completed" ? (
-                  <Feather name="check-circle" size={11} color={colors.success} />
-                ) : (
-                  <Feather name="star" size={11} color={colors.primary} />
-                )}
-                <Text variant="muted" style={styles.verb}>
+                {/* PASTILHA COLORIDA POR TIPO (2026-10-06) — ver comentário grande em `ActivityTypeChip`, `ActivityCard.tsx`. */}
+                <ActivityTypeChip type={singleActivityType} size={16} iconSize={9} />
+                <Text variant="muted" style={[styles.verb, { marginLeft: 2 }]}>
                   {t(
                     singleActivityType === "watchlist"
                       ? "feed.activityGroupWatchlist"
@@ -244,21 +240,22 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
 
       {!allSameType && (
         <View style={styles.pillsRow}>
+          {/* PASTILHA COLORIDA POR TIPO (2026-10-06) — ver comentário grande em `ActivityTypeChip`, `ActivityCard.tsx`. */}
           {counts.completed > 0 && (
             <View style={styles.pill}>
-              <Feather name="check-circle" size={11} color={colors.success} />
+              <ActivityTypeChip type="completed" size={14} iconSize={8} />
               <Text style={styles.pillText}>{t("feed.activityGroupMixedCompleted", { count: counts.completed })}</Text>
             </View>
           )}
           {counts.watchlist > 0 && (
             <View style={styles.pill}>
-              <Feather name="bookmark" size={11} color={colors.primary} />
+              <ActivityTypeChip type="watchlist" size={14} iconSize={8} />
               <Text style={styles.pillText}>{t("feed.activityGroupMixedWatchlist", { count: counts.watchlist })}</Text>
             </View>
           )}
           {counts.rated > 0 && (
             <View style={styles.pill}>
-              <Feather name="star" size={11} color={colors.primary} />
+              <ActivityTypeChip type="rated" size={14} iconSize={8} />
               <Text style={styles.pillText}>{t("feed.activityGroupMixedRated", { count: counts.rated })}</Text>
             </View>
           )}
@@ -312,15 +309,10 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
                   // esse título" dentro de um grid de pôsteres lado a
                   // lado (sem linha de texto própria por item).
                   <View style={styles.mergedBadgeStrip}>
-                    {[...new Set(item.actions)].map((action) =>
-                      action === "watchlist" ? (
-                        <Feather key={action} name="bookmark" size={9} color="#fff" />
-                      ) : action === "completed" ? (
-                        <Feather key={action} name="check-circle" size={9} color="#fff" />
-                      ) : (
-                        <Feather key={action} name="star" size={9} color="#fff" />
-                      )
-                    )}
+                    {/* PASTILHA COLORIDA POR TIPO (2026-10-06) — ver comentário grande em `ActivityTypeChip`, `ActivityCard.tsx`. Era ícone branco liso (contraste genérico contra qualquer pôster); a pastilha colorida já garante contraste sozinha (círculo sólido + ícone escuro dentro), então ganha a mesma identidade visual do resto do Feed sem perder legibilidade. */}
+                    {[...new Set(item.actions)].map((action) => (
+                      <ActivityTypeChip key={action} type={action} size={14} iconSize={8} />
+                    ))}
                   </View>
                 )}
               </View>

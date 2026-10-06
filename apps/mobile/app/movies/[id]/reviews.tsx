@@ -1,9 +1,8 @@
 import { ScrollView, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { ReviewsFullView } from "@/components/reviews/ReviewsFullView";
-import { Screen, GlassTargetProvider, AmbientGlow, ScreenHeader } from "@/components/ui";
-import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
-import { spacing } from "@/lib/theme";
+import { Screen, ScreenHeader } from "@/components/ui";
+import { spacing, colors } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -35,24 +34,27 @@ export default function MovieReviewsScreen() {
       */}
       <ScreenHeader title={t("social.reviews")} style={styles.header} />
 
-      {/* PORTE DO WEB (2026-09-04, "vidro que falta") — mesmo campo de manchas de `app/series/[id]/reviews.tsx` (ver comentário completo lá). */}
-      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
-          {/* A PEDIDO (2026-09-25, "a avaliação na tab 'sobre' e a tab 'mais' estão ficando duplicadas") — filme avalia (nota) pela aba "Mais" agora; esta tela vira só comentário. */}
-          <ReviewsFullView
-            target={{ mediaType: "movie", mediaId: numericId }}
-            media={{ title: title ?? "", posterPath: posterPath || null }}
-            showRating={false}
-          />
-        </ScrollView>
-      </GlassTargetProvider>
+      {/*
+        * VIDRO REMOVIDO (2026-10-06, mesma mudança de
+        * `app/series/[id]/reviews.tsx` — tela gêmea, mesmos componentes
+        * compartilhados `ReviewComposer`/`ReviewCard`, agora planos).
+        */}
+      <ScrollView style={styles.flex} contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
+        {/* A PEDIDO (2026-09-25, "a avaliação na tab 'sobre' e a tab 'mais' estão ficando duplicadas") — filme avalia (nota) pela aba "Mais" agora; esta tela vira só comentário. */}
+        <ReviewsFullView
+          target={{ mediaType: "movie", mediaId: numericId }}
+          media={{ title: title ?? "", posterPath: posterPath || null }}
+          showRating={false}
+        />
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  glassFill: {
+  flex: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   /**
    * FASE 2 (2026-09-26) — a linha divisória embaixo do cabeçalho

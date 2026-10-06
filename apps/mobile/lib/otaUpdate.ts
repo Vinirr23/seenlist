@@ -32,6 +32,19 @@ import * as Updates from "expo-updates";
  * recebem NENHUM OTA, automático ou não — o runtime não bate, então o
  * servidor de updates nem oferece um update pra eles. Só atualizando
  * pela loja.
+ *
+ * INVESTIGAÇÃO (2026-10-06, "não vi a mudança visual depois do
+ * update") — este hook, o `eas.json`/`app.json` e o pipeline de
+ * entrega do OTA em si foram todos auditados e confirmados corretos
+ * (canal/branch/runtime batendo, `eas channel:view production`
+ * limpo, e um publish de diagnóstico temporário provou, ao vivo no
+ * aparelho, que o app baixa e aplica update novo normalmente). A
+ * CAUSA RAIZ real não tinha nada a ver com OTA: a implementação dos
+ * cards coloridos (`ActivityCard.tsx`) nunca tinha sido salva de
+ * verdade no arquivo no disco do usuário (`git diff`/`git status`
+ * confirmaram — só a correção de tamanho de pôster, de um commit
+ * anterior, estava lá). Reaplicada e reconferida puxando o arquivo de
+ * volta do disco antes de publicar de novo. Este hook nunca teve bug.
  */
 export function useOtaUpdateCheck() {
   const checando = useRef(false);

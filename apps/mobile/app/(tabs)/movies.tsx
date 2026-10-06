@@ -112,7 +112,32 @@ export default function MoviesScreen() {
     [items]
   );
 
-  const wantToWatch = useMemo(() => allWantToWatch.filter((item) => isReleased(item.releaseDate, todayKey)), [allWantToWatch, todayKey]);
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-10-06, bug reportado com print —
+   * "os filmes não estão mostrando na sequência certa, estão
+   * aparecendo misturados... últimos filmes adicionados a lista
+   * 'patriota e medieval'") — a lista nunca tinha ordenação PRÓPRIA
+   * aqui; a ordem que aparecia era a que sobrava de
+   * `fetchLibraryItems`/`buildLibraryItemsFromRows`
+   * (`lib/library.ts`), que busca `movie_status` ordenado por
+   * `.order("movie_id", { ascending: true })` — ordem elaborada só
+   * pra paginação funcionar direito (evitar linha duplicada/faltando
+   * entre páginas de 1000, ver comentário lá), nunca pensada como
+   * ordem de EXIBIÇÃO. `movie_id` é o id do TMDB (o filme em si), sem
+   * nenhuma relação com QUANDO a pessoa adicionou à lista — por isso
+   * "Patriota"/"Medieval" (adicionados por último) apareciam no meio
+   * do grid, na posição que o id numérico deles calhasse de cair.
+   * Ordenado aqui por `createdAt` decrescente — adicionado mais
+   * recentemente aparece primeiro, mesmo critério intuitivo de
+   * qualquer lista "a seguir".
+   */
+  const wantToWatch = useMemo(
+    () =>
+      allWantToWatch
+        .filter((item) => isReleased(item.releaseDate, todayKey))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [allWantToWatch, todayKey]
+  );
 
   const upcoming = useMemo(
     () =>

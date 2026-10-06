@@ -1,10 +1,37 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { fetchDisplaySummaries } from "@/lib/library";
+import type { VerifiedTier } from "./publicProfile";
+
+/**
+ * LISTA COMPARTILHADA (2026-10-06) — retomada do zero, ver
+ * `claude/SEENLIST-FEATURE-2026-10-06-lista-compartilhada.md` no
+ * projeto pra todo o histórico de decisões. Sempre no máximo 1
+ * co-dono por lista (nunca um grupo) — por isso 2 colunas na própria
+ * tabela `lists` (migration `20261006000000_lists_co_owner.sql`), não
+ * uma tabela de colaboradores.
+ *
+ * Co-dono tem direito IGUAL só sobre os ITENS da lista (adicionar/
+ * remover) — nome e exclusão da lista continuam exclusivos de quem
+ * criou (`ownerId`). Isso é reforçado no banco (RLS + trigger), não só
+ * escondido na UI.
+ */
+export interface ListCoOwner {
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  verifiedTier: VerifiedTier;
+  status: "pending" | "accepted";
+}
 
 export interface UserList {
   id: string;
   name: string;
   createdAt: string;
+  ownerId: string;
+  coOwner: ListCoOwner | null;
+  /** Lista onde EU sou o co-dono (não o dono original) — controla o que a UI deixa eu fazer (não posso renomear/apagar). */
+  isCoOwnedByMe: boolean;
 }
 
 /**
@@ -47,20 +74,78 @@ export interface ListWithPreview extends UserList {
   itemCount: number;
 }
 
-/** Idêntico a useMyLists do web. */
+/**
+ * Idêntico a useMyLists do web, + co-dono (2026-10-06). A consulta
+ * agora traz tanto as listas que EU criei quanto as que fui convidado
+ * pra co-dono de (a RLS já permite SELECT nos dois casos — ver a
+ * migration de co-dono) — sem isso, o client ia continuar assumindo
+ * "toda linha que voltou é minha lista", o que não é mais verdade.
+ */
 export async function fetchMyLists(): Promise<UserList[]> {
-  const { data, error } = await supabase.from("lists").select("id, name, created_at").order("created_at", { ascending: false });
-  if (error) throw error;
-  const result = (data ?? []).map((row) => ({ id: row.id, name: row.name, createdAt: row.created_at }));
-
   const {
     data: { user },
   } = await getCurrentAuthUser();
+
+  const { data, error } = await supabase
+    .from("lists")
+    .select("id, name, created_at, user_id, co_owner_id, co_owner_status")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const result = await attachCoOwnerProfiles(data ?? [], user?.id ?? null);
+
   if (user) {
     myListsCache = { userId: user.id, data: result, expiresAt: Date.now() + MY_LISTS_CACHE_TTL_MS };
   }
 
   return result;
+}
+
+interface RawListRow {
+  id: string;
+  name: string;
+  created_at: string;
+  user_id: string;
+  co_owner_id: string | null;
+  co_owner_status: "pending" | "accepted" | null;
+}
+
+/**
+ * `lists.co_owner_id` referencia `auth.users`, não `public.profiles`
+ * direto — não dá pra embutir num só `select` do PostgREST (mesmo
+ * motivo pelo qual `fetchNotifications` busca `actor_id` separado).
+ * Uma única consulta em lote busca o perfil de todos os co-donos
+ * distintos de uma vez (nunca uma consulta por lista).
+ */
+async function attachCoOwnerProfiles(rows: RawListRow[], viewerId: string | null): Promise<UserList[]> {
+  const coOwnerIds = [...new Set(rows.map((r) => r.co_owner_id).filter((id): id is string => Boolean(id)))];
+  const { data: profiles } =
+    coOwnerIds.length > 0
+      ? await supabase.from("profiles").select("user_id, username, display_name, avatar_url, verified_tier").in("user_id", coOwnerIds)
+      : { data: [] as { user_id: string; username: string; display_name: string | null; avatar_url: string | null; verified_tier: string | null }[] };
+  const profileById = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+
+  return rows.map((row) => {
+    const profile = row.co_owner_id ? profileById.get(row.co_owner_id) : null;
+    return {
+      id: row.id,
+      name: row.name,
+      createdAt: row.created_at,
+      ownerId: row.user_id,
+      coOwner:
+        profile && row.co_owner_status
+          ? {
+              userId: profile.user_id,
+              username: profile.username,
+              displayName: profile.display_name,
+              avatarUrl: profile.avatar_url,
+              verifiedTier: (profile.verified_tier as VerifiedTier) ?? null,
+              status: row.co_owner_status,
+            }
+          : null,
+      isCoOwnedByMe: viewerId !== null && row.co_owner_id === viewerId,
+    };
+  });
 }
 
 /** Idêntico a useCreateList do web. */
@@ -132,9 +217,18 @@ export async function deleteList(listId: string): Promise<void> {
  * as listas de uma vez (não uma consulta por lista), evitando N+1.
  */
 export async function fetchMyListsWithPreview(language = "pt-BR"): Promise<ListWithPreview[]> {
-  const { data: lists, error } = await supabase.from("lists").select("id, name, created_at").order("created_at", { ascending: false });
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+
+  const { data: rawLists, error } = await supabase
+    .from("lists")
+    .select("id, name, created_at, user_id, co_owner_id, co_owner_status")
+    .order("created_at", { ascending: false });
   if (error) throw error;
-  if (!lists || lists.length === 0) return [];
+  if (!rawLists || rawLists.length === 0) return [];
+
+  const lists = await attachCoOwnerProfiles(rawLists, user?.id ?? null);
 
   const listIds = lists.map((l) => l.id);
   const { data: allItems, error: itemsError } = await supabase
@@ -172,11 +266,140 @@ export async function fetchMyListsWithPreview(language = "pt-BR"): Promise<ListW
       return summary?.posterPath ?? null;
     });
     return {
-      id: list.id,
-      name: list.name,
-      createdAt: list.created_at,
+      ...list,
       previewPosters,
       itemCount: countByList.get(list.id) ?? 0,
     };
   });
+}
+
+/**
+ * Convida alguém pra co-dono da lista — busca por username (reaproveita
+ * `fetchUserSearch`, o mesmo mecanismo de "Descobrir pessoas"). Só o
+ * dono original pode convidar (reforçado pela RLS: `with check` da
+ * policy de update exige `user_id = auth.uid()` OU `co_owner_id =
+ * auth.uid()`, e o trigger bloqueia o co-dono de setar um convite —
+ * ele só pode aceitar/recusar o próprio). Falha se a lista já tiver um
+ * convite ativo (pending ou accepted) — só 1 co-dono por vez.
+ */
+export async function inviteCoOwner(listId: string, listName: string, targetUserId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) throw new Error("not authenticated");
+
+  // `.is("co_owner_id", null)` garante atomicamente que não existe
+  // convite ativo nenhum — sem o `.select()` pra checar `data.length`,
+  // uma lista que já tem co-dono simplesmente não atualizaria nenhuma
+  // linha e o erro passaria em branco (Supabase não trata "0 linhas
+  // afetadas" como erro).
+  const { data, error } = await supabase
+    .from("lists")
+    .update({ co_owner_id: targetUserId, co_owner_status: "pending" })
+    .eq("id", listId)
+    .is("co_owner_id", null)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Esta lista já tem um convite ativo.");
+
+  const { error: notifError } = await supabase.from("notifications").insert({
+    user_id: targetUserId,
+    actor_id: user.id,
+    type: "list_coowner_invite",
+    target_type: "list",
+    target_id: listId,
+    payload: { listName },
+  });
+  if (notifError) throw notifError;
+}
+
+/** O convidado aceita — o trigger no banco só deixa essa transição exata (pending -> accepted) passar pela mão do co-dono. */
+export async function acceptCoOwnerInvite(listId: string, listName: string, ownerId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) throw new Error("not authenticated");
+
+  const { error } = await supabase.from("lists").update({ co_owner_status: "accepted" }).eq("id", listId);
+  if (error) throw error;
+
+  const { error: notifError } = await supabase.from("notifications").insert({
+    user_id: ownerId,
+    actor_id: user.id,
+    type: "list_coowner_accepted",
+    target_type: "list",
+    target_id: listId,
+    payload: { listName },
+  });
+  if (notifError) throw notifError;
+}
+
+/** O convidado recusa o convite — zera os dois campos (mesma transição que "saír", do ponto de vista do banco). */
+export async function declineCoOwnerInvite(listId: string, listName: string, ownerId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) throw new Error("not authenticated");
+
+  const { error } = await supabase.from("lists").update({ co_owner_id: null, co_owner_status: null }).eq("id", listId);
+  if (error) throw error;
+
+  const { error: notifError } = await supabase.from("notifications").insert({
+    user_id: ownerId,
+    actor_id: user.id,
+    type: "list_coowner_declined",
+    target_type: "list",
+    target_id: listId,
+    payload: { listName },
+  });
+  if (notifError) throw notifError;
+}
+
+/**
+ * O co-dono sai por conta própria (já aceito). Itens que ele adicionou
+ * ficam na lista — decisão confirmada com o usuário. Tipo de
+ * notificação PRÓPRIO (`list_coowner_left`, diferente de
+ * `removeCoOwner` abaixo) porque quem recebe (o dono) precisa de um
+ * texto diferente — "{co-dono} saiu" não é a mesma frase que "você
+ * removeu {co-dono}".
+ */
+export async function leaveSharedList(listId: string, listName: string, ownerId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) throw new Error("not authenticated");
+
+  const { error } = await supabase.from("lists").update({ co_owner_id: null, co_owner_status: null }).eq("id", listId);
+  if (error) throw error;
+
+  const { error: notifError } = await supabase.from("notifications").insert({
+    user_id: ownerId,
+    actor_id: user.id,
+    type: "list_coowner_left",
+    target_type: "list",
+    target_id: listId,
+    payload: { listName },
+  });
+  if (notifError) throw notifError;
+}
+
+/** O dono original remove o co-dono (a qualquer momento, aceito ou não). Itens que o co-dono adicionou ficam na lista. */
+export async function removeCoOwner(listId: string, listName: string, coOwnerId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentAuthUser();
+  if (!user) throw new Error("not authenticated");
+
+  const { error } = await supabase.from("lists").update({ co_owner_id: null, co_owner_status: null }).eq("id", listId);
+  if (error) throw error;
+
+  const { error: notifError } = await supabase.from("notifications").insert({
+    user_id: coOwnerId,
+    actor_id: user.id,
+    type: "list_coowner_removed",
+    target_type: "list",
+    target_id: listId,
+    payload: { listName },
+  });
+  if (notifError) throw notifError;
 }

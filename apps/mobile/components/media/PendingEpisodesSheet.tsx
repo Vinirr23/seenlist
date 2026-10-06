@@ -3,9 +3,10 @@ import { Modal, Pressable, StyleSheet, View, ActivityIndicator, ScrollView, useW
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { fetchPendingEpisodesForSeries, type PendingEpisode } from "@/lib/nextEpisodeToWatch";
-import { toggleEpisodeWatched } from "@/lib/seriesDetails";
+import { toggleEpisodeWatched, markEpisodesWatched } from "@/lib/seriesDetails";
 import { hapticTick } from "@/lib/haptics";
 import { Text, Glass } from "@/components/ui";
+import { OptionSheet } from "@/components/settings/OptionSheet";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { colors, radius, spacing, scrim, fontSize, fontFamily } from "@/lib/theme";
 
@@ -48,6 +49,19 @@ export function PendingEpisodesSheet({ seriesId, seriesTitle, onMarkedWatched, o
   const [episodes, setEpisodes] = useState<PendingEpisode[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [markingKey, setMarkingKey] = useState<string | null>(null);
+  /**
+   * BUG REAL CORRIGIDO (2026-10-06, reportado — marcar um episódio aqui
+   * não perguntava se queria marcar os anteriores também, diferente do
+   * mesmo gesto na tela de Detalhe da Série) — a checagem e o diálogo
+   * ("marcar até aqui" / "só este") existiam só em
+   * `SeasonAccordion.tsx`/`handleEpisodePress`; nunca foram portados pra
+   * esta folha, criada depois (02/10) com seu próprio `handleMark` que
+   * chamava `toggleEpisodeWatched` direto, sem checagem nenhuma. `episodes`
+   * já é a lista de TODOS os pendentes da série, em ordem — "anterior" é
+   * calculado contra ELA (pode atravessar temporada, diferente do
+   * acordeão, que só vê uma por vez).
+   */
+  const [pendingConfirm, setPendingConfirm] = useState<PendingEpisode | null>(null);
   const mountedRef = useRef(true);
   useEffect(() => {
     return () => {
@@ -86,15 +100,41 @@ export function PendingEpisodesSheet({ seriesId, seriesTitle, onMarkedWatched, o
     }
   }, [episodes, onClose]);
 
-  async function handleMark(episode: PendingEpisode) {
+  function isEarlier(a: PendingEpisode, b: PendingEpisode): boolean {
+    if (a.seasonNumber !== b.seasonNumber) return a.seasonNumber < b.seasonNumber;
+    return a.episodeNumber < b.episodeNumber;
+  }
+
+  /** Toque no círculo de marcar — decide se marca direto ou pergunta primeiro (ver comentário grande em `pendingConfirm`, acima). */
+  function handlePressMark(episode: PendingEpisode) {
+    if (markingKey) return;
+    const hasUnwatchedBefore = (episodes ?? []).some((ep) => isEarlier(ep, episode));
+    if (hasUnwatchedBefore) {
+      hapticTick();
+      setPendingConfirm(episode);
+      return;
+    }
+    void handleMark(episode, []);
+  }
+
+  /** `earlier`: vazio = só este episódio (`toggleEpisodeWatched`, como antes); não vazio = em lote junto com os anteriores (`markEpisodesWatched`, mesmo UPSERT único que `SeasonAccordion`/`markUpToEpisode` já usa). */
+  async function handleMark(episode: PendingEpisode, earlier: PendingEpisode[]) {
     const key = `${episode.seasonNumber}-${episode.episodeNumber}`;
     if (markingKey) return; // uma marcação por vez — evita duas escritas concorrentes pro mesmo episódio.
     hapticTick();
     setMarkingKey(key);
     try {
-      await toggleEpisodeWatched(seriesId, episode.seasonNumber, episode.episodeNumber, false, episode.episodeId);
+      if (earlier.length > 0) {
+        await markEpisodesWatched(
+          seriesId,
+          [...earlier, episode].map((ep) => ({ seasonNumber: ep.seasonNumber, episodeNumber: ep.episodeNumber, episodeId: ep.episodeId }))
+        );
+      } else {
+        await toggleEpisodeWatched(seriesId, episode.seasonNumber, episode.episodeNumber, false, episode.episodeId);
+      }
       if (!mountedRef.current) return;
-      setEpisodes((current) => (current ? current.filter((ep) => `${ep.seasonNumber}-${ep.episodeNumber}` !== key) : current));
+      const removedKeys = new Set([key, ...earlier.map((ep) => `${ep.seasonNumber}-${ep.episodeNumber}`)]);
+      setEpisodes((current) => (current ? current.filter((ep) => !removedKeys.has(`${ep.seasonNumber}-${ep.episodeNumber}`)) : current));
       // Não espera — o card por trás da folha atualiza em paralelo, a
       // folha não precisa travar nisso (mesmo motivo documentado em
       // `handleMarkWatched`, `ContinueWatchingListRow.tsx`).
@@ -170,7 +210,7 @@ export function PendingEpisodesSheet({ seriesId, seriesTitle, onMarkedWatched, o
                     <Pressable
                       hitSlop={8}
                       disabled={markingKey !== null}
-                      onPress={() => handleMark(episode)}
+                      onPress={() => handlePressMark(episode)}
                       style={[styles.markButton, markingKey !== null && !isMarking && styles.markButtonDisabled]}
                     >
                       {isMarking ? (
@@ -186,6 +226,34 @@ export function PendingEpisodesSheet({ seriesId, seriesTitle, onMarkedWatched, o
           )}
         </Glass>
       </View>
+
+      {pendingConfirm && (
+        <OptionSheet
+          title={t("episode.markPreviousTitle")}
+          message={t("episode.markPreviousMessage")}
+          actions={[
+            {
+              label: t("common.yes"),
+              active: true,
+              onPress: () => {
+                const episode = pendingConfirm;
+                const earlier = (episodes ?? []).filter((ep) => isEarlier(ep, episode));
+                setPendingConfirm(null);
+                void handleMark(episode, earlier);
+              },
+            },
+            {
+              label: t("common.no"),
+              onPress: () => {
+                const episode = pendingConfirm;
+                setPendingConfirm(null);
+                void handleMark(episode, []);
+              },
+            },
+          ]}
+          onDismiss={() => setPendingConfirm(null)}
+        />
+      )}
     </Modal>
   );
 }

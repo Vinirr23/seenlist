@@ -12,7 +12,7 @@ import {
 import { RecommendPromptSheet } from "@/components/social/RecommendPromptSheet";
 import { RecommendSheet } from "@/components/social/RecommendSheet";
 import { fetchLikeInfoFor } from "@/lib/social/likes";
-import { Text, Glass } from "@/components/ui";
+import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { ReviewComposer } from "./ReviewComposer";
 import { ReviewCard } from "./ReviewCard";
@@ -258,14 +258,16 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
             desta etapa).
           */}
           {hasMore && (
-            <Pressable onPress={loadMore} disabled={loadingMore}>
-              <Glass style={[styles.loadMoreButton, loadingMore && styles.loadMoreButtonDisabled]}>
-                {loadingMore ? (
-                  <ActivityIndicator color={colors.text} />
-                ) : (
-                  <Text style={styles.loadMoreText}>{t("explore.discover.loadMore")}</Text>
-                )}
-              </Glass>
+            <Pressable
+              onPress={loadMore}
+              disabled={loadingMore}
+              style={[styles.loadMoreButton, loadingMore && styles.loadMoreButtonDisabled]}
+            >
+              {loadingMore ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <Text style={styles.loadMoreText}>{t("explore.discover.loadMore")}</Text>
+              )}
             </Pressable>
           )}
         </View>
@@ -295,13 +297,17 @@ const styles = StyleSheet.create({
   emptyStateText: {
     textAlign: "center",
   },
-  /** Mesmo estilo/valores de `DiscoverGridScreen.tsx` (botão "Carregar mais" já aprovado nesta etapa). */
+  /**
+   * VIDRO REMOVIDO (2026-10-06, a pedido) — era `<Glass>`; mesma
+   * superfície plana usada no resto desta tela agora.
+   */
   loadMoreButton: {
     marginTop: spacing.xs,
     alignSelf: "center",
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
   },
   loadMoreButtonDisabled: {
     opacity: 0.6,

@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import type { CommentNode } from "@/lib/social/mediaComments";
 import { SpoilerGate } from "@/components/reviews/SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
-import { Text, Button, Glass } from "@/components/ui";
+import { Text, Button } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { AdaptiveImage } from "@/components/media/AdaptiveImage";
@@ -128,14 +128,15 @@ export function EpisodeCommentItem({
     ]);
   }
 
-  // PORTE DO WEB (2026-09-04, "vidro que falta") — só o comentário-raiz
-  // (depth 0) vira card `<Glass>`; respostas (depth > 0) continuam sem
-  // card próprio, só indentação (mesmo critério do `CommentItem.tsx`
-  // do web).
-  const Container = depth === 0 ? Glass : View;
+  // VIDRO REMOVIDO (2026-10-06, a pedido — "em séries/episódios é só
+  // pra tirar o glass completamente") — era `<Glass>` só no
+  // comentário-raiz (depth 0); virou `View` com superfície plana
+  // (`colors.surface`, ver `styles.card`), mesmo critério de quando
+  // ganha "card" (respostas, depth > 0, continuam sem card próprio, só
+  // indentação).
 
   return (
-    <Container style={depth === 0 ? styles.card : styles.nested}>
+    <View style={depth === 0 ? styles.card : styles.nested}>
       {editing ? (
         <View>
           <TextInput value={editBody} onChangeText={setEditBody} multiline autoFocus style={styles.editInput} />
@@ -267,7 +268,7 @@ export function EpisodeCommentItem({
           ))}
         </View>
       )}
-    </Container>
+    </View>
   );
 }
 
@@ -277,13 +278,14 @@ export function EpisodeCommentItem({
 const AVATAR_SIZE = 36;
 
 const styles = StyleSheet.create({
-  // Raio de `radius.md` (10) → `radius.lg` (16): web usa `rounded-2xl`
-  // no comentário-raiz (`CommentItem.tsx`). `Glass` não define raio
-  // nenhum sozinho, então ele PRECISA ficar aqui.
+  // VIDRO REMOVIDO (2026-10-06, a pedido) — era `<Glass>` só no
+  // comentário-raiz; superfície plana (`colors.surface`) agora, mesma
+  // receita do Feed.
   card: {
     borderRadius: radius.lg,
     padding: spacing.sm,
     marginBottom: spacing.md,
+    backgroundColor: colors.surface,
   },
   nested: {
     marginTop: spacing.sm,

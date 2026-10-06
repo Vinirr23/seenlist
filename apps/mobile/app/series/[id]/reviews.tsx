@@ -1,9 +1,8 @@
 import { ScrollView, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { ReviewsFullView } from "@/components/reviews/ReviewsFullView";
-import { Screen, GlassTargetProvider, AmbientGlow, ScreenHeader } from "@/components/ui";
-import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
-import { spacing } from "@/lib/theme";
+import { Screen, ScreenHeader } from "@/components/ui";
+import { spacing, colors } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -43,28 +42,38 @@ export default function SeriesReviewsScreen() {
       <ScreenHeader title={t("social.reviews")} style={styles.header} />
 
       {/*
-        * PORTE DO WEB (2026-09-04, "vidro que falta") — campo de
-        * manchas de fundo igual ao das telas de Comentários do web
-        * (`CommentsPageView.tsx`), que é o equivalente lá desta tela
-        * (ver docstring acima). O `GlassTargetProvider` é o que faz os
-        * cards `<Glass>` de dentro (`ReviewComposer`/`ReviewCard`/
-        * `ReviewSummary`) terem o que borrar.
+        * VIDRO REMOVIDO (2026-10-06, a pedido — "em séries/episódios é
+        * só pra tirar o glass completamente e adicionar o (+)") — sem
+        * `GlassTargetProvider`/`AmbientGlow` nem alvo de borrão pros
+        * cards de dentro (`ReviewComposer`/`ReviewCard`, agora planos,
+        * mesma receita de superfície do Feed). `styles.glassFill` saiu
+        * junto — era só o container do provider.
         */}
-      <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
-          <ReviewsFullView
-            target={{ mediaType: "series", mediaId: numericId }}
-            media={{ title: title ?? "", posterPath: posterPath || null }}
-          />
-        </ScrollView>
-      </GlassTargetProvider>
+      <ScrollView style={styles.flex} contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
+        <ReviewsFullView
+          target={{ mediaType: "series", mediaId: numericId }}
+          media={{ title: title ?? "", posterPath: posterPath || null }}
+        />
+      </ScrollView>
+
+      {/*
+        * "+" REMOVIDO (2026-10-06, a pedido — "tira o (+) de avaliações
+        * de séries") — tinha sido adicionado aqui junto com a remoção
+        * do glass; "Publicar também no Feed" dentro do próprio
+        * `ReviewComposer` já cobre quem quer compartilhar a review, e
+        * o "+" genérico (`CreatePostButton`) não tinha propósito
+        * próprio nesta tela (ao contrário da de comentários de
+        * episódio, onde virou um composer dedicado de verdade — ver
+        * `EpisodeCommentComposerButton.tsx`).
+        */}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  glassFill: {
+  flex: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   /**
    * FASE 2 (2026-09-26) — a linha divisória embaixo do cabeçalho

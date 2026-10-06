@@ -1,7 +1,7 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import type { Review } from "@/lib/social/reviews";
-import { Text, Glass } from "@/components/ui";
+import { Text } from "@/components/ui";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
@@ -11,14 +11,15 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
 /**
- * PORTE DO WEB (2026-09-04, "vidro que falta") — vira `<Glass>` (web:
- * "mesma textura de card neutro do resto do app").
+ * VIDRO REMOVIDO (2026-10-06, a pedido — "em séries/episódios é só
+ * pra tirar o glass completamente") — era `<Glass>` desde o porte do
+ * web (2026-09-04); virou superfície plana, mesma receita do Feed.
  */
 export function ReviewCard({ review, initial }: { review: Review; initial?: { count: number; hasLiked: boolean } }) {
   const router = useRouter();
 
   return (
-    <Glass style={styles.card}>
+    <View style={styles.card}>
       <View style={styles.header}>
         <Pressable style={styles.authorRow} onPress={() => router.push(`/u/${review.author.username}`)}>
           <Text style={styles.authorName}>{review.author.displayName ?? review.author.username}</Text>
@@ -37,16 +38,16 @@ export function ReviewCard({ review, initial }: { review: Review; initial?: { co
       )}
 
       <LikeButton targetType="review" targetId={review.id} initial={initial} />
-    </Glass>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // `Glass` não define raio — web usa `rounded-2xl` (16px) = `radius.lg`.
   card: {
     gap: spacing.xs,
     borderRadius: radius.lg,
     padding: spacing.sm + 2,
+    backgroundColor: colors.surface,
   },
   header: {
     flexDirection: "row",

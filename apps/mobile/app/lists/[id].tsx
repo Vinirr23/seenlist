@@ -3,12 +3,14 @@ import { View, Pressable, Alert, FlatList, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { fetchMyLists, fetchListItems, removeFromList, deleteList, type UserList, type ListItem } from "@/lib/lists";
+import { fetchMyLists, fetchListItems, removeFromList, deleteList, removeCoOwner, leaveSharedList, type UserList, type ListItem } from "@/lib/lists";
+import { InviteCoOwnerSheet } from "@/components/social/InviteCoOwnerSheet";
 import { usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
+import { Avatar } from "@/components/common/Avatar";
 import { Screen, Text, Skeleton, GlassTargetProvider, Glass, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { hapticTick } from "@/lib/haptics";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -36,6 +38,13 @@ export default function ListDetailScreen() {
   const [list, setList] = useState<UserList | null>(null);
   const [items, setItems] = useState<ListItem[] | null>(null);
   const cardWidth = usePosterCardWidth();
+  // LISTA COMPARTILHADA (2026-10-06) — ver
+  // `claude/SEENLIST-FEATURE-2026-10-06-lista-compartilhada.md`.
+  const [showInvite, setShowInvite] = useState(false);
+  // `fetchMyLists()` só retorna listas que a RLS deixa EU ver (dono OU
+  // co-dono) — se a lista veio e `isCoOwnedByMe` é falso, só pode ser
+  // porque sou o dono original.
+  const isOwner = list !== null && !list.isCoOwnedByMe;
 
   const reload = useCallback(() => {
     fetchMyLists().then((lists) => setList(lists.find((l) => l.id === id) ?? null));
@@ -75,16 +84,100 @@ export default function ListDetailScreen() {
     ]);
   }
 
+  // LISTA COMPARTILHADA (2026-10-06) — dono remove o co-dono (aceito
+  // ou ainda pendente — mesma ação do ponto de vista do banco: zera os
+  // dois campos). Itens que o co-dono adicionou ficam na lista.
+  function handleRemoveCoOwner() {
+    if (!list?.coOwner) return;
+    const name = list.coOwner.displayName ?? `@${list.coOwner.username}`;
+    Alert.alert(t("profile.removeCoOwnerTitle", { name }), t("profile.removeCoOwnerMessage", { name }), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("profile.removeCoOwnerAction"),
+        style: "destructive",
+        onPress: () =>
+          removeCoOwner(id, list.name, list.coOwner!.userId)
+            .then(reload)
+            .catch((error) => {
+              console.error("[ListDetailScreen] Falha ao remover co-dono", error);
+              Alert.alert(t("error.generic"), t("common.tryAgainShortly"));
+            }),
+      },
+    ]);
+  }
+
+  // Co-dono sai por conta própria. Não apaga a lista nem os itens que já adicionou.
+  function handleLeaveSharedList() {
+    if (!list) return;
+    Alert.alert(t("profile.leaveSharedListTitle"), t("profile.leaveSharedListMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("profile.leaveSharedListAction"),
+        style: "destructive",
+        onPress: () =>
+          leaveSharedList(id, list.name, list.ownerId)
+            .then(() => router.replace("/lists"))
+            .catch((error) => {
+              console.error("[ListDetailScreen] Falha ao saír da lista compartilhada", error);
+              Alert.alert(t("error.generic"), t("common.tryAgainShortly"));
+            }),
+      },
+    ]);
+  }
+
   return (
     <Screen padded={false}>
       <ScreenHeader
         title={list?.name ?? t("profile.listFallbackName")}
         right={
-          <Pressable onPress={handleDeleteList} hitSlop={8}>
-            <Feather name="trash-2" size={20} color={colors.muted} />
-          </Pressable>
+          isOwner ? (
+            <Pressable onPress={handleDeleteList} hitSlop={8}>
+              <Feather name="trash-2" size={20} color={colors.muted} />
+            </Pressable>
+          ) : list?.isCoOwnedByMe && list.coOwner?.status === "accepted" ? (
+            <Pressable onPress={handleLeaveSharedList} hitSlop={8}>
+              <Feather name="log-out" size={20} color={colors.muted} />
+            </Pressable>
+          ) : undefined
         }
       />
+
+      {/*
+        LISTA COMPARTILHADA (2026-10-06) — linha de status/ações só
+        pro DONO (convidar/remover co-dono) — co-dono não tem direito
+        sobre a lista em si, só sobre os itens (decisão confirmada).
+      */}
+      {isOwner && (
+        <View style={styles.coOwnerRow}>
+          {list?.coOwner ? (
+            <>
+              <Avatar
+                uri={list.coOwner.avatarUrl}
+                name={list.coOwner.displayName ?? list.coOwner.username}
+                style={styles.coOwnerAvatar}
+                textStyle={styles.coOwnerAvatarInitials}
+              />
+              <Text numberOfLines={1} style={styles.coOwnerText}>
+                {list.coOwner.status === "accepted"
+                  ? t("profile.coOwnerAcceptedBadge", { name: list.coOwner.displayName ?? `@${list.coOwner.username}` })
+                  : t("profile.coOwnerPendingBadge")}
+              </Text>
+              <Pressable onPress={handleRemoveCoOwner} hitSlop={8}>
+                <Feather name="user-x" size={18} color={colors.muted} />
+              </Pressable>
+            </>
+          ) : (
+            <Pressable style={styles.inviteRow} onPress={() => setShowInvite(true)}>
+              <Feather name="user-plus" size={16} color={colors.primary} />
+              <Text style={styles.inviteRowText}>{t("profile.inviteCoOwner")}</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {showInvite && list && (
+        <InviteCoOwnerSheet listId={id} listName={list.name} onClose={() => setShowInvite(false)} onInvited={reload} />
+      )}
 
       {/* PORTE DO WEB (2026-09-04, "vidro que falta") — campo de manchas das sub-telas (ver `lib/glowBlobs.ts`). */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
@@ -139,6 +232,20 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
+  // LISTA COMPARTILHADA (2026-10-06) — linha de status/convite, entre
+  // o cabeçalho e o campo de manchas da grade de pôsteres.
+  coOwnerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  coOwnerAvatar: { width: 24, height: 24, borderRadius: 12 },
+  coOwnerAvatarInitials: { fontSize: fontSize.xxs },
+  coOwnerText: { flex: 1, fontSize: fontSize.xs, color: colors.muted },
+  inviteRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  inviteRowText: { fontSize: fontSize.xs, fontWeight: "700", color: colors.primary },
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,

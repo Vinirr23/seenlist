@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import type { ActivityItem } from "@/lib/activityFeed";
+import type { ActivityItem, ActivityType } from "@/lib/activityFeed";
 import type { MergedActivityItem } from "@/lib/useFeedEntries";
 import { tmdbImageUrl } from "@/lib/library";
 import { fetchMovieStatusDetails, setMovieStatus } from "@/lib/movieDetails";
@@ -188,19 +188,20 @@ function QuickAddButtonInline({ item }: { item: QuickAddTarget }) {
  *     sequência de banners enormes") → `CompletedActivityHeroCard`
  *     (pôster em tela cheia).
  *   - "completed" NÃO elegível (throttled) → `StandardActivityCard`
- *     tier="compact" — mantém o ícone de check e o verbo
- *     "terminou/assistiu" (continua semanticamente uma conclusão, só
- *     não ganha o tratamento grande).
+ *     tier="medium" (2026-10-06, reportado com print — mesmo caso do
+ *     "watchlist" abaixo: pôster pequeno demais e desproporcional ao
+ *     lado de "avaliou" no mesmo Feed. ANTES ficava em "compact" de
+ *     propósito, pra parecer "rebaixado" pelo throttle de Hero — mas
+ *     na prática, lado a lado de verdade, isso só lia como
+ *     inconsistência visual, não hierarquia. Removida a última
+ *     diferença de tamanho entre os 3 tipos de ActivityCard padrão).
  *   - "rated" (tem estrelas) → tier="medium" (pôster maior, mesmo
  *     tamanho já usado em `PostCard.tsx` pra review com texto).
  *   - "watchlist" → tier="medium" (2026-10-02, reportado com print —
  *     "o card 'adicionou à lista' ficou minúsculo e desproporcional
  *     perto do 'avaliou'" — ANTES era tier="compact", visivelmente
  *     menor que "rated" sem motivo de hierarquia pedido por ninguém;
- *     agora os dois usam o mesmo tamanho de pôster. "completed" não
- *     elegível a Hero continua em "compact" de propósito — não foi
- *     reportado e é o único nível que ainda faz sentido menor,
- *     semanticamente "rebaixado" pelo throttle de Hero).
+ *     agora os três tipos usam o mesmo tamanho de pôster).
  *
  * BOTÃO "+" (2026-10-01, a pedido — "todo card que apareça, tenha o
  * (+) igual em explorar", escopo confirmado: SÓ cards de atividade) —
@@ -210,10 +211,62 @@ function QuickAddButtonInline({ item }: { item: QuickAddTarget }) {
 export function ActivityCard({ item, heroEligible = false }: { item: ActivityItem; heroEligible?: boolean }) {
   if (item.activityType === "completed") {
     if (heroEligible) return <CompletedActivityHeroCard item={item} />;
-    return <StandardActivityCard item={item} tier="compact" />;
+    return <StandardActivityCard item={item} tier="medium" />;
   }
   if (item.activityType === "rated") return <StandardActivityCard item={item} tier="medium" />;
   return <StandardActivityCard item={item} tier="medium" />;
+}
+
+/**
+ * IDENTIDADE VISUAL POR TIPO DE AÇÃO (2026-10-06, a pedido — "cada
+ * post tivesse seu próprio padrão visual: avaliou, adicionou e
+ * terminou, tendo seu próprio padrão") — mockups apresentados
+ * (https://claude.ai/artifact/Pq61Ub5s7gzpw2PGUa74im, 3 opções) e de
+ * escopo (https://claude.ai/artifact/EZyHEAmTkAWn2tRZGwCvJ7, "tudo
+ * vira card" vs. "só as activities"), ambos decididos pelo usuário:
+ * opção C (fundo com leve lavagem de cor) + escopo "só as 3
+ * activities" — `PostCard.tsx` (post de review com texto, tem Like/
+ * Comment) continua exatamente como está, de propósito.
+ *
+ * Cada tipo usa uma cor que JÁ tinha algum significado no app, não
+ * uma nova inventada: "avaliou" = `colors.primary` (mesma cor das
+ * estrelas), "terminou" = `colors.success` (mesma cor do ✓ que já
+ * existia na linha do verbo), "adicionou" = `colors.info` (única
+ * cor nova, nunca usada em activity antes — ver comentário de
+ * `colors.info` em `lib/theme.ts`).
+ */
+/**
+ * EXPORTADO (2026-10-06, a pedido — "padronizar os outros posts, os
+ * ícones continuam os mesmos... quero que coloque os ícones iguais
+ * aos que fizemos agora") — `ActivityGroupCard.tsx` (pílulas de grupo
+ * misto, cabeçalho de grupo mesmo-tipo, ícones sobre o pôster quando
+ * um título tem várias ações) e `MultiActionActivityCard`, abaixo
+ * neste arquivo, reaproveitam a MESMA cor por tipo, pra não divergir
+ * de novo (cada paleta duplicada em outro arquivo é mais uma chance
+ * de ficar dessincronizada).
+ */
+export const ACTIVITY_ACCENT: Record<ActivityType, { base: string; wash: readonly [string, string] }> = {
+  rated: { base: colors.primary, wash: ["rgba(232,163,61,0.14)", "rgba(232,163,61,0)"] },
+  watchlist: { base: colors.info, wash: ["rgba(58,133,206,0.14)", "rgba(58,133,206,0)"] },
+  completed: { base: colors.success, wash: ["rgba(52,199,123,0.14)", "rgba(52,199,123,0)"] },
+};
+
+/**
+ * ÍCONE PADRÃO POR TIPO (2026-10-06) — mesma pastilha circular
+ * preenchida (cor do tipo, ícone na cor do fundo do app) usada em
+ * `StandardActivityCard`, agora reaproveitada por QUALQUER lugar do
+ * Feed que precise mostrar "qual ação foi essa" — centraliza o
+ * mapeamento tipo→ícone (`bookmark`/`check`/`star`) num só lugar,
+ * evitado de ficar 4 cópias do mesmo `item.activityType === "..."`
+ * espalhadas pelo código.
+ */
+export function ActivityTypeChip({ type, size = 18, iconSize = 10 }: { type: ActivityType; size?: number; iconSize?: number }) {
+  const accent = ACTIVITY_ACCENT[type];
+  return (
+    <View style={[styles.verbChip, { width: size, height: size, borderRadius: size / 2, backgroundColor: accent.base }]}>
+      <Feather name={type === "watchlist" ? "bookmark" : type === "completed" ? "check" : "star"} size={iconSize} color={colors.background} />
+    </View>
+  );
 }
 
 function StandardActivityCard({ item, tier }: { item: ActivityItem; tier: "medium" | "compact" }) {
@@ -221,6 +274,7 @@ function StandardActivityCard({ item, tier }: { item: ActivityItem; tier: "mediu
   const { t, locale } = useTranslation();
   const now = useNow(30_000);
   const posterUrl = item.mediaPosterPath ? tmdbImageUrl(item.mediaPosterPath, "w342") : null;
+  const accent = ACTIVITY_ACCENT[item.activityType];
 
   const verb =
     item.activityType === "rated"
@@ -241,66 +295,104 @@ function StandardActivityCard({ item, tier }: { item: ActivityItem; tier: "mediu
   }
 
   return (
-    <Pressable onPress={handlePressMedia} style={[styles.card, tier === "compact" && styles.cardCompact]}>
-      <View style={styles.headerRow}>
-        <Pressable style={styles.header} onPress={handlePressUser}>
-          <Avatar uri={item.userAvatarUrl} name={item.userName} style={styles.avatar} textStyle={styles.avatarInitials} />
-          <View style={styles.headerText}>
-            <View style={styles.nameRow}>
-              <Text numberOfLines={1} style={styles.authorName}>
-                {item.userName}
-              </Text>
-              <VerifiedBadge tier={item.userVerifiedTier} size={fontSize.sm} />
-              <Text numberOfLines={1} variant="muted" style={styles.meta}>
-                {formatRelativeTime(item.createdAt, now, locale, t("feed.justNow"))}
-              </Text>
+    <View style={tier === "medium" ? styles.cardWrapper : undefined}>
+      <Pressable
+        onPress={handlePressMedia}
+        style={[tier === "medium" ? styles.coloredCard : styles.card, tier === "compact" && styles.cardCompact]}
+      >
+        {tier === "medium" && (
+          <LinearGradient
+            colors={accent.wash}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+            pointerEvents="none"
+          />
+        )}
+        <View style={styles.headerRow}>
+          <Pressable style={styles.header} onPress={handlePressUser}>
+            <Avatar uri={item.userAvatarUrl} name={item.userName} style={styles.avatar} textStyle={styles.avatarInitials} />
+            <View style={styles.headerText}>
+              <View style={styles.nameRow}>
+                <Text numberOfLines={1} style={styles.authorName}>
+                  {item.userName}
+                </Text>
+                <VerifiedBadge tier={item.userVerifiedTier} size={fontSize.sm} />
+                <Text numberOfLines={1} variant="muted" style={styles.meta}>
+                  {formatRelativeTime(item.createdAt, now, locale, t("feed.justNow"))}
+                </Text>
+              </View>
+              <View style={styles.verbRow}>
+                {/*
+                 * PADRONIZADO (2026-10-06, a pedido — "o icone de
+                 * assistido não ficou padrão com o resto") — o tier
+                 * "médio" já usava o selo (`verbChip`+`accent.base`,
+                 * igual ao `ActivityTypeChip` — só reescrito à mão
+                 * aqui em vez de chamar o componente); o "compacto"
+                 * usava um `Feather` solto, SEM selo, e só tinha ícone
+                 * pros tipos "watchlist"/"completed" — tipo "rated"
+                 * (avaliou) não mostrava ícone NENHUM nesse tier, bug
+                 * real encontrado ao padronizar (não só cosmético).
+                 * Agora as duas variantes chamam o mesmo
+                 * `ActivityTypeChip`, só com tamanho menor no
+                 * compacto (mesmo valor das pílulas de
+                 * `ActivityGroupCard`) — elimina as duas divergências
+                 * de uma vez.
+                 */}
+                <ActivityTypeChip type={item.activityType} size={tier === "medium" ? 18 : 14} iconSize={tier === "medium" ? 10 : 8} />
+                <Text variant="muted" style={[styles.verb, tier === "medium" && { color: accent.base, fontWeight: "700" }]}>
+                  {verb}
+                </Text>
+              </View>
             </View>
-            <View style={styles.verbRow}>
-              {item.activityType === "watchlist" ? (
-                <Feather name="bookmark" size={11} color={colors.primary} />
-              ) : item.activityType === "completed" ? (
-                <Feather name="check-circle" size={11} color={colors.success} />
-              ) : null}
-              <Text variant="muted" style={styles.verb}>
-                {verb}
-              </Text>
-            </View>
+          </Pressable>
+        </View>
+
+        <View style={styles.mediaRow}>
+          <View style={tier === "medium" ? styles.posterMedium : styles.posterCompact}>
+            {posterUrl ? (
+              <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
+            ) : (
+              <Feather name="film" size={tier === "medium" ? 22 : 16} color={colors.muted} />
+            )}
           </View>
-        </Pressable>
-      </View>
-
-      <View style={styles.mediaRow}>
-        <View style={tier === "medium" ? styles.posterMedium : styles.posterCompact}>
-          {posterUrl ? (
-            <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />
-          ) : (
-            <Feather name="film" size={tier === "medium" ? 22 : 16} color={colors.muted} />
-          )}
+          <View style={styles.mediaInfo}>
+            <Text numberOfLines={2} style={styles.mediaTitle}>
+              {item.mediaTitle}
+            </Text>
+            {item.activityType === "rated" && (
+              <View style={styles.starsRow}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <AnimatedStar
+                    key={i}
+                    index={i}
+                    filled={i < Math.round(item.rating ?? 0)}
+                    size={16}
+                    color={colors.primary}
+                    emptyColor={colors.border}
+                  />
+                ))}
+                <Text style={styles.ratingText}>{(item.rating ?? 0).toFixed(1)}/5</Text>
+              </View>
+            )}
+          </View>
         </View>
-        <View style={styles.mediaInfo}>
-          <Text numberOfLines={2} style={styles.mediaTitle}>
-            {item.mediaTitle}
-          </Text>
-          {item.activityType === "rated" && (
-            <View style={styles.starsRow}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <AnimatedStar
-                  key={i}
-                  index={i}
-                  filled={i < Math.round(item.rating ?? 0)}
-                  size={16}
-                  color={colors.primary}
-                  emptyColor={colors.border}
-                />
-              ))}
-              <Text style={styles.ratingText}>{(item.rating ?? 0).toFixed(1)}/5</Text>
-            </View>
-          )}
-        </View>
-      </View>
 
-      <QuickAddButtonInline item={item} />
-    </Pressable>
+        <QuickAddButtonInline item={item} />
+      </Pressable>
+
+      {/*
+        LINHA DIVISÓRIA PRÓPRIA, NÃO PRESA AO CARD (2026-10-06) — testado
+        como borda do próprio `coloredCard` primeiro e rejeitado pelo
+        usuário ("não colocou a linha entre os cards"): uma borda presa
+        à base do card fica quase invisível contra o próprio fundo
+        tingido/gradiente dele. Como elemento IRMÃO, fora do Pressable
+        colorido, ela sempre repousa sobre o fundo normal da tela —
+        mesma solução validada no mockup
+        (https://claude.ai/artifact/EZyHEAmTkAWn2tRZGwCvJ7).
+      */}
+      {tier === "medium" && <View style={styles.cardDivider} />}
+    </View>
   );
 }
 
@@ -377,16 +469,20 @@ export function MultiActionActivityCard({ item }: { item: MergedActivityItem }) 
               </Text>
             </View>
             <View style={styles.verbRow}>
-              {uniqueActions.map((action) =>
-                action === "watchlist" ? (
-                  <Feather key={action} name="bookmark" size={11} color={colors.primary} />
-                ) : action === "completed" ? (
-                  <Feather key={action} name="check-circle" size={11} color={colors.success} />
-                ) : (
-                  <Feather key={action} name="star" size={11} color={colors.primary} />
-                )
-              )}
-              <Text variant="muted" style={styles.verb}>
+              {/*
+                PASTILHA COLORIDA POR TIPO (2026-10-06, a pedido — "pra
+                padronizar os outros posts, os ícones continuam os
+                mesmos... quero que coloque os ícones iguais aos que
+                fizemos agora") — era ícone de contorno solto, igual ao
+                padrão antigo do `StandardActivityCard` antes da Opção
+                C; trocado pela mesma `ActivityTypeChip` (ver
+                `ACTIVITY_ACCENT`, acima neste arquivo), pra não ficar 1
+                estilo de ícone no card normal e outro aqui.
+              */}
+              {uniqueActions.map((action) => (
+                <ActivityTypeChip key={action} type={action} size={16} iconSize={9} />
+              ))}
+              <Text variant="muted" style={[styles.verb, { marginLeft: 2 }]}>
                 {combinedVerb}
               </Text>
             </View>
@@ -549,7 +645,18 @@ function CompletedActivityHeroCard({ item }: { item: ActivityItem }) {
 
         <View style={styles.heroFooter}>
           <View style={styles.heroTitleRow}>
-            <Feather name="check-circle" size={14} color={colors.success} />
+            {/*
+             * PADRONIZADO (2026-10-06, a pedido — "o icone de assistido
+             * não ficou padrão com o resto") — era um `Feather
+             * check-circle` avulso, verde mas sem o fundo/pílula; a Hero
+             * tinha ficado de fora da rodada de padronização de ícones
+             * (`ActivityGroupCard`/`MultiActionActivityCard`) por ser um
+             * componente à parte dentro deste mesmo arquivo. Mesmo selo
+             * `ActivityTypeChip` (círculo preenchido + ícone) do resto
+             * do Feed — `type="completed"` sempre certo aqui, já que
+             * esta Hero só existe pra atividade de "assistiu" (`heroEligible`).
+             */}
+            <ActivityTypeChip type="completed" size={16} iconSize={9} />
             <Text numberOfLines={2} style={styles.heroTitle}>
               {item.mediaTitle}
             </Text>
@@ -562,8 +669,42 @@ function CompletedActivityHeroCard({ item }: { item: ActivityItem }) {
 }
 
 const styles = StyleSheet.create({
+  /**
+   * IDENTIDADE VISUAL POR TIPO (2026-10-06, ver comentário grande em
+   * `ACTIVITY_ACCENT`, acima) — tier "médio" (hoje, único alcançável
+   * pelas 3 activities de `StandardActivityCard`) trocou a receita
+   * "linha reta igual Threads" por card próprio: cantos arredondados,
+   * fundo com leve lavagem da cor da ação (`LinearGradient`, pintado
+   * por cima via `coloredCard` abaixo), espaço em volta
+   * (`cardWrapper`) e uma linha divisória PRÓPRIA, fora do card
+   * (`cardDivider`) — nunca presa à borda dele, ver comentário no JSX.
+   */
+  cardWrapper: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  coloredCard: {
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingRight: 40,
+    overflow: "hidden",
+  },
+  cardDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginTop: spacing.sm,
+  },
+  verbChip: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   // Mesma receita visual de `PostCard.tsx` ("feed igual Threads") — sem fundo/borda ao redor, só a linha fina embaixo separando do próximo item.
   // `paddingRight` reserva espaço pro botão de watchlist (posição absoluta, canto superior direito) não cobrir nome/hora compridos.
+  // Hoje só alcançável pelo tier "compacto" (nenhuma chamada passa mais — ver `ACTIVITY_ACCENT`/`ActivityCard()` — mantido por segurança, caso o tier volte a ser usado).
   card: {
     paddingVertical: spacing.md,
     paddingRight: 40,

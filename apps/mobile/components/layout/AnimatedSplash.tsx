@@ -9,7 +9,17 @@ import { isAppReady, onAppReady, isFontsReady, onFontsReady } from "@/lib/appRea
 
 const mark = require("@/assets/images/splash-mark.png");
 
-const MARK_SIZE = 126;
+/**
+ * CORREÇÃO DE RAIZ (2026-10-06, reportado com prints — "a logo ficou
+ * muito pequena") — era 126. CAUSA RAIZ: a splash NATIVA (`app.json`,
+ * plugin `expo-splash-screen`, `imageWidth: 200`) usa a logo em
+ * 200px, mas esta camada animada (que assume a cena logo depois,
+ * ver comentário grande da função acima — "a troca não é
+ * perceptível") estava com um tamanho bem menor, sem relação com o
+ * valor nativo — por isso a logo "encolhia" visivelmente no instante
+ * da troca. Igualado a 200, o mesmo valor do nativo.
+ */
+const MARK_SIZE = 200;
 const FADE_MS = 1200;
 const EXIT_FADE_MS = 220;
 

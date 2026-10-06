@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Pressable, FlatList, StyleSheet } from "react-native";
+import { View, Pressable, FlatList, StyleSheet, Alert } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -9,6 +9,7 @@ import {
   markAllNotificationsRead,
   type AppNotification,
 } from "@/lib/notifications";
+import { acceptCoOwnerInvite, declineCoOwnerInvite } from "@/lib/lists";
 import { tmdbImageUrl } from "@/lib/library";
 import { Screen, Text, Skeleton, GlassTargetProvider, AmbientGlow, Glass, ScreenHeader } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
@@ -57,6 +58,18 @@ function getNotificationMessage(n: AppNotification, t: (key: string, vars?: Reco
       return t("notifications.verifiedBadge");
     case "verified_badge_granted":
       return t("notifications.verifiedBadgeGranted");
+    // LISTA COMPARTILHADA (2026-10-06) — ver
+    // `claude/SEENLIST-FEATURE-2026-10-06-lista-compartilhada.md`.
+    case "list_coowner_invite":
+      return t("notifications.listCoownerInvite", { name, listName: n.listName ?? "" });
+    case "list_coowner_accepted":
+      return t("notifications.listCoownerAccepted", { name, listName: n.listName ?? "" });
+    case "list_coowner_declined":
+      return t("notifications.listCoownerDeclined", { name, listName: n.listName ?? "" });
+    case "list_coowner_removed":
+      return t("notifications.listCoownerRemoved", { name, listName: n.listName ?? "" });
+    case "list_coowner_left":
+      return t("notifications.listCoownerLeft", { name, listName: n.listName ?? "" });
   }
 }
 
@@ -97,6 +110,9 @@ function getNotificationRoute(n: AppNotification): string | null {
   if (n.type === "verified_badge" || n.type === "verified_badge_granted") {
     return "/profile";
   }
+  if (n.targetType === "list" && n.targetId) {
+    return `/lists/${n.targetId}`;
+  }
   if (n.mediaType && n.mediaId != null) {
     return n.mediaType === "movie" ? `/movies/${n.mediaId}` : `/series/${n.mediaId}`;
   }
@@ -113,6 +129,10 @@ export default function NotificationsScreen() {
   // padrão" pra quem não tem selo) — ícone dessa notificação é o
   // PRÓPRIO selo de quem está lendo (sem ator/mídia pra mostrar).
   const { user: currentUser } = useCurrentUser();
+  // LISTA COMPARTILHADA (2026-10-06) — responder ao convite sem
+  // precisar abrir a lista; linha isolada (id -> carregando) pra não
+  // travar as outras notificações enquanto uma está em voo.
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     fetchNotifications(locale).then(setNotifications);
@@ -124,6 +144,25 @@ export default function NotificationsScreen() {
     if (!n.readAt) markNotificationRead(n.id).then(reload);
     const route = getNotificationRoute(n);
     if (route) router.push(route as never);
+  }
+
+  async function handleRespondInvite(n: AppNotification, accept: boolean) {
+    if (!n.targetId || !n.actor) return;
+    setRespondingId(n.id);
+    try {
+      if (accept) {
+        await acceptCoOwnerInvite(n.targetId, n.listName ?? "", n.actor.userId);
+      } else {
+        await declineCoOwnerInvite(n.targetId, n.listName ?? "", n.actor.userId);
+      }
+      if (!n.readAt) await markNotificationRead(n.id);
+      reload();
+    } catch (error) {
+      console.error("[NotificationsScreen] Falha ao responder convite de co-dono", error);
+      Alert.alert(t("error.generic"), t("error.respondInviteFailed"));
+    } finally {
+      setRespondingId(null);
+    }
   }
 
   function handleMarkAllRead() {
@@ -216,6 +255,36 @@ export default function NotificationsScreen() {
                       <Text variant="muted" style={styles.date}>
                         {dateFormatter.format(new Date(n.createdAt))}
                       </Text>
+                      {/*
+                        LISTA COMPARTILHADA (2026-10-06) — convite com
+                        resposta inline, sem precisar abrir a lista pra
+                        decidir. `respondingId` desabilita só ESTA
+                        linha enquanto a resposta está em voo.
+                      */}
+                      {n.type === "list_coowner_invite" && (
+                        <View style={styles.inviteActions}>
+                          <Pressable
+                            style={[styles.inviteButton, styles.inviteButtonDecline]}
+                            disabled={respondingId === n.id}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleRespondInvite(n, false);
+                            }}
+                          >
+                            <Text style={styles.inviteButtonDeclineText}>{t("common.decline")}</Text>
+                          </Pressable>
+                          <Pressable
+                            style={[styles.inviteButton, styles.inviteButtonAccept]}
+                            disabled={respondingId === n.id}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleRespondInvite(n, true);
+                            }}
+                          >
+                            <Text style={styles.inviteButtonAcceptText}>{t("common.accept")}</Text>
+                          </Pressable>
+                        </View>
+                      )}
                     </View>
                     {!n.readAt && <View style={styles.unreadDot} />}
                   </Glass>
@@ -318,6 +387,20 @@ const styles = StyleSheet.create({
   // FASE 2 (consistência visual sistêmica, 2026-09-26) — tokens formalizados `fontSize.sm`/`fontSize.xxs` (eram literais 14/11, mesmos valores).
   message: { fontSize: fontSize.sm, color: colors.text, lineHeight: 19 },
   date: { fontSize: fontSize.xxs, marginTop: 2 },
+  inviteActions: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  inviteButton: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+  },
+  inviteButtonAccept: { backgroundColor: colors.primary },
+  inviteButtonAcceptText: { fontSize: fontSize.xs, fontWeight: "700", color: colors.background },
+  inviteButtonDecline: { borderWidth: 1, borderColor: colors.border },
+  inviteButtonDeclineText: { fontSize: fontSize.xs, fontWeight: "700", color: colors.muted },
   unreadDot: {
     width: 8,
     height: 8,

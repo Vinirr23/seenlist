@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
-import { View, TextInput, Pressable, StyleSheet } from "react-native";
-import { Image as ExpoImage } from "expo-image";
-import { Feather } from "@expo/vector-icons";
-import type { MediaTarget, CommentNode } from "@/lib/social/mediaComments";
-import { useEpisodeComments } from "@/lib/social/useEpisodeComments";
-import { pickImageFromLibrary, uploadCommentImage } from "@/lib/imageUpload";
+import { View, StyleSheet } from "react-native";
+import type { CommentNode } from "@/lib/social/mediaComments";
 import { fetchLikeInfoFor } from "@/lib/social/likes";
 import { EpisodeCommentItem } from "./EpisodeCommentItem";
-import { Text, Glass } from "@/components/ui";
+import { Text } from "@/components/ui";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { PageError } from "@/components/media/PageError";
-import { hapticTick, hapticImpact } from "@/lib/haptics";
-import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /** TASK-153 — achata a árvore inteira (comentário + respostas, em qualquer nível) numa lista simples de ids, pra buscar curtida de todo mundo de uma vez. */
@@ -25,10 +20,10 @@ function flattenCommentIds(nodes: CommentNode[]): string[] {
 }
 
 /**
- * TASK-122/129/132/133 (episódio, correção) — árvore de respostas +
- * composer no topo + anexar imagem/GIF (TASK-133, a pedido — mesmo
- * padrão do `CreatePostButton.tsx`: prévia 140×140 com botão de
- * remover, upload só ao publicar).
+ * TASK-122/129/132/133 (episódio) — árvore de respostas. Só LISTA — ver
+ * `app/episodes/[seriesId]/[season]/[episode]/comments.tsx` pelo
+ * composer e pelo `useEpisodeComments(target)` (chamado lá, uma única
+ * vez, e passado aqui como props).
  *
  * CORREÇÃO (a pedido — mesma mudança já aplicada no web, "quero um
  * aviso antes de entrar") — a oclusão automática por progresso
@@ -39,11 +34,38 @@ function flattenCommentIds(nodes: CommentNode[]): string[] {
  * botão "Comentário" na tela do episódio pergunta antes de navegar)
  * — aqui dentro, só o `containsSpoiler` MANUAL de cada comentário
  * (marcado por quem escreveu) continua escondendo.
+ *
+ * COMPOSER REMOVIDO DAQUI (2026-10-06, a pedido — "na tela de
+ * comentários de um episódio tem o (+) e no topo uma quadrado pra
+ * escrever comentário que é redundante já que o botão abre um sheet
+ * com o mesmo propósito") — a caixa de escrever comentário que vivia
+ * aqui (texto + imagem + "contém spoiler" + "Enviar") foi removida
+ * por ser redundante com o sheet do "+" (`EpisodeCommentComposerButton`,
+ * em `comments.tsx`). CAUSA RAIZ da redundância: o "+" genérico do
+ * Feed (`CreatePostButton`) tinha sido adicionado nesta tela JUNTO
+ * com este composer que já existia — dois jeitos de escrever a MESMA
+ * coisa, e o "+" nem submetia como comentário de episódio de verdade
+ * (publicava no Feed geral). Agora só existe um caminho: o "+", que
+ * chama o `submit` de `useEpisodeComments` de verdade.
  */
-export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
+export function EpisodeCommentsSection({
+  tree,
+  isLoading,
+  isError,
+  retry,
+  remove,
+  edit,
+  commentsBaseHref,
+}: {
+  tree: CommentNode[];
+  isLoading: boolean;
+  isError: boolean;
+  retry: () => void;
+  remove: (commentId: string) => Promise<void>;
+  edit: (commentId: string, body: string) => Promise<void>;
+  commentsBaseHref: string;
+}) {
   const { t } = useTranslation();
-  const { tree, isLoading, isError, retry, sending, submit, remove, edit } = useEpisodeComments(target);
-  const commentsBaseHref = `/episodes/${target.mediaId}/${target.seasonNumber}/${target.episodeNumber}`;
 
   /** TASK-153 — busca a curtida de TODOS os comentários (em qualquer nível da árvore) de uma vez, não um por um. */
   const [likeInfoByCommentId, setLikeInfoByCommentId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
@@ -56,110 +78,8 @@ export function EpisodeCommentsSection({ target }: { target: MediaTarget }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flattenCommentIds(tree).join(",")]);
 
-  const [body, setBody] = useState("");
-  const [markSpoiler, setMarkSpoiler] = useState(false);
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [imageMimeType, setImageMimeType] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
-
-  async function handlePickImage() {
-    setUploadError(null);
-    const picked = await pickImageFromLibrary();
-    if (!picked) return;
-    setImageUri(picked.uri);
-    setImageMimeType(picked.mimeType);
-  }
-
-  async function handleSubmit() {
-    if (!body.trim() && !imageUri) return;
-    hapticTick();
-    setUploadError(null);
-
-    let uploadedImageUrl: string | null = null;
-    if (imageUri && imageMimeType) {
-      setUploadingImage(true);
-      const result = await uploadCommentImage(imageUri, imageMimeType);
-      setUploadingImage(false);
-      if (result.error || !result.url) {
-        setUploadError(result.error ?? t("error.uploadImageFailed"));
-        return;
-      }
-      uploadedImageUrl = result.url;
-    }
-
-    const ok = await submit(body, markSpoiler, null, uploadedImageUrl);
-    if (ok) {
-      // A PEDIDO (feedback háptico) — enviar comentário é mais
-      // "decisivo" que curtir/marcar (é conteúdo publicado, visível
-      // pros outros), então usa o toque médio, não o leve.
-      hapticImpact();
-      setBody("");
-      setMarkSpoiler(false);
-      setImageUri(null);
-      setImageMimeType(null);
-    }
-  }
-
-  const busy = sending || uploadingImage;
-
   return (
     <View style={styles.wrapper}>
-      {/*
-        * PORTE DO WEB (2026-09-04, "vidro que falta") — o composer vira
-        * card `<Glass>` (web, `CommentsSection.tsx`: "mesma textura de
-        * card neutro já usada em MetaRow.tsx/ReviewSummary.tsx, em vez
-        * de `bg-surface` opaco"). O `TextInput` e a caixa "contém
-        * spoiler" DENTRO dele ficam como estão — campo de formulário
-        * não recebe vidro (mesmo critério do web).
-        */}
-      <Glass style={styles.composerArea}>
-        <TextInput
-          value={body}
-          onChangeText={setBody}
-          placeholder={t("social.commentPlaceholder")}
-          placeholderTextColor={colors.muted}
-          multiline
-          style={styles.input}
-        />
-
-        {imageUri ? (
-          <View style={styles.imagePreviewWrapper}>
-            <ExpoImage source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" autoplay />
-            <Pressable hitSlop={8}
-              style={styles.removeImageButton}
-              onPress={() => {
-                setImageUri(null);
-                setImageMimeType(null);
-              }}
-            >
-              <Feather name="x" size={14} color={colors.text} />
-            </Pressable>
-          </View>
-        ) : null}
-
-        {!!uploadError && <Text variant="error">{uploadError}</Text>}
-
-        <Pressable style={styles.attachButton} onPress={handlePickImage} disabled={busy}>
-          <Feather name="image" size={14} color={colors.muted} />
-          <Text variant="muted" style={styles.attachButtonText}>
-            {imageUri ? "Trocar imagem" : "Anexar imagem ou GIF"}
-          </Text>
-        </Pressable>
-
-        <View style={styles.composerFooter}>
-          <Pressable style={styles.spoilerToggle} onPress={() => setMarkSpoiler((v) => !v)}>
-            <Feather name={markSpoiler ? "check-square" : "square"} size={16} color={markSpoiler ? colors.primary : colors.muted} />
-            <Text variant="muted" style={styles.spoilerLabel}>
-              {t("social.containsSpoilerLabel")}
-            </Text>
-          </Pressable>
-          <Pressable style={styles.sendButton} onPress={handleSubmit} disabled={(!body.trim() && !imageUri) || busy}>
-            <Text style={styles.sendButtonText}>{uploadingImage ? t("common.uploading") : t("common.send")}</Text>
-          </Pressable>
-        </View>
-      </Glass>
-
       {isLoading ? (
         <AvatarRowSkeleton count={3} />
       ) : isError ? (
@@ -208,76 +128,5 @@ const styles = StyleSheet.create({
   },
   centerText: {
     paddingVertical: spacing.sm,
-  },
-  // CORREÇÃO (2026-09-04, "vidro que falta") — fundo/borda sólidos
-  // removidos (vira `<Glass>`, que já desenha borda + blur + gradiente).
-  composerArea: {
-    marginBottom: spacing.md,
-    // `radius.md` (10) → `radius.lg` (16): web usa `rounded-2xl` no
-    // card do composer. `Glass` não define raio sozinho.
-    borderRadius: radius.lg,
-    padding: spacing.sm,
-    gap: spacing.xs,
-  },
-  input: {
-    minHeight: 60,
-    fontSize: fontSize.sm,
-    color: colors.text,
-    textAlignVertical: "top",
-  },
-  imagePreviewWrapper: {
-    alignSelf: "flex-start",
-    position: "relative",
-  },
-  imagePreview: {
-    width: 140,
-    height: 140,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  removeImageButton: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: scrim.control,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  attachButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    alignSelf: "flex-start",
-  },
-  attachButtonText: {
-    fontSize: fontSize.xs,
-  },
-  composerFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  spoilerToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  spoilerLabel: {
-    fontSize: fontSize.xs,
-  },
-  sendButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-  },
-  sendButtonText: {
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-    color: colors.background,
   },
 });

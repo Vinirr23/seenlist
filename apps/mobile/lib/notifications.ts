@@ -33,7 +33,16 @@ export type NotificationType =
   // Tipo novo, texto próprio ("você recebeu o selo"), mesmo ícone
   // (selo do próprio `verified_tier` do usuário — resolvido no client,
   // igual ao tipo original).
-  | "verified_badge_granted";
+  | "verified_badge_granted"
+  // LISTA COMPARTILHADA (2026-10-06) — ver
+  // `claude/SEENLIST-FEATURE-2026-10-06-lista-compartilhada.md`.
+  // `list_coowner_invite` tem botões Aceitar/Recusar inline (ver
+  // `app/notifications.tsx`); os outros 3 são só avisos.
+  | "list_coowner_invite"
+  | "list_coowner_accepted"
+  | "list_coowner_declined"
+  | "list_coowner_removed"
+  | "list_coowner_left";
 
 export interface AppNotification {
   id: string;
@@ -47,13 +56,15 @@ export interface AppNotification {
    * é `post_like` — os outros tipos continuam linkando por
    * mediaType/mediaId como sempre.
    */
-  targetType: "comment" | "review" | "post" | "post_comment" | "profile" | "user_feedback" | null;
+  targetType: "comment" | "review" | "post" | "post_comment" | "profile" | "user_feedback" | "list" | null;
   targetId: string | null;
   mediaType: "movie" | "series" | null;
   mediaId: number | null;
   mediaTitle: string | null;
   mediaPosterPath: string | null;
   message: string | null;
+  /** Só preenchido quando `targetType === "list"` (`payload.listName`, ver `inviteCoOwner`/etc. em `lib/lists.ts`). */
+  listName: string | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -100,7 +111,7 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
         : row.target_media_type === "series"
           ? summaries.series[row.target_media_id ?? -1]
           : undefined;
-    const payload = row.payload as { message?: string } | null;
+    const payload = row.payload as { message?: string; listName?: string } | null;
 
     return {
       id: row.id,
@@ -121,6 +132,7 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
       mediaTitle: summary?.title ?? null,
       mediaPosterPath: summary?.posterPath ?? null,
       message: payload?.message ?? null,
+      listName: payload?.listName ?? null,
       readAt: row.read_at,
       createdAt: row.created_at,
     };
