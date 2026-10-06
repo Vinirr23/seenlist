@@ -65,22 +65,65 @@ const PATTERN_BREAK_MIN_ENTRIES = 3;
 const PATTERN_BREAK_INDEX = 5;
 
 /**
- * THROTTLE DE HERO (2026-10-01, feedback de design explícito — "não
- * usaria o Hero apenas porque alguém terminou alguma coisa. Se houver
- * muitos finished, o feed vira uma sequência de banners enormes. Eu
- * limitaria, por exemplo, a um Hero a cada 5–7 itens, e os outros
- * finished usam uma versão compacta"). Faixa pedida foi um intervalo
- * (5-7), não um número fechado — escolhi o PONTO MÉDIO, 6, como gap
- * mínimo entre dois Heroes (1º "completed" da lista sempre é
- * elegível; o próximo só volta a ser elegível depois de, no mínimo,
- * `HERO_MIN_GAP` outras entradas desde o último Hero, contando TODAS
- * as entradas — não só as "completed" — porque "a cada 5-7 itens" se
- * referia ao Feed como um todo, não só às entradas de conclusão).
- * Reportando o número escolhido ao usuário de propósito (não é uma
- * decisão silenciosa) — fácil de ajustar se 6 não parecer certo na
- * prática.
+ * THROTTLE DE HERO — ERA posicional, virou hash determinístico
+ * (2026-10-06, bug real reportado com prints — "Código: Vingança" era
+ * Hero, assisti "A Revolta", "A Revolta" virou Hero e "Código:
+ * Vingança" voltou a card normal).
+ *
+ * CAUSA RAIZ (investigada a fundo antes de mexer): a versão antiga
+ * contava "quantas entradas se passaram desde o último Hero" andando
+ * pela lista final, na ORDEM DE EXIBIÇÃO daquela chamada específica.
+ * Toda vez que o Feed recarrega (pull-to-refresh, criar post, tocar
+ * em "↑ Novidades", etc.) o pipeline inteiro roda nascer — `rankEntries`
+ * resorteia por recência a partir de um `Date.now()` novo — e uma
+ * atividade nova de alguém, nascendo perto do topo, empurra tudo que
+ * vinha depois uma posição adiante. Isso reseta a contagem de gap no
+ * meio da lista, e um Hero antigo que não tinha mudado em nada podia
+ * reprovar o `>= HERO_MIN_GAP` só por ter mudado de posição.
+ *
+ * NOVA REGRA — função PURA de `activity.id` (hash determinístico,
+ * `hashActivityId`, abaixo): mesma activity, mesma decisão, sempre,
+ * não importa o que entrou/saiu/mudou de posição ao redor dela. Isso
+ * era inegociável (ver `heroEligible` em `applyHeroThrottle`, abaixo)
+ * — o preço é que o espaçamento entre Heroes deixa de ser GARANTIDO
+ * (era, antes) e passa a ser só uma MÉDIA estatística; dois Heroes
+ * raramente podem ficar vizinhos (aceito de propósito, pedido
+ * explícito — "se dois Heroes ocasionalmente ficarem próximos,
+ * aceitamos isso em troca da estabilidade").
+ *
+ * CALIBRAÇÃO (dados reais, não chute) — pedido original de design era
+ * ~1 Hero a cada 5-7 ENTRADAS TOTAIS do Feed (não só "completed"), um
+ * intervalo com 6 de ponto médio. Só que o hash roda só sobre
+ * completed ISOLADAS elegíveis — uma fração menor do total — então
+ * `1/6` de probabilidade ali NÃO equivale a "1 a cada 6 entradas do
+ * Feed". Medi em cima de uma exportação real do banco (series_status +
+ * movie_status + reviews + posts, dedupe + agrupamento de 15min
+ * aplicados exatamente como em produção): das 435 entradas finais do
+ * histórico exportado, 153 são completed isoladas elegíveis — fração
+ * `f ≈ 0.3517`. Probabilidade derivada: `p = 1 / (6 × f) ≈ 0.4739`.
+ * Simulando os dois algoritmos em cima desses dados reais: o antigo
+ * saiu numa densidade de ~10.4 entradas/Hero (não batia os "5-7" nem
+ * ele mesmo, porque a base de usuários ainda é pequena — poucas
+ * completed isoladas disponíveis); o novo, com este `p`, saiu em ~7.0
+ * — mais perto do alvo do que o próprio algoritmo antigo neste
+ * dataset. Ajustável aqui se a frequência real no app não parecer
+ * certa na prática (mesmo espírito do comentário antigo).
  */
-const HERO_MIN_GAP = 6;
+const HERO_PROBABILITY = 0.4739;
+
+/**
+ * Hash determinístico simples (FNV-1a, 32 bits) — sem dependência
+ * nova, só string → inteiro → normalizado pra `[0, 1)`. PURA: mesma
+ * entrada, mesma saída, sempre, não lê nada além do próprio `id`.
+ */
+function hashActivityId(id: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0) / 0xffffffff;
+}
 
 /**
  * Busca os DADOS BRUTOS (só banco, sem TMDB) do módulo de "quebra de
@@ -284,24 +327,21 @@ function isMergedActivity(entry: ActivityItem | ActivityGroup | MergedActivityIt
 }
 
 /**
- * Marca `heroEligible` nas entradas "completed", JÁ NA ORDEM FINAL do
- * Feed (depois do sort + inserção do módulo de quebra de padrão —
- * senão o "gap" contado aqui não corresponderia ao que a pessoa vê de
- * verdade na tela). 1ª entrada "completed" da lista sempre elegível;
- * as próximas só voltam a ser depois de `HERO_MIN_GAP` outras
- * entradas desde o último Hero concedido (ver comentário de
- * `HERO_MIN_GAP`, acima).
+ * Marca `heroEligible` nas entradas "completed" — elegibilidade
+ * EXATAMENTE como antes (só `kind: "activity"` com
+ * `activityType === "completed"`; atividade dentro de um grupo nunca
+ * passa por aqui, nunca vira Hero). A DECISÃO em si agora é pura por
+ * `activity.id` (ver comentário grande de `HERO_PROBABILITY`, acima)
+ * — não depende de posição, de quem veio antes/depois, nem é chamada
+ * com `.map()`-com-closure mais: dá pra rodar item a item, isolado,
+ * sempre com o mesmo resultado.
  */
 function applyHeroThrottle(entries: FeedEntry[]): FeedEntry[] {
-  let entriesSinceLastHero = Infinity; // garante que a 1ª "completed" da lista seja sempre elegível
   return entries.map((entry) => {
     if (entry.kind !== "activity" || entry.activity.activityType !== "completed") {
-      entriesSinceLastHero++;
       return entry;
     }
-    const heroEligible = entriesSinceLastHero >= HERO_MIN_GAP;
-    entriesSinceLastHero = heroEligible ? 0 : entriesSinceLastHero + 1;
-    return { ...entry, heroEligible };
+    return { ...entry, heroEligible: hashActivityId(entry.activity.id) < HERO_PROBABILITY };
   });
 }
 
@@ -590,9 +630,12 @@ async function fetchFeedEntries(scope: FeedScope, locale: string): Promise<{ ent
   // dentro de um grupo (`kind: "activityGroup"`) nunca passa por ali,
   // então nunca vira Hero (pedido explícito: "não usaria Hero card
   // quando isso acontecer... Hero deveria aparecer quando uma
-  // atividade ISOLADA merece destaque"). Continua sendo a ÚLTIMA
-  // passada de propósito — sua semântica ("N entradas desde o último
-  // Hero") só faz sentido sobre a ordem final já composta.
+  // atividade ISOLADA merece destaque"). CORREÇÃO (2026-10-06) — era
+  // posicional, por isso precisava rodar por último, sobre a ordem já
+  // composta; virou hash puro por `activity.id` (ver comentário
+  // grande de `HERO_PROBABILITY`), não depende mais de onde roda no
+  // pipeline. Continua por último só por organização, não por
+  // necessidade.
   return { entries: applyHeroThrottle(composed), hadPartialFailure };
 }
 

@@ -767,6 +767,13 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
                   abrir a lista de pendentes enquanto o card está no
                   meio da própria coreografia de marcar o episódio
                   atual.
+
+                  CORREÇÃO (2026-10-06, "não fica óbvio que é tocável")
+                  — virou pílula arredondada com uma setinha pra baixo
+                  (mockup aprovado, Opção A:
+                  https://claude.ai/artifact/DD1A2JhScEPn1pmXxSgEdq) —
+                  mesma pista visual de "abre algo" usada em outros
+                  pontos do app.
                 */
                 <Pressable
                   hitSlop={8}
@@ -775,6 +782,7 @@ export const ContinueWatchingListRow = memo(function ContinueWatchingListRow({
                   style={styles.plusBadgeBox}
                 >
                   <Text style={styles.plusBadge}>+{display.additionalPendingCount}</Text>
+                  <Feather name="chevron-down" size={10} color={colors.primary} />
                 </Pressable>
               )}
             </View>
@@ -1012,11 +1020,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: LARGURA_BRILHO_DESTAQUE,
   },
-  /** `bg-primary/15 rounded px-1` do web — `rounded` do Tailwind = 4px. */
+  /**
+   * Era `bg-primary/15 rounded px-1` do web (`rounded` do Tailwind =
+   * 4px) — virou pílula (`radius.full`) com uma setinha, ver
+   * comentário no JSX acima (mockup Opção A, 2026-10-06).
+   */
   plusBadgeBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
     backgroundColor: "rgba(232,163,61,0.15)",
-    borderRadius: 4,
-    paddingHorizontal: 4,
+    borderRadius: radius.full,
+    paddingVertical: 2,
+    paddingLeft: 6,
+    paddingRight: 5,
   },
   plusBadge: {
     /* `text-[10px]` no web; estava 11. */

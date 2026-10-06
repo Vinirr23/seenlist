@@ -12,10 +12,18 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * em `lib/recommendPrompt.ts` (fora daqui de propósito) — este
  * componente só desenha.
  *
- * Deliberadamente discreto, conforme pedido: aparece de baixo,
- * ocupa pouca altura, e "Agora não" tem o mesmo peso de toque que
- * "Recomendar" (não é um botão escondidinho de propósito pra forçar
- * o sim). Tocar fora também fecha, como qualquer folha do app.
+ * CORREÇÃO (2026-10-06, "o popup não tem espaço suficiente") — era um
+ * bottom-sheet (`overlay` com `justifyContent: "flex-end"`), sem
+ * `maxHeight` nem padding de área segura: em telas menores ou com
+ * textos maiores, o conteúdo ficava cortado pela barra do sistema
+ * (ver print do usuário). Virou um dialog CENTRALIZADO (mesmo
+ * espírito do popup nativo de avaliar o app, que o SO desenha e
+ * centraliza sozinho) — mockup aprovado, opção C:
+ * https://claude.ai/artifact/D4beUHvSffHhhYiFRkUtEc
+ *
+ * "Agora não" mantém o mesmo peso visual de antes (texto, não botão
+ * escondido) — não é um dark pattern pra forçar o "sim". Tocar fora
+ * também fecha.
  */
 export function RecommendPromptSheet({
   mediaTitle,
@@ -34,46 +42,38 @@ export function RecommendPromptSheet({
   const posterUrl = tmdbImageUrl(posterPath, "w185");
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onDismiss}>
+    <Modal visible transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
 
-        <Glass style={styles.sheet} variant="dark">
-          <View style={styles.row}>
-            <View style={styles.poster}>
-              {posterUrl && <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />}
-            </View>
-
-            <View style={styles.info}>
-              <View style={styles.starsRow}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <MaterialCommunityIcons
-                    key={i}
-                    name={i < rating ? "star" : "star-outline"}
-                    size={13}
-                    color={colors.primary}
-                  />
-                ))}
-              </View>
-              {/* CORREÇÃO (FASE 2, strings hardcoded, 2026-09-26) — as 4 strings desta folha eram texto literal, sem passar por `t()`. */}
-              <Text style={styles.title} numberOfLines={2}>
-                {t("social.recommendPromptTitle", { mediaTitle })}
-              </Text>
-              <Text variant="muted" style={styles.subtitle}>
-                {t("social.recommendPromptSubtitle")}
-              </Text>
-            </View>
+        <Glass style={styles.dialog} variant="dark">
+          <View style={styles.poster}>
+            {posterUrl && <Image source={{ uri: posterUrl }} style={styles.posterImage} contentFit="cover" />}
           </View>
 
+          <View style={styles.starsRow}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <MaterialCommunityIcons
+                key={i}
+                name={i < rating ? "star" : "star-outline"}
+                size={15}
+                color={colors.primary}
+              />
+            ))}
+          </View>
+
+          <Text style={styles.title}>{t("social.recommendPromptTitle", { mediaTitle })}</Text>
+          <Text variant="muted" style={styles.subtitle}>
+            {t("social.recommendPromptSubtitle")}
+          </Text>
+
           <View style={styles.actions}>
+            <Button onPress={onRecommend}>{t("social.recommendPromptCta")}</Button>
             <Pressable style={styles.dismissButton} onPress={onDismiss} hitSlop={8}>
               <Text variant="muted" style={styles.dismissText}>
                 {t("social.recommendPromptDismiss")}
               </Text>
             </Pressable>
-            <View style={styles.recommendButton}>
-              <Button onPress={onRecommend}>{t("social.recommendPromptCta")}</Button>
-            </View>
           </View>
         </Glass>
       </View>
@@ -84,67 +84,62 @@ export function RecommendPromptSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "flex-end",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
     backgroundColor: scrim.modal,
   },
-  // FASE 2 (consistência visual sistêmica, 2026-09-26) — `backgroundColor`
-  // sólido saiu (vira `<Glass variant="dark">`, mesmo padrão dos outros
-  // sheets do app); `elevation.high` (sombra) é independente do fundo,
-  // continua aqui.
-  sheet: {
+  dialog: {
     ...elevation.high,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  row: {
-    flexDirection: "row",
-    gap: spacing.md,
+    width: "100%",
+    maxWidth: 320,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    alignItems: "center",
   },
   poster: {
-    width: 56,
-    height: 84,
+    width: 72,
+    height: 108,
     borderRadius: radius.sm,
     overflow: "hidden",
     backgroundColor: colors.background,
+    marginBottom: spacing.sm,
   },
   posterImage: {
     width: "100%",
     height: "100%",
   },
-  info: {
-    flex: 1,
-    justifyContent: "center",
-    gap: 2,
-  },
   starsRow: {
     flexDirection: "row",
-    gap: 1,
-    marginBottom: 2,
+    gap: 2,
+    marginBottom: spacing.sm,
   },
   title: {
     fontSize: fontSize.md,
     fontWeight: "700",
     color: colors.text,
+    textAlign: "center",
+    marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: fontSize.xs,
+    textAlign: "center",
+    marginBottom: spacing.lg,
   },
   actions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
+    width: "100%",
+    alignItems: "stretch",
+    gap: spacing.sm,
   },
   dismissButton: {
+    alignItems: "center",
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
   },
   dismissText: {
     fontSize: fontSize.sm,
     fontWeight: "600",
-  },
-  recommendButton: {
-    flex: 1,
   },
 });
