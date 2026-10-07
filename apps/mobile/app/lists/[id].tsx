@@ -426,7 +426,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs,
   },
-  coOwnerAvatar: { width: 20, height: 20, borderRadius: 10 },
+  // CORREÇÃO (bug real, reportado com print — avatar do participante
+  // aparecia QUADRADO na pill) — faltava `overflow: "hidden"`. O
+  // `Avatar` (`components/common/Avatar.tsx`) só aplica o estilo
+  // passado na `View` externa; sem `overflow: "hidden"` nela, o
+  // `borderRadius` não recorta a `<Image>` de dentro (ela preenche
+  // 100%x100% por cima, ignorando o raio) — só a borda externa da
+  // `View` ficava arredondada. Único lugar deste arquivo com esse
+  // esquecimento; os outros estilos de avatar do app já incluem isso.
+  coOwnerAvatar: { width: 20, height: 20, borderRadius: 10, overflow: "hidden" },
   coOwnerAvatarInitials: { fontSize: fontSize.micro },
   coOwnerPillText: { fontSize: fontSize.xs, fontWeight: "500", color: colors.muted, flexShrink: 1 },
   invitePillText: { fontSize: fontSize.xs, fontWeight: "600", color: colors.muted },
