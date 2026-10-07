@@ -98,6 +98,23 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
     .from("notifications")
     .select("id, type, actor_id, target_type, target_id, target_media_type, target_media_id, payload, read_at, created_at")
     .eq("user_id", user.id)
+    // CORREÇÃO DE CAUSA RAIZ (2026-10-07, bug real reportado — "tem uma
+    // notificação com um sino que tá bugada ali em cima", print real
+    // mostrando uma linha sem mensagem nenhuma, só a data). A linha
+    // existe de verdade (migration `20261007030000_whats_new.sql`
+    // insere uma por usuário) — não é lixo nem erro de inserção. A
+    // causa raiz é de DESIGN: `type: "whats_new"` nunca fez parte da
+    // union `NotificationType` (abaixo) nem de `getNotificationMessage`
+    // (`app/notifications.tsx`) de propósito — essa linha existe só pra
+    // disparar o PUSH (lida por `send-push-notifications`, que não
+    // passa por este arquivo), nunca foi pra aparecer como item da
+    // lista. A UI de verdade pra "novidades" é o card fixo dedicado
+    // (também em `app/notifications.tsx`) + a tela `/whats-new`, que já
+    // tratam a mensagem/ícone certos sozinhos. Sem este filtro, a linha
+    // cai aqui, `row.type as NotificationType` mascara o tipo que não
+    // bate com nenhum `case`, e o switch sem `default` devolve
+    // `undefined` — daí o card "fantasma" sem texto nenhum.
+    .neq("type", "whats_new")
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) throw error;
@@ -170,6 +187,12 @@ export async function fetchUnreadNotificationCount(): Promise<number> {
     .from("notifications")
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id)
+    // Mesmo motivo do filtro em `fetchNotifications` acima — a linha de
+    // `whats_new` não aparece na lista, então também não deve contar
+    // pra bolinha vermelha do sino (teria um número "fantasma" sem
+    // nenhum item visível correspondente). O status de "visto" dessa
+    // feature é todo separado, via `whats_new_seen_at` (`lib/whatsNew.ts`).
+    .neq("type", "whats_new")
     .is("read_at", null);
   if (error) {
     console.error("[notifications] Falha ao contar não lidas", error);
