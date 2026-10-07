@@ -274,6 +274,36 @@ export async function fetchMyListsWithPreview(language = "pt-BR"): Promise<ListW
 }
 
 /**
+ * CORREÇÃO DE CAUSA RAIZ (2026-10-07, bug real reportado em teste
+ * manual — "Não foi possível enviar o convite agora", e a 2ª tentativa
+ * pro mesmo usuário já dava "Esta lista já tem um convite ativo") —
+ * as 5 funções abaixo inseriam a notificação (`insert` em
+ * `notifications`) DIRETO pelo app. A RLS de `notifications` só libera
+ * cada usuário ler a própria caixa — nunca inserir notificação EM NOME
+ * de outra pessoa. Isso derrubava sempre o `insert`, mas só DEPOIS do
+ * `update` em `lists` já ter sido aplicado (ex.: o convite "pending"
+ * ficava gravado de verdade) — por isso o erro genérico na 1ª
+ * tentativa e "já tem convite ativo" na 2ª, mesmo sem nenhuma
+ * notificação nunca ter chegado.
+ *
+ * Todo o resto do app que notifica OUTRA pessoa (recomendação,
+ * curtida, resposta de comentário, selo concedido etc.) já resolve
+ * isso com um trigger `SECURITY DEFINER` no banco, nunca com `insert`
+ * direto do client (ver comentário de
+ * `20260820000000_recommendation_notifications.sql`). A funcionalidade
+ * de co-dono quebrou essa convenção sem querer. Corrigido com o mesmo
+ * padrão: `lists_notify_coowner_events()` (trigger `AFTER UPDATE on
+ * lists`, migration `20261007000000_lists_coowner_notify_trigger.sql`)
+ * passou a inserir a notificação certa pra cada transição — a MESMA
+ * lógica que estava aqui, só do lado do banco, que tem permissão de
+ * ignorar a RLS. As 5 funções abaixo agora só fazem o `update` em
+ * `lists`; o parâmetro de nome/id usado só pro `insert` antigo
+ * (`listName`/`ownerId`/`coOwnerId`) ficou na assinatura pra não
+ * quebrar quem já chama — o trigger lê o nome/id certo direto da linha
+ * da própria `lists`, não precisa mais que o client mande de novo.
+ */
+
+/**
  * Convida alguém pra co-dono da lista — busca por username (reaproveita
  * `fetchUserSearch`, o mesmo mecanismo de "Descobrir pessoas"). Só o
  * dono original pode convidar (reforçado pela RLS: `with check` da
@@ -301,20 +331,11 @@ export async function inviteCoOwner(listId: string, listName: string, targetUser
     .select("id");
   if (error) throw error;
   if (!data || data.length === 0) throw new Error("Esta lista já tem um convite ativo.");
-
-  const { error: notifError } = await supabase.from("notifications").insert({
-    user_id: targetUserId,
-    actor_id: user.id,
-    type: "list_coowner_invite",
-    target_type: "list",
-    target_id: listId,
-    payload: { listName },
-  });
-  if (notifError) throw notifError;
+  // Notificação pro convidado: trigger `lists_notify_coowner_events` (ver comentário acima).
 }
 
 /** O convidado aceita — o trigger no banco só deixa essa transição exata (pending -> accepted) passar pela mão do co-dono. */
-export async function acceptCoOwnerInvite(listId: string, listName: string, ownerId: string): Promise<void> {
+export async function acceptCoOwnerInvite(listId: string, _listName: string, _ownerId: string): Promise<void> {
   const {
     data: { user },
   } = await getCurrentAuthUser();
@@ -322,20 +343,11 @@ export async function acceptCoOwnerInvite(listId: string, listName: string, owne
 
   const { error } = await supabase.from("lists").update({ co_owner_status: "accepted" }).eq("id", listId);
   if (error) throw error;
-
-  const { error: notifError } = await supabase.from("notifications").insert({
-    user_id: ownerId,
-    actor_id: user.id,
-    type: "list_coowner_accepted",
-    target_type: "list",
-    target_id: listId,
-    payload: { listName },
-  });
-  if (notifError) throw notifError;
+  // Notificação pro dono: trigger `lists_notify_coowner_events` (ver comentário acima).
 }
 
 /** O convidado recusa o convite — zera os dois campos (mesma transição que "saír", do ponto de vista do banco). */
-export async function declineCoOwnerInvite(listId: string, listName: string, ownerId: string): Promise<void> {
+export async function declineCoOwnerInvite(listId: string, _listName: string, _ownerId: string): Promise<void> {
   const {
     data: { user },
   } = await getCurrentAuthUser();
@@ -343,16 +355,7 @@ export async function declineCoOwnerInvite(listId: string, listName: string, own
 
   const { error } = await supabase.from("lists").update({ co_owner_id: null, co_owner_status: null }).eq("id", listId);
   if (error) throw error;
-
-  const { error: notifError } = await supabase.from("notifications").insert({
-    user_id: ownerId,
-    actor_id: user.id,
-    type: "list_coowner_declined",
-    target_type: "list",
-    target_id: listId,
-    payload: { listName },
-  });
-  if (notifError) throw notifError;
+  // Notificação pro dono: trigger `lists_notify_coowner_events` (ver comentário acima).
 }
 
 /**
@@ -361,9 +364,12 @@ export async function declineCoOwnerInvite(listId: string, listName: string, own
  * notificação PRÓPRIO (`list_coowner_left`, diferente de
  * `removeCoOwner` abaixo) porque quem recebe (o dono) precisa de um
  * texto diferente — "{co-dono} saiu" não é a mesma frase que "você
- * removeu {co-dono}".
+ * removeu {co-dono}". O trigger decide qual dos dois tipos emitir
+ * olhando quem é `auth.uid()` na hora do `update` (o próprio co-dono
+ * aqui; o dono em `removeCoOwner` abaixo) — mesma distinção que já
+ * estava aqui, só do lado do banco agora.
  */
-export async function leaveSharedList(listId: string, listName: string, ownerId: string): Promise<void> {
+export async function leaveSharedList(listId: string, _listName: string, _ownerId: string): Promise<void> {
   const {
     data: { user },
   } = await getCurrentAuthUser();
@@ -371,20 +377,11 @@ export async function leaveSharedList(listId: string, listName: string, ownerId:
 
   const { error } = await supabase.from("lists").update({ co_owner_id: null, co_owner_status: null }).eq("id", listId);
   if (error) throw error;
-
-  const { error: notifError } = await supabase.from("notifications").insert({
-    user_id: ownerId,
-    actor_id: user.id,
-    type: "list_coowner_left",
-    target_type: "list",
-    target_id: listId,
-    payload: { listName },
-  });
-  if (notifError) throw notifError;
+  // Notificação pro dono: trigger `lists_notify_coowner_events` (ver comentário acima).
 }
 
 /** O dono original remove o co-dono (a qualquer momento, aceito ou não). Itens que o co-dono adicionou ficam na lista. */
-export async function removeCoOwner(listId: string, listName: string, coOwnerId: string): Promise<void> {
+export async function removeCoOwner(listId: string, _listName: string, _coOwnerId: string): Promise<void> {
   const {
     data: { user },
   } = await getCurrentAuthUser();
@@ -392,14 +389,5 @@ export async function removeCoOwner(listId: string, listName: string, coOwnerId:
 
   const { error } = await supabase.from("lists").update({ co_owner_id: null, co_owner_status: null }).eq("id", listId);
   if (error) throw error;
-
-  const { error: notifError } = await supabase.from("notifications").insert({
-    user_id: coOwnerId,
-    actor_id: user.id,
-    type: "list_coowner_removed",
-    target_type: "list",
-    target_id: listId,
-    payload: { listName },
-  });
-  if (notifError) throw notifError;
+  // Notificação pro co-dono removido: trigger `lists_notify_coowner_events` (ver comentário acima).
 }
