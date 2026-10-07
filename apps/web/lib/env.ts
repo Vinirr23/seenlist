@@ -40,4 +40,20 @@ export const env = {
   traktClientId: () => requireEnv("TRAKT_CLIENT_ID", process.env.TRAKT_CLIENT_ID),
   /** TASK-171 — esse sim é secreto de verdade (troca o "code" do OAuth pelo token de acesso) — nunca pode chegar ao navegador. */
   traktClientSecret: () => requireEnv("TRAKT_CLIENT_SECRET", process.env.TRAKT_CLIENT_SECRET),
+  /**
+   * TASK (Resumo da Temporada) — qual implementação de `AiProvider`
+   * usar (ver `apps/web/lib/ai/getAiProvider.ts`). NÃO é secreto (é só
+   * um nome, ex. "gemini") e tem um padrão razoável — por isso não
+   * passa por `requireEnv`, é opcional de propósito.
+   */
+  aiProvider: () => process.env.AI_PROVIDER || "gemini",
+  /**
+   * TASK (Resumo da Temporada) — chave da Gemini API (Google AI
+   * Studio), free tier escolhido pra V1. Só é lida dentro de
+   * `apps/web/lib/ai/providers/gemini.ts`, que só é chamado de dentro
+   * da rota `/api/season-recap` (servidor) — nunca `NEXT_PUBLIC_`, o
+   * mobile só recebe o texto já gerado, igual já acontece com
+   * `TMDB_API_KEY`.
+   */
+  geminiApiKey: () => requireEnv("GEMINI_API_KEY", process.env.GEMINI_API_KEY),
 };

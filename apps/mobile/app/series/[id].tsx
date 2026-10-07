@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View, ScrollView, Pressable, StyleSheet, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -26,6 +26,8 @@ import { MetaRow } from "@/components/media/MetaRow";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { SeasonAccordion } from "@/components/series-detail/SeasonAccordion";
 import { EpisodeCarousel } from "@/components/series-detail/EpisodeCarousel";
+import { SeasonRecapCard } from "@/components/series-detail/SeasonRecapCard";
+import { findCompletedPreviousSeason } from "@/lib/seasonRecapEligibility";
 import { SeriesWatchProviders } from "@/components/series-detail/SeriesWatchProviders";
 import { OptionSheet } from "@/components/settings/OptionSheet";
 import { getSeriesCategoryColorByStatus } from "@/lib/seriesCategories";
@@ -172,6 +174,21 @@ export default function SeriesDetailScreen() {
     established: false,
     value: new Map(),
   });
+
+  /**
+   * TASK (Resumo da Temporada) — seção 3 da auditoria: decide, só com
+   * o que já está carregado nesta tela (sem chamada nova), se existe
+   * uma temporada anterior recém-concluída pra mostrar o card. Usa
+   * `isEpisodeWatchedSync` sem o 4º/5º argumento (episodeId/
+   * watchedEpisodeIds) de propósito — a elegibilidade só precisa do
+   * Set por chave `temporada:episódio`, não do id fixo da TMDB.
+   */
+  const completedPreviousSeason = useMemo(() => {
+    if (!series) return null;
+    return findCompletedPreviousSeason(series.seasons, (seasonNumber, episodeNumber) =>
+      isEpisodeWatchedSync(watched, seasonNumber, episodeNumber)
+    );
+  }, [series, watched]);
 
   useEffect(() => {
     if (!series) return;
@@ -502,6 +519,25 @@ export default function SeriesDetailScreen() {
                  */
                 backdropUrl={tmdbImageUrl(series.backdropPath, "w780") ?? tmdbImageUrl(series.posterPath, "w780")}
               />
+
+              {/*
+                TASK (Resumo da Temporada) — card contextual (seção 4
+                da auditoria): entre o carrossel "Continuar
+                acompanhando" (acima) e "Todos os episódios" (abaixo).
+                Só monta quando existe uma temporada anterior 100%
+                concluída (`completedPreviousSeason`, seção 3) — o
+                próprio `SeasonRecapCard` busca o recap e se esconde
+                sozinho se não houver dados suficientes ou der erro
+                (seção 9).
+              */}
+              {completedPreviousSeason && (
+                <SeasonRecapCard
+                  seriesId={numericId}
+                  seasonNumber={completedPreviousSeason.seasonNumber}
+                  seriesTitle={series.title}
+                  backdropUrl={tmdbImageUrl(series.backdropPath, "w780") ?? tmdbImageUrl(series.posterPath, "w780")}
+                />
+              )}
 
               {/*
                 A PEDIDO (2026-09-25, print de referência — "analise

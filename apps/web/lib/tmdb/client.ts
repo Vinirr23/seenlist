@@ -458,6 +458,45 @@ export async function getSeasonEpisodes(seriesId: string, seasonNumber: number, 
   }));
 }
 
+interface TmdbSeasonWithOverviewResponse {
+  episodes: {
+    episode_number: number;
+    name: string;
+    overview: string;
+  }[];
+}
+
+export interface SeasonEpisodeOverview {
+  episodeNumber: number;
+  name: string;
+  overview: string;
+}
+
+/**
+ * TASK (Resumo da Temporada) — função NOVA, separada de propósito de
+ * `getSeasonEpisodes` acima: aquela devolve o tipo `Episode`
+ * compartilhado (`@seenlist/types`), usado por vários consumidores que
+ * não precisam do campo `overview` — estender esse tipo pra todo mundo
+ * só pra esta feature usar aumentaria a superfície de todo consumidor
+ * existente sem necessidade (achado da auditoria, seção 1/5:
+ * `getSeasonEpisodes` descarta `overview`, nenhuma rota hoje expõe
+ * esse campo pro client). Mesma rota TMDB (`/tv/{id}/season/{n}`), só
+ * que extraindo `overview` em vez de descartar.
+ */
+export async function getSeasonEpisodesWithOverview(
+  seriesId: string,
+  seasonNumber: number,
+  language = "pt-BR"
+): Promise<SeasonEpisodeOverview[]> {
+  const data = await tmdbGet<TmdbSeasonWithOverviewResponse>(`/tv/${seriesId}/season/${seasonNumber}`, { language });
+
+  return data.episodes.map((episode) => ({
+    episodeNumber: episode.episode_number,
+    name: episode.name,
+    overview: episode.overview ?? "",
+  }));
+}
+
 interface TmdbSeriesSeasonsResponse {
   seasons: { season_number: number; episode_count: number }[];
 }
