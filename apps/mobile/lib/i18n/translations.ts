@@ -93,6 +93,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.sending": "Enviando…",
     // LISTA COMPARTILHADA (2026-10-06) — convite de co-dono pra "Minhas listas".
     "profile.inviteCoOwner": "Convidar pra co-dono",
+    // POLISH (2026-10-07, rodada 2, a pedido) — label curto da pill no detalhe da lista ("Convidar pra co-dono" ali ficava grande demais); o sheet de convite continua com o texto completo acima.
+    "profile.invitePillLabel": "Convidar",
     "profile.coOwnerPendingBadge": "Convite pendente",
     "profile.coOwnerAcceptedBadge": "Compartilhada com {name}",
     "profile.searchUsernameToInvite": "Buscar por username",
@@ -895,6 +897,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.decline": "Decline",
     "common.sending": "Sending…",
     "profile.inviteCoOwner": "Invite co-owner",
+    "profile.invitePillLabel": "Invite",
     "profile.coOwnerPendingBadge": "Invite pending",
     "profile.coOwnerAcceptedBadge": "Shared with {name}",
     "profile.searchUsernameToInvite": "Search by username",
@@ -1555,6 +1558,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.decline": "Rechazar",
     "common.sending": "Enviando…",
     "profile.inviteCoOwner": "Invitar co-propietario",
+    "profile.invitePillLabel": "Invitar",
     "profile.coOwnerPendingBadge": "Invitación pendiente",
     "profile.coOwnerAcceptedBadge": "Compartida con {name}",
     "profile.searchUsernameToInvite": "Buscar por usuario",

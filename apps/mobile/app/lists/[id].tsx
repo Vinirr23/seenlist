@@ -13,7 +13,7 @@ import { Avatar } from "@/components/common/Avatar";
 import { Screen, Text, Skeleton, PressableScale, GlassTargetProvider, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { hapticTick } from "@/lib/haptics";
-import { colors, radius, spacing, fontSize, tint, scrim } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -206,40 +206,53 @@ export default function ListDetailScreen() {
         }
       />
 
-      {/* REDESIGN (2026-10-07) — "3 títulos" discreto abaixo do título, sem inflar o `ScreenHeader` (compartilhado por 24 telas). */}
-      {list && items !== null && (
-        <Text variant="muted" style={styles.countLine}>
-          {items.length === 1 ? t("profile.oneListItem") : t("profile.listItemsCount", { count: items.length })}
-        </Text>
-      )}
-
       {/*
-        LISTA COMPARTILHADA (2026-10-06) — pill só pro DONO (co-dono
-        não tem direito sobre a lista em si, só sobre os itens —
-        decisão confirmada, preservada igual nesta rodada).
-        REDESIGN (2026-10-07) — era uma linha de largura total com
-        texto em negrito âmbar; agora é uma pill compacta (mesma
-        receita de `GenreChips.tsx`: `tint.subtle` + `radius.full`).
+        POLISH (2026-10-07, rodada 2 — "a área superior está um pouco
+        fragmentada") — "3 títulos" e a pill de co-dono viram uma linha
+        só (`space-between`), em vez de duas linhas empilhadas. Os dois
+        lados são independentes de propósito (`metaLeft` só aparece
+        quando `items` carrega; a pill só depende de `list`/`isOwner`)
+        pra pill não "esperar" os itens carregarem pra aparecer — isso
+        não é mudança de comportamento, só evita que o layout pule.
       */}
-      {isOwner && (
-        <View style={styles.coOwnerRow}>
-          {list?.coOwner ? (
-            <Pressable style={styles.coOwnerPill} onPress={() => setCoOwnerMenuOpen(true)}>
-              <Avatar
-                uri={list.coOwner.avatarUrl}
-                name={list.coOwner.displayName ?? list.coOwner.username}
-                style={styles.coOwnerAvatar}
-                textStyle={styles.coOwnerAvatarInitials}
-              />
-              <Text numberOfLines={1} style={styles.coOwnerPillText}>
-                {list.coOwner.status === "accepted" ? (list.coOwner.displayName ?? `@${list.coOwner.username}`) : t("profile.coOwnerPendingBadge")}
+      {(list || isOwner) && (
+        <View style={styles.metaRow}>
+          <View style={styles.metaLeft}>
+            {list && items !== null && (
+              <Text variant="muted" style={styles.countText}>
+                {items.length === 1 ? t("profile.oneListItem") : t("profile.listItemsCount", { count: items.length })}
               </Text>
-            </Pressable>
-          ) : (
-            <Pressable style={styles.coOwnerPill} onPress={() => setShowInvite(true)}>
-              <Feather name="user-plus" size={14} color={colors.primary} />
-              <Text style={styles.invitePillText}>{t("profile.inviteCoOwner")}</Text>
-            </Pressable>
+            )}
+          </View>
+          {/*
+            LISTA COMPARTILHADA (2026-10-06) — pill só pro DONO (co-dono
+            não tem direito sobre a lista em si, só sobre os itens —
+            decisão confirmada, preservada igual nesta rodada).
+            POLISH (2026-10-07, rodada 2 — "chamando atenção demais,
+            pill âmbar virou o 2º elemento mais importante da tela") —
+            fundo neutro (`colors.surface`+`colors.border`, não mais
+            `tint.subtle` âmbar) e texto `muted`; o âmbar sobra só no
+            ícone de convite (único "toque" de cor aqui).
+          */}
+          {isOwner && (
+            list?.coOwner ? (
+              <Pressable style={styles.coOwnerPill} onPress={() => setCoOwnerMenuOpen(true)}>
+                <Avatar
+                  uri={list.coOwner.avatarUrl}
+                  name={list.coOwner.displayName ?? list.coOwner.username}
+                  style={styles.coOwnerAvatar}
+                  textStyle={styles.coOwnerAvatarInitials}
+                />
+                <Text numberOfLines={1} style={styles.coOwnerPillText}>
+                  {list.coOwner.status === "accepted" ? (list.coOwner.displayName ?? `@${list.coOwner.username}`) : t("profile.coOwnerPendingBadge")}
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable style={styles.coOwnerPill} onPress={() => setShowInvite(true)}>
+                <Feather name="user-plus" size={13} color={colors.primary} />
+                <Text style={styles.invitePillText}>{t("profile.invitePillLabel")}</Text>
+              </Pressable>
+            )
           )}
         </View>
       )}
@@ -366,7 +379,7 @@ export default function ListDetailScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t("profile.moreOptions")}
               >
-                <Feather name="more-horizontal" size={12} color="#fff" />
+                <Feather name="more-horizontal" size={10} color="rgba(255,255,255,0.8)" />
               </Pressable>
             </View>
           )}
@@ -381,37 +394,42 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
-  // REDESIGN (2026-10-07) — "3 títulos" discreto, logo abaixo do `ScreenHeader`.
-  countLine: {
-    fontSize: fontSize.xs,
+  // POLISH (2026-10-07, rodada 2) — "3 títulos" + pill de co-dono na
+  // mesma linha, `space-between`, logo abaixo do `ScreenHeader`.
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     marginTop: -spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  // LISTA COMPARTILHADA (2026-10-06) — linha de status/convite, entre
-  // o cabeçalho e o campo de manchas da grade de pôsteres.
-  // REDESIGN (2026-10-07) — era `flexDirection: "row"` de largura
-  // total; agora só embrulha a pill (`alignItems: "flex-start"`
-  // implícito do `View` sem `flex`), pra ela não esticar.
-  coOwnerRow: {
-    paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
+  metaLeft: {
+    flexShrink: 1,
+  },
+  countText: {
+    fontSize: fontSize.xs,
+  },
+  // POLISH (2026-10-07, rodada 2 — "não quero uma pill âmbar
+  // chamativa") — fundo neutro (era `tint.subtle`, âmbar 12%); o
+  // âmbar sobra só no ícone `user-plus` do estado "convidar".
   coOwnerPill: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
+    flexShrink: 1,
     gap: spacing.xs,
-    backgroundColor: tint.subtle,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs,
-    maxWidth: "100%",
   },
   coOwnerAvatar: { width: 20, height: 20, borderRadius: 10 },
   coOwnerAvatarInitials: { fontSize: fontSize.micro },
-  coOwnerPillText: { fontSize: fontSize.xs, fontWeight: "600", color: colors.text, flexShrink: 1 },
-  invitePillText: { fontSize: fontSize.xs, fontWeight: "700", color: colors.primary },
+  coOwnerPillText: { fontSize: fontSize.xs, fontWeight: "500", color: colors.muted, flexShrink: 1 },
+  invitePillText: { fontSize: fontSize.xs, fontWeight: "600", color: colors.muted },
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
@@ -444,16 +462,24 @@ const styles = StyleSheet.create({
   // REDESIGN (2026-10-07) — substitui `removeButtonWrap`/`removeButton`
   // (círculo de 24×24 sempre visível). A pedido explícito ("não crie
   // um botão grande/círculo chamativo") — chip pequeno (`radius.sm`,
-  // não `radius.full`), `scrim.control`, ícone 12px.
+  // não `radius.full`).
+  // POLISH (2026-10-07, rodada 2 — "ainda estão visualmente fortes,
+  // especialmente 3 repetidos lado a lado") — menor ainda (18→15) e
+  // fundo mais transparente que `scrim.control` (que é 75% opaco, bom
+  // pra um botão sozinho sobre imagem, forte demais repetido 3×);
+  // ícone também perde um pouco de opacidade. "Encontrado quando
+  // procurado, não percebido antes das capas" — ainda com contraste
+  // suficiente pra continuar utilizável (tamanho de toque real
+  // continua 18×18 via `hitSlop`, só o visual encolheu).
   itemMenuButton: {
     position: "absolute",
     top: 4,
     right: 4,
-    width: 18,
-    height: 18,
+    width: 15,
+    height: 15,
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: scrim.control,
+    backgroundColor: "rgba(11,14,20,0.4)",
   },
 });
