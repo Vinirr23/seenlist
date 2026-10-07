@@ -54,8 +54,20 @@ function computeSourceHash(episodes: SeasonEpisodeOverview[]): string {
 
 interface SeasonRecapRow {
   in_thirty_seconds: string;
-  key_events: string;
+  key_events: unknown;
   where_it_ended: string | null;
+  prompt_version: number;
+}
+
+/**
+ * POLIMENTO (2026-10-07, a pedido explícito do usuário) — proteção
+ * obrigatória antes de confiar no `jsonb` de `key_events` vindo do
+ * banco: cache malformado (linha gravada num formato que não é mais o
+ * atual, ou corrompida por qualquer motivo) deve ser tratado como
+ * cache INVÁLIDO — nunca quebrar a tela do mobile.
+ */
+function isValidKeyEventsArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string" && item.trim().length > 0);
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ seriesId: string; season: string }> }) {
@@ -81,7 +93,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ seri
   // recap já gerado, esta linha não se auto-invalida.
   const { data: cached, error: cacheReadError } = await admin
     .from("season_recaps")
-    .select("in_thirty_seconds, key_events, where_it_ended")
+    .select("in_thirty_seconds, key_events, where_it_ended, prompt_version")
     .eq("tmdb_id", tmdbId)
     .eq("season_number", seasonNumber)
     .eq("language", language)
@@ -93,12 +105,38 @@ export async function GET(request: Request, { params }: { params: Promise<{ seri
 
   if (cached) {
     const row = cached as SeasonRecapRow;
-    return NextResponse.json({
-      available: true,
-      inThirtySeconds: row.in_thirty_seconds,
-      keyEvents: row.key_events,
-      whereItEnded: row.where_it_ended,
-    });
+
+    /**
+     * POLIMENTO (2026-10-07, a pedido explícito do usuário) — duas
+     * checagens antes de confiar na linha de cache:
+     *
+     * 1. `prompt_version` desatualizado (ex.: linhas gravadas antes
+     *    deste polimento, com `key_events` no formato antigo de
+     *    string única) é tratado como cache FRIO, não como dado
+     *    válido — cai pro fluxo normal abaixo, que regenera e
+     *    sobrescreve a linha via upsert.
+     * 2. Mesmo com `prompt_version` atual, valida a FORMA de
+     *    `key_events` antes de devolver — cache corrompido por
+     *    qualquer motivo nunca deve quebrar a tela do mobile.
+     */
+    const isCurrentVersion = row.prompt_version === SEASON_RECAP_PROMPT_VERSION;
+    const hasValidKeyEvents = isValidKeyEventsArray(row.key_events);
+
+    if (isCurrentVersion && hasValidKeyEvents) {
+      return NextResponse.json({
+        available: true,
+        inThirtySeconds: row.in_thirty_seconds,
+        keyEvents: row.key_events,
+        whereItEnded: row.where_it_ended,
+      });
+    }
+
+    if (isCurrentVersion && !hasValidKeyEvents) {
+      console.warn(
+        `[api/season-recap] Cache de ${tmdbId}/${seasonNumber}/${language} tinha prompt_version atual mas key_events num formato inválido — tratando como cache inválido e regenerando.`
+      );
+    }
+    // Se chegou aqui (versão antiga, ou versão atual com dado inválido), segue pro fluxo de geração abaixo.
   }
 
   try {

@@ -28,7 +28,15 @@ export interface SeasonRecapAiInput {
 
 export interface SeasonRecapAiOutput {
   inThirtySeconds: string;
-  keyEvents: string;
+  /**
+   * POLIMENTO (2026-10-07, a pedido do usuário após o 1º teste real) —
+   * deixou de ser uma string em texto corrido (um parágrafo único) e
+   * virou um array de acontecimentos discretos e curtos, pra render
+   * como lista numerada na UI em vez de dividir texto arbitrariamente
+   * no app (ver `SEASON_RECAP_PROMPT_VERSION`, que subiu de 1 pra 2
+   * junto com esta mudança).
+   */
+  keyEvents: string[];
   whereItEnded: string | null;
 }
 

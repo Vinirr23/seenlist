@@ -109,8 +109,20 @@ function extractResponseText(data: GeminiGenerateContentResponse): string {
 
 interface ParsedGeminiRecap {
   inThirtySeconds?: string;
-  keyEvents?: string;
+  keyEvents?: unknown;
   whereItEnded?: string | null;
+}
+
+/**
+ * POLIMENTO (2026-10-07) — `keyEvents` passou de string pra array de
+ * strings (ver `SeasonRecapAiOutput`/`SEASON_RECAP_PROMPT_VERSION`).
+ * O Gemini pode, mesmo instruído, devolver algo fora do formato (ex.:
+ * uma string única, um array com item não-string, ou vazio) — melhor
+ * rejeitar explicitamente aqui e deixar a rota tratar como falha de
+ * geração (card fica oculto) do que gravar lixo no cache.
+ */
+function isValidKeyEventsArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string" && item.trim().length > 0);
 }
 
 export function createGeminiProvider(): AiProvider {
@@ -139,8 +151,10 @@ export function createGeminiProvider(): AiProvider {
         throw new Error(`[ai/gemini] Resposta não era JSON válido: ${rawJson.slice(0, 200)}`);
       }
 
-      if (!parsed.inThirtySeconds || !parsed.keyEvents) {
-        throw new Error("[ai/gemini] Resposta sem os campos obrigatórios (inThirtySeconds/keyEvents).");
+      if (!parsed.inThirtySeconds || !isValidKeyEventsArray(parsed.keyEvents)) {
+        throw new Error(
+          `[ai/gemini] Resposta sem os campos obrigatórios ou keyEvents num formato inválido (esperado array de strings): ${JSON.stringify(parsed.keyEvents).slice(0, 200)}`
+        );
       }
 
       return {
