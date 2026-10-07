@@ -2,15 +2,25 @@ const SITE_URL = "https://seenlist.app";
 
 export interface SeasonRecapData {
   inThirtySeconds: string;
-  keyEvents: string;
+  /**
+   * POLIMENTO (2026-10-07, a pedido do usuário) — deixou de ser texto
+   * corrido e virou array de acontecimentos discretos, pra render como
+   * lista numerada na tela cheia (`[season].tsx`) em vez de dividir
+   * texto arbitrariamente no cliente.
+   */
+  keyEvents: string[];
   whereItEnded: string | null;
 }
 
 interface SeasonRecapResponseBody {
   available: boolean;
   inThirtySeconds?: string;
-  keyEvents?: string;
+  keyEvents?: unknown;
   whereItEnded?: string | null;
+}
+
+function isValidKeyEventsArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string" && item.trim().length > 0);
 }
 
 /**
@@ -26,7 +36,7 @@ export async function fetchSeasonRecap(seriesId: number, seasonNumber: number, l
     const response = await fetch(`${SITE_URL}/api/season-recap/${seriesId}/${seasonNumber}?language=${language}`);
     if (!response.ok) return null;
     const data = (await response.json()) as SeasonRecapResponseBody;
-    if (!data.available || !data.inThirtySeconds || !data.keyEvents) return null;
+    if (!data.available || !data.inThirtySeconds || !isValidKeyEventsArray(data.keyEvents)) return null;
     return { inThirtySeconds: data.inThirtySeconds, keyEvents: data.keyEvents, whereItEnded: data.whereItEnded ?? null };
   } catch (error) {
     console.error(`[seasonRecap] Falha ao buscar recap de ${seriesId}/${seasonNumber}.`, error);

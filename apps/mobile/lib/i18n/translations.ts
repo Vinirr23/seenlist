@@ -456,6 +456,7 @@ export const translations: Record<Locale, Record<string, string>> = {
      */
     "series.allEpisodesTitle": "Todos os episódios",
     "seasonRecap.cardTitle": "Resumo da Temporada {season}",
+    "seasonRecap.heroBadge": "Resumo",
     "seasonRecap.seeFullRecap": "Ver resumo completo",
     "seasonRecap.sectionThirtySeconds": "Em 30 segundos",
     "seasonRecap.sectionKeyEvents": "Principais acontecimentos",
@@ -1220,6 +1221,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "episode.markSeasonMessage": "All episodes in this season will be marked as watched.",
     "series.allEpisodesTitle": "All episodes",
     "seasonRecap.cardTitle": "Season {season} Recap",
+    "seasonRecap.heroBadge": "Recap",
     "seasonRecap.seeFullRecap": "See full recap",
     "seasonRecap.sectionThirtySeconds": "In 30 seconds",
     "seasonRecap.sectionKeyEvents": "Key events",
@@ -1890,6 +1892,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "episode.markSeasonMessage": "Todos los episodios de esta temporada se marcarán como vistos.",
     "series.allEpisodesTitle": "Todos los episodios",
     "seasonRecap.cardTitle": "Resumen de la Temporada {season}",
+    "seasonRecap.heroBadge": "Resumen",
     "seasonRecap.seeFullRecap": "Ver resumen completo",
     "seasonRecap.sectionThirtySeconds": "En 30 segundos",
     "seasonRecap.sectionKeyEvents": "Principales acontecimientos",

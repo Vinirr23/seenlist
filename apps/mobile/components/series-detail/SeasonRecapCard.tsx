@@ -50,9 +50,13 @@ export function SeasonRecapCard({ seriesId, seasonNumber, seriesTitle, backdropU
   const openFullRecap = useCallback(() => {
     router.push({
       pathname: "/series/[id]/season-recap/[season]",
-      params: { id: String(seriesId), season: String(seasonNumber), seriesTitle },
+      // POLIMENTO (2026-10-07, a pedido do usuário) — `backdropUrl` vai
+      // como parâmetro de navegação pra tela cheia poder montar o hero
+      // compacto (backdrop + gradiente) sem precisar buscar detalhes da
+      // série de novo — mesmo padrão de `seriesTitle`, já existente.
+      params: { id: String(seriesId), season: String(seasonNumber), seriesTitle, backdropUrl: backdropUrl ?? "" },
     });
-  }, [router, seriesId, seasonNumber, seriesTitle]);
+  }, [router, seriesId, seasonNumber, seriesTitle, backdropUrl]);
 
   if (state === "unavailable") return null;
 

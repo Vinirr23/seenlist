@@ -225,7 +225,19 @@ function useFontsReady() {
 function ChromeDeNavegacao({ alvoDaTela }: { alvoDaTela: React.RefObject<View | null> }) {
   const segmentos = useSegments();
   const primeiro = segmentos[0];
-  if (primeiro === undefined || primeiro === "(auth)" || primeiro === "week-review")
+  /**
+   * POLIMENTO (2026-10-07, a pedido explícito do usuário — "Resumo da
+   * Temporada" tela cheia) — mesmo raciocínio já documentado acima pro
+   * Week Review: experiência secundária/tela-cheia, o botão de voltar
+   * já é suficiente, a barra só adicionaria ruído visual.
+   * `season-recap` é checado com `segmentos.includes(...)` em vez de
+   * `primeiro ===` porque a rota é aninhada
+   * (`series/[id]/season-recap/[season]`) — `useSegments()` devolve os
+   * segmentos literais do caminho do arquivo, então o nome fica no
+   * meio do array, não na posição 0 (onde fica `week-review`, uma
+   * rota no topo).
+   */
+  if (primeiro === undefined || primeiro === "(auth)" || primeiro === "week-review" || segmentos.includes("season-recap"))
     return null;
   return <DockNavegacao alvoDaTela={alvoDaTela} />;
 }
