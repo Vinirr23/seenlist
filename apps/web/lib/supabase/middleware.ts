@@ -92,6 +92,21 @@ export async function updateSession(request: NextRequest) {
     // acima: só repassa busca ao TMDB, nenhum dado de usuário.
     pathname.startsWith("/api/search") ||
     /**
+     * TASK (Resumo da Temporada) — BUG REAL encontrado em teste real no
+     * celular (print de log da Vercel, 2026-10-07): `GET
+     * /api/season-recap/[seriesId]/[season]` voltava 401 direto do
+     * middleware, antes mesmo de chegar no handler da rota — EXATAMENTE
+     * o mesmo bug do TASK-091 acima (`/api/tmdb/*`), que eu deveria ter
+     * replicado desde o início e esqueci: o app nativo não manda cookie
+     * de sessão nenhum (a sessão dele vive no AsyncStorage, não em
+     * cookie de navegador), então toda rota de API chamada pelo mobile
+     * sem dado de usuário nenhum precisa dessa exceção explícita. Esta
+     * rota só repassa overview do TMDB + texto gerado por IA a partir
+     * dele — nenhum dado de usuário entra ou sai daqui (ver
+     * `SeasonRecapAiInput` em `lib/ai/types.ts`).
+     */
+    pathname.startsWith("/api/season-recap/") ||
+    /**
      * Sentry — túnel de erro do navegador (`tunnelRoute: "/monitoring"`
      * em next.config.mjs, criado pelo wizard oficial). O próprio
      * wizard avisa: "check that this route will not match your
