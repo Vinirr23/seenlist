@@ -5,12 +5,15 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { fetchMyLists, fetchListItems, removeFromList, deleteList, removeCoOwner, leaveSharedList, type UserList, type ListItem } from "@/lib/lists";
 import { InviteCoOwnerSheet } from "@/components/social/InviteCoOwnerSheet";
+import { OptionSheet } from "@/components/settings/OptionSheet";
 import { usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
+import { EmptyShelf } from "@/components/media/EmptyShelf";
+import { PageError } from "@/components/media/PageError";
 import { Avatar } from "@/components/common/Avatar";
-import { Screen, Text, Skeleton, GlassTargetProvider, Glass, AmbientGlow, ScreenHeader } from "@/components/ui";
+import { Screen, Text, Skeleton, PressableScale, GlassTargetProvider, AmbientGlow, ScreenHeader } from "@/components/ui";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { hapticTick } from "@/lib/haptics";
-import { colors, radius, spacing, fontSize } from "@/lib/theme";
+import { colors, radius, spacing, fontSize, tint, scrim } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 
@@ -22,6 +25,37 @@ import { useTabBarClearance } from "@/lib/useTabBarClearance";
  * de uma lista, sem limite (correto — uma lista custom pode crescer
  * bastante com o tempo). Trocado `ScrollView`+`.map()` por `FlatList`
  * (`numColumns={3}`, virtualizada).
+ *
+ * REDESIGN "DETALHE DA LISTA" (2026-10-07, aprovado pelo usuário —
+ * ver `claude/SEENLIST-FEATURE-2026-10-07-redesign-detalhe-lista.md`)
+ * — auditoria prévia aprovada, depois implementação. Três mudanças
+ * principais, nenhuma de dado/permissão, só de apresentação:
+ *
+ * 1. O "X" permanente em cima de todo pôster virou um "•••" discreto
+ *    (`scrim.control`, sem círculo grande) que abre o `OptionSheet`
+ *    já usado em `PostCard.tsx`/`SeasonAccordion`/tela de episódio
+ *    pra "Remover da lista" — mesmo padrão de menu que já existe no
+ *    app em 3 lugares, não um gesto novo (`long press` não tem
+ *    nenhum precedente no app; "modo de edição" também não).
+ * 2. "Apagar lista" (dono) e "Sair da lista" (co-dono) saíram de
+ *    ícones soltos no `right` do header e viraram a mesma ação via
+ *    "•••" único — reduz a competição visual com o título, sem mudar
+ *    NENHUMA regra de permissão (o `Alert.alert` de confirmação que
+ *    já existia pros dois continua exatamente igual, só é disparado
+ *    de dentro do `OptionSheet` agora).
+ * 3. "Convidar pra co-dono"/status de co-dono viraram uma pill
+ *    compacta (mesma linguagem visual de `GenreChips.tsx` — `tint.subtle`
+ *    + `radius.full`) em vez de uma linha de largura total com o
+ *    mesmo peso tipográfico de uma ação primária.
+ *
+ * Pôster em si: saiu do `<Glass>` (era o mesmo excesso que a grade de
+ * "Minhas listas" já tinha tirado) — agora é `Image` pura com
+ * `radius.poster`, dentro de `PressableScale`.
+ *
+ * Erro de busca (achado real da auditoria, não documentado antes) —
+ * esta tela nunca tratava falha de `fetchMyLists`/`fetchListItems`;
+ * ficava presa no skeleton pra sempre. Agora usa `PageError` (mesmo
+ * padrão de `lists/index.tsx`).
  */
 export default function ListDetailScreen() {
   /*
@@ -37,18 +71,37 @@ export default function ListDetailScreen() {
   const { t, locale } = useTranslation();
   const [list, setList] = useState<UserList | null>(null);
   const [items, setItems] = useState<ListItem[] | null>(null);
+  const [isError, setIsError] = useState(false);
   const cardWidth = usePosterCardWidth();
   // LISTA COMPARTILHADA (2026-10-06) — ver
   // `claude/SEENLIST-FEATURE-2026-10-06-lista-compartilhada.md`.
   const [showInvite, setShowInvite] = useState(false);
+  // REDESIGN (2026-10-07) — qual "•••" está aberto no momento. Só um
+  // de cada vez: o do cabeçalho (apagar lista/sair), o do co-dono
+  // (remover co-dono) e o de um pôster específico (remover item) são
+  // estados independentes porque cada um tem ações diferentes.
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [coOwnerMenuOpen, setCoOwnerMenuOpen] = useState(false);
+  const [activeItemMenu, setActiveItemMenu] = useState<ListItem | null>(null);
   // `fetchMyLists()` só retorna listas que a RLS deixa EU ver (dono OU
   // co-dono) — se a lista veio e `isCoOwnedByMe` é falso, só pode ser
   // porque sou o dono original.
   const isOwner = list !== null && !list.isCoOwnedByMe;
 
   const reload = useCallback(() => {
-    fetchMyLists().then((lists) => setList(lists.find((l) => l.id === id) ?? null));
-    fetchListItems(id, locale).then(setItems);
+    setIsError(false);
+    fetchMyLists()
+      .then((lists) => setList(lists.find((l) => l.id === id) ?? null))
+      .catch((error) => {
+        console.error("[ListDetailScreen] Falha ao buscar lista", error);
+        setIsError(true);
+      });
+    fetchListItems(id, locale)
+      .then(setItems)
+      .catch((error) => {
+        console.error("[ListDetailScreen] Falha ao buscar itens da lista", error);
+        setIsError(true);
+      });
   }, [id, locale]);
 
   useEffect(reload, [reload]);
@@ -62,6 +115,11 @@ export default function ListDetailScreen() {
    * baixo impacto → feedback imediato"): continua SEM confirmação (é
    * reversível, dá pra adicionar de novo) — só ganhou o haptic que
    * toda outra ação rápida do app já tem, e um aviso quando falha.
+   *
+   * REDESIGN (2026-10-07) — comportamento (haptic, sem confirmação,
+   * alerta de erro) preservado 1:1; só mudou QUEM chama esta função
+   * (antes: `onPress` direto do "X"; agora: ação dentro do
+   * `OptionSheet` do pôster).
    */
   function handleRemove(itemId: string) {
     hapticTick();
@@ -125,51 +183,62 @@ export default function ListDetailScreen() {
     ]);
   }
 
+  const isLoading = items === null && !isError;
+
   return (
     <Screen padded={false}>
       <ScreenHeader
         title={list?.name ?? t("profile.listFallbackName")}
+        /*
+         * REDESIGN (2026-10-07) — era um ícone de ação direto
+         * (lixeira pro dono, "sair" pro co-dono). Os DOIS viram o
+         * mesmo "•••" — abre o `OptionSheet` com a ação certa pro
+         * papel de quem está vendo (ver abaixo). Nenhuma permissão
+         * mudou: quem podia apagar continua só podendo apagar, quem
+         * podia sair continua só podendo sair.
+         */
         right={
-          isOwner ? (
-            <Pressable onPress={handleDeleteList} hitSlop={8}>
-              <Feather name="trash-2" size={20} color={colors.muted} />
-            </Pressable>
-          ) : list?.isCoOwnedByMe && list.coOwner?.status === "accepted" ? (
-            <Pressable onPress={handleLeaveSharedList} hitSlop={8}>
-              <Feather name="log-out" size={20} color={colors.muted} />
+          isOwner || (list?.isCoOwnedByMe && list.coOwner?.status === "accepted") ? (
+            <Pressable onPress={() => setHeaderMenuOpen(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("profile.moreOptions")}>
+              <Feather name="more-horizontal" size={20} color={colors.muted} />
             </Pressable>
           ) : undefined
         }
       />
 
+      {/* REDESIGN (2026-10-07) — "3 títulos" discreto abaixo do título, sem inflar o `ScreenHeader` (compartilhado por 24 telas). */}
+      {list && items !== null && (
+        <Text variant="muted" style={styles.countLine}>
+          {items.length === 1 ? t("profile.oneListItem") : t("profile.listItemsCount", { count: items.length })}
+        </Text>
+      )}
+
       {/*
-        LISTA COMPARTILHADA (2026-10-06) — linha de status/ações só
-        pro DONO (convidar/remover co-dono) — co-dono não tem direito
-        sobre a lista em si, só sobre os itens (decisão confirmada).
+        LISTA COMPARTILHADA (2026-10-06) — pill só pro DONO (co-dono
+        não tem direito sobre a lista em si, só sobre os itens —
+        decisão confirmada, preservada igual nesta rodada).
+        REDESIGN (2026-10-07) — era uma linha de largura total com
+        texto em negrito âmbar; agora é uma pill compacta (mesma
+        receita de `GenreChips.tsx`: `tint.subtle` + `radius.full`).
       */}
       {isOwner && (
         <View style={styles.coOwnerRow}>
           {list?.coOwner ? (
-            <>
+            <Pressable style={styles.coOwnerPill} onPress={() => setCoOwnerMenuOpen(true)}>
               <Avatar
                 uri={list.coOwner.avatarUrl}
                 name={list.coOwner.displayName ?? list.coOwner.username}
                 style={styles.coOwnerAvatar}
                 textStyle={styles.coOwnerAvatarInitials}
               />
-              <Text numberOfLines={1} style={styles.coOwnerText}>
-                {list.coOwner.status === "accepted"
-                  ? t("profile.coOwnerAcceptedBadge", { name: list.coOwner.displayName ?? `@${list.coOwner.username}` })
-                  : t("profile.coOwnerPendingBadge")}
+              <Text numberOfLines={1} style={styles.coOwnerPillText}>
+                {list.coOwner.status === "accepted" ? (list.coOwner.displayName ?? `@${list.coOwner.username}`) : t("profile.coOwnerPendingBadge")}
               </Text>
-              <Pressable onPress={handleRemoveCoOwner} hitSlop={8}>
-                <Feather name="user-x" size={18} color={colors.muted} />
-              </Pressable>
-            </>
+            </Pressable>
           ) : (
-            <Pressable style={styles.inviteRow} onPress={() => setShowInvite(true)}>
-              <Feather name="user-plus" size={16} color={colors.primary} />
-              <Text style={styles.inviteRowText}>{t("profile.inviteCoOwner")}</Text>
+            <Pressable style={styles.coOwnerPill} onPress={() => setShowInvite(true)}>
+              <Feather name="user-plus" size={14} color={colors.primary} />
+              <Text style={styles.invitePillText}>{t("profile.inviteCoOwner")}</Text>
             </Pressable>
           )}
         </View>
@@ -179,16 +248,84 @@ export default function ListDetailScreen() {
         <InviteCoOwnerSheet listId={id} listName={list.name} onClose={() => setShowInvite(false)} onInvited={reload} />
       )}
 
+      {headerMenuOpen && list && (
+        <OptionSheet
+          title={list.name}
+          onDismiss={() => setHeaderMenuOpen(false)}
+          actions={
+            isOwner
+              ? [
+                  {
+                    label: t("profile.deleteListAction"),
+                    danger: true,
+                    onPress: () => {
+                      setHeaderMenuOpen(false);
+                      handleDeleteList();
+                    },
+                  },
+                ]
+              : [
+                  {
+                    label: t("profile.leaveSharedListAction"),
+                    danger: true,
+                    onPress: () => {
+                      setHeaderMenuOpen(false);
+                      handleLeaveSharedList();
+                    },
+                  },
+                ]
+          }
+        />
+      )}
+
+      {coOwnerMenuOpen && list?.coOwner && (
+        <OptionSheet
+          title={list.coOwner.displayName ?? `@${list.coOwner.username}`}
+          onDismiss={() => setCoOwnerMenuOpen(false)}
+          actions={[
+            {
+              label: t("profile.removeCoOwnerAction"),
+              danger: true,
+              onPress: () => {
+                setCoOwnerMenuOpen(false);
+                handleRemoveCoOwner();
+              },
+            },
+          ]}
+        />
+      )}
+
+      {activeItemMenu && (
+        <OptionSheet
+          title={activeItemMenu.title}
+          onDismiss={() => setActiveItemMenu(null)}
+          actions={[
+            {
+              label: t("profile.removeFromListAction"),
+              danger: true,
+              onPress: () => {
+                const itemId = activeItemMenu.id;
+                setActiveItemMenu(null);
+                handleRemove(itemId);
+              },
+            },
+          ]}
+        />
+      )}
+
       {/* PORTE DO WEB (2026-09-04, "vidro que falta") — campo de manchas das sub-telas (ver `lib/glowBlobs.ts`). */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
-      {items === null ? (
+      {isLoading ? (
         <View style={[styles.content, styles.grid]}>
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <View key={i} style={{ width: cardWidth }}>
-              <Skeleton width="100%" height={160} borderRadius={radius.md} />
+              {/* REDESIGN (2026-10-07) — altura calculada a partir do MESMO `cardWidth`/aspect ratio 2:3 do pôster real (era 160 fixo, não acompanhava a largura real da coluna). */}
+              <Skeleton width={cardWidth} height={Math.round(cardWidth * 1.5)} borderRadius={radius.poster} />
             </View>
           ))}
         </View>
+      ) : isError ? (
+        <PageError message={t("error.loadListFailed")} onRetry={reload} />
       ) : (
         <FlatList
           data={items}
@@ -196,28 +333,40 @@ export default function ListDetailScreen() {
           numColumns={3}
           contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           columnWrapperStyle={styles.gridRow}
-          ListEmptyComponent={
-            <Text variant="muted" style={styles.centerText}>
-              {t("profile.emptyListMessage")}
-            </Text>
-          }
+          ListEmptyComponent={<EmptyShelf icon="film" message={t("profile.emptyListMessage")} />}
           renderItem={({ item }) => (
             <View style={{ width: cardWidth }}>
-              <Pressable
+              {/* REDESIGN (2026-10-07) — pôster saiu do `<Glass>` (era o mesmo excesso que a grade de "Minhas listas" já tinha removido); agora é `Image` pura com `radius.poster`. */}
+              <PressableScale
                 onPress={() => router.push(item.mediaType === "movie" ? `/movies/${item.mediaId}` : `/series/${item.mediaId}`)}
               >
-                {/* PORTE DO WEB (2026-09-04) — o pôster vira `<Glass>` (web, `ListDetailView.tsx`: `rounded-lg border border-white/10 backdrop-blur-[14px]`). */}
-                <Glass style={styles.poster}>
-                  {item.posterPath && (
+                <View style={styles.poster}>
+                  {item.posterPath ? (
                     <Image source={{ uri: `https://image.tmdb.org/t/p/w342${item.posterPath}` }} style={styles.posterImage} />
+                  ) : (
+                    <View style={styles.posterFallback}>
+                      <Feather name="film" size={20} color={colors.muted} />
+                    </View>
                   )}
-                </Glass>
-              </Pressable>
-              {/* PORTE DO WEB (2026-09-04) — o "x" vira o mesmo círculo de vidro flutuante sobre a imagem do web (`GLASS_ICON_BTN` mini), no lugar do `scrim` sólido. */}
-              <Pressable hitSlop={8} style={styles.removeButtonWrap} onPress={() => handleRemove(item.id)}>
-                <Glass style={styles.removeButton}>
-                  <Feather name="x" size={12} color="#fff" />
-                </Glass>
+                </View>
+              </PressableScale>
+              {/*
+                REDESIGN (2026-10-07) — principal ponto da rodada: o
+                "X" permanente virou um "•••" discreto (`scrim.control`,
+                chip pequeno, sem círculo grande) que abre o mesmo
+                `OptionSheet` usado em `PostCard.tsx`/episódio pra
+                "Remover da lista" — sem confirmação extra (igual ao
+                comportamento anterior do "X"), haptic/erro preservados
+                em `handleRemove`.
+              */}
+              <Pressable
+                hitSlop={8}
+                style={styles.itemMenuButton}
+                onPress={() => setActiveItemMenu(item)}
+                accessibilityRole="button"
+                accessibilityLabel={t("profile.moreOptions")}
+              >
+                <Feather name="more-horizontal" size={12} color="#fff" />
               </Pressable>
             </View>
           )}
@@ -232,27 +381,40 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
+  // REDESIGN (2026-10-07) — "3 títulos" discreto, logo abaixo do `ScreenHeader`.
+  countLine: {
+    fontSize: fontSize.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.xs,
+  },
   // LISTA COMPARTILHADA (2026-10-06) — linha de status/convite, entre
   // o cabeçalho e o campo de manchas da grade de pôsteres.
+  // REDESIGN (2026-10-07) — era `flexDirection: "row"` de largura
+  // total; agora só embrulha a pill (`alignItems: "flex-start"`
+  // implícito do `View` sem `flex`), pra ela não esticar.
   coOwnerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
-  coOwnerAvatar: { width: 24, height: 24, borderRadius: 12 },
-  coOwnerAvatarInitials: { fontSize: fontSize.xxs },
-  coOwnerText: { flex: 1, fontSize: fontSize.xs, color: colors.muted },
-  inviteRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  inviteRowText: { fontSize: fontSize.xs, fontWeight: "700", color: colors.primary },
+  coOwnerPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: spacing.xs,
+    backgroundColor: tint.subtle,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    maxWidth: "100%",
+  },
+  coOwnerAvatar: { width: 20, height: 20, borderRadius: 10 },
+  coOwnerAvatarInitials: { fontSize: fontSize.micro },
+  coOwnerPillText: { fontSize: fontSize.xs, fontWeight: "600", color: colors.text, flexShrink: 1 },
+  invitePillText: { fontSize: fontSize.xs, fontWeight: "700", color: colors.primary },
   content: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
-  },
-  centerText: {
-    textAlign: "center",
-    marginTop: spacing.lg,
   },
   grid: {
     flexDirection: "row",
@@ -263,30 +425,35 @@ const styles = StyleSheet.create({
     gap: POSTER_GRID_GAP,
     marginBottom: POSTER_GRID_GAP,
   },
-  // CORREÇÃO (2026-09-04, "vidro que falta") — `backgroundColor` sólido
-  // saiu (vira `<Glass>`, que já desenha borda + blur + gradiente);
-  // `overflow: "hidden"` também não precisa mais (o `Glass` já tem).
-  //
-  // CORREÇÃO (FASE 2, consistência visual, 2026-09-26) — era
-  // `radius.md`(10); o web (`ListDetailView.tsx`) usa `rounded-lg`=8
-  // pro pôster, igual a todo outro cartão de pôster do app
-  // (`PosterGrid.tsx`, `DiscoverCarousel.tsx`) — mesmo papel visual,
-  // agora usando o token formalizado `radius.poster`.
+  // REDESIGN (2026-10-07) — era `<Glass>` (borda + blur + gradiente);
+  // agora só pinta o fallback (`colors.surface`) atrás da imagem,
+  // igual ao padrão de `ListCollectionCard.tsx` (mosaico de "Minhas
+  // listas", mesma decisão de "pôster como protagonista").
   poster: {
     aspectRatio: 2 / 3,
     borderRadius: radius.poster,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
   },
   posterImage: { width: "100%", height: "100%" },
-  removeButtonWrap: {
+  posterFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // REDESIGN (2026-10-07) — substitui `removeButtonWrap`/`removeButton`
+  // (círculo de 24×24 sempre visível). A pedido explícito ("não crie
+  // um botão grande/círculo chamativo") — chip pequeno (`radius.sm`,
+  // não `radius.full`), `scrim.control`, ícone 12px.
+  itemMenuButton: {
     position: "absolute",
     top: 4,
     right: 4,
-  },
-  removeButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 18,
+    height: 18,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: scrim.control,
   },
 });
