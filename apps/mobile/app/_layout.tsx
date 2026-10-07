@@ -21,6 +21,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { DockNavegacao } from "@/components/layout/DockNavegacao";
 import { AnimatedSplash } from "@/components/layout/AnimatedSplash";
+import { WhatsNewModal } from "@/components/whats-new/WhatsNewModal";
 import { colors } from "@/lib/theme";
 import { markFontsReady } from "@/lib/appReady";
 import { useInAppUpdateCheck } from "@/lib/inAppUpdate";
@@ -293,6 +294,16 @@ export default function RootLayout() {
                   <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
                 </BlurTargetView>
                 <ChromeDeNavegacao alvoDaTela={alvoDaTela} />
+                {/*
+                  * NOVO (2026-10-07) — "Novidades" (modal comemorativo,
+                  * opção A do mockup aprovado). Mesmo nível de
+                  * `ChromeDeNavegacao`: precisa existir em toda tela de
+                  * produto, não só dentro de `(tabs)`. O componente
+                  * mesmo decide quando se mostrar (sessão resolvida,
+                  * fora de `(auth)`, novidade não vista) — aqui é só
+                  * "sempre montado".
+                  */}
+                <WhatsNewModal />
                 {showAnimatedSplash && <AnimatedSplash onDone={() => setShowAnimatedSplash(false)} />}
               </ErrorBoundary>
             </View>

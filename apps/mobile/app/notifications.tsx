@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { View, Pressable, FlatList, StyleSheet, Alert } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   fetchNotifications,
   markNotificationRead,
@@ -10,6 +10,7 @@ import {
   markInviteResponded,
   type AppNotification,
 } from "@/lib/notifications";
+import { fetchWhatsNewUnseen } from "@/lib/whatsNew";
 import { acceptCoOwnerInvite, declineCoOwnerInvite } from "@/lib/lists";
 import { tmdbImageUrl } from "@/lib/library";
 import { Screen, Text, Skeleton, GlassTargetProvider, AmbientGlow, Glass, ScreenHeader } from "@/components/ui";
@@ -134,9 +135,16 @@ export default function NotificationsScreen() {
   // precisar abrir a lista; linha isolada (id -> carregando) pra não
   // travar as outras notificações enquanto uma está em voo.
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  // NOVO (2026-10-07) — "Novidades": card fixo (decisão do usuário —
+  // "dentro do sino, um card permanente", ver migration
+  // `20261007030000_whats_new.sql`) acima da lista de notificações de
+  // verdade. `null` enquanto não sabe ainda (evita a bolinha de "não
+  // visto" piscar durante um instante antes do fetch responder).
+  const [whatsNewUnseen, setWhatsNewUnseen] = useState<boolean | null>(null);
 
   const reload = useCallback(() => {
     fetchNotifications(locale).then(setNotifications);
+    fetchWhatsNewUnseen().then(setWhatsNewUnseen);
   }, [locale]);
 
   useFocusEffect(reload);
@@ -216,6 +224,29 @@ export default function NotificationsScreen() {
         * listas — é o mesmo formato de sub-tela "voltar + título".
         */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={SUBPAGE_GLOW_BLOBS} />}>
+        {/*
+          * NOVO (2026-10-07) — "Novidades": card fixo, sempre no topo
+          * (decisão do usuário — ver comentário grande junto de
+          * `whatsNewUnseen` acima). Fora do `FlatList`/skeleton de
+          * propósito: não é uma notificação de verdade (não some, não
+          * tem data, não depende da lista ter carregado).
+          */}
+        <View style={styles.whatsNewCardWrapper}>
+          <Pressable onPress={() => router.push("/whats-new" as never)}>
+            <Glass style={styles.card}>
+              <View style={[styles.avatar, styles.iconFallback]}>
+                <MaterialCommunityIcons name="creation" size={16} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.message}>{t("notifications.whatsNewCardTitle")}</Text>
+                <Text variant="muted" style={styles.date}>
+                  {t("notifications.whatsNewCardSubtitle")}
+                </Text>
+              </View>
+              {whatsNewUnseen && <View style={styles.unreadDot} />}
+            </Glass>
+          </Pressable>
+        </View>
         {notifications === null ? (
           <View style={[styles.content, { gap: spacing.sm }]}>
             {[0, 1, 2, 3].map((i) => (
@@ -351,6 +382,13 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
+  },
+  // Só horizontal + topo — o espaçamento de baixo vem do `gap` natural
+  // antes do primeiro item da lista real (abaixo, o FlatList já tem seu
+  // próprio `padding: spacing.md` completo).
+  whatsNewCardWrapper: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
   },
   /*
    * CORREÇÃO (a pedido, 2026-09-15 — "a tela de notificações não tem

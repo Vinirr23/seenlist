@@ -240,6 +240,21 @@ function buildMessage(
         deepLink: "/lists",
       };
     }
+    /*
+     * NOVO (2026-10-07) — "Novidades": notificação de lançamento,
+     * reutilizável pra qualquer anúncio futuro (ver migration
+     * `20261007030000_whats_new.sql`). Texto fixo, sem ator/mídia —
+     * o conteúdo de verdade (quais features, com que descrição) mora
+     * em `whats_new_entries` e é só lido dentro do app, na tela que
+     * este deep link abre.
+     */
+    case "whats_new": {
+      return {
+        title: "✨ Chegaram novidades no SeenList",
+        body: "Toque para ver o que mudou.",
+        deepLink: "/whats-new",
+      };
+    }
     default:
       return null;
   }
