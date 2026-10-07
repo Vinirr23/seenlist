@@ -186,6 +186,60 @@ function buildMessage(
         deepLink: "/profile",
       };
     }
+    /*
+     * NOVO (2026-10-07) — "só chegou no sininho, não chegou push" pras
+     * 5 notificações de co-dono de lista. Causa raiz: essas 5 linhas já
+     * eram inseridas (direto pelo client até ontem, agora pelo trigger
+     * `lists_notify_coowner_events`, ver migration
+     * `20261007000000_lists_coowner_notify_trigger.sql`), mas este
+     * `switch` nunca teve um `case` pra elas — caía direto no
+     * `default: return null`, que `claim_pending_notifications` já
+     * marca como processada mesmo sem push nenhum (ver comentário logo
+     * abaixo do loop principal, "sem tokens não significa tentar de
+     * novo depois" — mesma regra vale pra "sem mensagem"). `listName`
+     * vem do `payload` que o trigger grava; `target_id` é o id da
+     * lista (`new.id` lá no trigger) em todos os 5 casos.
+     */
+    case "list_coowner_invite": {
+      const listName = typeof n.payload?.listName === "string" ? n.payload.listName : "";
+      return {
+        title: `👥 ${actorName ?? "Alguém"} te convidou`,
+        body: listName ? `Pra participar da lista "${listName}".` : "Pra participar de uma lista.",
+        deepLink: "/notifications",
+      };
+    }
+    case "list_coowner_accepted": {
+      const listName = typeof n.payload?.listName === "string" ? n.payload.listName : "";
+      return {
+        title: `👥 ${actorName ?? "Alguém"} aceitou seu convite`,
+        body: listName ? `Agora vocês dois editam "${listName}" juntos.` : "Toque para ver a lista.",
+        deepLink: n.target_id ? `/lists/${n.target_id}` : "/lists",
+      };
+    }
+    case "list_coowner_declined": {
+      const listName = typeof n.payload?.listName === "string" ? n.payload.listName : "";
+      return {
+        title: `${actorName ?? "Alguém"} recusou seu convite`,
+        body: listName ? `Pra participar de "${listName}".` : "Toque para ver.",
+        deepLink: n.target_id ? `/lists/${n.target_id}` : "/lists",
+      };
+    }
+    case "list_coowner_left": {
+      const listName = typeof n.payload?.listName === "string" ? n.payload.listName : "";
+      return {
+        title: `${actorName ?? "Alguém"} saiu da lista`,
+        body: listName ? `"${listName}" voltou a ser só sua.` : "Toque para ver.",
+        deepLink: n.target_id ? `/lists/${n.target_id}` : "/lists",
+      };
+    }
+    case "list_coowner_removed": {
+      const listName = typeof n.payload?.listName === "string" ? n.payload.listName : "";
+      return {
+        title: "Você foi removido de uma lista",
+        body: listName ? `${actorName ?? "O dono"} removeu você de "${listName}".` : "Toque para ver suas listas.",
+        deepLink: "/lists",
+      };
+    }
     default:
       return null;
   }
