@@ -13,15 +13,17 @@ import { buildSeasonRecapPrompt } from "../seasonRecapPrompt";
  * uma requisição REST, não há necessidade de uma dependência nova só
  * pra isso.
  *
- * ATENÇÃO: o nome do modelo abaixo (`DEFAULT_MODEL`) precisa ser
- * confirmado no Google AI Studio antes de ir pra produção — o catálogo
- * de modelos do Gemini muda com frequência, e eu não tenho como saber
- * com certeza, nesta auditoria, qual nome exato está disponível no
- * free tier no momento em que isto for de fato publicado. Pode ser
- * sobrescrito sem mudar código nenhum via a variável de ambiente
- * `GEMINI_MODEL`.
+ * BUG REAL CORRIGIDO (2026-10-07, teste real em produção — log do
+ * servidor) — `gemini-2.5-flash` (nome original desta constante)
+ * voltou 404 da API: "This model models/gemini-2.5-flash is no longer
+ * available to new users. Please update your code to use
+ * models/gemini-3.8-flash". Troquei pro nome que o PRÓPRIO Google
+ * indicou na mensagem de erro, fonte primária de verdade (não um
+ * blog/agregador). Se o catálogo mudar de novo no futuro, dá pra
+ * sobrescrever sem mudar código nenhum via a variável de ambiente
+ * `GEMINI_MODEL` — não precisa editar este arquivo de novo.
  */
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.8-flash";
 
 function geminiModel(): string {
   return process.env.GEMINI_MODEL || DEFAULT_MODEL;
