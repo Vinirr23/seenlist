@@ -457,6 +457,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     "series.allEpisodesTitle": "Todos os episódios",
     "seasonRecap.cardTitle": "Resumo da Temporada {season}",
     "seasonRecap.heroBadge": "Resumo",
+    // POLIMENTO (2026-10-07, mockup do card aprovado pelo usuário —
+    // opção "C") — o card em si não repete "Resumo da Temporada N"
+    // mais (isso já virou o selo `seasonRecap.badge` no canto), só
+    // "Temporada N" como título.
+    "seasonRecap.badge": "Resumo",
+    "seasonRecap.cardSeasonLabel": "Temporada {season}",
+    "seasonRecap.generating": "Gerando resumo da temporada…",
     "seasonRecap.seeFullRecap": "Ver resumo completo",
     "seasonRecap.sectionThirtySeconds": "Em 30 segundos",
     "seasonRecap.sectionKeyEvents": "Principais acontecimentos",
@@ -1222,6 +1229,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "series.allEpisodesTitle": "All episodes",
     "seasonRecap.cardTitle": "Season {season} Recap",
     "seasonRecap.heroBadge": "Recap",
+    "seasonRecap.badge": "Recap",
+    "seasonRecap.cardSeasonLabel": "Season {season}",
+    "seasonRecap.generating": "Generating season recap…",
     "seasonRecap.seeFullRecap": "See full recap",
     "seasonRecap.sectionThirtySeconds": "In 30 seconds",
     "seasonRecap.sectionKeyEvents": "Key events",
@@ -1893,6 +1903,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "series.allEpisodesTitle": "Todos los episodios",
     "seasonRecap.cardTitle": "Resumen de la Temporada {season}",
     "seasonRecap.heroBadge": "Resumen",
+    "seasonRecap.badge": "Resumen",
+    "seasonRecap.cardSeasonLabel": "Temporada {season}",
+    "seasonRecap.generating": "Generando resumen de la temporada…",
     "seasonRecap.seeFullRecap": "Ver resumen completo",
     "seasonRecap.sectionThirtySeconds": "En 30 segundos",
     "seasonRecap.sectionKeyEvents": "Principales acontecimientos",
