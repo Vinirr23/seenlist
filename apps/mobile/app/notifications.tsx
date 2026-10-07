@@ -7,6 +7,7 @@ import {
   fetchNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  markInviteResponded,
   type AppNotification,
 } from "@/lib/notifications";
 import { acceptCoOwnerInvite, declineCoOwnerInvite } from "@/lib/lists";
@@ -155,7 +156,29 @@ export default function NotificationsScreen() {
       } else {
         await declineCoOwnerInvite(n.targetId, n.listName ?? "", n.actor.userId);
       }
-      if (!n.readAt) await markNotificationRead(n.id);
+      /*
+       * CORREÇÃO DE CAUSA RAIZ (2026-10-07) — a ação que importa
+       * (aceitar/recusar na lista, acima) JÁ aconteceu nesse ponto. O
+       * que vem a seguir é só cosmético: marcar a notificação como
+       * respondida (pra trocar os botões por uma confirmação, ver
+       * `responded` em `lib/notifications.ts`) e como lida. Antes,
+       * essas duas chamadas estavam no MESMO `try` da ação principal —
+       * uma falha aqui (ex.: rede instável bem na hora, "Tente de novo
+       * em instantes" no primeiro print) fazia aparecer o alerta de
+       * erro genérico MESMO com o convite já respondido de verdade no
+       * banco, e como o card nunca mudava de estado, o usuário tocava
+       * "Aceitar" de novo — essa segunda tentativa aí sim falhava de
+       * verdade (o trigger `lists_restrict_co_owner_update` rejeita
+       * aceitar um convite que já não está mais "pending", de
+       * propósito). Separado num `try` próprio pra uma falha cosmética
+       * nunca mais parecer que a resposta ao convite falhou.
+       */
+      try {
+        await markInviteResponded(n.id, n.listName, accept ? "accepted" : "declined");
+        if (!n.readAt) await markNotificationRead(n.id);
+      } catch (cosmeticError) {
+        console.error("[NotificationsScreen] Convite respondido com sucesso, mas falhou ao atualizar o card", cosmeticError);
+      }
       reload();
     } catch (error) {
       console.error("[NotificationsScreen] Falha ao responder convite de co-dono", error);
@@ -261,30 +284,37 @@ export default function NotificationsScreen() {
                         decidir. `respondingId` desabilita só ESTA
                         linha enquanto a resposta está em voo.
                       */}
-                      {n.type === "list_coowner_invite" && (
-                        <View style={styles.inviteActions}>
-                          <Pressable
-                            style={[styles.inviteButton, styles.inviteButtonDecline]}
-                            disabled={respondingId === n.id}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              handleRespondInvite(n, false);
-                            }}
-                          >
-                            <Text style={styles.inviteButtonDeclineText}>{t("common.decline")}</Text>
-                          </Pressable>
-                          <Pressable
-                            style={[styles.inviteButton, styles.inviteButtonAccept]}
-                            disabled={respondingId === n.id}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              handleRespondInvite(n, true);
-                            }}
-                          >
-                            <Text style={styles.inviteButtonAcceptText}>{t("common.accept")}</Text>
-                          </Pressable>
-                        </View>
-                      )}
+                      {n.type === "list_coowner_invite" &&
+                        (n.responded ? (
+                          <Text style={styles.inviteRespondedText}>
+                            {n.responded === "accepted"
+                              ? t("notifications.listCoownerInviteAccepted", { listName: n.listName ?? "" })
+                              : t("notifications.listCoownerInviteDeclined", { listName: n.listName ?? "" })}
+                          </Text>
+                        ) : (
+                          <View style={styles.inviteActions}>
+                            <Pressable
+                              style={[styles.inviteButton, styles.inviteButtonDecline]}
+                              disabled={respondingId === n.id}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleRespondInvite(n, false);
+                              }}
+                            >
+                              <Text style={styles.inviteButtonDeclineText}>{t("common.decline")}</Text>
+                            </Pressable>
+                            <Pressable
+                              style={[styles.inviteButton, styles.inviteButtonAccept]}
+                              disabled={respondingId === n.id}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleRespondInvite(n, true);
+                              }}
+                            >
+                              <Text style={styles.inviteButtonAcceptText}>{t("common.accept")}</Text>
+                            </Pressable>
+                          </View>
+                        ))}
                     </View>
                     {!n.readAt && <View style={styles.unreadDot} />}
                   </Glass>
@@ -401,6 +431,7 @@ const styles = StyleSheet.create({
   inviteButtonAcceptText: { fontSize: fontSize.xs, fontWeight: "700", color: colors.background },
   inviteButtonDecline: { borderWidth: 1, borderColor: colors.border },
   inviteButtonDeclineText: { fontSize: fontSize.xs, fontWeight: "700", color: colors.muted },
+  inviteRespondedText: { fontSize: fontSize.xs, color: colors.muted, marginTop: spacing.xs, fontStyle: "italic" },
   unreadDot: {
     width: 8,
     height: 8,

@@ -65,6 +65,25 @@ export interface AppNotification {
   message: string | null;
   /** Só preenchido quando `targetType === "list"` (`payload.listName`, ver `inviteCoOwner`/etc. em `lib/lists.ts`). */
   listName: string | null;
+  /**
+   * CORREÇÃO DE CAUSA RAIZ (2026-10-07, bug real reportado — usuário
+   * aceita um convite, o card continua mostrando Aceitar/Recusar
+   * (porque `type` continua `list_coowner_invite` pra sempre, é um
+   * registro histórico), parece que não funcionou, usuário toca
+   * "Aceitar" de novo — segunda tentativa cai no `lists_restrict_co_owner_update`
+   * do banco (`old.co_owner_status` já não é mais `'pending'`), que
+   * RAISE EXCEPTION de propósito (proteção correta contra aceitar 2x) —
+   * e essa exceção é o que aparecia como "Algo deu errado" na tela,
+   * mesmo a primeira resposta tendo funcionado. Causa raiz não era o
+   * trigger (ele está certo), era a UI nunca ter um jeito de saber "já
+   * respondi este convite" pra trocar os botões por uma confirmação.
+   * Só preenchido pra `type === "list_coowner_invite"`, gravado em
+   * `payload.responded` pelo próprio client (`markInviteResponded`
+   * abaixo) logo depois de aceitar/recusar com sucesso — não existe
+   * coluna nova, só mais um campo no mesmo `payload` jsonb que já
+   * guardava `listName`.
+   */
+  responded: "accepted" | "declined" | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -111,7 +130,7 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
         : row.target_media_type === "series"
           ? summaries.series[row.target_media_id ?? -1]
           : undefined;
-    const payload = row.payload as { message?: string; listName?: string } | null;
+    const payload = row.payload as { message?: string; listName?: string; responded?: "accepted" | "declined" } | null;
 
     return {
       id: row.id,
@@ -133,6 +152,7 @@ export async function fetchNotifications(language = "pt-BR"): Promise<AppNotific
       mediaPosterPath: summary?.posterPath ?? null,
       message: payload?.message ?? null,
       listName: payload?.listName ?? null,
+      responded: payload?.responded ?? null,
       readAt: row.read_at,
       createdAt: row.created_at,
     };
@@ -160,6 +180,23 @@ export async function fetchUnreadNotificationCount(): Promise<number> {
 
 export async function markNotificationRead(id: string): Promise<void> {
   const { error } = await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id).is("read_at", null);
+  if (error) throw error;
+}
+
+/**
+ * Grava, na própria notificação de convite (`payload.responded`), qual
+ * foi a resposta — ver o comentário grande em `responded` no tipo
+ * `AppNotification` acima pra causa raiz completa. O payload de
+ * `list_coowner_invite` só tem `listName` (gravado pelo trigger
+ * `lists_notify_coowner_events`, nunca mais nada) — por isso dá pra
+ * sobrescrever com segurança em vez de precisar buscar o valor atual
+ * primeiro.
+ */
+export async function markInviteResponded(notificationId: string, listName: string | null, status: "accepted" | "declined"): Promise<void> {
+  const { error } = await supabase
+    .from("notifications")
+    .update({ payload: { listName, responded: status } })
+    .eq("id", notificationId);
   if (error) throw error;
 }
 
