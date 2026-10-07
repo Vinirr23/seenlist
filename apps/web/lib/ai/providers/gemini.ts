@@ -29,6 +29,70 @@ function geminiModel(): string {
   return process.env.GEMINI_MODEL || DEFAULT_MODEL;
 }
 
+/**
+ * BUG REAL CORRIGIDO (2026-10-07, teste real em produção, logo depois
+ * da correção do nome do modelo acima) — log do servidor mostrou um
+ * 503 do Gemini ("This model is currently experiencing high demand...
+ * Please try again later") derrubando a geração na hora, sem nenhuma
+ * segunda tentativa. `tmdbGet` (`lib/tmdb/client.ts`) já tem exatamente
+ * esse retry pra 429/5xx — eu não tinha replicado esse padrão aqui
+ * quando escrevi este arquivo, e esse teste real mostrou que era
+ * necessário. Mesma receita: só repete erro que faz sentido repetir
+ * (429/5xx ou falha de rede), respeita `Retry-After` quando o Gemini
+ * mandar, e desiste definitivo nos outros casos (ex.: 404 de modelo
+ * errado, isso NUNCA se resolve tentando de novo).
+ */
+const GEMINI_MAX_RETRIES = 2;
+const GEMINI_RETRY_BASE_DELAY_MS = 500;
+
+function isRetryableGeminiStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchGeminiGenerateContent(url: string, body: string): Promise<GeminiGenerateContentResponse> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= GEMINI_MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+
+      if (response.ok) {
+        return (await response.json()) as GeminiGenerateContentResponse;
+      }
+
+      const errorBody = await response.text().catch(() => "");
+
+      if (!isRetryableGeminiStatus(response.status) || attempt === GEMINI_MAX_RETRIES) {
+        throw new Error(`[ai/gemini] Gemini respondeu ${response.status}: ${errorBody.slice(0, 300)}`);
+      }
+
+      const retryAfterHeader = response.headers.get("Retry-After");
+      const retryAfterMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : NaN;
+      const delayMs = Number.isFinite(retryAfterMs) ? retryAfterMs : GEMINI_RETRY_BASE_DELAY_MS * 2 ** attempt;
+      console.error(
+        `[ai/gemini] Resposta ${response.status} — tentando de novo em ${delayMs}ms (tentativa ${attempt + 1}/${GEMINI_MAX_RETRIES}). Corpo: ${errorBody.slice(0, 200)}`
+      );
+      await sleep(delayMs);
+    } catch (error) {
+      lastError = error;
+      if (attempt === GEMINI_MAX_RETRIES || (error instanceof Error && error.message.startsWith("[ai/gemini] Gemini respondeu"))) {
+        throw error;
+      }
+      await sleep(GEMINI_RETRY_BASE_DELAY_MS * 2 ** attempt);
+    }
+  }
+
+  // Inatingível na prática (o loop sempre retorna ou lança antes) — só pra satisfazer o typecheck.
+  throw lastError instanceof Error ? lastError : new Error("[ai/gemini] Falha desconhecida.");
+}
+
 interface GeminiGenerateContentResponse {
   candidates?: {
     content?: { parts?: { text?: string }[] };
@@ -56,24 +120,16 @@ export function createGeminiProvider(): AiProvider {
       const prompt = buildSeasonRecapPrompt(input);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel()}:generateContent?key=${env.geminiApiKey()}`;
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await fetchGeminiGenerateContent(
+        url,
+        JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.3,
             responseMimeType: "application/json",
           },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text().catch(() => "");
-        throw new Error(`[ai/gemini] Gemini respondeu ${response.status}: ${errorBody.slice(0, 300)}`);
-      }
-
-      const data = (await response.json()) as GeminiGenerateContentResponse;
+        })
+      );
       const rawJson = extractResponseText(data);
 
       let parsed: ParsedGeminiRecap;
