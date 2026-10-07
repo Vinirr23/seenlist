@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { View, Pressable, FlatList, StyleSheet, Alert } from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
@@ -233,10 +234,29 @@ export default function NotificationsScreen() {
           */}
         <View style={styles.whatsNewCardWrapper}>
           <Pressable onPress={() => router.push("/whats-new" as never)}>
-            <Glass style={styles.card}>
-              <View style={[styles.avatar, styles.iconFallback]}>
-                <MaterialCommunityIcons name="creation" size={16} color={colors.primary} />
-              </View>
+            {/*
+              * A PEDIDO (2026-10-07 — "preciso que a aparência do card
+              * permanente de novidades seja diferente das outras
+              * notificações") — opção B do mockup aprovado
+              * (`https://claude.ai/artifact/DYekYu36FMw5mXCr2sKbyc`):
+              * `View` sólida (não `Glass` translúcido, o que as
+              * notificações normais usam) + faixa âmbar na borda
+              * esquerda + ícone num chip com gradiente preenchido
+              * (quadrado, não círculo — os avatares/ícones de
+              * notificação normal são sempre círculo) + seta no final,
+              * convidando a tocar. Três sinais diferentes ao mesmo
+              * tempo (fundo, formato do ícone, borda lateral) de
+              * propósito — não é só uma cor diferente.
+              */}
+            <View style={styles.whatsNewCard}>
+              <LinearGradient
+                colors={["#E8A33D", "#c8822a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.whatsNewIconChip}
+              >
+                <MaterialCommunityIcons name="creation" size={16} color={colors.background} />
+              </LinearGradient>
               <View style={{ flex: 1 }}>
                 <Text style={styles.message}>{t("notifications.whatsNewCardTitle")}</Text>
                 <Text variant="muted" style={styles.date}>
@@ -244,7 +264,8 @@ export default function NotificationsScreen() {
                 </Text>
               </View>
               {whatsNewUnseen && <View style={styles.unreadDot} />}
-            </Glass>
+              <Feather name="chevron-right" size={16} color={colors.primary} />
+            </View>
           </Pressable>
         </View>
         {notifications === null ? (
@@ -389,6 +410,33 @@ const styles = StyleSheet.create({
   whatsNewCardWrapper: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
+  },
+  /**
+   * A PEDIDO (2026-10-07, opção B escolhida do mockup) — fundo escuro
+   * e QUENTE, literal (sem token na escala — é um desvio deliberado só
+   * pra este card, pra não se confundir com `colors.surface`/`tint.*`,
+   * usados em fundo/destaque normal de resto do app). `borderLeftWidth`
+   * maior que o resto da borda é o que cria a "faixa" — não dá pra
+   * fazer com uma borda uniforme.
+   */
+  whatsNewCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: "#19140c",
+    borderWidth: 1,
+    borderColor: tint.border,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+    borderRadius: radius.md,
+    padding: spacing.sm + 2,
+  },
+  whatsNewIconChip: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   /*
    * CORREÇÃO (a pedido, 2026-09-15 — "a tela de notificações não tem
