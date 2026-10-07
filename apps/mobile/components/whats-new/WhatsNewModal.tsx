@@ -88,12 +88,14 @@ export function WhatsNewModal() {
             ))}
           </View>
 
-          <Pressable style={styles.seeAllButton} onPress={handleSeeAll}>
-            <Text style={styles.seeAllButtonText}>{t("whatsNew.seeAll")}</Text>
-          </Pressable>
-          <Pressable style={styles.gotItButton} onPress={handleDismiss}>
-            <Text style={styles.gotItButtonText}>{t("whatsNew.gotIt")}</Text>
-          </Pressable>
+          <View style={styles.footer}>
+            <Pressable style={styles.seeAllButton} onPress={handleSeeAll}>
+              <Text style={styles.seeAllButtonText}>{t("whatsNew.seeAll")}</Text>
+            </Pressable>
+            <Pressable style={styles.gotItButton} onPress={handleDismiss}>
+              <Text style={styles.gotItButtonText}>{t("whatsNew.gotIt")}</Text>
+            </Pressable>
+          </View>
         </Pressable>
       </Pressable>
     </Modal>
@@ -116,11 +118,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
-    gap: spacing.md,
+    // CORREÇÃO (a pedido, 2026-10-07 — "parece tudo colado no outro") —
+    // era `spacing.md` (16) pras 3 seções inteiras (cabeçalho, lista,
+    // rodapé dos botões) — o MESMO vão que já existia DENTRO da lista,
+    // entre um item e outro (`list.gap`, também 16 antes). Sem nenhuma
+    // hierarquia visual entre "separação de seção" e "separação de
+    // item dentro da seção", tudo no modal lia como um bloco só. Agora
+    // os dois níveis têm respiros DIFERENTES (seção > item): `lg` (24)
+    // aqui entre as 3 seções, `md` (16) dentro da lista entre as
+    // entradas — ver `list` abaixo.
+    gap: spacing.lg,
   },
   header: {
     alignItems: "center",
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   emoji: { fontSize: 26 },
   title: {
@@ -136,16 +147,24 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: spacing.sm,
+    gap: spacing.sm + 2,
   },
   rowTitle: {
     fontSize: fontSize.sm,
     fontFamily: fontFamily[700],
     color: colors.text,
+    marginBottom: 2,
   },
   rowDescription: {
     fontSize: fontSize.xs,
-    lineHeight: fontSize.xs * 1.35,
+    lineHeight: fontSize.xs * 1.45,
+  },
+  // Os dois botões ganharam um `View` próprio (antes eram filhos
+  // diretos do card, espaçados pelo MESMO `gap` das seções inteiras) —
+  // agora têm seu próprio vão menor entre si (`sm`, 8), já que formam
+  // um par, e o conjunto todo some como UMA seção no `gap` do card.
+  footer: {
+    gap: spacing.sm,
   },
   seeAllButton: {
     borderWidth: 1,
