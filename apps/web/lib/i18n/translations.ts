@@ -316,6 +316,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     /* A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1). */
     "social.shareReview": "Compartilhar avaliação",
     "social.editReview": "Editar avaliação",
+    /* A PEDIDO (2026-10-08, "Compartilhamento social" — tela de prévia antes de compartilhar). */
+    "social.sharePreviewTitle": "Prévia do compartilhamento",
     /* A PEDIDO (2026-10-08, popup "baixe o app" no perfil compartilhado). */
     "social.profilePromoTitle": "Baixe o app pra ver tudo",
     "social.profilePromoSubtitle": "Siga perfis, veja listas completas e muito mais no SeenList.",
@@ -1171,6 +1173,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.shareProfile": "Share profile",
     "social.shareReview": "Share review",
     "social.editReview": "Edit review",
+    "social.sharePreviewTitle": "Share preview",
     "social.profilePromoTitle": "Download the app to see everything",
     "social.profilePromoSubtitle": "Follow profiles, see full lists and more on SeenList.",
     "social.rating": "Rating",
@@ -1999,6 +2002,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.shareProfile": "Compartir perfil",
     "social.shareReview": "Compartir reseña",
     "social.editReview": "Editar reseña",
+    "social.sharePreviewTitle": "Vista previa para compartir",
     "social.profilePromoTitle": "Descarga la app para ver todo",
     "social.profilePromoSubtitle": "Sigue perfiles, mira listas completas y mucho más en SeenList.",
     "social.rating": "Calificación",
