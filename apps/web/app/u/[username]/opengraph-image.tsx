@@ -172,23 +172,41 @@ export default async function Image({ params }: { params: Promise<{ username: st
             https://claude.ai/artifact/GrqgdH8DqKkvxH5m7nFGHn) — a versão
             anterior (2 radial-gradient + blur(5px)) virava uma "mancha"
             dourada com borda visível em vez de se dissolver no fundo.
-            Trocado pelo tratamento "dois tons em cantos opostos": dourado
-            nascendo de fora do canto superior direito, verde-água nascendo
-            de fora do canto inferior esquerdo, os dois bem sutis (opacidade
-            baixa, raio grande) e SEM blur — o próprio raio grande já evita
-            a borda dura que o blur tentava disfarçar. */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: "flex",
-            background:
-              "radial-gradient(70% 100% at 100% 0%, rgba(232,163,61,.2), transparent 60%), radial-gradient(70% 100% at 0% 100%, rgba(79,209,197,.14), transparent 60%)",
-          }}
-        />
+            Tratamento "dois tons em cantos opostos": dourado nascendo de
+            fora do canto superior direito, verde-água nascendo de fora do
+            canto inferior esquerdo, os dois bem sutis e SEM blur.
+            CORREÇÃO (2026-10-08, print mostrando um resultado diferente do
+            aprovado no mockup — "essa não é a quinta opção") — os 2
+            `radial-gradient` separados por vírgula dentro de UM `background`
+            só não renderizavam como as 2 camadas empilhadas da opção 5; é o
+            mesmo tipo de bug de CSS combinado que o satori (motor que gera
+            a imagem) já tinha dado com padding/altura em shorthand antes.
+            Separado em 2 `<div>` absolutos, cada um com 1 gradiente só, pra
+            não depender de parsing de lista combinada. */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex" }}>
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              background: "radial-gradient(70% 100% at 100% 0%, rgba(232,163,61,.2), transparent 60%)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              background: "radial-gradient(70% 100% at 0% 100%, rgba(79,209,197,.14), transparent 60%)",
+            }}
+          />
+        </div>
 
         {/* .content.profile-new — conteúdo real, acima do glow (z-index via ordem no DOM do satori).
             CORREÇÃO (2026-10-08, print mostrando os pôsteres "vazando" por baixo, cortados pelo
