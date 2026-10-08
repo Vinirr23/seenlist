@@ -105,7 +105,15 @@ export const revalidate = 3600;
 function StatTileOg({ value, label }: { value: string; label: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      <span style={{ fontSize: 55, fontWeight: 800, color: BRAND.text, lineHeight: 1.15, display: "flex" }}>{value}</span>
+      {/* A PEDIDO (2026-10-08, "a fonte é mais próximo de 'black' e no que
+          está atual está normal") — peso reduzido de 800 pra 700. Não achei
+          erro de carregamento da fonte 800 nos logs da Vercel (nenhum log
+          pra essa invocação), então não é a fonte 800 falhando e caindo pra
+          negrito sintético por falta de arquivo — é mais um caso do satori
+          (motor que gera a imagem) desenhando o MESMO peso declarado mais
+          pesado do que o navegador (mesmo padrão já visto no brilho de
+          fundo). 700 é o peso que já carrega sem erro nesta rota. */}
+      <span style={{ fontSize: 55, fontWeight: 700, color: BRAND.text, lineHeight: 1.15, display: "flex" }}>{value}</span>
       <span style={{ fontSize: 30, color: "#9aa2b5", display: "flex" }}>{label}</span>
     </div>
   );
@@ -247,7 +255,8 @@ export default async function Image({ params }: { params: Promise<{ username: st
               )}
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 3 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 41, fontWeight: 800, color: BRAND.text, display: "flex" }}>{card.displayName}</span>
+                  {/* mesma correção da StatTileOg acima — 800 pra 700, ver comentário lá */}
+                  <span style={{ fontSize: 41, fontWeight: 700, color: BRAND.text, display: "flex" }}>{card.displayName}</span>
                   {card.verifiedTier && <VerifiedBadgeOg tier={card.verifiedTier} size={34} />}
                 </div>
                 <span style={{ fontSize: 30, color: "#c3c9d6", display: "flex" }}>{`@${card.username}`}</span>
