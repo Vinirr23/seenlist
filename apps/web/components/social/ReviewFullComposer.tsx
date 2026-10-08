@@ -10,6 +10,15 @@ export interface ReviewFullComposerProps {
   hasExistingReview: boolean;
   onSubmit: (rating: number, reviewText: string | null) => void;
   onDelete?: () => void;
+  /**
+   * A PEDIDO (2026-10-08, reportado — "minha avaliação já publicada
+   * aparece como se eu ainda estivesse digitando") — `ReviewTextSection.tsx`
+   * agora só mostra este formulário aberto quando a pessoa clica
+   * "Editar" num card fechado (ou na primeira avaliação, sem card
+   * ainda). `onCancel` (só passado quando já existe avaliação) volta
+   * pro card fechado sem salvar nada.
+   */
+  onCancel?: () => void;
   isPending?: boolean;
   isDeleting?: boolean;
 }
@@ -45,6 +54,7 @@ export function ReviewFullComposer({
   hasExistingReview,
   onSubmit,
   onDelete,
+  onCancel,
   isPending,
   isDeleting,
 }: ReviewFullComposerProps) {
@@ -97,18 +107,25 @@ export function ReviewFullComposer({
       />
 
       <div className="flex items-center justify-between border-t border-border pt-2.5">
-        {hasExistingReview && onDelete ? (
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={isDeleting}
-            className="text-xs font-medium text-danger disabled:opacity-50"
-          >
-            {t("social.removeMyReview")}
-          </button>
-        ) : (
-          <span />
-        )}
+        <div className="flex items-center gap-3">
+          {onCancel && (
+            <button type="button" onClick={onCancel} className="text-xs font-medium text-muted">
+              {t("common.cancel")}
+            </button>
+          )}
+          {hasExistingReview && onDelete ? (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={isDeleting}
+              className="text-xs font-medium text-danger disabled:opacity-50"
+            >
+              {t("social.removeMyReview")}
+            </button>
+          ) : (
+            !onCancel && <span />
+          )}
+        </div>
         <button
           type="button"
           disabled={rating === 0 || isPending}

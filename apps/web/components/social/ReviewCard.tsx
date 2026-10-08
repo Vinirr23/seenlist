@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Share2, Check } from "lucide-react";
+import { Share2, Check, Pencil } from "lucide-react";
 import type { Review } from "@/lib/queries/social/reviews";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
@@ -33,15 +33,23 @@ import { LikeButton } from "./LikeButton";
  *   quando a review é a que veio de um link de compartilhamento
  *   (`?highlight=`), rola até ela e destaca com um anel, por alguns
  *   segundos.
+ *
+ * A PEDIDO (2026-10-08, reportado — "minha avaliação já publicada
+ * aparece como se eu ainda estivesse digitando") — `onEdit`, opcional:
+ * quando passado (só por `ReviewTextSection.tsx`, pra MOSTRAR a
+ * própria avaliação), aparece um botão de lápis que abre o formulário
+ * de edição. Review de outra pessoa nunca recebe essa prop.
  */
 export function ReviewCard({
   review,
   likeInfo,
   isHighlighted,
+  onEdit,
 }: {
   review: Review;
   likeInfo?: { count: number; hasLiked: boolean };
   isHighlighted?: boolean;
+  onEdit?: () => void;
 }) {
   const { locale, t } = useTranslation();
   const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
@@ -88,6 +96,11 @@ export function ReviewCard({
         </Link>
         <div className="flex shrink-0 items-center gap-2.5">
           <StarRating value={review.rating ?? 0} size="sm" />
+          {onEdit && (
+            <button type="button" onClick={onEdit} aria-label={t("social.editReview")} className="text-muted transition-transform active:scale-90">
+              <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+          )}
           <button type="button" onClick={handleShare} aria-label={t("social.shareReview")} className="text-muted transition-transform active:scale-90">
             {copied ? <Check className="h-3.5 w-3.5 text-success" strokeWidth={2} /> : <Share2 className="h-3.5 w-3.5" strokeWidth={2} />}
           </button>

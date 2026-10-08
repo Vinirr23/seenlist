@@ -204,6 +204,24 @@ export function useMyReview(target: MediaTarget) {
       }
       if (!data) return null;
 
+      /**
+       * BUG REAL CORRIGIDO (2026-10-08, reportado — "minha avaliação já
+       * publicada aparece como se eu ainda estivesse digitando") — ao
+       * corrigir isso, a própria avaliação passou a ser mostrada
+       * FECHADA (`ReviewCard`, igual a de qualquer outra pessoa) em vez
+       * de sempre em formulário aberto. Só que `author` aqui sempre
+       * voltava em branco (`username: ""`, etc.) — nunca precisou de
+       * dado de autor antes, já que só alimentava o formulário. Agora
+       * precisa, pro `ReviewCard` conseguir linkar pro perfil e mostrar
+       * nome/avatar/selo — busca igual a `useReviews`, acima (sem
+       * nova tabela/abstração, mesmo padrão de sempre).
+       */
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("username, display_name, avatar_url, verified_tier")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
       return {
         id: data.id,
         userId: data.user_id,
@@ -216,7 +234,12 @@ export function useMyReview(target: MediaTarget) {
         watchedPlatform: data.watched_platform,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
-        author: { username: "", displayName: null, avatarUrl: null, verifiedTier: null },
+        author: {
+          username: profileRow?.username ?? "",
+          displayName: profileRow?.display_name ?? null,
+          avatarUrl: profileRow?.avatar_url ?? null,
+          verifiedTier: (profileRow?.verified_tier as VerifiedTier) ?? null,
+        },
       };
     },
   });

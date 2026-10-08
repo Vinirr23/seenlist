@@ -46,6 +46,15 @@ export interface ReviewComposerProps {
    */
   onDelete?: () => void;
   isDeleting?: boolean;
+  /**
+   * A PEDIDO (2026-10-08, reportado — "minha avaliação já publicada
+   * aparece como se eu ainda estivesse digitando") — `ReviewsFullView.tsx`
+   * agora só mostra este formulário aberto quando a pessoa toca
+   * "Editar" num card fechado (ou na primeira avaliação, sem card
+   * ainda). `onCancel` (só passado quando já existe conteúdo pra
+   * voltar) fecha sem salvar nada.
+   */
+  onCancel?: () => void;
 }
 
 /**
@@ -82,6 +91,7 @@ export function ReviewComposer({
   onSubmit,
   onDelete,
   isDeleting,
+  onCancel,
 }: ReviewComposerProps) {
   const { t } = useTranslation();
   const [rating, setRating] = useState(initialRating);
@@ -205,15 +215,22 @@ export function ReviewComposer({
         (`rounded-lg px-4 py-1.5 text-xs font-semibold`).
       */}
       <View style={styles.actionsRow}>
-        {hasExistingReview && onDelete ? (
-          <Pressable onPress={onDelete} disabled={isDeleting}>
-            <Text style={[styles.removeLabel, isDeleting === true && styles.desabilitado]}>
-              {t("review.removeMyReview")}
-            </Text>
-          </Pressable>
-        ) : (
-          <View />
-        )}
+        <View style={styles.actionsLeft}>
+          {onCancel && (
+            <Pressable onPress={onCancel}>
+              <Text variant="muted" style={styles.cancelLabel}>
+                {t("common.cancel")}
+              </Text>
+            </Pressable>
+          )}
+          {hasExistingReview && onDelete && (
+            <Pressable onPress={onDelete} disabled={isDeleting}>
+              <Text style={[styles.removeLabel, isDeleting === true && styles.desabilitado]}>
+                {t("review.removeMyReview")}
+              </Text>
+            </Pressable>
+          )}
+        </View>
 
         <Pressable
           style={[styles.saveButton, naoPodeSalvar && styles.desabilitado]}
@@ -288,6 +305,15 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: 10,
+  },
+  actionsLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  cancelLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: "500",
   },
   /** `text-xs font-medium text-danger`. */
   // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xs` (era literal 12, mesmo valor).

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Alert, Pressable, Share, ActivityIndicator, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ReviewTarget } from "@/lib/social/reviews";
@@ -49,6 +49,36 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
   /** A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1) — sugestão discreta pós-publicação, sem modal novo; aparece só depois de salvar com sucesso, some ao tocar em compartilhar/fechar ou ao editar de novo. */
   const [showShareSuggestion, setShowShareSuggestion] = useState(false);
 
+  /**
+   * BUG REAL CORRIGIDO (2026-10-08, reportado — "minha avaliação já
+   * publicada aparece como se eu ainda estivesse digitando") — causa
+   * raiz: a própria avaliação SEMPRE aparecia como formulário aberto
+   * (`ReviewComposer`), mesmo já salva há dias. Corrigido: com
+   * conteúdo já existente, mostra fechada (`ReviewCard`, igual à de
+   * qualquer outra pessoa) com um botão de editar que abre o
+   * formulário só quando a pessoa realmente quer mudar algo.
+   *
+   * `hasReviewContent` (não `!!myReview` puro) — pra FILME
+   * (`showRating: false`), a nota já vem de outro lugar (aba "Mais") e
+   * quase sempre existe uma linha em `reviews` antes mesmo da pessoa
+   * escrever um comentário aqui; se fechasse o card só por existir
+   * linha, a tela "virava card fechado sem texto" bem na hora que a
+   * pessoa só queria escrever o primeiro comentário. Pra filme, só
+   * fecha quando já existe TEXTO; pra série (`showRating: true`,
+   * nota editada aqui mesmo), qualquer avaliação existente fecha,
+   * igual antes.
+   */
+  const hasExistingReview = !!myReview;
+  const hasReviewContent = showRating ? hasExistingReview : !!myReview?.reviewText;
+  const [isEditing, setIsEditing] = useState(!hasReviewContent);
+  const prevHasReviewContentRef = useRef(hasReviewContent);
+  useEffect(() => {
+    if (prevHasReviewContentRef.current !== hasReviewContent) {
+      setIsEditing(!hasReviewContent);
+      prevHasReviewContentRef.current = hasReviewContent;
+    }
+  }, [hasReviewContent]);
+
   /** TASK-153 — busca a curtida de TODAS as avaliações visíveis de uma vez, não uma por uma. */
   const [likeInfoByReviewId, setLikeInfoByReviewId] = useState<Map<string, { count: number; hasLiked: boolean }>>(new Map());
   useEffect(() => {
@@ -97,6 +127,7 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
     const ok = await submit(rating, reviewText, false);
     if (!ok) return;
     setShowShareSuggestion(true);
+    setIsEditing(false);
 
     const effectiveRating = rating ?? myReview?.rating ?? null;
 
@@ -220,18 +251,23 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
         />
       )}
 
-      <ReviewComposer
-        initialRating={myReview?.rating ?? 0}
-        initialText={myReview?.reviewText ?? ""}
-        hasExistingReview={!!myReview}
-        isPending={saving}
-        canShareToFeed
-        showRating={showRating}
-        onSubmit={handleSubmit}
-        /* PORTE DO WEB (2026-09-09) — "Remover minha avaliação" passou pra DENTRO do card, na mesma linha do botão de salvar, como no `ReviewFullComposer.tsx`. */
-        onDelete={handleDeleteReview}
-        isDeleting={saving}
-      />
+      {isEditing || !myReview ? (
+        <ReviewComposer
+          initialRating={myReview?.rating ?? 0}
+          initialText={myReview?.reviewText ?? ""}
+          hasExistingReview={hasExistingReview}
+          isPending={saving}
+          canShareToFeed
+          showRating={showRating}
+          onSubmit={handleSubmit}
+          /* PORTE DO WEB (2026-09-09) — "Remover minha avaliação" passou pra DENTRO do card, na mesma linha do botão de salvar, como no `ReviewFullComposer.tsx`. */
+          onDelete={handleDeleteReview}
+          isDeleting={saving}
+          onCancel={hasReviewContent ? () => setIsEditing(false) : undefined}
+        />
+      ) : (
+        <ReviewCard review={myReview} onEdit={() => setIsEditing(true)} />
+      )}
       {!!postError && (
         <Text variant="error" style={styles.postError}>
           {postError}

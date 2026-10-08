@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MediaTarget } from "@/lib/queries/social/types";
 import { useReviews, useMyReview, useUpsertReview, useDeleteReview } from "@/lib/queries/social/reviews";
 import { useLikeInfoBatch } from "@/lib/queries/social/likes";
@@ -33,6 +33,32 @@ export function ReviewTextSection({ target, highlightReviewId }: ReviewTextSecti
   const deleteReview = useDeleteReview(target);
   const { t } = useTranslation();
 
+  /**
+   * BUG REAL CORRIGIDO (2026-10-08, reportado — "minha avaliação já
+   * publicada aparece como se eu ainda estivesse digitando") — causa
+   * raiz: a própria avaliação SEMPRE aparecia como formulário aberto
+   * (`ReviewFullComposer`), mesmo já salva há dias, sem diferença
+   * nenhuma entre "nunca escrevi" e "já publiquei". Corrigido: com
+   * avaliação já existente, mostra fechada (`ReviewCard`, igual à de
+   * qualquer outra pessoa — nome/estrelas/texto/like) com um botão
+   * "Editar" que abre o formulário só quando a pessoa realmente quer
+   * mudar algo. `isEditing` começa aberto (`true`) sem dado nenhum
+   * ainda — melhor já-aberto do que um card vazio piscando — e só
+   * muda sozinho quando `hasExistingReview` MUDA de valor (dado
+   * chegou, ou avaliação removida), nunca durante edição em
+   * andamento — mesmo padrão já usado no fix de sincronização dos
+   * campos de nota/texto, acima no `ReviewFullComposer.tsx`.
+   */
+  const hasExistingReview = Boolean(myReview);
+  const [isEditing, setIsEditing] = useState(!hasExistingReview);
+  const prevHasExistingReviewRef = useRef(hasExistingReview);
+  useEffect(() => {
+    if (prevHasExistingReviewRef.current !== hasExistingReview) {
+      setIsEditing(!hasExistingReview);
+      prevHasExistingReviewRef.current = hasExistingReview;
+    }
+  }, [hasExistingReview]);
+
   const othersReviews = reviews.filter((r) => r.id !== myReview?.id);
 
   /** AUDITORIA (perf) — mesma correção de CommentsSection.tsx: 1 consulta pra todas as reviews visíveis, não uma por review. */
@@ -63,20 +89,25 @@ export function ReviewTextSection({ target, highlightReviewId }: ReviewTextSecti
    * código do Feed (mantido, mas morto, por decisão já tomada antes).
    */
   function handleSubmit(rating: number, reviewText: string | null) {
-    upsertReview.mutate({ rating, reviewText });
+    upsertReview.mutate({ rating, reviewText }, { onSuccess: () => setIsEditing(false) });
   }
 
   return (
     <div className="space-y-4">
-      <ReviewFullComposer
-        initialRating={myReview?.rating ?? 0}
-        initialText={myReview?.reviewText}
-        hasExistingReview={Boolean(myReview)}
-        isPending={upsertReview.isPending}
-        isDeleting={deleteReview.isPending}
-        onSubmit={handleSubmit}
-        onDelete={() => myReview && deleteReview.mutate(myReview.id)}
-      />
+      {isEditing || !myReview ? (
+        <ReviewFullComposer
+          initialRating={myReview?.rating ?? 0}
+          initialText={myReview?.reviewText}
+          hasExistingReview={hasExistingReview}
+          isPending={upsertReview.isPending}
+          isDeleting={deleteReview.isPending}
+          onSubmit={handleSubmit}
+          onDelete={() => myReview && deleteReview.mutate(myReview.id)}
+          onCancel={hasExistingReview ? () => setIsEditing(false) : undefined}
+        />
+      ) : (
+        <ReviewCard review={myReview} onEdit={() => setIsEditing(true)} />
+      )}
 
       {isLoading ? (
         <ReviewsSkeleton />

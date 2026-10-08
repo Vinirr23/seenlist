@@ -151,6 +151,24 @@ export async function fetchMyReview(target: ReviewTarget): Promise<Review | null
   if (!data) return null;
 
   const row = data as ReviewRow;
+
+  /**
+   * BUG REAL CORRIGIDO (2026-10-08, reportado — "minha avaliação já
+   * publicada aparece como se eu ainda estivesse digitando") — ao
+   * corrigir isso, a própria avaliação passou a ser mostrada FECHADA
+   * (`ReviewCard`, igual a de qualquer outra pessoa) em vez de sempre
+   * em formulário aberto. Só que `author` aqui sempre voltava em
+   * branco — nunca precisou de dado de autor antes, já que só
+   * alimentava o formulário. Agora precisa, pro `ReviewCard` conseguir
+   * linkar pro perfil e mostrar nome/avatar/selo — busca igual a
+   * `fetchReviews`, acima (sem nova tabela/abstração).
+   */
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("username, display_name, avatar_url, verified_tier")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   return {
     id: row.id,
     userId: row.user_id,
@@ -162,7 +180,12 @@ export async function fetchMyReview(target: ReviewTarget): Promise<Review | null
     favoriteCharacterName: row.favorite_character_name,
     watchedPlatform: row.watched_platform,
     createdAt: row.created_at,
-    author: { username: "", displayName: null, avatarUrl: null, verifiedTier: null },
+    author: {
+      username: profileRow?.username ?? "",
+      displayName: profileRow?.display_name ?? null,
+      avatarUrl: profileRow?.avatar_url ?? null,
+      verifiedTier: (profileRow?.verified_tier as VerifiedTier) ?? null,
+    },
   };
 }
 

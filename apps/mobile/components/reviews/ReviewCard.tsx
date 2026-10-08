@@ -23,7 +23,16 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  * disponível aqui (já usado pelo `LikeButton`) — não precisou
  * receber `target`/`media` como prop.
  */
-export function ReviewCard({ review, initial }: { review: Review; initial?: { count: number; hasLiked: boolean } }) {
+export function ReviewCard({
+  review,
+  initial,
+  onEdit,
+}: {
+  review: Review;
+  initial?: { count: number; hasLiked: boolean };
+  /** A PEDIDO (2026-10-08, reportado — "minha avaliação já publicada aparece como se eu ainda estivesse digitando") — só passado por `ReviewsFullView.tsx` pra MOSTRAR a própria avaliação; review de outra pessoa nunca recebe. */
+  onEdit?: () => void;
+}) {
   const router = useRouter();
 
   async function handleShare() {
@@ -46,6 +55,11 @@ export function ReviewCard({ review, initial }: { review: Review; initial?: { co
         </Pressable>
         <View style={styles.headerRight}>
           <StarRating value={review.rating ?? 0} size="sm" />
+          {onEdit && (
+            <Pressable onPress={onEdit} accessibilityLabel="Editar avaliação" hitSlop={8}>
+              <Feather name="edit-2" size={14} color={colors.muted} />
+            </Pressable>
+          )}
           <Pressable onPress={handleShare} accessibilityLabel="Compartilhar avaliação" hitSlop={8}>
             <Feather name="share-2" size={15} color={colors.muted} />
           </Pressable>
