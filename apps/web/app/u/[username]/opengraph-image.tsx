@@ -167,7 +167,16 @@ export default async function Image({ params }: { params: Promise<{ username: st
           fontFamily: "Plus Jakarta Sans",
         }}
       >
-        {/* .glow-bg — camada decorativa absoluta, mesmos 2 radial-gradient + 1 linear-gradient escuro do mockup */}
+        {/* .glow-bg — camada decorativa absoluta.
+            A PEDIDO (2026-10-08, "opção 5" do mockup de comparação
+            https://claude.ai/artifact/GrqgdH8DqKkvxH5m7nFGHn) — a versão
+            anterior (2 radial-gradient + blur(5px)) virava uma "mancha"
+            dourada com borda visível em vez de se dissolver no fundo.
+            Trocado pelo tratamento "dois tons em cantos opostos": dourado
+            nascendo de fora do canto superior direito, verde-água nascendo
+            de fora do canto inferior esquerdo, os dois bem sutis (opacidade
+            baixa, raio grande) e SEM blur — o próprio raio grande já evita
+            a borda dura que o blur tentava disfarçar. */}
         <div
           style={{
             position: "absolute",
@@ -177,8 +186,7 @@ export default async function Image({ params }: { params: Promise<{ username: st
             bottom: 0,
             display: "flex",
             background:
-              "radial-gradient(60% 80% at 75% 20%, rgba(232,163,61,.35), transparent 60%), radial-gradient(70% 90% at 15% 90%, rgba(79,209,197,.25), transparent 55%), linear-gradient(180deg, rgba(7,10,16,.4), rgba(7,10,16,.92) 70%), linear-gradient(135deg, rgba(44,58,82,.6) 0%, rgba(20,27,40,.6) 55%, rgba(11,14,20,.6) 100%)",
-            filter: "blur(5px)",
+              "radial-gradient(70% 100% at 100% 0%, rgba(232,163,61,.2), transparent 60%), radial-gradient(70% 100% at 0% 100%, rgba(79,209,197,.14), transparent 60%)",
           }}
         />
 
