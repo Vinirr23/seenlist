@@ -85,12 +85,28 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
     router.push(`/posts/${post.id}`);
   }
 
+  /**
+   * BUG REAL CORRIGIDO (2026-10-08, reportado — "apertei em
+   * compartilhar e não fez nada, só fechou o sheet") — causa raiz:
+   * `setMenuOpen(false)` rodava ANTES do `Share.share`, e este menu é
+   * montado condicionalmente (`{menuOpen && <OptionSheet ...>}`), não
+   * só escondido — ou seja, o `<Modal>` do `OptionSheet.tsx` era
+   * DESMONTADO no mesmo instante em que `Share.share` tentava
+   * apresentar a folha nativa de compartilhamento por cima dele. No
+   * iOS, isso faz a apresentação nativa falhar silenciosamente
+   * (tenta aparecer em cima de uma hierarquia de view que já está
+   * sumindo). Corrigido pela raiz: o menu só fecha DEPOIS que o fluxo
+   * nativo de compartilhar termina (`finally`), mantendo o `Modal`
+   * montado durante toda a apresentação — a folha nativa cobre o menu
+   * visualmente de qualquer forma, então não há piscar perceptível.
+   */
   async function handleShare() {
-    setMenuOpen(false);
     try {
       await Share.share({ url: `${SITE_URL}/explore/posts/${post.id}`, message: `${SITE_URL}/explore/posts/${post.id}` });
     } catch (error) {
       console.error("[PostCard] Falha ao compartilhar", error);
+    } finally {
+      setMenuOpen(false);
     }
   }
 

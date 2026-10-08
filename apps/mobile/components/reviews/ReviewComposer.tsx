@@ -87,6 +87,34 @@ export function ReviewComposer({
   const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState(initialText ?? "");
   const [shareToFeed, setShareToFeed] = useState(!hasExistingReview);
+
+  /**
+   * BUG REAL CORRIGIDO (2026-10-08, reportado — "não consigo ver
+   * minhas próprias reviews") — CAUSA RAIZ: `useState(initialRating)`/
+   * `useState(initialText)` acima só usam esses valores na PRIMEIRA
+   * renderização. `myReview` (de onde vêm `initialRating`/`initialText`,
+   * ver `ReviewsFullView.tsx`) é buscado de forma ASSÍNCRONA — ainda é
+   * `null` no instante exato em que este formulário é montado pela
+   * primeira vez, então `rating`/`text` nascem vazios. Quando os dados
+   * chegam um instante depois e o componente re-renderiza com as props
+   * certas, o React NÃO reaplica o valor inicial do `useState` — o
+   * campo fica preso vazio pra sempre, mesmo a pessoa já tendo uma
+   * avaliação salva (prova: `hasExistingReview` already correto é o
+   * que faz "Remover minha avaliação" aparecer — os dados chegaram,
+   * só não foram aplicados ao campo). Corrigido sincronizando
+   * `rating`/`text` só quando `hasExistingReview` MUDA de valor
+   * (chegada dos dados reais, ou remoção) — nunca durante digitação
+   * em andamento, já que nesse meio tempo `hasExistingReview` não
+   * muda.
+   */
+  const prevHasExistingReviewRef = useRef(hasExistingReview);
+  useEffect(() => {
+    if (prevHasExistingReviewRef.current !== hasExistingReview) {
+      setRating(initialRating);
+      setText(initialText ?? "");
+      prevHasExistingReviewRef.current = hasExistingReview;
+    }
+  }, [hasExistingReview, initialRating, initialText]);
   // Sem estrelas nesta tela (`showRating: false`), a nota não é editada aqui — segue a que já existe (`initialRating`, vinda da aba "Mais"); só o texto trava/destrava salvar.
   const naoPodeSalvar = Boolean(isPending) || (showRating ? rating === 0 : text.trim().length === 0);
   const temTexto = text.trim().length > 0;

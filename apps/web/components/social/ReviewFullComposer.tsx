@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StarRating } from "./StarRating";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
@@ -51,6 +51,31 @@ export function ReviewFullComposer({
   const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState(initialText ?? "");
   const { t } = useTranslation();
+
+  /**
+   * BUG REAL CORRIGIDO (2026-10-08, reportado — "não consigo ver
+   * minhas próprias reviews"/"comentários") — mesma causa raiz do
+   * `ReviewComposer.tsx` do mobile (ver comentário completo lá):
+   * `useState(initialRating)`/`useState(initialText)` só aplicam esses
+   * valores na primeira renderização, mas `initialRating`/`initialText`
+   * vêm de `myReview` (`ReviewTextSection.tsx`), buscado de forma
+   * ASSÍNCRONA — ainda `undefined`/vazio no instante exato do primeiro
+   * render. Quando os dados reais chegam, o React não reaplica o valor
+   * inicial do `useState` — o campo ficava preso vazio pra sempre,
+   * mesmo com `hasExistingReview` já correto (prova: "Remover minha
+   * avaliação" aparecia, mas o texto/nota nunca eram mostrados).
+   * Corrigido sincronizando só quando `hasExistingReview` MUDA
+   * (chegada dos dados reais, ou remoção) — nunca durante digitação em
+   * andamento, já que nesse meio tempo `hasExistingReview` não muda.
+   */
+  const prevHasExistingReviewRef = useRef(hasExistingReview);
+  useEffect(() => {
+    if (prevHasExistingReviewRef.current !== hasExistingReview) {
+      setRating(initialRating);
+      setText(initialText ?? "");
+      prevHasExistingReviewRef.current = hasExistingReview;
+    }
+  }, [hasExistingReview, initialRating, initialText]);
 
   return (
     // "Vidro" (redesign âmbar/vidro, 2026-08-26 — Comentários/Avaliações) — mesma textura de card neutro do resto do app; textarea/checkbox internos ficam como estão (campos de formulário não recebem vidro, mesmo critério já usado em toda a Série/Filme/Episódio/Configurações).
