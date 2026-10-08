@@ -225,7 +225,8 @@ export default async function Image({ params }: { params: Promise<{ username: st
             </div>
           )}
 
-          {/* Fileira de pôsteres — .poster-row-new.wide do mockup: altura 34% do card, gap 16, cantos 19, borda clara fina, sombra suave; só os que existem de verdade em cache (ver `fetchProfileShareCard`) */}
+          {/* Fileira de pôsteres — .poster-row-new.wide do mockup: altura 34% do card, gap 16, cantos 19, borda clara fina, sombra suave; só os que existem de verdade em cache (ver `fetchProfileShareCard`).
+              CORREÇÃO (2026-10-08, print do deploy mostrando o rodapé coberto pelos pôsteres) — faltava `height: "100%"` no <img>; só com `flex: 1` (sem altura), o satori usa a proporção natural do pôster (alto, ~2:3), que estourava bem além dos 34% reservados pela linha e cobria o rodapé por baixo. */}
           {card.posterUrls.length > 0 && (
             <div style={{ display: "flex", gap: 16, alignItems: "stretch", height: "34%" }}>
               {card.posterUrls.map((url, index) => (
@@ -235,6 +236,7 @@ export default async function Image({ params }: { params: Promise<{ username: st
                   src={url}
                   style={{
                     flex: 1,
+                    height: "100%",
                     borderRadius: 19,
                     border: "3px solid rgba(255,255,255,.14)",
                     boxShadow: "0 11px 27px -14px rgba(0,0,0,.5)",
