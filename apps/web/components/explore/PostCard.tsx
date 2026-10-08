@@ -23,7 +23,6 @@ import { useNow } from "@/lib/useNow";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
-import { SharePreviewSheet } from "@/components/social/SharePreviewSheet";
 
 /**
  * TASK-059 (fase 4) — salvar e denunciar, reaproveitando as duas
@@ -49,15 +48,13 @@ import { SharePreviewSheet } from "@/components/social/SharePreviewSheet";
  * menu com mais botões dentro, que também precisariam propagar o
  * clique corretamente).
  *
- * A PEDIDO (2026-10-08, extensão depois de testar no Threads —
- * "ao compartilhar uma avaliação publicada no Feed, o link aparece
- * sem prévia visual personalizada" + "quero uma tela de prévia antes
- * de compartilhar"): pra post do tipo "review" (o único tipo com
- * card visual próprio — ver `postShareCard.ts`), Compartilhar/Copiar
- * link no menu "..." abrem o `SharePreviewSheet` em vez de agir na
- * hora. Post de texto/imagem/enquete mantém o comportamento de
- * sempre (compartilhamento nativo direto ou cópia de link), sem
- * prévia — nunca tiveram card visual próprio e não foi pedido agora.
+ * REVERTIDO (2026-10-08, a pedido — "reverta o que você mexeu no
+ * feed, apenas foque no compartilhar") — chegou a existir aqui uma
+ * integração do botão de compartilhar com o `SharePreviewSheet`
+ * (prévia visual antes de compartilhar, só pra post do tipo
+ * "review"); revertido por pedido direto do usuário, de volta ao
+ * compartilhamento nativo direto de sempre. O trabalho de
+ * compartilhar passou a focar só na review (`ReviewCard.tsx`).
  */
 export function PostCard({
   post,
@@ -76,7 +73,6 @@ export function PostCard({
   const [reported, setReported] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editBody, setEditBody] = useState(post.body);
-  const [showSharePreview, setShowSharePreview] = useState(false);
   const { data: currentUser } = useCurrentUser();
   const { data: hasLiked } = useHasLiked("post", post.id, likeInfo?.hasLiked);
   const { data: likeCount } = useLikeCount("post", post.id, likeInfo?.count);
@@ -146,11 +142,6 @@ export function PostCard({
   async function handleShare(event: React.MouseEvent) {
     event.stopPropagation();
     hapticTick();
-    if (post.type === "review") {
-      setShowSharePreview(true);
-      setMenuOpen(false);
-      return;
-    }
     const url = `${window.location.origin}/explore/posts/${post.id}`;
     if (navigator.share) {
       try {
@@ -168,11 +159,6 @@ export function PostCard({
   async function handleCopyLink(event: React.MouseEvent) {
     event.stopPropagation();
     hapticTick();
-    if (post.type === "review") {
-      setShowSharePreview(true);
-      setMenuOpen(false);
-      return;
-    }
     const url = `${window.location.origin}/explore/posts/${post.id}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -365,16 +351,6 @@ export function PostCard({
       {detail && (
         <div onClick={(e) => e.stopPropagation()}>
           <PostCommentsSection postId={post.id} />
-        </div>
-      )}
-
-      {showSharePreview && post.type === "review" && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <SharePreviewSheet
-            imageUrl={`${window.location.origin}/explore/posts/${post.id}/opengraph-image`}
-            shareUrl={`${window.location.origin}/explore/posts/${post.id}`}
-            onClose={() => setShowSharePreview(false)}
-          />
         </div>
       )}
     </div>

@@ -1,13 +1,15 @@
-import { View, Pressable, Share, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import type { Review } from "@/lib/social/reviews";
 import { Text } from "@/components/ui";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
-import { reviewShareUrl } from "@/lib/shareLinks";
+import { reviewShareUrl, reviewShareImageUrl } from "@/lib/shareLinks";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
+import { SharePreviewSheet } from "@/components/social/SharePreviewSheet";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -18,10 +20,16 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  * web (2026-09-04); virou superfície plana, mesma receita do Feed.
  *
  * A PEDIDO (2026-10-08 — "Compartilhamento social", Fase 1) — botão
- * de compartilhar permanente, mesmo padrão de `ProfileMoreSheet.tsx`
- * (`Share.share` nativo, sem modal novo). `review.id` já estava
- * disponível aqui (já usado pelo `LikeButton`) — não precisou
- * receber `target`/`media` como prop.
+ * de compartilhar permanente. `review.id` já estava disponível aqui
+ * (já usado pelo `LikeButton`) — não precisou receber `target`/`media`
+ * como prop.
+ *
+ * A PEDIDO (2026-10-08, extensão depois de testar no Threads —
+ * "quero uma interface de pré-visualização antes de compartilhar"):
+ * `handleShare` não chama mais `Share.share` direto — abre o
+ * `SharePreviewSheet` mostrando o card visual gerado por
+ * `opengraph-image.tsx` (mesma imagem que aparece na prévia do
+ * Threads/WhatsApp), com botão de compartilhar ali dentro.
  */
 export function ReviewCard({
   review,
@@ -34,14 +42,7 @@ export function ReviewCard({
   onEdit?: () => void;
 }) {
   const router = useRouter();
-
-  async function handleShare() {
-    try {
-      await Share.share({ message: reviewShareUrl(review.id) });
-    } catch (error) {
-      console.error("[ReviewCard] Falha ao compartilhar review", error);
-    }
-  }
+  const [showSharePreview, setShowSharePreview] = useState(false);
 
   return (
     <View style={styles.card}>
@@ -60,7 +61,7 @@ export function ReviewCard({
               <Feather name="edit-2" size={14} color={colors.muted} />
             </Pressable>
           )}
-          <Pressable onPress={handleShare} accessibilityLabel="Compartilhar avaliação" hitSlop={8}>
+          <Pressable onPress={() => setShowSharePreview(true)} accessibilityLabel="Compartilhar avaliação" hitSlop={8}>
             <Feather name="share-2" size={15} color={colors.muted} />
           </Pressable>
         </View>
@@ -73,6 +74,14 @@ export function ReviewCard({
       )}
 
       <LikeButton targetType="review" targetId={review.id} initial={initial} />
+
+      {showSharePreview && (
+        <SharePreviewSheet
+          imageUrl={reviewShareImageUrl(review.id)}
+          shareUrl={reviewShareUrl(review.id)}
+          onDismiss={() => setShowSharePreview(false)}
+        />
+      )}
     </View>
   );
 }

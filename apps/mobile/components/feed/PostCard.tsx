@@ -53,6 +53,14 @@ const SITE_URL = "https://seenlist.app";
  * está tentando desenhar. `memo` com comparação por VALOR (não por
  * referência do objeto) resolve sem mudar nenhum comportamento visível
  * — só evita recalcular um card cujos dados de verdade não mudaram.
+ *
+ * REVERTIDO (2026-10-08, a pedido — "reverta o que você mexeu no
+ * feed, apenas foque no compartilhar") — chegou a existir aqui uma
+ * integração do "Compartilhar" com o `SharePreviewSheet` (prévia
+ * visual antes de compartilhar, só pra post do tipo "review");
+ * revertido por pedido direto do usuário, de volta ao
+ * `Share.share` nativo direto de sempre. O trabalho de compartilhar
+ * passou a focar só na review (`ReviewCard.tsx`).
  */
 interface PostCardProps {
   post: Post;

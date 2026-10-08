@@ -642,6 +642,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.confirmDeletePostMessage": "Não dá pra desfazer.",
     "feed.errorDeletePost": "Não foi possível apagar agora",
     "social.share": "Compartilhar",
+    /* A PEDIDO (2026-10-08, "Compartilhamento social" — tela de prévia antes de compartilhar). */
+    "social.sharePreviewTitle": "Prévia do compartilhamento",
+    "social.sharePreviewImageError": "Não foi possível carregar a prévia",
     "feed.reported": "Denunciado",
     "feed.report": "Denunciar",
 
@@ -1366,6 +1369,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.confirmDeletePostMessage": "This can't be undone.",
     "feed.errorDeletePost": "Couldn't delete right now",
     "social.share": "Share",
+    "social.sharePreviewTitle": "Share preview",
+    "social.sharePreviewImageError": "Couldn't load the preview",
     "feed.reported": "Reported",
     "feed.report": "Report",
 
@@ -2049,6 +2054,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.confirmDeletePostMessage": "No se puede deshacer.",
     "feed.errorDeletePost": "No se pudo eliminar ahora",
     "social.share": "Compartir",
+    "social.sharePreviewTitle": "Vista previa para compartir",
+    "social.sharePreviewImageError": "No se pudo cargar la vista previa",
     "feed.reported": "Denunciado",
     "feed.report": "Denunciar",
 

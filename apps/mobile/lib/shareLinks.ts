@@ -9,6 +9,15 @@
  * (`https://seenlist.app/u/${username}`) — este arquivo só dá um nome
  * reaproveitável pra esse mesmo literal, sem mudar o domínio nem o
  * formato.
+ *
+ * A PEDIDO (2026-10-08, extensão — tela de prévia antes de
+ * compartilhar, item 3 do pedido): `reviewShareImageUrl`/
+ * `postShareImageUrl` apontam pra rota de imagem gerada por
+ * `opengraph-image.tsx` (mesmo arquivo que o Next.js já serve
+ * nessa URL, por convenção de arquivo) — é a MESMA imagem que
+ * aparece na prévia do Threads/WhatsApp, usada aqui só pra mostrar
+ * dentro do app, no `SharePreviewSheet`. `postShareUrl` idem
+ * `reviewShareUrl`, pra post publicado no Feed.
  */
 
 const SEENLIST_WEB_ORIGIN = "https://seenlist.app";
@@ -19,4 +28,16 @@ export function profileShareUrl(username: string): string {
 
 export function reviewShareUrl(reviewId: string): string {
   return `${SEENLIST_WEB_ORIGIN}/r/${reviewId}`;
+}
+
+export function reviewShareImageUrl(reviewId: string): string {
+  return `${SEENLIST_WEB_ORIGIN}/r/${reviewId}/opengraph-image`;
+}
+
+export function postShareUrl(postId: string): string {
+  return `${SEENLIST_WEB_ORIGIN}/explore/posts/${postId}`;
+}
+
+export function postShareImageUrl(postId: string): string {
+  return `${SEENLIST_WEB_ORIGIN}/explore/posts/${postId}/opengraph-image`;
 }

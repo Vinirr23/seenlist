@@ -318,6 +318,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.editReview": "Editar avaliação",
     /* A PEDIDO (2026-10-08, "Compartilhamento social" — tela de prévia antes de compartilhar). */
     "social.sharePreviewTitle": "Prévia do compartilhamento",
+    "social.sharePreviewImageError": "Não foi possível carregar a prévia",
     /* A PEDIDO (2026-10-08, popup "baixe o app" no perfil compartilhado). */
     "social.profilePromoTitle": "Baixe o app pra ver tudo",
     /* A PEDIDO (2026-10-08, redesign "Refinado" aprovado via mockup — https://claude.ai/artifact/89Z1AZLEtBEuvyWnaNWw9h). */
@@ -1179,6 +1180,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.shareReview": "Share review",
     "social.editReview": "Edit review",
     "social.sharePreviewTitle": "Share preview",
+    "social.sharePreviewImageError": "Couldn't load the preview",
     "social.profilePromoTitle": "Download the app to see everything",
     "social.profilePromoSubtitle": "Organize and keep track of everything you watch on Seenlist.",
     "social.storeAppleSmall": "Download on",
@@ -2012,6 +2014,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.shareReview": "Compartir reseña",
     "social.editReview": "Editar reseña",
     "social.sharePreviewTitle": "Vista previa para compartir",
+    "social.sharePreviewImageError": "No se pudo cargar la vista previa",
     "social.profilePromoTitle": "Descarga la app para ver todo",
     "social.profilePromoSubtitle": "Organiza y lleva el control de todo lo que ves en Seenlist.",
     "social.storeAppleSmall": "Descargar en",

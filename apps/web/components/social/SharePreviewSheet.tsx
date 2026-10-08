@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Share2, Check } from "lucide-react";
+import { X, Share2, Check, ImageOff } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useToast } from "@/lib/toast/ToastProvider";
 
@@ -18,11 +18,17 @@ import { useToast } from "@/lib/toast/ToastProvider";
  * modal — não existe um no projeto, criar um agora seria abstração
  * nova sem necessidade comprovada pra uma única tela).
  *
- * Usado tanto por reviews compartilhadas diretamente (`ReviewCard.tsx`)
- * quanto por reviews publicadas no Feed (`PostCard.tsx`, só quando
- * `post.type === "review"`) — mesmo componente pros dois, por pedido
- * explícito do usuário ("reutilizar o componente ou gerador visual
- * sempre que possível").
+ * Usado por reviews compartilhadas diretamente (`ReviewCard.tsx`).
+ *
+ * BUG REAL CORRIGIDO (2026-10-08, reportado no mobile com print — "a
+ * prévia aparece como uma caixa preta vazia") — mesma causa raiz
+ * documentada na versão mobile deste componente: a tag `<img>` não
+ * tinha tratamento de carregamento/erro, então uma falha silenciosa
+ * (imagem gerada sob demanda pelo servidor que demora ou falha) só
+ * mostrava um retângulo vazio. Adicionado `onLoad`/`onError` com
+ * estado explícito — spinner enquanto carrega, ícone + texto se
+ * falhar — pra não passar a impressão de que está tudo certo quando
+ * não está.
  */
 export function SharePreviewSheet({
   imageUrl,
@@ -36,6 +42,7 @@ export function SharePreviewSheet({
   const { t } = useTranslation();
   const toast = useToast();
   const [copied, setCopied] = useState(false);
+  const [imageState, setImageState] = useState<"loading" | "loaded" | "error">("loading");
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   async function handleNativeShare() {
@@ -75,9 +82,29 @@ export function SharePreviewSheet({
           </button>
         </div>
 
-        <div className="mt-3 overflow-hidden rounded-xl border border-border">
+        <div className="relative mt-3 aspect-[1200/630] w-full overflow-hidden rounded-xl border border-border bg-background">
           {/* eslint-disable-next-line @next/next/no-img-element -- imagem gerada dinamicamente pela rota (`opengraph-image.tsx`), sem domínio fixo pra usar `next/image`. */}
-          <img src={imageUrl} alt="" className="aspect-[1200/630] w-full object-cover" />
+          <img
+            src={imageUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            onLoad={() => setImageState("loaded")}
+            onError={() => {
+              console.error("[SharePreviewSheet] Falha ao carregar prévia", imageUrl);
+              setImageState("error");
+            }}
+          />
+          {imageState === "loading" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
+            </div>
+          )}
+          {imageState === "error" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-background">
+              <ImageOff className="h-5 w-5 text-muted" strokeWidth={2} />
+              <p className="text-xs text-muted">{t("social.sharePreviewImageError")}</p>
+            </div>
+          )}
         </div>
 
         <div className="mt-4 flex items-center gap-2">
