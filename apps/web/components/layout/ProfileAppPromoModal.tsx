@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { X } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { Apple, GooglePlayIcon } from "@/components/landing/shared";
+import { GooglePlayIcon } from "@/components/landing/shared";
+import { AppleMark } from "@/components/common/AppleMark";
 
 /**
  * A PEDIDO (2026-10-08, reportado — "quando alguém clica no link desse
@@ -23,6 +25,24 @@ import { Apple, GooglePlayIcon } from "@/components/landing/shared";
  * separados. O X só fecha ESTA visita (mesmo critério do X da faixa)
  * — recarregar a página mostra de novo, a não ser que a pessoa já
  * tenha clicado em alguma loja alguma vez.
+ *
+ * BUG REAL CORRIGIDO (2026-10-08, reportado — "no navegador interno do
+ * Threads não aparece nem o popup nem a faixa") — `localStorage.getItem`
+ * sem try/catch quebrava o efeito de montagem inteiro em navegadores
+ * internos que bloqueiam `localStorage` (Threads/Instagram, modo de
+ * prévia de link). Corrigido: se não der pra ler, o padrão passa a ser
+ * mostrar o popup.
+ *
+ * REDESIGN "Refinado" (2026-10-08, a pedido, 3 mockups apresentados —
+ * https://claude.ai/artifact/89Z1AZLEtBEuvyWnaNWw9h — usuário escolheu
+ * a opção A e pediu ajustes sucessivos): logo (`/logo.png`) em destaque
+ * no topo, frase de apoio nova, e os dois botões de loja viraram selos
+ * completos — ícone + duas linhas de texto ("Baixar na" / "App Store",
+ * "Disponível no" / "Google Play"). Ícone da Apple trocado por
+ * `AppleMark` (SVG vetorial, ver comentário em
+ * `components/common/AppleMark.tsx`) — o PNG antigo (`Apple`, de
+ * `landing/shared.tsx`) era baixa resolução/cinza chapado, ficava
+ * borrado no tamanho maior pedido.
  */
 const INSTALLED_KEY = "seenlist:app-promo-clicked-install";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.seenlist.app";
@@ -35,7 +55,12 @@ export function ProfileAppPromoModal() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const clickedInstall = localStorage.getItem(INSTALLED_KEY) === "1";
+    let clickedInstall = false;
+    try {
+      clickedInstall = localStorage.getItem(INSTALLED_KEY) === "1";
+    } catch (error) {
+      console.error("[ProfileAppPromoModal] localStorage indisponível, mostrando popup por padrão", error);
+    }
     if (!clickedInstall) setOpen(true);
   }, []);
 
@@ -51,7 +76,11 @@ export function ProfileAppPromoModal() {
   }
 
   function handleStoreClick() {
-    localStorage.setItem(INSTALLED_KEY, "1");
+    try {
+      localStorage.setItem(INSTALLED_KEY, "1");
+    } catch (error) {
+      console.error("[ProfileAppPromoModal] Falha ao gravar preferência de instalação", error);
+    }
   }
 
   if (!open) return null;
@@ -64,7 +93,7 @@ export function ProfileAppPromoModal() {
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-sm rounded-2xl border border-white/10 bg-surface p-5 shadow-xl"
+        className="w-full max-w-sm rounded-[22px] border border-white/10 bg-gradient-to-b from-surface to-background p-5 shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex justify-end">
@@ -73,29 +102,39 @@ export function ProfileAppPromoModal() {
           </button>
         </div>
 
-        <p className="text-center text-base font-semibold text-text">{t("social.profilePromoTitle")}</p>
-        <p className="mt-1 text-center text-sm text-muted">{t("social.profilePromoSubtitle")}</p>
+        <div className="relative mx-auto -mt-2 mb-3.5 h-14 w-14 overflow-hidden rounded-2xl shadow-[0_10px_24px_-8px_rgba(232,163,61,0.35)]">
+          <Image src="/logo.png" alt="SeenList" fill sizes="56px" className="object-cover" />
+        </div>
 
-        <div className="mt-4 flex items-center justify-center gap-3">
+        <p className="text-center text-base font-extrabold tracking-tight text-text">{t("social.profilePromoTitle")}</p>
+        <p className="mt-1.5 text-center text-sm leading-relaxed text-muted">{t("social.profilePromoSubtitle")}</p>
+
+        <div className="mt-5 flex items-center justify-center gap-2.5">
           <a
             href={APP_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleStoreClick}
-            aria-label="App Store"
-            className="flex items-center justify-center rounded-full border border-primary/30 p-3"
+            className="flex flex-1 items-center justify-center gap-3 rounded-xl border border-primary/30 bg-white/[0.03] px-3 py-3"
           >
-            <Apple className="h-6 w-6" />
+            <AppleMark className="h-9 w-9 shrink-0 text-text" />
+            <span className="flex flex-col leading-[1.15]">
+              <span className="text-[9px] font-medium uppercase tracking-wide text-muted">{t("social.storeAppleSmall")}</span>
+              <span className="text-sm font-extrabold text-text">{t("social.storeAppleBig")}</span>
+            </span>
           </a>
           <a
             href={PLAY_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleStoreClick}
-            aria-label="Google Play"
-            className="flex items-center justify-center rounded-full border border-primary/30 p-3"
+            className="flex flex-1 items-center justify-center gap-3 rounded-xl border border-primary/30 bg-white/[0.03] px-3 py-3"
           >
-            <GooglePlayIcon className="h-6 w-6" />
+            <GooglePlayIcon className="h-9 w-9 shrink-0" />
+            <span className="flex flex-col leading-[1.15]">
+              <span className="text-[9px] font-medium uppercase tracking-wide text-muted">{t("social.storeGoogleSmall")}</span>
+              <span className="text-sm font-extrabold text-text">{t("social.storeGoogleBig")}</span>
+            </span>
           </a>
         </div>
       </div>

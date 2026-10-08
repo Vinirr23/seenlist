@@ -320,7 +320,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.sharePreviewTitle": "Prévia do compartilhamento",
     /* A PEDIDO (2026-10-08, popup "baixe o app" no perfil compartilhado). */
     "social.profilePromoTitle": "Baixe o app pra ver tudo",
-    "social.profilePromoSubtitle": "Siga perfis, veja listas completas e muito mais no SeenList.",
+    /* A PEDIDO (2026-10-08, redesign "Refinado" aprovado via mockup — https://claude.ai/artifact/89Z1AZLEtBEuvyWnaNWw9h). */
+    "social.profilePromoSubtitle": "Organize e acompanhe tudo que você assiste no Seenlist.",
+    "social.storeAppleSmall": "Baixar na",
+    "social.storeAppleBig": "App Store",
+    "social.storeGoogleSmall": "Disponível no",
+    "social.storeGoogleBig": "Google Play",
     "social.rating": "Nota",
     "social.star": "estrela",
 
@@ -1175,7 +1180,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.editReview": "Edit review",
     "social.sharePreviewTitle": "Share preview",
     "social.profilePromoTitle": "Download the app to see everything",
-    "social.profilePromoSubtitle": "Follow profiles, see full lists and more on SeenList.",
+    "social.profilePromoSubtitle": "Organize and keep track of everything you watch on Seenlist.",
+    "social.storeAppleSmall": "Download on",
+    "social.storeAppleBig": "App Store",
+    "social.storeGoogleSmall": "Get it on",
+    "social.storeGoogleBig": "Google Play",
     "social.rating": "Rating",
     "social.star": "star",
 
@@ -2004,7 +2013,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.editReview": "Editar reseña",
     "social.sharePreviewTitle": "Vista previa para compartir",
     "social.profilePromoTitle": "Descarga la app para ver todo",
-    "social.profilePromoSubtitle": "Sigue perfiles, mira listas completas y mucho más en SeenList.",
+    "social.profilePromoSubtitle": "Organiza y lleva el control de todo lo que ves en Seenlist.",
+    "social.storeAppleSmall": "Descargar en",
+    "social.storeAppleBig": "App Store",
+    "social.storeGoogleSmall": "Disponible en",
+    "social.storeGoogleBig": "Google Play",
     "social.rating": "Calificación",
     "social.star": "estrella",
 

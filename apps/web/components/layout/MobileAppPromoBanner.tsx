@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { X, Smartphone } from "lucide-react";
 import { cn } from "@seenlist/utils";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { Apple, GooglePlayIcon } from "@/components/landing/shared";
+import { GooglePlayIcon } from "@/components/landing/shared";
+import { AppleMark } from "@/components/common/AppleMark";
 
 /**
  * SIMPLIFICADO (2026-09-30, a pedido — "só aparece 'app store', quero
@@ -39,6 +40,20 @@ import { Apple, GooglePlayIcon } from "@/components/landing/shared";
  * `availableFor`, `cta`, `ctaIos`) ficaram sem uso — deixadas como
  * estão em `translations.ts` de propósito (não é este componente que
  * deve decidir apagar tradução; se quiser limpar depois, é só pedir).
+ *
+ * BUG REAL CORRIGIDO (2026-10-08, reportado — "no navegador interno
+ * do Threads não aparece nem o popup nem a faixa") — mesma causa raiz
+ * documentada em `ProfileAppPromoModal.tsx` (ler o comentário lá
+ * primeiro): `localStorage.getItem(INSTALLED_KEY)` sem try/catch
+ * quebrava o efeito de montagem inteiro em navegadores internos que
+ * bloqueiam `localStorage` (Threads/Instagram, modo de prévia de
+ * link), impedindo `setOpen(true)` de rodar. Corrigido com try/catch,
+ * mesma regra: se não der pra ler, assume que a faixa deve aparecer.
+ *
+ * ÍCONE DA APPLE TROCADO POR SVG (2026-10-08, mesmo pedido/causa raiz
+ * documentados em `ProfileAppPromoModal.tsx`/`AppleMark.tsx`) — o
+ * `Apple` de `landing/shared.tsx` usa um PNG de baixa resolução/cinza
+ * chapado; trocado por `AppleMark` (vetorial, sempre nítido).
  */
 const INSTALLED_KEY = "seenlist:app-promo-clicked-install";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.seenlist.app";
@@ -51,7 +66,12 @@ export function MobileAppPromoBanner() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const clickedInstall = localStorage.getItem(INSTALLED_KEY) === "1";
+    let clickedInstall = false;
+    try {
+      clickedInstall = localStorage.getItem(INSTALLED_KEY) === "1";
+    } catch (error) {
+      console.error("[MobileAppPromoBanner] localStorage indisponível, mostrando faixa por padrão", error);
+    }
     if (!clickedInstall) setOpen(true);
   }, []);
 
@@ -71,7 +91,11 @@ export function MobileAppPromoBanner() {
   // Clicar numa loja é um sinal real de intenção — esconde pra sempre,
   // igual o antigo `INSTALLED_KEY` do modal/faixa de desktop.
   function handleStoreClick() {
-    localStorage.setItem(INSTALLED_KEY, "1");
+    try {
+      localStorage.setItem(INSTALLED_KEY, "1");
+    } catch (error) {
+      console.error("[MobileAppPromoBanner] Falha ao gravar preferência de instalação", error);
+    }
   }
 
   if (!open) return null;
@@ -94,7 +118,7 @@ export function MobileAppPromoBanner() {
         aria-label="App Store"
         className="flex shrink-0 items-center justify-center rounded-full border border-primary/30 p-1.5"
       >
-        <Apple className="h-4 w-4" />
+        <AppleMark className="h-4 w-4 text-text" />
       </a>
       <a
         href={PLAY_STORE_URL}
