@@ -131,6 +131,17 @@ export default async function Image({ params }: { params: Promise<{ username: st
     extrabold ? { name: "Plus Jakarta Sans", data: extrabold, weight: 800 as const } : null,
   ].filter((font): font is { name: string; data: ArrayBuffer; weight: 700 | 800 } => font !== null);
 
+  // DIAGNÓSTICO TEMPORÁRIO (2026-10-08, "continuou do mesmo jeito" depois
+  // de trocar 800→700 sem nenhuma diferença visual — isso só faz sentido
+  // se NENHUM dos dois pesos estiver carregando de verdade, e o satori tá
+  // caindo pro fallback genérico com negrito sintético nos dois casos).
+  // Loga o tamanho real (em bytes) de cada fonte carregada, ou "FALHOU"
+  // se `loadGoogleFontSafe` devolveu null — sem isso é só suposição.
+  // Remover depois de confirmar a causa.
+  console.log(
+    `[opengraph-image perfil] fonte bold(700): ${bold ? `${bold.byteLength} bytes` : "FALHOU (null)"} | fonte extrabold(800): ${extrabold ? `${extrabold.byteLength} bytes` : "FALHOU (null)"}`
+  );
+
   // Ver comentário completo em `fetchAvatarDataUri` (`ogShared.tsx`):
   // `avatar_url` pode ser a foto direta do Google (copiada 1x no
   // cadastro), que o `fetch` do satori às vezes não consegue buscar —
