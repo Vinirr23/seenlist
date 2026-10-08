@@ -30,10 +30,34 @@ interface LocaleContextValue {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
+/**
+ * BUG REAL CORRIGIDO (2026-10-08, "no navegador interno do Threads não
+ * aparece nem o popup nem a faixa de baixar o app") — a causa raiz NÃO
+ * estava em `ProfileAppPromoModal.tsx`/`MobileAppPromoBanner.tsx` (que
+ * já tinham sido corrigidos antes, com try/catch no `localStorage`
+ * deles). `LocaleProvider` envolve o app INTEIRO (`app/providers.tsx`),
+ * acima de toda página, inclusive `app/u/[username]`. Esta função
+ * (`readStoredLocale`) é chamada dentro do `useEffect` deste provider,
+ * SEM try/catch — em navegadores internos que bloqueiam `localStorage`
+ * (Threads/Instagram, modo de prévia de link), `window.localStorage.
+ * getItem` lança exceção. Um throw não tratado dentro de um efeito
+ * React pode interromper o resto dos efeitos agendados na MESMA leva
+ * (passive effects flush) — incluindo os `useEffect` de montagem do
+ * banner e do popup, que vivem bem abaixo na árvore. Por isso os dois
+ * sumiam JUNTOS mesmo já tendo cada um o próprio try/catch: a exceção
+ * de verdade não vinha deles, vinha daqui, mais acima na árvore, antes
+ * dos efeitos deles rodarem. Corrigido na origem: se não der pra ler o
+ * idioma salvo, segue com o padrão (pt-BR) em vez de travar o efeito.
+ */
 function readStoredLocale(): Locale | null {
   if (typeof window === "undefined") return null;
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored && stored in translations ? (stored as Locale) : null;
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    return stored && stored in translations ? (stored as Locale) : null;
+  } catch (error) {
+    console.error("[LocaleProvider] localStorage indisponível ao ler idioma salvo, mantendo padrão", error);
+    return null;
+  }
 }
 
 /**
@@ -79,7 +103,17 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   function setLocale(next: Locale) {
     setLocaleState(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
+    // BUG REAL CORRIGIDO (2026-10-08, mesma causa raiz documentada em
+    // `readStoredLocale` acima) — também sem try/catch antes; embora
+    // esta função só rode por ação explícita da pessoa (trocar idioma
+    // nas Configurações), não pelo efeito de montagem automático,
+    // protegida do mesmo jeito por consistência e porque Configurações
+    // também pode ser aberta dentro de um navegador interno.
+    try {
+      window.localStorage.setItem(STORAGE_KEY, next);
+    } catch (error) {
+      console.error("[LocaleProvider] Falha ao gravar idioma no localStorage", error);
+    }
     writeLocaleCookie(next);
     const supabase = createClient();
     supabase.auth.updateUser({ data: { locale: next } }).catch((error) => {
