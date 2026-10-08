@@ -54,8 +54,8 @@ export async function loadGoogleFont(family: string, weight: number): Promise<Ar
  * qualquer lógica de conteúdo (dentro do mesmo `Promise.all` que busca
  * os dados) — qualquer falha nela (timeout pro Google Fonts, resposta
  * que mudou de formato de novo, falha de rede do próprio Vercel Edge)
- * derrubava a rota inteira com 500, pra QUALQUER review/perfil, sempre,
- * já que não depende do conteúdo sendo buscado.
+ * derrubava a rota inteira com 500, pra QUALQUER review/perfil,
+ * sempre, já que não depende do conteúdo sendo buscado.
  *
  * Esta função nunca lança — se a fonte real falhar por qualquer
  * motivo, devolve `null` e quem chama usa a fonte padrão do `satori`
