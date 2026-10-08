@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { fetchProfileShareCard } from "@/lib/server/profileShareCard";
 import { formatWatchMinutesPlain } from "@/lib/server/formatWatchMinutesPlain";
 import { loadGoogleFont } from "@/lib/server/loadGoogleFont";
+import { AvatarFallbackOg, fetchAvatarDataUri } from "@/lib/server/ogShared";
 
 /**
  * A PEDIDO (2026-10-08 — "preciso que o perfil fique compartilhável
@@ -97,6 +98,17 @@ export default async function Image({ params }: { params: Promise<{ username: st
   const extraboldFont = { name: "Plus Jakarta Sans", data: extrabold, weight: 800 as const };
   const fonts = [boldFont, extraboldFont];
 
+  // BUG REAL CORRIGIDO (2026-10-08, reportado — "não carregou a foto de
+  // perfil no banner de compartilhamento") — ver comentário completo em
+  // `fetchAvatarDataUri` (`lib/server/ogShared.tsx`): `avatar_url` pode
+  // ser a foto direta do Google (copiada 1x no cadastro), que o
+  // `fetch` do satori, rodando no servidor sem navegador por trás,
+  // às vezes não consegue buscar — ficava um buraco vazio no card.
+  // Buscamos o avatar nós mesmos antes de desenhar; qualquer falha
+  // cai pro mesmo círculo de gradiente + iniciais que `Avatar.tsx` já
+  // usa no app normal.
+  const avatarDataUri = card ? await fetchAvatarDataUri(card.avatarUrl) : null;
+
   // Perfil inexistente ou privado: card genérico de marca — nunca
   // revela que um perfil privado existe com aquele nome, mesma regra
   // da página em si.
@@ -183,25 +195,16 @@ export default async function Image({ params }: { params: Promise<{ username: st
           {/* Topo: avatar + nome à esquerda, selo do app à direita */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-              {card.avatarUrl ? (
+              {avatarDataUri ? (
                 // eslint-disable-next-line @next/next/no-img-element -- `ImageResponse` (satori) não suporta `next/image`, precisa de `<img>` cru.
                 <img
-                  src={card.avatarUrl}
+                  src={avatarDataUri}
                   width={84}
                   height={84}
                   style={{ borderRadius: 999, border: "3px solid rgba(232,163,61,0.5)", objectFit: "cover" }}
                 />
               ) : (
-                <div
-                  style={{
-                    width: 84,
-                    height: 84,
-                    borderRadius: 999,
-                    background: "linear-gradient(135deg, #3a4a6b 0%, #1c2335 100%)",
-                    border: "3px solid rgba(232,163,61,0.5)",
-                    display: "flex",
-                  }}
-                />
+                <AvatarFallbackOg name={card.displayName} size={84} />
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

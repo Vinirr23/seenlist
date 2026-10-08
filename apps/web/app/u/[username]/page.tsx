@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PublicProfileView } from "@/components/social/PublicProfileView";
 import { fetchProfileShareCard } from "@/lib/server/profileShareCard";
 import { formatWatchMinutesPlain } from "@/lib/server/formatWatchMinutesPlain";
+import { MobileAppPromoBanner } from "@/components/layout/MobileAppPromoBanner";
 
 /**
  * A PEDIDO (2026-10-08 — "preciso que o perfil fique compartilhável
@@ -41,7 +42,24 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * A PEDIDO (2026-10-08, reportado — "quando alguém clica no link desse
+ * banner [de compartilhar perfil] abre essa tela, mas não tem nada aí
+ * tipo 'baixe o app'") — causa raiz: `MobileAppPromoBanner` já existe
+ * e já aparece em TODO o resto do site (incluído uma vez só, em
+ * `app/(main)/layout.tsx`), mas esta rota (`app/u/[username]`) vive
+ * FORA do grupo `(main)` — só herda o `app/layout.tsx` raiz, que não
+ * inclui o banner. É exatamente a página que mais recebe visitante sem
+ * conta (clicou num link de perfil compartilhado), e era a única sem
+ * nenhum CTA de instalar o app. Corrigido incluindo o mesmo
+ * componente aqui, sem alterar o componente em si.
+ */
 export default async function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
-  return <PublicProfileView username={username} />;
+  return (
+    <>
+      <MobileAppPromoBanner />
+      <PublicProfileView username={username} />
+    </>
+  );
 }

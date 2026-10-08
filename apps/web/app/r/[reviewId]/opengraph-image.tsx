@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { fetchReviewShareCard } from "@/lib/server/reviewShareCard";
 import { loadGoogleFont } from "@/lib/server/loadGoogleFont";
-import { BRAND, SEENLIST_MARK_BASE64, VerifiedBadgeOg } from "@/lib/server/ogShared";
+import { AvatarFallbackOg, BRAND, SEENLIST_MARK_BASE64, VerifiedBadgeOg, fetchAvatarDataUri } from "@/lib/server/ogShared";
 
 /**
  * A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1). Mesmo
@@ -59,6 +59,12 @@ export default async function Image({ params }: { params: Promise<{ reviewId: st
     );
   }
 
+  // BUG REAL CORRIGIDO (2026-10-08) — ver comentário completo em
+  // `fetchAvatarDataUri` (`ogShared.tsx`): avatar com URL que existe
+  // mas falha ao carregar no servidor (ex.: foto do Google) não tinha
+  // fallback nenhum aqui, ficava um buraco vazio no card.
+  const avatarDataUri = await fetchAvatarDataUri(card.author.avatarUrl);
+
   const displayText = card.containsSpoiler
     ? null
     : card.reviewText
@@ -107,25 +113,16 @@ export default async function Image({ params }: { params: Promise<{ reviewId: st
 
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              {card.author.avatarUrl ? (
+              {avatarDataUri ? (
                 // eslint-disable-next-line @next/next/no-img-element -- `ImageResponse` (satori) não suporta `next/image`, precisa de `<img>` cru.
                 <img
-                  src={card.author.avatarUrl}
+                  src={avatarDataUri}
                   width={64}
                   height={64}
                   style={{ borderRadius: 999, border: "3px solid rgba(232,163,61,0.5)", objectFit: "cover" }}
                 />
               ) : (
-                <div
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 999,
-                    background: "linear-gradient(135deg, #3a4a6b 0%, #1c2335 100%)",
-                    border: "3px solid rgba(232,163,61,0.5)",
-                    display: "flex",
-                  }}
-                />
+                <AvatarFallbackOg name={card.author.displayName} size={64} />
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

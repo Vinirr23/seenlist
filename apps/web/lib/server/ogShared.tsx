@@ -50,3 +50,76 @@ export function VerifiedBadgeOg({ tier, size: badgeSize }: { tier: "gold" | "blu
     </svg>
   );
 }
+
+/**
+ * BUG REAL CORRIGIDO (2026-10-08, reportado — "não carregou a foto de
+ * perfil no banner de compartilhamento") — causa raiz: `profiles.avatar_url`
+ * nem sempre é um upload real pro Supabase Storage; quem nunca trocou a
+ * foto desde o cadastro via Google tem ali a URL direta da foto do
+ * Google (`lh3.googleusercontent.com`, copiada 1x no cadastro — ver
+ * `handle_new_user_profile` na migration `20260727000000...sql`). O
+ * `<img src>` do `ImageResponse` (satori) busca essa URL DO SERVIDOR,
+ * sem navegador por trás — e fotos do Google às vezes recusam/falham
+ * exatamente nesse tipo de busca. No app normal isso não aparece
+ * porque `components/common/Avatar.tsx` já tem `onError` → iniciais;
+ * aqui (satori, sem estado/interatividade) não tinha NENHUM fallback
+ * pra URL que existe mas falha ao carregar — ficava um buraco vazio.
+ *
+ * Corrigido buscando o avatar nós mesmos, ANTES de desenhar o card
+ * (com timeout curto e checagem de `content-type`), convertendo pra
+ * `data:` URI — assim o `<img>` final do satori nunca depende de uma
+ * busca própria dele que pode falhar silenciosamente. Qualquer falha
+ * (timeout, 404, host bloqueando, resposta que não é imagem) retorna
+ * `null`, e quem chama cai pro mesmo círculo de gradiente + iniciais
+ * que `Avatar.tsx` já usa no app normal — nunca um espaço vazio.
+ */
+export async function fetchAvatarDataUri(url: string | null | undefined): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.startsWith("image/")) return null;
+    const buffer = await res.arrayBuffer();
+    // ~1.5MB de base64 é mais que suficiente pra um avatar; evita um
+    // card gigante se alguém tiver, por algum motivo, um arquivo enorme.
+    if (buffer.byteLength > 1_500_000) return null;
+    const base64 = Buffer.from(buffer).toString("base64");
+    return `data:${contentType};base64,${base64}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Mesma lógica de `components/common/Avatar.tsx` (web) — duplicada aqui de propósito: aquele arquivo é client component, este é server/edge (satori), sem como compartilhar um import direto sem risco de puxar coisa de DOM/client pro runtime edge. */
+export function initialsOg(name: string): string {
+  return name
+    .split(" ")
+    .filter((word) => word.length > 1)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
+export function AvatarFallbackOg({ name, size }: { name: string; size: number }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 999,
+        background: "linear-gradient(135deg, #3a4a6b 0%, #1c2335 100%)",
+        border: "3px solid rgba(232,163,61,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <span style={{ fontSize: size * 0.38, fontWeight: 800, color: "#8C93A8" }}>{initialsOg(name)}</span>
+    </div>
+  );
+}
