@@ -3,6 +3,7 @@ import { PublicProfileView } from "@/components/social/PublicProfileView";
 import { fetchProfileShareCard } from "@/lib/server/profileShareCard";
 import { formatWatchMinutesPlain } from "@/lib/server/formatWatchMinutesPlain";
 import { MobileAppPromoBanner } from "@/components/layout/MobileAppPromoBanner";
+import { ProfileAppPromoModal } from "@/components/layout/ProfileAppPromoModal";
 
 /**
  * A PEDIDO (2026-10-08 — "preciso que o perfil fique compartilhável
@@ -53,12 +54,18 @@ export async function generateMetadata({
  * conta (clicou num link de perfil compartilhado), e era a única sem
  * nenhum CTA de instalar o app. Corrigido incluindo o mesmo
  * componente aqui, sem alterar o componente em si.
+ *
+ * A PEDIDO (mesmo dia, pedido seguinte) — além da faixa fina acima,
+ * `ProfileAppPromoModal` mostra um popup maior (mensagem + botões das
+ * duas lojas) só na primeira abertura desta página compartilhada —
+ * fecha com X e deixa navegar o perfil normalmente (não bloqueia).
  */
 export default async function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
   return (
     <>
       <MobileAppPromoBanner />
+      <ProfileAppPromoModal />
       <PublicProfileView username={username} />
     </>
   );
