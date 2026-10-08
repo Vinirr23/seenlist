@@ -45,3 +45,28 @@ export async function loadGoogleFont(family: string, weight: number): Promise<Ar
   const fontResponse = await fetch(fontUrl);
   return fontResponse.arrayBuffer();
 }
+
+/**
+ * BUG REAL CORRIGIDO (2026-10-08, "falha universal" reportada — TODA
+ * imagem de review/perfil falhando, não só uma específica) — causa
+ * raiz: nenhuma rota `opengraph-image.tsx` tinha try/catch em volta de
+ * `loadGoogleFont`. Essa chamada roda incondicionalmente, ANTES de
+ * qualquer lógica de conteúdo (dentro do mesmo `Promise.all` que busca
+ * os dados) — qualquer falha nela (timeout pro Google Fonts, resposta
+ * que mudou de formato de novo, falha de rede do próprio Vercel Edge)
+ * derrubava a rota inteira com 500, pra QUALQUER review/perfil, sempre,
+ * já que não depende do conteúdo sendo buscado.
+ *
+ * Esta função nunca lança — se a fonte real falhar por qualquer
+ * motivo, devolve `null` e quem chama usa a fonte padrão do `satori`
+ * (sans-serif do sistema) em vez de quebrar a imagem inteira. Pior
+ * caso agora é uma imagem com fonte genérica, nunca um erro 500.
+ */
+export async function loadGoogleFontSafe(family: string, weight: number): Promise<ArrayBuffer | null> {
+  try {
+    return await loadGoogleFont(family, weight);
+  } catch (error) {
+    console.error(`[loadGoogleFont] Falha ao carregar "${family}" peso ${weight} — seguindo com fonte padrão`, error);
+    return null;
+  }
+}

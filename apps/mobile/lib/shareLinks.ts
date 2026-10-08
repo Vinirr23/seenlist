@@ -18,6 +18,13 @@
  * aparece na prévia do Threads/WhatsApp, usada aqui só pra mostrar
  * dentro do app, no `SharePreviewSheet`. `postShareUrl` idem
  * `reviewShareUrl`, pra post publicado no Feed.
+ *
+ * A PEDIDO (2026-10-08, redesign "estilo Unwind" — mockup aprovado em
+ * https://claude.ai/artifact/SvYnmVJedKZkRjvXNHbsdm): `reviewStoryImageUrl`
+ * aponta pra `apps/web/app/r/[reviewId]/story-image/route.ts` — uma rota
+ * comum (NÃO a convenção `opengraph-image.tsx`), porque esta imagem
+ * (vertical, 1080×1920) nunca deve virar o `og:image` do link — ela só
+ * existe pra ação explícita "Exportar pra Stories" dentro do app.
  */
 
 const SEENLIST_WEB_ORIGIN = "https://seenlist.app";
@@ -32,6 +39,10 @@ export function reviewShareUrl(reviewId: string): string {
 
 export function reviewShareImageUrl(reviewId: string): string {
   return `${SEENLIST_WEB_ORIGIN}/r/${reviewId}/opengraph-image`;
+}
+
+export function reviewStoryImageUrl(reviewId: string): string {
+  return `${SEENLIST_WEB_ORIGIN}/r/${reviewId}/story-image`;
 }
 
 export function postShareUrl(postId: string): string {

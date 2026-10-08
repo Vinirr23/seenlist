@@ -645,6 +645,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     /* A PEDIDO (2026-10-08, "Compartilhamento social" — tela de prévia antes de compartilhar). */
     "social.sharePreviewTitle": "Prévia do compartilhamento",
     "social.sharePreviewImageError": "Não foi possível carregar a prévia",
+    /* A PEDIDO (2026-10-08, redesign "estilo Unwind" — duas ações distintas: link (prévia OG) e imagem (exportação pra Stories), nunca uma substituindo a outra automaticamente. */
+    "social.shareAsLink": "Compartilhar link",
+    "social.exportToStory": "Exportar pra Stories",
+    "social.exportStoryError": "Não foi possível exportar a imagem",
+    "social.exportStoryUnavailable": "Compartilhamento de imagem não disponível neste dispositivo",
     "feed.reported": "Denunciado",
     "feed.report": "Denunciar",
 
@@ -1371,6 +1376,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.share": "Share",
     "social.sharePreviewTitle": "Share preview",
     "social.sharePreviewImageError": "Couldn't load the preview",
+    "social.shareAsLink": "Share link",
+    "social.exportToStory": "Export to Stories",
+    "social.exportStoryError": "Couldn't export the image",
+    "social.exportStoryUnavailable": "Image sharing isn't available on this device",
     "feed.reported": "Reported",
     "feed.report": "Report",
 
@@ -2056,6 +2065,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.share": "Compartir",
     "social.sharePreviewTitle": "Vista previa para compartir",
     "social.sharePreviewImageError": "No se pudo cargar la vista previa",
+    "social.shareAsLink": "Compartir enlace",
+    "social.exportToStory": "Exportar a Stories",
+    "social.exportStoryError": "No se pudo exportar la imagen",
+    "social.exportStoryUnavailable": "Compartir imagen no está disponible en este dispositivo",
     "feed.reported": "Denunciado",
     "feed.report": "Denunciar",
 

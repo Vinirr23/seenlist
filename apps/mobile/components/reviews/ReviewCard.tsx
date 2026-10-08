@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import type { Review } from "@/lib/social/reviews";
 import { Text } from "@/components/ui";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
-import { reviewShareUrl, reviewShareImageUrl } from "@/lib/shareLinks";
+import { reviewShareUrl, reviewShareImageUrl, reviewStoryImageUrl } from "@/lib/shareLinks";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
@@ -30,6 +30,14 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  * `SharePreviewSheet` mostrando o card visual gerado por
  * `opengraph-image.tsx` (mesma imagem que aparece na prévia do
  * Threads/WhatsApp), com botão de compartilhar ali dentro.
+ *
+ * REDESIGN (2026-10-08, "estilo Unwind" — mockup aprovado, decisão
+ * explícita do usuário: "Compartilhar link" e "Exportar pra Stories"
+ * são DUAS ações distintas, nunca uma substitui a outra) — passa
+ * também `reviewStoryImageUrl(review.id)` pro `SharePreviewSheet`,
+ * que agora decide internamente qual ação cada botão dispara. Ver
+ * `story-image/route.ts` (web) pro porquê do formato vertical ser uma
+ * rota separada da prévia OG, nunca a mesma imagem.
  */
 export function ReviewCard({
   review,
@@ -78,6 +86,7 @@ export function ReviewCard({
       {showSharePreview && (
         <SharePreviewSheet
           imageUrl={reviewShareImageUrl(review.id)}
+          storyImageUrl={reviewStoryImageUrl(review.id)}
           shareUrl={reviewShareUrl(review.id)}
           onDismiss={() => setShowSharePreview(false)}
         />

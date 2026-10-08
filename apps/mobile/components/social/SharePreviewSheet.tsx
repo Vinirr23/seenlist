@@ -2,6 +2,8 @@ import { useState } from "react";
 import { View, Modal, Pressable, Share, ActivityIndicator, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import { Text, Button } from "@/components/ui";
 import { colors, radius, spacing, fontSize, scrim, elevation } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -20,13 +22,6 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * composição separada — garantindo que "o que você vê aqui é o que
  * vai ser compartilhado".
  *
- * Só "Compartilhar" + "Cancelar": sem botão de copiar link — o
- * próprio `Share.share` nativo já oferece "Copiar" como uma das
- * opções do sistema, tanto no iOS quanto no Android (mesmo motivo
- * documentado em `components/feed/PostCard.tsx`: não adicionar
- * `expo-clipboard`, dependência nova, só pra duplicar algo que o
- * compartilhamento nativo já cobre).
- *
  * BUG REAL CORRIGIDO (2026-10-08, reportado com print — "a prévia
  * aparece como uma caixa preta vazia") — causa raiz: o `<Image>` do
  * `expo-image` não tinha NENHUM tratamento de carregamento/erro — se
@@ -39,29 +34,78 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * carregou". Corrigido com estado explícito: um spinner enquanto
  * carrega (`onLoadStart`/`onLoad`) e um ícone + texto de erro quando
  * falha (`onError`) — pelo menos a pessoa vê que algo deu errado, em
- * vez de uma caixa preta sem explicação. Isso NÃO resolve a causa
- * raiz do porquê a imagem pode falhar (precisa confirmar com o
- * usuário se a URL abre direto no navegador do celular) — só evita
- * que a UI minta dizendo que está tudo bem quando não está.
+ * vez de uma caixa preta sem explicação.
+ *
+ * REDESIGN (2026-10-08, "estilo Unwind" — mockup aprovado em
+ * https://claude.ai/artifact/SvYnmVJedKZkRjvXNHbsdm, decisão explícita
+ * do usuário citada no pedido): DUAS AÇÕES DISTINTAS, nunca uma
+ * substituindo a outra automaticamente —
+ *
+ * 1. "Compartilhar link" — comportamento de sempre (`Share.share` com
+ *    a URL da review); o que abre é a prévia OG (`imageUrl`, formato
+ *    paisagem 1200×630), igual já era.
+ * 2. "Exportar pra Stories" — NOVO: baixa a imagem vertical gerada por
+ *    `story-image/route.ts` (`storyImageUrl`, formato 1080×1920) pra
+ *    um arquivo local e abre o share sheet nativo de ARQUIVO
+ *    (`expo-sharing`, mesmo pacote já usado em `app/week-review.tsx`
+ *    pra exportar a imagem da semana) — isso é o que deixa o usuário
+ *    postar direto no Stories do Instagram/WhatsApp, algo que
+ *    compartilhar só a URL não cobre.
+ *
+ * Por que baixar em vez de usar `Share.share({ url: storyImageUrl })`
+ * direto: a API de compartilhamento do React Native não baixa uma URL
+ * remota sozinha — pra aparecer como IMAGEM (e não como um link de
+ * texto) no destino, o arquivo precisa existir localmente primeiro
+ * (mesma razão prática por trás do uso de `expo-sharing`/`FileSystem`
+ * em `week-review.tsx`, só que lá a imagem já nasce local via
+ * `captureRef`; aqui ela vem do servidor, por isso o download).
  */
 export function SharePreviewSheet({
   imageUrl,
+  storyImageUrl,
   shareUrl,
   onDismiss,
 }: {
   imageUrl: string;
+  storyImageUrl: string;
   shareUrl: string;
   onDismiss: () => void;
 }) {
   const { t } = useTranslation();
   const [imageState, setImageState] = useState<"loading" | "loaded" | "error">("loading");
+  const [exportingStory, setExportingStory] = useState(false);
 
-  async function handleShare() {
+  async function handleShareLink() {
     try {
       await Share.share({ url: shareUrl, message: shareUrl });
       onDismiss();
     } catch (error) {
-      console.error("[SharePreviewSheet] Falha ao compartilhar", error);
+      console.error("[SharePreviewSheet] Falha ao compartilhar link", error);
+    }
+  }
+
+  async function handleExportStory() {
+    if (exportingStory) return;
+    try {
+      setExportingStory(true);
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        console.warn("[SharePreviewSheet] Sharing não disponível nesta plataforma/simulador.");
+        return;
+      }
+      // Nome de arquivo com timestamp — evita servir um PNG antigo do
+      // cache do `FileSystem` caso o usuário exporte a mesma review
+      // mais de uma vez na mesma sessão do app.
+      const fileUri = `${FileSystem.cacheDirectory}seenlist-story-${Date.now()}.png`;
+      const { uri } = await FileSystem.downloadAsync(storyImageUrl, fileUri);
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: t("social.exportToStory"),
+      });
+    } catch (error) {
+      console.error("[SharePreviewSheet] Falha ao exportar imagem pra Stories", error);
+    } finally {
+      setExportingStory(false);
     }
   }
 
@@ -101,7 +145,17 @@ export function SharePreviewSheet({
           </View>
 
           <View style={styles.actions}>
-            <Button onPress={handleShare}>{t("social.share")}</Button>
+            <Button onPress={handleShareLink} icon={<Feather name="link" size={16} color={colors.background} />}>
+              {t("social.shareAsLink")}
+            </Button>
+            <Button
+              variant="outline"
+              loading={exportingStory}
+              onPress={handleExportStory}
+              icon={!exportingStory ? <Feather name="download" size={16} color={colors.text} /> : undefined}
+            >
+              {t("social.exportToStory")}
+            </Button>
             <Pressable style={styles.dismissButton} onPress={onDismiss} hitSlop={8}>
               <Text variant="muted" style={styles.dismissText}>
                 {t("common.cancel")}

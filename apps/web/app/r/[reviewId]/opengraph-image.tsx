@@ -1,20 +1,39 @@
 import { ImageResponse } from "next/og";
 import { fetchReviewShareCard } from "@/lib/server/reviewShareCard";
-import { loadGoogleFont } from "@/lib/server/loadGoogleFont";
-import { AvatarFallbackOg, BRAND, SEENLIST_MARK_BASE64, VerifiedBadgeOg, fetchAvatarDataUri } from "@/lib/server/ogShared";
+import { loadGoogleFontSafe } from "@/lib/server/loadGoogleFont";
+import {
+  AvatarFallbackOg,
+  BRAND,
+  SEENLIST_MARK_BASE64,
+  VerifiedBadgeOg,
+  StarsRowOg,
+  fetchAvatarDataUri,
+  truncateAtWord,
+} from "@/lib/server/ogShared";
 
 /**
- * A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1). Mesmo
- * padrão de `app/u/[username]/opengraph-image.tsx` (ler aquele
- * arquivo primeiro — NÃO foi modificado, só serviu de molde): mesma
- * marca visual (`BRAND`/logo/selo, vindos de `ogShared.tsx`, extraído
- * de lá sem alterá-lo), mesma fonte via `loadGoogleFont`, mesmo
- * `revalidate`.
+ * REDESIGN (2026-10-08, "estilo Unwind" — mockup aprovado em
+ * https://claude.ai/artifact/SvYnmVJedKZkRjvXNHbsdm, 21 versões de
+ * iteração/aprovação com o usuário). Mantém o mesmo propósito e as
+ * mesmas fontes de dados de antes (ver versão anterior deste arquivo
+ * no histórico do git), só troca o LAYOUT visual: pôster sangrando
+ * pro fundo do lado direito (com um gradiente de fade pro fundo do
+ * card, não uma caixa separada flutuando), nota em 5 estrelas reais
+ * (incluindo meia estrela) via `StarsRowOg`, comentário maior e sem
+ * itálico truncado em limite de PALAVRA (não de caractere), e
+ * logo+"SeenList" sozinhos no canto inferior direito (sem mais o
+ * texto "seenlist.app" — a imagem só existe acoplada a uma página que
+ * já tem o link; o rodapé anterior com "Organize e acompanhe..."
+ * também saiu, a pedido do usuário, por ficar redundante com o resto
+ * do card).
  *
- * Card da REVIEW (diferente do perfil): autor + selo + nota + trecho
- * do texto (respeitando `containsSpoiler` — nunca revela o texto de
- * uma review marcada como spoiler no card público) + título/pôster
- * da mídia avaliada.
+ * BUG REAL CORRIGIDO (2026-10-08, "falha universal" — TODA imagem de
+ * review, não só uma específica): troca de `loadGoogleFont` por
+ * `loadGoogleFontSafe` — ver o comentário completo da causa raiz em
+ * `loadGoogleFont.ts`. Antes, qualquer falha ao buscar a fonte (rede,
+ * resposta da API do Google Fonts mudando de formato) derrubava a
+ * rota inteira com 500 pra TODO review, sempre. Agora o pior caso é a
+ * imagem saindo com a fonte padrão do satori — nunca um erro.
  */
 export const runtime = "edge";
 export const alt = "Avaliação no SeenList";
@@ -22,18 +41,26 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const revalidate = 3600;
 
-const MAX_TEXT_LENGTH = 220;
+// Limites de caracteres pra truncar ANTES de renderizar (ver
+// `truncateAtWord`, `ogShared.tsx`) — o satori não suporta
+// `-webkit-line-clamp` de forma confiável, então o corte de linha
+// precisa ser feito em JS, não em CSS. Valores calculados pra caber
+// na coluna de texto (~58% dos 1200px do card, menos padding) nos
+// tamanhos de fonte escolhidos; ver nota de verificação abaixo.
+const MAX_TITLE_LENGTH = 46;
+const MAX_TEXT_LENGTH = 150;
 
 export default async function Image({ params }: { params: Promise<{ reviewId: string }> }) {
   const { reviewId } = await params;
   const [card, bold, extrabold] = await Promise.all([
     fetchReviewShareCard(reviewId),
-    loadGoogleFont("Plus Jakarta Sans", 700),
-    loadGoogleFont("Plus Jakarta Sans", 800),
+    loadGoogleFontSafe("Plus Jakarta Sans", 700),
+    loadGoogleFontSafe("Plus Jakarta Sans", 800),
   ]);
-  const boldFont = { name: "Plus Jakarta Sans", data: bold, weight: 700 as const };
-  const extraboldFont = { name: "Plus Jakarta Sans", data: extrabold, weight: 800 as const };
-  const fonts = [boldFont, extraboldFont];
+  const fonts = [
+    bold ? { name: "Plus Jakarta Sans", data: bold, weight: 700 as const } : null,
+    extrabold ? { name: "Plus Jakarta Sans", data: extrabold, weight: 800 as const } : null,
+  ].filter((font): font is { name: string; data: ArrayBuffer; weight: 700 | 800 } => font !== null);
 
   if (!card) {
     return new ImageResponse(
@@ -55,23 +82,24 @@ export default async function Image({ params }: { params: Promise<{ reviewId: st
           </div>
         </div>
       ),
-      { ...size, fonts: [extraboldFont] }
+      { ...size, fonts: fonts.length ? [fonts[fonts.length - 1]!] : [] }
     );
   }
 
-  // BUG REAL CORRIGIDO (2026-10-08) — ver comentário completo em
-  // `fetchAvatarDataUri` (`ogShared.tsx`): avatar com URL que existe
-  // mas falha ao carregar no servidor (ex.: foto do Google) não tinha
-  // fallback nenhum aqui, ficava um buraco vazio no card.
+  // Ver comentário completo em `fetchAvatarDataUri` (`ogShared.tsx`):
+  // avatar com URL que existe mas falha ao carregar no servidor (ex.:
+  // foto do Google) cai pro fallback de iniciais, nunca um buraco
+  // vazio no card.
   const avatarDataUri = await fetchAvatarDataUri(card.author.avatarUrl);
 
   const displayText = card.containsSpoiler
-    ? null
+    ? "Contém spoiler — abra no SeenList pra ler."
     : card.reviewText
-      ? card.reviewText.length > MAX_TEXT_LENGTH
-        ? `${card.reviewText.slice(0, MAX_TEXT_LENGTH).trim()}…`
-        : card.reviewText
+      ? truncateAtWord(card.reviewText, MAX_TEXT_LENGTH)
       : null;
+
+  const mediaTitle = truncateAtWord(card.mediaTitle || "Avaliação no SeenList", MAX_TITLE_LENGTH);
+  const mediaTypeLabel = card.mediaType === "movie" ? "Filme" : "Série";
 
   return new ImageResponse(
     (
@@ -91,10 +119,7 @@ export default async function Image({ params }: { params: Promise<{ reviewId: st
             background: BRAND.surface,
             border: `1px solid ${BRAND.border}`,
             borderRadius: 28,
-            padding: "44px 48px",
             display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
             overflow: "hidden",
           }}
         >
@@ -111,65 +136,114 @@ export default async function Image({ params }: { params: Promise<{ reviewId: st
             }}
           />
 
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          {/* Pôster sangrando pro fundo (metade direita do card), com
+          fade pro fundo escuro em vez de uma caixa separada flutuando
+          — decisão tomada depois de 3 rodadas de mockup (poster
+          "isolado"/"afastado pra esquerda"). Evitado `mask-image`
+          (suporte incerto no satori/vercel-og) — o fade é só um
+          gradiente normal por cima da imagem, a mesma técnica já usada
+          no círculo de glow acima, que o satori sabe desenhar com
+          certeza. */}
+          {card.mediaPosterUrl && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- `ImageResponse` (satori) não suporta `next/image`. */}
+              <img
+                src={card.mediaPosterUrl}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  width: "56%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "flex",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  width: "56%",
+                  height: "100%",
+                  background: `linear-gradient(to right, ${BRAND.surface} 0%, ${BRAND.surface} 18%, rgba(19,24,38,0) 72%)`,
+                  display: "flex",
+                }}
+              />
+            </>
+          )}
+
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              padding: "44px 48px",
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               {avatarDataUri ? (
                 // eslint-disable-next-line @next/next/no-img-element -- `ImageResponse` (satori) não suporta `next/image`, precisa de `<img>` cru.
                 <img
                   src={avatarDataUri}
-                  width={64}
-                  height={64}
+                  width={56}
+                  height={56}
                   style={{ borderRadius: 999, border: "3px solid rgba(232,163,61,0.5)", objectFit: "cover" }}
                 />
               ) : (
-                <AvatarFallbackOg name={card.author.displayName} size={64} />
+                <AvatarFallbackOg name={card.author.displayName} size={56} />
               )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 24, fontWeight: 800, color: BRAND.text }}>{card.author.displayName}</span>
-                  {card.author.verifiedTier && <VerifiedBadgeOg tier={card.author.verifiedTier} size={22} />}
+                  <span style={{ fontSize: 22, fontWeight: 800, color: BRAND.text }}>{card.author.displayName}</span>
+                  {card.author.verifiedTier && <VerifiedBadgeOg tier={card.author.verifiedTier} size={20} />}
                 </div>
-                <span style={{ fontSize: 17, color: BRAND.muted }}>{`@${card.author.username}`}</span>
+                <span style={{ fontSize: 15, color: BRAND.muted }}>{`@${card.author.username}`}</span>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- `ImageResponse` (satori) não suporta `next/image`. */}
-              <img src={`data:image/png;base64,${SEENLIST_MARK_BASE64}`} width={26} height={20} />
-              <span style={{ fontSize: 17, fontWeight: 700, color: BRAND.text }}>SeenList</span>
-            </div>
-          </div>
 
-          {card.rating !== null && (
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 8 }}>
-              <span style={{ fontSize: 34, fontWeight: 800, color: BRAND.primary }}>{card.rating.toFixed(1)}</span>
-              <span style={{ fontSize: 22, color: BRAND.primary }}>★</span>
-            </div>
-          )}
-
-          <div style={{ display: "flex", flex: 1, alignItems: "center", gap: 28, marginTop: 8 }}>
-            <div style={{ display: "flex", flex: 1 }}>
-              <span style={{ fontSize: 28, lineHeight: 1.4, color: BRAND.text, fontWeight: 700 }}>
-                {displayText ?? (card.containsSpoiler ? "Contém spoiler — abra no SeenList pra ler." : card.mediaTitle)}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "58%" }}>
+              <span
+                style={{
+                  fontSize: 44,
+                  fontWeight: 800,
+                  color: BRAND.text,
+                  lineHeight: 1.18,
+                  display: "flex",
+                }}
+              >
+                {mediaTitle}
               </span>
-            </div>
-            {card.mediaPosterUrl && (
-              // eslint-disable-next-line @next/next/no-img-element -- `ImageResponse` (satori) não suporta `next/image`.
-              <img src={card.mediaPosterUrl} style={{ width: 160, height: 240, borderRadius: 14, objectFit: "cover" }} />
-            )}
-          </div>
 
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: 8 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7389" strokeWidth={2}>
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M3 12h18M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
-                </svg>
-                <span style={{ fontSize: 16, color: "#6b7389" }}>seenlist.app</span>
-              </div>
-              <span style={{ fontSize: 15, color: BRAND.muted }}>{card.mediaTitle || "Avaliação no SeenList"}</span>
+              {card.rating !== null && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {/* 5 estrelas reais com preenchimento por `clipPath`
+                  SVG — não texto `★` (risco de não existir no arquivo
+                  da fonte carregada) nem % de largura em CSS (técnica
+                  frágil, já causou "você bugou as estrelas" no mockup
+                  por 2 rodadas antes dessa troca). Ver `StarsRowOg`,
+                  `ogShared.tsx`. */}
+                  <StarsRowOg rating={card.rating} size={28} />
+                  <div style={{ width: 4, height: 4, borderRadius: 999, background: BRAND.muted, display: "flex" }} />
+                  <span style={{ fontSize: 20, color: BRAND.muted }}>{mediaTypeLabel}</span>
+                </div>
+              )}
+
+              {displayText && (
+                <span style={{ fontSize: 26, lineHeight: 1.5, color: BRAND.text, fontWeight: 500, display: "flex" }}>
+                  {displayText}
+                </span>
+              )}
             </div>
-            <span style={{ fontSize: 15, color: BRAND.muted }}>Organize e acompanhe tudo que você assiste</span>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- `ImageResponse` (satori) não suporta `next/image`. */}
+              <img src={`data:image/png;base64,${SEENLIST_MARK_BASE64}`} width={24} height={18} />
+              <span style={{ fontSize: 18, fontWeight: 700, color: BRAND.text }}>SeenList</span>
+            </div>
           </div>
         </div>
       </div>
