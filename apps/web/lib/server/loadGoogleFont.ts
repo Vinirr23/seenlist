@@ -15,8 +15,20 @@ const LEGACY_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36";
 
 export async function loadGoogleFont(family: string, weight: number): Promise<ArrayBuffer> {
+  // CAUSA RAIZ (2026-10-08, investigação dos bytes pequenos demais —
+  // testei a URL de fora e ela devolve um .ttf de verdade, então a
+  // extração em si está correta) — ambas as chamadas de `fetch` aqui
+  // rodam dentro de uma rota do Next.js, que por padrão GUARDA EM CACHE
+  // o resultado de `fetch` (Data Cache) — se em algum deploy anterior,
+  // antes da correção do bug de regex (comentário abaixo), uma dessas
+  // chamadas tiver sido cacheada com uma resposta pequena/de erro, esse
+  // resultado ruim podia ficar preso indefinidamente, sobrevivendo a
+  // deploys novos, mesmo com o código de extração já corrigido.
+  // `cache: "no-store"` força buscar de novo sempre, nunca usar/gravar
+  // cache — cada weight dessa fonte muda raramente mesmo (o `revalidate`
+  // de 1h da ROTA inteira já limita quantas vezes isso roda de verdade).
   const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}&display=swap`;
-  const css = await fetch(cssUrl, { headers: { "User-Agent": LEGACY_USER_AGENT } }).then((res) => res.text());
+  const css = await fetch(cssUrl, { headers: { "User-Agent": LEGACY_USER_AGENT }, cache: "no-store" }).then((res) => res.text());
 
   // CAUSA RAIZ (2026-10-08, erro 500 real em produção — "Não encontrei
   // a URL da fonte... peso 800"): a regra original exigia bater o
@@ -42,8 +54,35 @@ export async function loadGoogleFont(family: string, weight: number): Promise<Ar
     );
   }
 
-  const fontResponse = await fetch(fontUrl);
-  return fontResponse.arrayBuffer();
+  // CAUSA RAIZ (2026-10-08, nome e estatísticas do card de perfil saindo
+  // com peso de fonte errado/pesado demais, mesmo trocando o `fontWeight`
+  // declarado) — log de diagnóstico mostrou a "fonte" carregando só ~1.6KB,
+  // bytes demais pra ser erro de rede (que cairia no catch de
+  // `loadGoogleFontSafe` e devolveria null), de menos pra ser uma fonte
+  // .ttf/.otf de verdade (sempre centenas de KB). Esta função nunca
+  // checava `fontResponse.ok` nem o tamanho do corpo — se `fontUrl`
+  // apontasse pra algo errado (resposta de erro servida com 200, corpo
+  // vazio, redirecionamento pra uma página pequena), os bytes errados
+  // eram devolvidos como se fossem a fonte, e o satori tentava desenhar
+  // isso — resultado imprevisível (o "peso mais black" visto no card).
+  // Agora valida `ok` E um tamanho mínimo plausível antes de aceitar o
+  // resultado, lançando um erro descritivo (com a URL de verdade usada)
+  // em vez de devolver silenciosamente bytes inválidos — assim
+  // `loadGoogleFontSafe` cai pro `null`/fonte padrão de forma correta,
+  // em vez de entregar uma "fonte" corrompida pro satori.
+  const fontResponse = await fetch(fontUrl, { cache: "no-store" });
+  if (!fontResponse.ok) {
+    throw new Error(
+      `[loadGoogleFont] A URL da fonte "${family}" peso ${weight} respondeu ${fontResponse.status} ${fontResponse.statusText} (não é o arquivo da fonte). URL: ${fontUrl}`
+    );
+  }
+  const buffer = await fontResponse.arrayBuffer();
+  if (buffer.byteLength < 10_000) {
+    throw new Error(
+      `[loadGoogleFont] A URL da fonte "${family}" peso ${weight} devolveu só ${buffer.byteLength} bytes — pequeno demais pra ser uma fonte .ttf/.otf de verdade. URL: ${fontUrl}`
+    );
+  }
+  return buffer;
 }
 
 /**
