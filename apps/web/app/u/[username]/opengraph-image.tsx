@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { fetchProfileShareCard } from "@/lib/server/profileShareCard";
-import { formatWatchMinutesPlain } from "@/lib/server/formatWatchMinutesPlain";
+import { formatWatchMinutesRounded } from "@/lib/server/formatWatchMinutesPlain";
 import { loadGoogleFontSafe } from "@/lib/server/loadGoogleFont";
 import { AvatarFallbackOg, BRAND, SEENLIST_MARK_BASE64, VerifiedBadgeOg, fetchAvatarDataUri } from "@/lib/server/ogShared";
 
@@ -9,22 +9,23 @@ import { AvatarFallbackOg, BRAND, SEENLIST_MARK_BASE64, VerifiedBadgeOg, fetchAv
  * card de review, https://claude.ai/artifact/SvYnmVJedKZkRjvXNHbsdm).
  * Mantém a estrutura "Estilo Bingers" já aprovada antes (avatar+nome à
  * esquerda / logo+nome à direita no topo; fileira de pôsteres), só
- * ajusta: estatísticas em TILES (caixa com fundo e borda, número
- * grande) em vez de texto solto na mesma linha de base — mais
- * "peso" visual, igual ao mockup; rodapé reduzido a só
- * `seenlist.app/u/<username>` (sem a segunda linha "<nome> on
- * SeenList" nem a tagline "Organize e acompanhe..." do lado direito,
- * ambas redundantes ao lado do nome/avatar já visíveis no topo do
- * próprio card).
+ * ajusta: 3 estatísticas (número+rótulo empilhados, sem caixa) em vez
+ * de 1 linha com 2 — rodapé reduzido a só `seenlist.app/u/<username>`
+ * (sem a segunda linha "<nome> on SeenList" nem a tagline "Organize e
+ * acompanhe..." do lado direito, ambas redundantes ao lado do
+ * nome/avatar já visíveis no topo do próprio card).
  *
- * NOTA IMPORTANTE (não decidida sem avisar — "nunca tome grandes
- * decisões, dê as opções pra eu decidir"): o mockup aprovado foi
- * descrito como tendo 3 tiles de estatística, mas `ProfileShareCard`
- * (`profileShareCard.ts`) só expõe 2 métricas reais: `watchedCount` e
- * `watchMinutes`. Implementado aqui com 2 tiles — nenhuma 3ª métrica
- * foi inventada. Se a intenção era mesmo 3 (ex.: filmes/séries
- * separados, ou contagem de títulos), me diga qual e eu ajusto
- * `fetchProfileShareCard` pra expor o dado real por trás dela.
+ * CORREÇÃO (2026-10-08, comparado com o print real do mockup v21 que
+ * o usuário aprovou — primeira versão daqui tinha só 2 tiles com
+ * caixa de fundo/borda, inventada sem conferir o mockup de novo antes
+ * de implementar): as 3 estatísticas de verdade são tempo de tela,
+ * EPISÓDIOS assistidos (não "filmes+episódios" somados — por isso
+ * `ProfileShareStats` ganhou `episodesWatched` separado de
+ * `watchedCount`) e quantidade de AVALIAÇÕES escritas (`reviewsCount`,
+ * nova contagem em `profileShareCard.ts`, mesma definição de
+ * `reviewsGiven` em `lib/queries/social-counts.ts`). `watchedCount`
+ * continua existindo só porque `app/u/[username]/page.tsx` ainda usa
+ * ele no texto do `<meta name="description">`.
  *
  * Também troca `loadGoogleFont` por `loadGoogleFontSafe` — mesma
  * causa raiz do "falha universal" corrigida no card de review (ver
@@ -47,20 +48,19 @@ export const contentType = "image/png";
 // quem está testando o compartilhamento.
 export const revalidate = 3600;
 
+/**
+ * CORREÇÃO (2026-10-08, comparado com o print do mockup v21 que o
+ * usuário realmente aprovou — "concordei com esse design") — a versão
+ * anterior tinha uma caixa com fundo/borda em volta de cada estatística
+ * (inventei isso sem checar o mockup de novo antes de implementar,
+ * quebrando "nunca assuma nada"). O aprovado é número+rótulo empilhados,
+ * SEM caixa nenhuma — só texto solto, mesma lógica visual do card
+ * antigo, só que 3 pares em vez de 1 linha.
+ */
 function StatTileOg({ value, label }: { value: string; label: string }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 4,
-        padding: "16px 24px",
-        background: "rgba(232,163,61,0.08)",
-        border: `1px solid ${BRAND.border}`,
-        borderRadius: 16,
-      }}
-    >
-      <span style={{ fontSize: 34, fontWeight: 800, color: BRAND.text, display: "flex" }}>{value}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <span style={{ fontSize: 32, fontWeight: 800, color: BRAND.text, display: "flex" }}>{value}</span>
       <span style={{ fontSize: 16, color: BRAND.muted, display: "flex" }}>{label}</span>
     </div>
   );
@@ -187,10 +187,12 @@ export default async function Image({ params }: { params: Promise<{ username: st
           </div>
 
           {/* Estatísticas em tiles — só quando a biblioteca é pública (ver `fetchProfileShareCard`) */}
+          {/* 3 estatísticas, nessa ordem — igual ao mockup v21 aprovado ("7 meses / de tela", "7.904 / episódios", "612 / avaliações"). */}
           {stats && (
-            <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-              <StatTileOg value={String(stats.watchedCount)} label="assistidos" />
-              <StatTileOg value={formatWatchMinutesPlain(stats.watchMinutes)} label="de tela" />
+            <div style={{ display: "flex", gap: 32, marginTop: 8 }}>
+              <StatTileOg value={formatWatchMinutesRounded(stats.watchMinutes)} label="de tela" />
+              <StatTileOg value={stats.episodesWatched.toLocaleString("pt-BR")} label="episódios" />
+              <StatTileOg value={stats.reviewsCount.toLocaleString("pt-BR")} label="avaliações" />
             </div>
           )}
 

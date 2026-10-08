@@ -29,9 +29,33 @@ import { tmdbImage } from "@/lib/tmdb/image";
  */
 
 export interface ProfileShareStats {
-  /** Filmes concluídos + episódios assistidos, somados num número só — o card de compartilhamento mostra UMA estatística de "assistidos" (como o do Bingers), não o detalhamento de 8 cards do carrossel de Estatísticas. */
+  /**
+   * Filmes concluídos + episódios assistidos, somados num número só.
+   * NÃO aparece mais no card visual (redesign "estilo Unwind",
+   * 2026-10-08, mockup aprovado — 3 tiles reais: tempo de tela,
+   * episódios, avaliações) — mantido só porque `app/u/[username]/page.tsx`
+   * ainda usa ele na descrição de texto do `generateMetadata`
+   * (`<meta name="description">`), não na imagem.
+   */
   watchedCount: number;
   watchMinutes: number;
+  /**
+   * A PEDIDO (2026-10-08, redesign "estilo Unwind", mockup aprovado —
+   * https://claude.ai/artifact/SvYnmVJedKZkRjvXNHbsdm): 2ª tile real do
+   * card de perfil. Só episódios de SÉRIE (já calculado mais embaixo
+   * nesta função pro `watchedCount` combinado) — filme concluído não
+   * conta aqui, por isso é um número diferente de `watchedCount`.
+   */
+  episodesWatched: number;
+  /**
+   * A PEDIDO (2026-10-08, redesign "estilo Unwind") — 3ª tile real do
+   * card: quantidade de avaliações (`reviews`) que a pessoa escreveu,
+   * contando linha com nota e/ou texto (mesma definição de
+   * `reviewsGiven` em `lib/queries/social-counts.ts`, a única outra
+   * contagem de reviews por usuário que já existia no app — reaproveita
+   * o mesmo filtro `deleted_at is null`, nunca conta avaliação apagada).
+   */
+  reviewsCount: number;
 }
 
 export interface ProfileShareCard {
@@ -90,17 +114,20 @@ export async function fetchProfileShareCard(username: string): Promise<ProfileSh
 
   const userId = profile.user_id;
 
-  const [movieResult, seriesResult, episodeRowsResult] = await Promise.all([
+  const [movieResult, seriesResult, episodeRowsResult, reviewsCountResult] = await Promise.all([
     supabase.from("movie_status").select("movie_id, status, updated_at").eq("user_id", userId),
     supabase.from("series_status").select("series_id, status, total_watch_events, updated_at").eq("user_id", userId),
     supabase.from("watched_episodes").select("series_id").eq("user_id", userId).eq("is_special", false),
+    // A PEDIDO (2026-10-08, redesign "estilo Unwind") — 3ª tile do card ("avaliações"). Mesma contagem/filtro de `useSocialCounts` (`lib/queries/social-counts.ts`), só que pelo lado servidor (chave de serviço, sem sessão — ver nota grande no topo do arquivo).
+    supabase.from("reviews").select("*", { count: "exact", head: true }).eq("user_id", userId).is("deleted_at", null),
   ]);
 
-  if (movieResult.error || seriesResult.error || episodeRowsResult.error) {
+  if (movieResult.error || seriesResult.error || episodeRowsResult.error || reviewsCountResult.error) {
     console.error("[profileShareCard] Falha ao buscar biblioteca", {
       movieError: movieResult.error,
       seriesError: seriesResult.error,
       episodeError: episodeRowsResult.error,
+      reviewsCountError: reviewsCountResult.error,
     });
     return card; // identidade sozinha ainda é um card válido — melhor isso que quebrar o preview inteiro
   }
@@ -166,6 +193,8 @@ export async function fetchProfileShareCard(username: string): Promise<ProfileSh
   card.stats = {
     watchedCount: moviesCompleted + episodesWatched,
     watchMinutes: movieWatchMinutes + seriesWatchMinutes,
+    episodesWatched,
+    reviewsCount: reviewsCountResult.count ?? 0,
   };
 
   // Pôsteres pra fileira do card: os itens mais recentemente mexidos
