@@ -1,7 +1,12 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Share2, Check } from "lucide-react";
 import type { Review } from "@/lib/queries/social/reviews";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
+import { useToast } from "@/lib/toast/ToastProvider";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { StarRating } from "./StarRating";
@@ -19,16 +24,56 @@ import { LikeButton } from "./LikeButton";
  * `Link` pra `/u/[username]`. O mesmo bug existia em `CommentItem.tsx`
  * (comentários) — corrigido junto, mesma receita, por ser o mesmo
  * padrão reutilizado (regra "tudo deve ser padronizado").
+ *
+ * A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1):
+ * - Botão de compartilhar permanente — mesmo padrão de
+ *   `ShareProfileButton.tsx` (copia `/r/[id]` pra área de
+ *   transferência, toast de confirmação, sem modal novo).
+ * - `isHighlighted` — mesmo padrão de `CommentItem.tsx` (TASK-052):
+ *   quando a review é a que veio de um link de compartilhamento
+ *   (`?highlight=`), rola até ela e destaca com um anel, por alguns
+ *   segundos.
  */
-export function ReviewCard({ review, likeInfo }: { review: Review; likeInfo?: { count: number; hasLiked: boolean } }) {
-  const { locale } = useTranslation();
+export function ReviewCard({
+  review,
+  likeInfo,
+  isHighlighted,
+}: {
+  review: Review;
+  likeInfo?: { count: number; hasLiked: boolean };
+  isHighlighted?: boolean;
+}) {
+  const { locale, t } = useTranslation();
   const dateFormatter = new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" });
   const authorName = review.author.displayName ?? review.author.username;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => {
+    if (isHighlighted) {
+      containerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [isHighlighted]);
+
+  async function handleShare() {
+    const url = `${window.location.origin}/r/${review.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success(t("social.linkCopied"));
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("[ReviewCard] Falha ao copiar link da avaliação", error);
+      toast.error(t("social.linkCopyError"));
+    }
+  }
 
   return (
     // "Vidro" (redesign âmbar/vidro, 2026-08-26 — Comentários/Avaliações) — mesma textura de card neutro do resto do app.
     <div
-      className="space-y-2 rounded-2xl border border-white/10 p-3.5 backdrop-blur-[18px] backdrop-saturate-[180%]"
+      ref={containerRef}
+      className={`space-y-2 rounded-2xl border border-white/10 p-3.5 backdrop-blur-[18px] backdrop-saturate-[180%] ${isHighlighted ? "ring-2 ring-primary" : ""}`}
       style={{
         background: "radial-gradient(75% 100% at 14% 15%, rgba(255,255,255,0.17), transparent 60%), rgba(255,255,255,0.10)",
       }}
@@ -41,7 +86,12 @@ export function ReviewCard({ review, likeInfo }: { review: Review; likeInfo?: { 
           <VerifiedBadge tier={review.author.verifiedTier} />
           <span className="shrink-0 text-xs text-muted">{dateFormatter.format(new Date(review.createdAt))}</span>
         </Link>
-        <StarRating value={review.rating ?? 0} size="sm" />
+        <div className="flex shrink-0 items-center gap-2.5">
+          <StarRating value={review.rating ?? 0} size="sm" />
+          <button type="button" onClick={handleShare} aria-label={t("social.shareReview")} className="text-muted transition-transform active:scale-90">
+            {copied ? <Check className="h-3.5 w-3.5 text-success" strokeWidth={2} /> : <Share2 className="h-3.5 w-3.5" strokeWidth={2} />}
+          </button>
+        </div>
       </div>
       {review.reviewText && (
         <SpoilerGate hidden={review.containsSpoiler}>

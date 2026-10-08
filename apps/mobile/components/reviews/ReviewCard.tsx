@@ -1,8 +1,10 @@
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, Share, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { Feather } from "@expo/vector-icons";
 import type { Review } from "@/lib/social/reviews";
 import { Text } from "@/components/ui";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
+import { reviewShareUrl } from "@/lib/shareLinks";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
@@ -14,9 +16,23 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  * VIDRO REMOVIDO (2026-10-06, a pedido — "em séries/episódios é só
  * pra tirar o glass completamente") — era `<Glass>` desde o porte do
  * web (2026-09-04); virou superfície plana, mesma receita do Feed.
+ *
+ * A PEDIDO (2026-10-08 — "Compartilhamento social", Fase 1) — botão
+ * de compartilhar permanente, mesmo padrão de `ProfileMoreSheet.tsx`
+ * (`Share.share` nativo, sem modal novo). `review.id` já estava
+ * disponível aqui (já usado pelo `LikeButton`) — não precisou
+ * receber `target`/`media` como prop.
  */
 export function ReviewCard({ review, initial }: { review: Review; initial?: { count: number; hasLiked: boolean } }) {
   const router = useRouter();
+
+  async function handleShare() {
+    try {
+      await Share.share({ message: reviewShareUrl(review.id) });
+    } catch (error) {
+      console.error("[ReviewCard] Falha ao compartilhar review", error);
+    }
+  }
 
   return (
     <View style={styles.card}>
@@ -28,7 +44,12 @@ export function ReviewCard({ review, initial }: { review: Review; initial?: { co
             {dateFormatter.format(new Date(review.createdAt))}
           </Text>
         </Pressable>
-        <StarRating value={review.rating ?? 0} size="sm" />
+        <View style={styles.headerRight}>
+          <StarRating value={review.rating ?? 0} size="sm" />
+          <Pressable onPress={handleShare} accessibilityLabel="Compartilhar avaliação" hitSlop={8}>
+            <Feather name="share-2" size={15} color={colors.muted} />
+          </Pressable>
+        </View>
       </View>
 
       {!!review.reviewText && (
@@ -58,6 +79,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   // A PEDIDO (mockup "Opção B", 2026-09-25, aplicado antes só nos
   // comentários — "aplica o mesmo aumento de fonte nas avaliações

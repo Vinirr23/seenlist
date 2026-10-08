@@ -13,6 +13,8 @@ import { EmptyState } from "../search/EmptyState";
 
 export interface ReviewTextSectionProps {
   target: MediaTarget;
+  /** A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1) — vindo do deep link de compartilhamento (`?highlight=`, mesmo parâmetro já usado por `CommentsSection`/`CommentItem` pra comentários, TASK-052). Rola até a review certa e destaca. */
+  highlightReviewId?: string;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface ReviewTextSectionProps {
  * duas paradas pra uma avaliação só. A aba Sobre agora só mostra o
  * resumo da comunidade, sem nada pra preencher.
  */
-export function ReviewTextSection({ target }: ReviewTextSectionProps) {
+export function ReviewTextSection({ target, highlightReviewId }: ReviewTextSectionProps) {
   const { data: reviews = [], isLoading } = useReviews(target);
   const { data: myReview } = useMyReview(target);
   const upsertReview = useUpsertReview(target);
@@ -83,7 +85,12 @@ export function ReviewTextSection({ target }: ReviewTextSectionProps) {
       ) : (
         <div className="space-y-3">
           {othersReviews.map((review) => (
-            <ReviewCard key={review.id} review={review} likeInfo={likeInfoByReviewId?.get(review.id)} />
+            <ReviewCard
+              key={review.id}
+              review={review}
+              likeInfo={likeInfoByReviewId?.get(review.id)}
+              isHighlighted={review.id === highlightReviewId}
+            />
           ))}
         </div>
       )}

@@ -801,6 +801,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.personSingular": "pessoa",
     "profile.personPlural": "pessoas",
     "review.savedButFeedPublishFailed": "Avaliação salva, mas não foi possível publicar no Feed agora.",
+    /* A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1) — sugestão discreta pós-publicação, sem modal novo. */
+    "review.shareSuggestion": "Avaliação publicada.",
     /* PORTE DO WEB (2026-09-09) — o `ReviewComposer` escrevia estes dois à mão, em português. Mesmos textos do web (`social.reviewPlaceholder`/`social.saveReview`). */
     "review.seeAll": "Ver todas as avaliações",
     /* A PEDIDO (2026-10-06, mockup Opção B das estrelas, "escreve uma review tira o opcional") — a pílula com a nota ao lado das estrelas já deixa claro que avaliar é separado de escrever; o "(opcional)" no placeholder ficou redundante. */
@@ -1512,6 +1514,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.personSingular": "person",
     "profile.personPlural": "people",
     "review.savedButFeedPublishFailed": "Review saved, but couldn't post it to the Feed right now.",
+    "review.shareSuggestion": "Review published.",
     "review.seeAll": "See all reviews",
     "review.reviewPlaceholder": "Write a review...",
     "review.saveReview": "Save rating",
@@ -2194,6 +2197,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.personSingular": "persona",
     "profile.personPlural": "personas",
     "review.savedButFeedPublishFailed": "Reseña guardada, pero no se pudo publicar en el Feed ahora.",
+    "review.shareSuggestion": "Reseña publicada.",
     "review.seeAll": "Ver todas las reseñas",
     "review.reviewPlaceholder": "Escribe una reseña...",
     "review.saveReview": "Guardar calificación",

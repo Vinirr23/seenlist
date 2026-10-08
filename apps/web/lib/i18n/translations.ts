@@ -313,6 +313,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.linkCopied": "Link copiado",
     "social.linkCopyError": "Não foi possível copiar o link.",
     "social.shareProfile": "Compartilhar perfil",
+    /* A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1). */
+    "social.shareReview": "Compartilhar avaliação",
     "social.rating": "Nota",
     "social.star": "estrela",
 
@@ -1163,6 +1165,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.linkCopied": "Link copied",
     "social.linkCopyError": "Couldn't copy the link.",
     "social.shareProfile": "Share profile",
+    "social.shareReview": "Share review",
     "social.rating": "Rating",
     "social.star": "star",
 
@@ -1987,6 +1990,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "social.linkCopied": "Enlace copiado",
     "social.linkCopyError": "No se pudo copiar el enlace.",
     "social.shareProfile": "Compartir perfil",
+    "social.shareReview": "Compartir reseña",
     "social.rating": "Calificación",
     "social.star": "estrella",
 

@@ -130,7 +130,12 @@ export function CommentsSection({ target, highlightCommentId, media }: CommentsS
   if (media) {
     // `media` só decide qual seção mostrar aqui — `ReviewTextSection` não
     // usa mais o valor em si (ver comentário do bug corrigido lá).
-    return <ReviewTextSection target={target} />;
+    // A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1) — o mesmo
+    // `?highlight=` que já chega aqui pra comentários (TASK-052) também
+    // serve pra destacar uma review, quando o link compartilhado é de
+    // uma review em vez de um comentário (`highlightCommentId` é só o
+    // nome herdado do parâmetro original).
+    return <ReviewTextSection target={target} highlightReviewId={highlightCommentId} />;
   }
 
   return (
