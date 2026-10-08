@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, TextInput, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ui";
@@ -100,8 +100,23 @@ export function ReviewComposer({
    * baixo (o que ignoraria a intenção em silêncio), o estado real é
    * desmarcado no momento em que o texto esvazia — ao digitar de novo,
    * a pessoa precisa marcar de novo, de forma explícita.
+   *
+   * BUG (2026-10-08, "a caixa precisa estar marcada por padrão e está
+   * desmarcada por padrão") — CAUSA RAIZ: todo `useEffect` roda também
+   * na primeira renderização. Numa review nova, `text` nasce vazio, ou
+   * seja `temTexto` já é `false` no mount — e o efeito disparava ali
+   * mesmo, desmarcando a caixa antes da pessoa digitar qualquer coisa,
+   * mesmo com o `useState` da linha acima já tendo inicializado
+   * `shareToFeed` como `true`. `isMountedRef` faz o efeito ignorar essa
+   * primeira execução — só passa a desmarcar quando o texto for
+   * apagado DEPOIS de já ter existido, que é a regra original.
    */
+  const isMountedRef = useRef(false);
   useEffect(() => {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      return;
+    }
     if (!temTexto && shareToFeed) setShareToFeed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só reage a temTexto ficar false; não precisa rodar de novo por mudança em shareToFeed.
   }, [temTexto]);
