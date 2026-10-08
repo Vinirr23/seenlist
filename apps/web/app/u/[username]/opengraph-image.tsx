@@ -5,6 +5,13 @@ import { loadGoogleFontSafe } from "@/lib/server/loadGoogleFont";
 import { AvatarFallbackOg, BRAND, SEENLIST_MARK_BASE64, VerifiedBadgeOg, fetchAvatarDataUri } from "@/lib/server/ogShared";
 
 /**
+ * A PEDIDO (2026-10-08, "tira o link de dentro do card") — rodapé
+ * `seenlist.app/u/<username>` removido do card inteiro (não só
+ * reposicionado). O mockup aprovado tinha esse texto dentro do card,
+ * mas o pedido aqui é explícito: tirar, não mover.
+ */
+
+/**
  * REDESIGN (2026-10-08, "estilo Unwind" — mesmo mockup aprovado do
  * card de review, https://claude.ai/artifact/SvYnmVJedKZkRjvXNHbsdm).
  *
@@ -246,11 +253,6 @@ export default async function Image({ params }: { params: Promise<{ username: st
               ))}
             </div>
           )}
-
-          {/* Rodapé — só o link, texto puro, sem ícone (o mockup aprovado não tem ícone no rodapé do card de perfil) */}
-          <div style={{ display: "flex" }}>
-            <span style={{ fontSize: 30, color: "#9aa2b5", display: "flex" }}>{`seenlist.app/u/${card.username}`}</span>
-          </div>
         </div>
       </div>
     ),
