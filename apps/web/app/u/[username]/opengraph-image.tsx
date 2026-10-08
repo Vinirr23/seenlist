@@ -131,16 +131,13 @@ export default async function Image({ params }: { params: Promise<{ username: st
     extrabold ? { name: "Plus Jakarta Sans", data: extrabold, weight: 800 as const } : null,
   ].filter((font): font is { name: string; data: ArrayBuffer; weight: 700 | 800 } => font !== null);
 
-  // DIAGNÓSTICO TEMPORÁRIO (2026-10-08, "continuou do mesmo jeito" depois
-  // de trocar 800→700 sem nenhuma diferença visual — isso só faz sentido
-  // se NENHUM dos dois pesos estiver carregando de verdade, e o satori tá
-  // caindo pro fallback genérico com negrito sintético nos dois casos).
-  // Loga o tamanho real (em bytes) de cada fonte carregada, ou "FALHOU"
-  // se `loadGoogleFontSafe` devolveu null — sem isso é só suposição.
-  // Remover depois de confirmar a causa.
-  console.log(
-    `[opengraph-image perfil] fonte bold(700): ${bold ? `${bold.byteLength} bytes` : "FALHOU (null)"} | fonte extrabold(800): ${extrabold ? `${extrabold.byteLength} bytes` : "FALHOU (null)"}`
-  );
+  // Causa já confirmada via log de produção (2026-10-08): a URL de fonte
+  // que o Google Fonts devolve pra esta família/peso, mesmo com o
+  // User-Agent antigo, às vezes é um `.woff` de ~1.6KB — arquivo real
+  // demais pequeno pra ser usável, não um erro de rede. `loadGoogleFont.ts`
+  // já valida isso e cai pra `null`; o bug que isso escancarou (satori
+  // travando com "No fonts are loaded" quando as duas fontes falham) foi
+  // corrigido logo abaixo, não passando mais `fonts: []`.
 
   // Ver comentário completo em `fetchAvatarDataUri` (`ogShared.tsx`):
   // `avatar_url` pode ser a foto direta do Google (copiada 1x no
@@ -173,7 +170,14 @@ export default async function Image({ params }: { params: Promise<{ username: st
           </div>
         </div>
       ),
-      { ...size, fonts: fonts.length ? [fonts[fonts.length - 1]!] : [] }
+      // CORREÇÃO (2026-10-08, "No fonts are loaded" — erro real em produção
+      // que quebrava a rota inteira quando as duas fontes do Google Fonts
+      // falhavam) — `fonts: []` (array vazio) faz o satori travar com essa
+      // mensagem; a opção `fonts` precisa ser OMITIDA inteiramente (não um
+      // array vazio) pra ele cair na fonte padrão embutida. O spread
+      // condicional abaixo só inclui a chave `fonts` quando há pelo menos
+      // uma fonte de verdade carregada.
+      { ...size, ...(fonts.length ? { fonts: [fonts[fonts.length - 1]!] } : {}) }
     );
   }
 
@@ -314,6 +318,8 @@ export default async function Image({ params }: { params: Promise<{ username: st
         </div>
       </div>
     ),
-    { ...size, fonts }
+    // CORREÇÃO (2026-10-08, "No fonts are loaded") — mesma correção do
+    // branch de perfil inexistente/privado acima: nunca passar `fonts: []`.
+    { ...size, ...(fonts.length ? { fonts } : {}) }
   );
 }
