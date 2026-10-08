@@ -182,7 +182,14 @@ export default async function Image({ params }: { params: Promise<{ username: st
           }}
         />
 
-        {/* .content.profile-new — conteúdo real, acima do glow (z-index via ordem no DOM do satori) */}
+        {/* .content.profile-new — conteúdo real, acima do glow (z-index via ordem no DOM do satori).
+            CORREÇÃO (2026-10-08, print mostrando os pôsteres "vazando" por baixo, cortados pelo
+            canto arredondado do card) — `padding` em shorthand junto com `height:"34%"` na fileira
+            de pôsteres (abaixo) não respeitava o espaço reservado pelo `justify-content:space-between`
+            dentro do satori (motor que gera a imagem, suporte a CSS limitado/instável nessa combinação
+            específica — shorthand + % + space-between). Troquei o padding pra valores explícitos por
+            lado e a altura da fileira de pôsteres por um valor fixo em pixel (ver comentário lá embaixo),
+            tirando a ambiguidade. */}
         <div
           style={{
             position: "relative",
@@ -191,7 +198,10 @@ export default async function Image({ params }: { params: Promise<{ username: st
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
-            padding: "49px 55px",
+            paddingTop: 49,
+            paddingBottom: 49,
+            paddingLeft: 55,
+            paddingRight: 55,
           }}
         >
           {/* Topo: avatar + nome à esquerda, logo+nome real à direita — inalterado do design "Estilo Bingers" já aprovado antes */}
@@ -232,10 +242,11 @@ export default async function Image({ params }: { params: Promise<{ username: st
             </div>
           )}
 
-          {/* Fileira de pôsteres — .poster-row-new.wide do mockup: altura 34% do card, gap 16, cantos 19, borda clara fina, sombra suave; só os que existem de verdade em cache (ver `fetchProfileShareCard`).
-              CORREÇÃO (2026-10-08, print do deploy mostrando o rodapé coberto pelos pôsteres) — faltava `height: "100%"` no <img>; só com `flex: 1` (sem altura), o satori usa a proporção natural do pôster (alto, ~2:3), que estourava bem além dos 34% reservados pela linha e cobria o rodapé por baixo. */}
+          {/* Fileira de pôsteres — .poster-row-new.wide do mockup: proporcionalmente ~34% da altura do card, gap 16, cantos 19, borda clara fina, sombra suave; só os que existem de verdade em cache (ver `fetchProfileShareCard`).
+              CORREÇÃO (2026-10-08, print do deploy mostrando o rodapé coberto pelos pôsteres) — faltava `height` explícita no <img>; só com `flex: 1` (sem altura), o satori usa a proporção natural do pôster (alto, ~2:3), que estourava além do espaço reservado.
+              CORREÇÃO (2026-10-08, print seguinte mostrando os pôsteres cortados pelo canto arredondado do card) — `height:"34%"` nesta fileira, dentro do `justify-content:space-between` do pai, não ficava contida no espaço — altura trocada por um valor fixo em pixel (210, equivalente a ~34% dos ~630px de altura do card descontando o padding), igual ao <img> logo abaixo (também fixo, não mais `"100%"`, que dependia dessa altura percentual do pai). */}
           {card.posterUrls.length > 0 && (
-            <div style={{ display: "flex", gap: 16, alignItems: "stretch", height: "34%" }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "stretch", height: 210 }}>
               {card.posterUrls.map((url, index) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -243,7 +254,7 @@ export default async function Image({ params }: { params: Promise<{ username: st
                   src={url}
                   style={{
                     flex: 1,
-                    height: "100%",
+                    height: 210,
                     borderRadius: 19,
                     border: "3px solid rgba(255,255,255,.14)",
                     boxShadow: "0 11px 27px -14px rgba(0,0,0,.5)",
