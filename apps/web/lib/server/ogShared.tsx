@@ -123,3 +123,80 @@ export function AvatarFallbackOg({ name, size }: { name: string; size: number })
     </div>
   );
 }
+
+/**
+ * A PEDIDO (2026-10-08, redesign "estilo Unwind" dos cards — mockup
+ * aprovado em https://claude.ai/artifact/SvYnmVJedKZkRjvXNHbsdm, 21
+ * versões de iteração). Nota em 5 estrelas, preenchidas na proporção
+ * exata (`clamp(nota - índice, 0, 1)`).
+ *
+ * CAUSA RAIZ EVITADA DE PROPÓSITO — a primeira versão do mockup usava
+ * o glifo de texto "★" cortado por `width:%` em CSS. Isso tem dois
+ * problemas pro satori (que renderiza isto de verdade, no servidor):
+ * (1) depende da fonte carregada (Plus Jakarta Sans) ter o glifo ★
+ * embutido, o que não é garantido — podia sair vazio/malformado; (2)
+ * cortar um `<span>` de texto por `width:%` dentro de elementos
+ * posicionados (`position:absolute` sobre `inline-block`) é sensível a
+ * como o motor de layout resolve porcentagem, e já se mostrou instável
+ * mesmo só no navegador (bug real visto e corrigido durante o mockup).
+ * Esta versão desenha as estrelas como SVG puro com `clipPath` — não
+ * depende de glifo de fonte nenhum, e o corte é geometria exata do
+ * SVG, não layout CSS.
+ */
+const STAR_PATH =
+  "M12 1.8 L14.9 8.4 L22.1 9.1 L16.7 13.9 L18.3 21 L12 17.3 L5.7 21 L7.3 13.9 L1.9 9.1 L9.1 8.4 Z";
+const STAR_CELL = 28;
+const STARS_ROW_WIDTH = 5 * STAR_CELL - 4; // 136 — largura do viewBox com as 5 estrelas coladas
+
+export function StarsRowOg({ rating, size }: { rating: number; size: number }) {
+  const clampedRating = Math.max(0, Math.min(5, rating));
+  const clipWidth = STARS_ROW_WIDTH * (clampedRating / 5);
+  const displayWidth = (STARS_ROW_WIDTH * size) / 24;
+  const clipId = `stars-clip-${Math.round(clampedRating * 10)}-${size}`;
+
+  return (
+    <svg
+      viewBox={`0 0 ${STARS_ROW_WIDTH} 24`}
+      width={displayWidth}
+      height={size}
+      style={{ display: "flex" }}
+    >
+      <g fill="rgba(255,255,255,0.22)">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <path key={`base-${i}`} d={STAR_PATH} transform={`translate(${i * STAR_CELL},0)`} />
+        ))}
+      </g>
+      <clipPath id={clipId}>
+        <rect x={0} y={0} width={clipWidth} height={24} />
+      </clipPath>
+      <g fill={BRAND.primary} clipPath={`url(#${clipId})`}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <path key={`fill-${i}`} d={STAR_PATH} transform={`translate(${i * STAR_CELL},0)`} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * BUG REAL CORRIGIDO (2026-10-08, apontado no mockup — comentário do
+ * Stories terminando em "força qu...", cortado no MEIO de uma palavra)
+ * — o padrão antigo (`text.slice(0, MAX).trim() + "…"`, usado desde a
+ * Fase 1) corta num número de caracteres fixo, sem olhar se caiu no
+ * meio de uma palavra. Pouco visível com um limite generoso (220
+ * caracteres, card de review paisagem), mas muito visível com um
+ * limite curto (card de Stories, só 3 linhas). Corrigido pela raiz:
+ * se o corte cair no meio de uma palavra, recua até o último espaço
+ * antes do limite. Substitui o corte manual nos dois lugares que
+ * precisam truncar texto (review paisagem e Stories).
+ */
+export function truncateAtWord(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  const hardCut = text.slice(0, maxChars).trimEnd();
+  const lastSpace = hardCut.lastIndexOf(" ");
+  // Só recua pro último espaço se ainda sobrar uma porção razoável do
+  // texto (>60% do limite) — evita cortar quase tudo fora quando a
+  // primeira "palavra" já é maior que o limite inteiro (ex.: uma URL).
+  const safeCut = lastSpace > maxChars * 0.6 ? hardCut.slice(0, lastSpace) : hardCut;
+  return `${safeCut.trimEnd()}…`;
+}
