@@ -22,10 +22,21 @@ import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { DockNavegacao } from "@/components/layout/DockNavegacao";
 import { AnimatedSplash } from "@/components/layout/AnimatedSplash";
 import { WhatsNewModal } from "@/components/whats-new/WhatsNewModal";
+import { FatalErrorOverlay } from "@/components/layout/FatalErrorOverlay";
 import { colors } from "@/lib/theme";
 import { markFontsReady } from "@/lib/appReady";
 import { useInAppUpdateCheck } from "@/lib/inAppUpdate";
 import { useOtaUpdateCheck } from "@/lib/otaUpdate";
+import { installGlobalErrorHandler } from "@/lib/globalErrorHandler";
+
+/**
+ * DIAGNÓSTICO TEMPORÁRIO (2026-10-09) — ver comentário completo em
+ * `lib/globalErrorHandler.ts`. Precisa rodar no escopo do MÓDULO
+ * (fora de qualquer componente), igual ao `preventAutoHideAsync()`
+ * abaixo — antes de qualquer render, pra não perder nenhum erro
+ * fatal que aconteça logo no começo.
+ */
+installGlobalErrorHandler();
 
 /**
  * TASK-165 (splash, retomada) — sem isso, a splash NATIVA (a que o
@@ -306,6 +317,7 @@ export default function RootLayout() {
                 <WhatsNewModal />
                 {showAnimatedSplash && <AnimatedSplash onDone={() => setShowAnimatedSplash(false)} />}
               </ErrorBoundary>
+              <FatalErrorOverlay />
             </View>
           </AuthProvider>
         </LocaleProvider>
