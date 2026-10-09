@@ -1,12 +1,14 @@
 import { ImageResponse } from "next/og";
 import { fetchReviewShareCard } from "@/lib/server/reviewShareCard";
-import { loadGoogleFontSafe } from "@/lib/server/loadGoogleFont";
 import {
   AvatarFallbackOg,
   BRAND,
+  PLUS_JAKARTA_SANS_BOLD_BASE64,
+  PLUS_JAKARTA_SANS_EXTRABOLD_BASE64,
   SEENLIST_MARK_BASE64,
   VerifiedBadgeOg,
   StarsRowOg,
+  decodeBase64Font,
   fetchAvatarDataUri,
   truncateAtWord,
 } from "@/lib/server/ogShared";
@@ -27,13 +29,15 @@ import {
  * também saiu, a pedido do usuário, por ficar redundante com o resto
  * do card).
  *
- * BUG REAL CORRIGIDO (2026-10-08, "falha universal" — TODA imagem de
- * review, não só uma específica): troca de `loadGoogleFont` por
- * `loadGoogleFontSafe` — ver o comentário completo da causa raiz em
- * `loadGoogleFont.ts`. Antes, qualquer falha ao buscar a fonte (rede,
- * resposta da API do Google Fonts mudando de formato) derrubava a
- * rota inteira com 500 pra TODO review, sempre. Agora o pior caso é a
- * imagem saindo com a fonte padrão do satori — nunca um erro.
+ * Histórico (2026-10-08): nesta data trocou `loadGoogleFont` por
+ * `loadGoogleFontSafe` — "falha universal" (TODA imagem de review,
+ * não só uma específica) caía com 500 sempre que a API do Google
+ * Fonts mudava de formato ou a rede falhava. NA MESMA SESSÃO, ainda
+ * no mesmo dia, essa dependência da API ao vivo foi removida por
+ * completo (mesma correção aplicada antes no card de perfil) — ver
+ * `decodeBase64Font` e o comentário de `PLUS_JAKARTA_SANS_BOLD_BASE64`
+ * em `ogShared.tsx` — depois de essa API servir um arquivo de fonte
+ * corrompido em produção 3 vezes.
  */
 export const runtime = "edge";
 export const alt = "Avaliação no SeenList";
@@ -52,15 +56,16 @@ const MAX_TEXT_LENGTH = 150;
 
 export default async function Image({ params }: { params: Promise<{ reviewId: string }> }) {
   const { reviewId } = await params;
-  const [card, bold, extrabold] = await Promise.all([
-    fetchReviewShareCard(reviewId),
-    loadGoogleFontSafe("Plus Jakarta Sans", 700),
-    loadGoogleFontSafe("Plus Jakarta Sans", 800),
-  ]);
+  const card = await fetchReviewShareCard(reviewId);
+
+  // Fontes locais, embutidas em `ogShared.tsx` — sem chamada de rede,
+  // sem `loadGoogleFontSafe`, sem possibilidade de vir corrompida (ver
+  // comentário completo na declaração de `PLUS_JAKARTA_SANS_BOLD_BASE64`
+  // em `ogShared.tsx`). Mesma correção aplicada antes no card de perfil.
   const fonts = [
-    bold ? { name: "Plus Jakarta Sans", data: bold, weight: 700 as const } : null,
-    extrabold ? { name: "Plus Jakarta Sans", data: extrabold, weight: 800 as const } : null,
-  ].filter((font): font is { name: string; data: ArrayBuffer; weight: 700 | 800 } => font !== null);
+    { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_BOLD_BASE64), weight: 700 as const },
+    { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_EXTRABOLD_BASE64), weight: 800 as const },
+  ];
 
   if (!card) {
     return new ImageResponse(
@@ -82,7 +87,9 @@ export default async function Image({ params }: { params: Promise<{ reviewId: st
           </div>
         </div>
       ),
-      { ...size, fonts: fonts.length ? [fonts[fonts.length - 1]!] : [] }
+      // Fontes locais embutidas (ver `decodeBase64Font`, importado de
+      // `ogShared.tsx`) — sempre presentes, nunca mais um array vazio.
+      { ...size, fonts: [fonts[1]] }
     );
   }
 

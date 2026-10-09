@@ -1,8 +1,16 @@
 import { ImageResponse } from "next/og";
 import { fetchProfileShareCard } from "@/lib/server/profileShareCard";
 import { formatWatchMinutesRounded } from "@/lib/server/formatWatchMinutesPlain";
-import { loadGoogleFontSafe } from "@/lib/server/loadGoogleFont";
-import { AvatarFallbackOg, BRAND, SEENLIST_MARK_BASE64, VerifiedBadgeOg, fetchAvatarDataUri } from "@/lib/server/ogShared";
+import {
+  AvatarFallbackOg,
+  BRAND,
+  PLUS_JAKARTA_SANS_BOLD_BASE64,
+  PLUS_JAKARTA_SANS_EXTRABOLD_BASE64,
+  SEENLIST_MARK_BASE64,
+  VerifiedBadgeOg,
+  decodeBase64Font,
+  fetchAvatarDataUri,
+} from "@/lib/server/ogShared";
 
 /**
  * PNG pré-gerado (1200×630, mesma matemática do radial-gradient que já
@@ -74,12 +82,16 @@ const PROFILE_GLOW_BG_BASE64 =
  * continua existindo só porque `app/u/[username]/page.tsx` ainda usa
  * ele no texto do `<meta name="description">`.
  *
- * Também troca `loadGoogleFont` por `loadGoogleFontSafe` — mesma
- * causa raiz do "falha universal" corrigida no card de review (ver
- * `loadGoogleFont.ts`); aqui não tinha o mesmo bug reportado, mas o
- * risco era idêntico (chamada incondicional, sem try/catch, dentro do
- * `Promise.all`).
+ * Histórico (2026-10-08): nesta data trocou `loadGoogleFont` por
+ * `loadGoogleFontSafe` (mesma causa raiz do "falha universal" do card
+ * de review — chamada incondicional, sem try/catch, dentro do
+ * `Promise.all`). NA MESMA SESSÃO, ainda no mesmo dia, essa dependência
+ * da API ao vivo do Google Fonts foi removida por completo — ver
+ * `decodeBase64Font` e o comentário de `PLUS_JAKARTA_SANS_BOLD_BASE64`
+ * em `ogShared.tsx` — por decisão explícita do usuário, depois de essa
+ * API servir um arquivo de fonte corrompido em produção 3 vezes.
  *
+
  * `BRAND`/`SEENLIST_MARK_BASE64`/`VerifiedBadgeOg`/`AvatarFallbackOg`
  * agora vêm de `ogShared.tsx` em vez de definições locais duplicadas
  * — eram idênticas (mesma marca, mesmo selo, mesmo fallback de
@@ -121,23 +133,17 @@ function StatTileOg({ value, label }: { value: string; label: string }) {
 
 export default async function Image({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
-  const [card, bold, extrabold] = await Promise.all([
-    fetchProfileShareCard(username),
-    loadGoogleFontSafe("Plus Jakarta Sans", 700),
-    loadGoogleFontSafe("Plus Jakarta Sans", 800),
-  ]);
-  const fonts = [
-    bold ? { name: "Plus Jakarta Sans", data: bold, weight: 700 as const } : null,
-    extrabold ? { name: "Plus Jakarta Sans", data: extrabold, weight: 800 as const } : null,
-  ].filter((font): font is { name: string; data: ArrayBuffer; weight: 700 | 800 } => font !== null);
+  const card = await fetchProfileShareCard(username);
 
-  // Causa já confirmada via log de produção (2026-10-08): a URL de fonte
-  // que o Google Fonts devolve pra esta família/peso, mesmo com o
-  // User-Agent antigo, às vezes é um `.woff` de ~1.6KB — arquivo real
-  // demais pequeno pra ser usável, não um erro de rede. `loadGoogleFont.ts`
-  // já valida isso e cai pra `null`; o bug que isso escancarou (satori
-  // travando com "No fonts are loaded" quando as duas fontes falham) foi
-  // corrigido logo abaixo, não passando mais `fonts: []`.
+  // Fontes locais, embutidas em `ogShared.tsx` — sem chamada de rede,
+  // sem `loadGoogleFontSafe`, sem possibilidade de vir corrompida (ver
+  // comentário completo na declaração de `PLUS_JAKARTA_SANS_BOLD_BASE64`
+  // em `ogShared.tsx`). Mantém o mesmo formato (`name`/`data`/`weight`)
+  // que `ImageResponse` já esperava, só troca a origem dos bytes.
+  const fonts = [
+    { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_BOLD_BASE64), weight: 700 as const },
+    { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_EXTRABOLD_BASE64), weight: 800 as const },
+  ];
 
   // Ver comentário completo em `fetchAvatarDataUri` (`ogShared.tsx`):
   // `avatar_url` pode ser a foto direta do Google (copiada 1x no
@@ -170,14 +176,11 @@ export default async function Image({ params }: { params: Promise<{ username: st
           </div>
         </div>
       ),
-      // CORREÇÃO (2026-10-08, "No fonts are loaded" — erro real em produção
-      // que quebrava a rota inteira quando as duas fontes do Google Fonts
-      // falhavam) — `fonts: []` (array vazio) faz o satori travar com essa
-      // mensagem; a opção `fonts` precisa ser OMITIDA inteiramente (não um
-      // array vazio) pra ele cair na fonte padrão embutida. O spread
-      // condicional abaixo só inclui a chave `fonts` quando há pelo menos
-      // uma fonte de verdade carregada.
-      { ...size, ...(fonts.length ? { fonts: [fonts[fonts.length - 1]!] } : {}) }
+      // Fontes locais embutidas (ver `decodeBase64Font`, importado de `ogShared.tsx`) — sempre
+      // presentes, nunca mais um array vazio aqui (o bug real do satori
+      // travando com "No fonts are loaded" só existia quando as duas
+      // fontes vinham da API ao vivo do Google Fonts e podiam falhar).
+      { ...size, fonts: [fonts[1]] }
     );
   }
 
@@ -318,8 +321,7 @@ export default async function Image({ params }: { params: Promise<{ username: st
         </div>
       </div>
     ),
-    // CORREÇÃO (2026-10-08, "No fonts are loaded") — mesma correção do
-    // branch de perfil inexistente/privado acima: nunca passar `fonts: []`.
-    { ...size, ...(fonts.length ? { fonts } : {}) }
+    // Fontes locais embutidas — ver `decodeBase64Font`, importado de `ogShared.tsx`.
+    { ...size, fonts }
   );
 }
