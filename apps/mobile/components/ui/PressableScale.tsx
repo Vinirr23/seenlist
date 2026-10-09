@@ -57,6 +57,35 @@ export function PressableScale({
     // de verdade) e o `Animated.View` fica só com `flex: 1` (pra
     // preencher o `Pressable` inteiro) + a animação de escala — sem
     // mudar nada visualmente nos usos com largura fixa.
+    //
+    // BUG REAL CORRIGIDO (2026-10-09, reportado com print — botão
+    // primário de `Button.tsx` ["Compartilhar link" do
+    // `SharePreviewSheet`] aparecia quase invisível, só uma lasca da
+    // borda dourada do `GelSurface` espiando por cima do botão
+    // seguinte) — CAUSA RAIZ: `flex: 1` neste `Animated.View` cresce a
+    // partir de uma base ZERO (`flexBasis: 0%`, é o que `flex: 1`
+    // realmente significa), preenchendo só o espaço EXTRA que sobrar
+    // no pai. Nos usos documentados acima (grade/carrossel) isso nunca
+    // deu problema porque o `Pressable` (pai direto) sempre recebe uma
+    // largura/altura JÁ DEFINIDA de fora (px fixo ou `flex: 1` numa
+    // `Row` com altura certa) — sempre sobra "espaço disponível" pra
+    // esse `flex: 1` preencher. Mas aqui o botão primário ficou, pela
+    // primeira vez, dentro de uma coluna comum sem altura definida
+    // (`SharePreviewSheet.tsx`, `actions`, tamanho "automático" = do
+    // tamanho do conteúdo) — sem altura do pai pra "sobrar" espaço
+    // nenhum, o Yoga (motor de layout do React Native) colapsa esse
+    // `flex: 1` pra quase zero, mesmo o `GelSurface` por dentro já
+    // pedindo no mínimo 48px (`minHeight: 48` em `Button.tsx`) — o
+    // conteúdo acaba cortado/espremido em vez de simplesmente assumir
+    // o próprio tamanho.
+    //
+    // Trocado por `alignSelf: "stretch"`: continua preenchendo a
+    // LARGURA/ALTURA do `Pressable` quando ele já tem um tamanho certo
+    // vindo de fora (mesmo efeito visual de sempre nos usos de
+    // grade/carrossel/perfil), mas sem depender de "espaço extra
+    // sobrando" pra existir — quando o pai não define tamanho nenhum
+    // (caso novo do botão primário), o conteúdo simplesmente dita o
+    // próprio tamanho, em vez de colapsar.
     <Pressable
       {...props}
       style={style as object}
@@ -69,7 +98,7 @@ export function PressableScale({
         props.onPressOut?.(e);
       }}
     >
-      <Animated.View style={{ flex: 1, transform: [{ scale }] }}>{children}</Animated.View>
+      <Animated.View style={{ alignSelf: "stretch", transform: [{ scale }] }}>{children}</Animated.View>
     </Pressable>
   );
 }
