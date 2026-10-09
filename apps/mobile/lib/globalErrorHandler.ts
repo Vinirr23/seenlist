@@ -3,6 +3,32 @@ type Listener = (error: Error, isFatal: boolean) => void;
 let listeners: Listener[] = [];
 let installed = false;
 
+/**
+ * CAUSAS JÁ DIAGNOSTICADAS (2026-10-09) — erros fatais que já sabemos
+ * a causa raiz exata e que já têm tratamento gracioso próprio em
+ * algum outro lugar do app (ex.: `SharePreviewSheet.tsx`/
+ * `week-review.tsx` já mostram um `Alert` amigável quando o `import()`
+ * dinâmico de `expo-sharing` falha). Pra esses, não faz sentido
+ * também cobrir a tela inteira com `FatalErrorOverlay` — ficaria
+ * redundante (dois avisos pro mesmo erro, um limpo e um assustador
+ * por cima). Continua indo pro `console.error` normal, só não aciona
+ * o overlay nem o listener.
+ *
+ * Achado real (2026-10-09) — mesmo com o `import()` do `expo-sharing`
+ * dentro de um `try/catch`, o Metro (carregador de módulos do React
+ * Native) trata QUALQUER falha ao CARREGAR um módulo como fatal
+ * automaticamente, reportando pro handler global direto — independente
+ * de o código que chamou estar ou não dentro de um `try/catch`. Por
+ * isso o erro "Cannot find native module" aparecia tanto no `Alert`
+ * (tratamento local, funcionando) quanto neste overlay (redundante).
+ */
+const KNOWN_HANDLED_FATAL_PATTERNS = [/Cannot find native module/i];
+
+function isKnownHandledFatalError(error: Error): boolean {
+  const message = error?.message ?? "";
+  return KNOWN_HANDLED_FATAL_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 export function onGlobalError(listener: Listener): () => void {
   listeners.push(listener);
   return () => {
@@ -61,16 +87,21 @@ export function installGlobalErrorHandler() {
   const previousHandler = globalAny.ErrorUtils.getGlobalHandler?.();
 
   globalAny.ErrorUtils.setGlobalHandler((error: Error, isFatal = false) => {
-    try {
-      console.error("[globalErrorHandler]", isFatal ? "FATAL" : "não-fatal", error);
-      listeners.forEach((listener) => listener(error, isFatal));
-    } catch (listenerError) {
-      console.error("[globalErrorHandler] falha ao notificar listener", listenerError);
+    const alreadyHandled = isFatal && isKnownHandledFatalError(error);
+
+    console.error("[globalErrorHandler]", isFatal ? (alreadyHandled ? "FATAL (já tratado em outro lugar)" : "FATAL") : "não-fatal", error);
+
+    if (!alreadyHandled) {
+      try {
+        listeners.forEach((listener) => listener(error, isFatal));
+      } catch (listenerError) {
+        console.error("[globalErrorHandler] falha ao notificar listener", listenerError);
+      }
     }
 
     if (!isFatal) {
       previousHandler?.(error, isFatal);
     }
-    // Erro FATAL: não chama `previousHandler` — ver comentário grande acima.
+    // Erro FATAL (conhecido ou não): não chama `previousHandler` — ver comentário grande acima.
   });
 }
