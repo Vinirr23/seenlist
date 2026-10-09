@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -275,7 +276,7 @@ export interface SitemapEligibleContent {
   reviews: EligibleReviewSitemapEntry[];
 }
 
-export async function fetchSitemapEligibleContent(): Promise<SitemapEligibleContent> {
+async function fetchSitemapEligibleContentUncached(): Promise<SitemapEligibleContent> {
   const supabase = createAdminClient();
 
   const [profileRows, reviewRows] = await Promise.all([
@@ -328,3 +329,50 @@ export async function fetchSitemapEligibleContent(): Promise<SitemapEligibleCont
 
   return { titles: [...latestByTitle.values()], profiles, reviews };
 }
+
+/**
+ * A PEDIDO (2026-10-09 — correção do build da Vercel sem perder o
+ * cache de 1h). Depois de `force-dynamic` em `app/sitemap.ts` resolver
+ * o build (a rota não tenta mais gerar no momento do build, então
+ * `SUPABASE_SERVICE_ROLE_KEY` só precisa existir em runtime — onde ela
+ * sempre esteve disponível, é a mesma chave que `reviewShareCard.ts`/
+ * `profileShareCard.ts` já usam em runtime sem problema), restava o
+ * pedido de evitar recalcular tudo (duas consultas paginadas ao
+ * Supabase) a cada request ao sitemap. `unstable_cache` é a API nativa
+ * do Next.js 15 pra isso — cache de DADOS (não de rota: funciona junto
+ * com `force-dynamic`, que só desliga o cache/pré-renderização da
+ * ROTA em si), com `revalidate` próprio, sem nenhuma dependência nova.
+ *
+ * Resiliência a falha temporária do Supabase (pedido explícito) — o
+ * `unstable_cache` do Next SÓ substitui o valor em cache quando a
+ * função encapsulada retorna com sucesso; uma falha durante uma
+ * revalidação em segundo plano não é documentada como preservando
+ * garantidamente a entrada antiga em todo runtime/adapter. Por isso
+ * a resiliência é explícita aqui, não assumida do framework: guarda o
+ * último resultado que deu certo em `lastKnownGoodContent` (variável
+ * de módulo) e, se o Supabase falhar, devolve esse último bom resultado
+ * em vez de propagar o erro (que faria o Next servir um 500 em
+ * `/sitemap.xml` pros buscadores). Só na PRIMEIRA falha, sem nenhum
+ * sucesso anterior ainda (ex.: o próprio processo acabou de subir e o
+ * Supabase já está fora), devolve listas vazias — o sitemap sai só com
+ * as 4 páginas estáticas, nunca quebrado — até a próxima revalidação
+ * conseguir popular o cache de verdade.
+ */
+let lastKnownGoodContent: SitemapEligibleContent | null = null;
+
+async function fetchSitemapEligibleContentResilient(): Promise<SitemapEligibleContent> {
+  try {
+    const content = await fetchSitemapEligibleContentUncached();
+    lastKnownGoodContent = content;
+    return content;
+  } catch (error) {
+    console.error("[titlePublicContent] Falha ao buscar conteúdo elegível do sitemap — usando último resultado conhecido", error);
+    return lastKnownGoodContent ?? { titles: [], profiles: [], reviews: [] };
+  }
+}
+
+export const fetchSitemapEligibleContent = unstable_cache(
+  fetchSitemapEligibleContentResilient,
+  ["sitemap-eligible-content"],
+  { revalidate: 3600 }
+);

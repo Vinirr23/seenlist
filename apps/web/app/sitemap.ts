@@ -9,15 +9,41 @@ const SITE_URL = "https://seenlist.app";
  * rotas) — até a Fase 1 isso nunca foi problema: as 4 URLs antigas
  * são todas fixas, geradas uma vez no build e nunca precisam mudar
  * de novo. Agora que o sitemap também lista título/perfil/review (via
- * `fetchSitemapEligibleContent`, que consulta o Supabase), sem um
- * `revalidate` explícito o Next congela o resultado no estado do
- * banco NO MOMENTO DO BUILD — um título novo com review, um perfil
- * publicado, uma review nova, nenhum apareceria no sitemap até o
- * próximo deploy. 1h é o mesmo princípio de cache já usado pros dados
- * do TMDB (`tmdbGet`, 300s) e do resto do site — não precisa ser
- * tempo real, só não pode ficar preso ao build.
+ * `fetchSitemapEligibleContent`, que consulta o Supabase), um título
+ * novo com review, um perfil publicado, uma review nova, nenhum
+ * apareceria no sitemap até o próximo deploy caso o resultado ficasse
+ * congelado no estado do banco NO MOMENTO DO BUILD.
+ *
+ * CAUSA RAIZ REAL (2026-10-09, achada no log de build da Vercel, não
+ * localmente) — a primeira tentativa de correção foi `export const
+ * revalidate = 3600` (ISR). Funcionou local (o `.env.local` tem a
+ * `SUPABASE_SERVICE_ROLE_KEY`), mas quebrou o build na Vercel:
+ * `Error occurred prerendering page "/sitemap.xml" ... Variável de
+ * ambiente ausente: SUPABASE_SERVICE_ROLE_KEY`. ISR ainda exige uma
+ * geração ESTÁTICA inicial NO MOMENTO DO BUILD (antes de qualquer
+ * requisição real) — e só nesse momento específico a chave de serviço
+ * não está disponível. `fetchSitemapEligibleContent` chama
+ * `createAdminClient()` (precisa dessa chave) — exatamente como
+ * `reviewShareCard.ts`/`profileShareCard.ts` já fazem para `/r/` e
+ * `/u/`, só que essas duas rotas são 100% dinâmicas (nunca
+ * prerenderizadas), nunca precisaram da chave no build. `force-dynamic`
+ * alinha o sitemap ao mesmo padrão: a ROTA nunca tenta gerar no build,
+ * só roda em runtime (onde a chave sempre esteve disponível).
+ *
+ * O cache de ~1h (pedido explícito: evitar consultar o Supabase em
+ * toda visita do Googlebot) NÃO depende de `revalidate` de rota —
+ * `force-dynamic` desliga justamente esse cache de ROTA. Em vez disso,
+ * o cache vive um nível abaixo, nos DADOS: `fetchSitemapEligibleContent`
+ * (em `lib/server/titlePublicContent.ts`) é envolvida em
+ * `unstable_cache(..., { revalidate: 3600 })`, a API nativa do
+ * Next.js 15 pra cache de dados independente de rota — essa, sim,
+ * roda só em runtime (nunca no build), então não reintroduz o
+ * problema original. A mesma função também guarda o último resultado
+ * bem-sucedido e o devolve se o Supabase falhar temporariamente, em
+ * vez de deixar o sitemap quebrar ou sair incompleto (ver comentário
+ * em `titlePublicContent.ts`).
  */
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 /**
  * A PEDIDO (2026-09-04 — SEO do site) — junto com `app/robots.ts`.
