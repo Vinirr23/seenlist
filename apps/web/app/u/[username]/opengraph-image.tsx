@@ -140,10 +140,17 @@ export default async function Image({ params }: { params: Promise<{ username: st
   // comentário completo na declaração de `PLUS_JAKARTA_SANS_BOLD_BASE64`
   // em `ogShared.tsx`). Mantém o mesmo formato (`name`/`data`/`weight`)
   // que `ImageResponse` já esperava, só troca a origem dos bytes.
-  const fonts = [
-    { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_BOLD_BASE64), weight: 700 as const },
-    { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_EXTRABOLD_BASE64), weight: 800 as const },
-  ];
+  // CAUSA RAIZ (2026-10-08, erro de build real — "Type 'undefined' is
+  // not assignable to type 'FontOptions'"): com `noUncheckedIndexedAccess`
+  // ativado no `tsconfig`, o TypeScript trata `fonts[1]` (indexação de
+  // array) como possivelmente `undefined`, mesmo sabendo que o array
+  // literal abaixo sempre tem exatamente 2 elementos — não enxerga essa
+  // garantia através do índice numérico. Nomeando cada fonte (em vez de
+  // indexar `fonts[1]` no branch de fallback abaixo) o tipo fica exato,
+  // sem indexação alguma.
+  const boldFont = { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_BOLD_BASE64), weight: 700 as const };
+  const extraboldFont = { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_EXTRABOLD_BASE64), weight: 800 as const };
+  const fonts = [boldFont, extraboldFont];
 
   // Ver comentário completo em `fetchAvatarDataUri` (`ogShared.tsx`):
   // `avatar_url` pode ser a foto direta do Google (copiada 1x no
@@ -180,7 +187,7 @@ export default async function Image({ params }: { params: Promise<{ username: st
       // presentes, nunca mais um array vazio aqui (o bug real do satori
       // travando com "No fonts are loaded" só existia quando as duas
       // fontes vinham da API ao vivo do Google Fonts e podiam falhar).
-      { ...size, fonts: [fonts[1]] }
+      { ...size, fonts: [extraboldFont] }
     );
   }
 

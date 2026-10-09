@@ -62,10 +62,17 @@ export default async function Image({ params }: { params: Promise<{ reviewId: st
   // sem `loadGoogleFontSafe`, sem possibilidade de vir corrompida (ver
   // comentário completo na declaração de `PLUS_JAKARTA_SANS_BOLD_BASE64`
   // em `ogShared.tsx`). Mesma correção aplicada antes no card de perfil.
-  const fonts = [
-    { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_BOLD_BASE64), weight: 700 as const },
-    { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_EXTRABOLD_BASE64), weight: 800 as const },
-  ];
+  //
+  // CAUSA RAIZ (2026-10-08, erro de build real — "Type 'undefined' is
+  // not assignable to type 'FontOptions'"): com `noUncheckedIndexedAccess`
+  // ativado no `tsconfig`, o TypeScript trata `fonts[1]` (indexação de
+  // array) como possivelmente `undefined`, mesmo o array literal abaixo
+  // sempre tendo exatamente 2 elementos. Nomeando cada fonte (em vez de
+  // indexar no branch de fallback abaixo) o tipo fica exato, sem
+  // indexação alguma.
+  const boldFont = { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_BOLD_BASE64), weight: 700 as const };
+  const extraboldFont = { name: "Plus Jakarta Sans", data: decodeBase64Font(PLUS_JAKARTA_SANS_EXTRABOLD_BASE64), weight: 800 as const };
+  const fonts = [boldFont, extraboldFont];
 
   if (!card) {
     return new ImageResponse(
@@ -89,7 +96,7 @@ export default async function Image({ params }: { params: Promise<{ reviewId: st
       ),
       // Fontes locais embutidas (ver `decodeBase64Font`, importado de
       // `ogShared.tsx`) — sempre presentes, nunca mais um array vazio.
-      { ...size, fonts: [fonts[1]] }
+      { ...size, fonts: [extraboldFont] }
     );
   }
 
