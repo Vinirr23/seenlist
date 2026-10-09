@@ -1,18 +1,19 @@
 import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Layers, Calendar, Tv, Clapperboard } from "lucide-react";
-import { getSeriesDetails } from "@/lib/tmdb/client";
+import { getPublicSeasonDetails, getSeriesDetails, type PublicSeasonDetails } from "@/lib/tmdb/client";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { fetchTitleCommunityContent, type TitleCommunityContent } from "@/lib/server/titlePublicContent";
 import { MobileAppPromoBanner } from "@/components/layout/MobileAppPromoBanner";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { TitleHeader } from "@/components/title/TitleHeader";
+import { TitlePageLayout } from "@/components/title/TitlePageLayout";
 import { TitlePagePromoCta } from "@/components/title/TitlePagePromoCta";
+import { TitleFactsCard, type TitleFactRow } from "@/components/title/TitleFactsCard";
 import { TitleReviewsSection } from "@/components/title/TitleReviewsSection";
+import { PublicSeasonExplorer } from "@/components/title/PublicSeasonExplorer";
 import { CastCarousel } from "@/components/media/CastCarousel";
-import { TrailerCard } from "@/components/media/TrailerCard";
-import { MetaRow } from "@/components/media/MetaRow";
+import { BackdropGallery } from "@/components/media/BackdropGallery";
+import { SimilarSeriesCarousel } from "@/components/series/SimilarSeriesCarousel";
 import { SeriesWatchProviders } from "@/components/series/SeriesWatchProviders";
 
 /**
@@ -33,6 +34,31 @@ async function loadSeriesOrNotFound(id: string) {
     const message = error instanceof Error ? error.message : String(error);
     if (/respondeu 404/.test(message)) notFound();
     throw error;
+  }
+}
+
+/**
+ * A PEDIDO (2026-10-09 — redesign das páginas públicas, item 5:
+ * "exibir inicialmente a temporada mais relevante"). Mais recente
+ * temporada com pelo menos um episódio cadastrado (ignora "temporada
+ * 0"/especiais, já filtrada em `seasonSummaries`) — critério simples,
+ * como pedido ("use a solução mais simples possível"). Resiliente de
+ * propósito: se a busca da temporada falhar (TMDB fora do ar, etc.),
+ * a página NÃO quebra — só não mostra a seção de temporadas (mesmo
+ * padrão de resiliência já usado em `titlePublicContent.ts`).
+ */
+async function loadMostRelevantSeason(
+  seriesId: string,
+  seasonSummaries: { seasonNumber: number; episodeCount: number }[]
+): Promise<PublicSeasonDetails | null> {
+  const mostRelevant = [...seasonSummaries].filter((s) => s.episodeCount > 0).sort((a, b) => b.seasonNumber - a.seasonNumber)[0];
+  if (!mostRelevant) return null;
+
+  try {
+    return await getPublicSeasonDetails(seriesId, mostRelevant.seasonNumber, "pt-BR");
+  } catch (error) {
+    console.error(`[title/series/${seriesId}] Falha ao carregar a temporada mais relevante (${mostRelevant.seasonNumber}).`, error);
+    return null;
   }
 }
 
@@ -81,6 +107,8 @@ export default async function PublicSeriesTitlePage({ params }: { params: Promis
     loadSeriesOrNotFound(id),
     getCachedCommunityContent(numericId),
   ]);
+  // Depende de `series.seasonSummaries` — por isso busca depois do Promise.all acima, não dentro dele.
+  const mostRelevantSeason = await loadMostRelevantSeason(id, series.seasonSummaries);
 
   const year = series.firstAirDate ? series.firstAirDate.slice(0, 4) : null;
   const seasonsLabel = `${series.numberOfSeasons} ${series.numberOfSeasons === 1 ? "temporada" : "temporadas"}`;
@@ -95,6 +123,8 @@ export default async function PublicSeriesTitlePage({ params }: { params: Promis
     genre: series.genres.length > 0 ? series.genres : undefined,
     numberOfSeasons: series.numberOfSeasons,
     numberOfEpisodes: series.numberOfEpisodes,
+    // A PEDIDO (2026-10-09 — redesign das páginas públicas, item 1).
+    contentRating: series.certification ?? undefined,
   };
   if (community.aggregate) {
     jsonLd.aggregateRating = {
@@ -116,6 +146,16 @@ export default async function PublicSeriesTitlePage({ params }: { params: Promis
     }));
   }
 
+  // Item 9 — "ficha técnica... exibir apenas dados existentes". Criação
+  // já aparece com destaque perto da sinopse (item 3), por isso NÃO se
+  // repete aqui (mesma decisão já documentada no filme).
+  const factRows: TitleFactRow[] = [
+    series.status ? { label: "Status", value: series.status } : null,
+    series.country ? { label: "País de origem", value: series.country } : null,
+    series.language ? { label: "Idioma original", value: series.language } : null,
+    series.networks.length > 0 ? { label: "Emissoras", value: series.networks.join(", ") } : null,
+  ].filter((row): row is TitleFactRow => row !== null);
+
   return (
     <>
       <script
@@ -124,53 +164,58 @@ export default async function PublicSeriesTitlePage({ params }: { params: Promis
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <MobileAppPromoBanner />
-      <div className="relative w-full md:mx-auto md:max-w-[430px]">
-        <TitleHeader
-          title={series.title}
-          backdropPath={series.backdropPath}
-          posterPath={series.posterPath}
-          year={year}
-          metaLine={seasonsLabel}
-          genres={series.genres}
-          voteAverage={series.voteAverage}
-        />
+      <TitleHeader
+        mediaTypeLabel="Série"
+        title={series.title}
+        backdropPath={series.backdropPath}
+        posterPath={series.posterPath}
+        year={year}
+        certification={series.certification}
+        secondaryMetaLine={seasonsLabel}
+        genres={series.genres}
+        voteAverage={series.voteAverage}
+        communityAggregate={community.aggregate}
+        trailerKey={series.trailerKey}
+        overview={series.overview || "Sinopse não disponível."}
+        creditLabel={series.creators.length > 0 ? "Criação" : null}
+        creditNames={series.creators}
+        watchProviders={<SeriesWatchProviders providers={series.watchProviders} />}
+      />
 
-        <PageContainer>
-          <div className="space-y-6">
-            <TitlePagePromoCta href={`/series/${numericId}`} />
+      <TitlePageLayout sidebar={<><TitlePagePromoCta href={`/series/${numericId}`} /><TitleFactsCard rows={factRows} /></>}>
+        {series.cast.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-text">Elenco principal</h2>
+            <CastCarousel cast={series.cast} title={series.matchTitle} year={year ? Number(year) : null} />
+          </section>
+        )}
 
-            <SeriesWatchProviders providers={series.watchProviders} />
+        {mostRelevantSeason && (
+          <PublicSeasonExplorer
+            seriesId={numericId}
+            seasons={series.seasonSummaries}
+            initialSeasonNumber={mostRelevantSeason.seasonNumber}
+            initialSeasonDetails={mostRelevantSeason}
+            appHref={`/series/${numericId}`}
+          />
+        )}
 
-            <section>
-              <h2 className="mb-2 text-sm font-medium text-text">Sinopse</h2>
-              <p className="text-sm leading-relaxed text-text">{series.overview || "Sinopse não disponível."}</p>
-            </section>
+        {series.gallery.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-text">Imagens</h2>
+            <BackdropGallery paths={series.gallery} />
+          </section>
+        )}
 
-            <div className="grid grid-cols-2 gap-2">
-              <MetaRow label="Status" value={series.status} icon={<Layers className="mb-1 h-4 w-4 text-muted" strokeWidth={2} />} />
-              <MetaRow label="Lançamento" value={year ?? "—"} icon={<Calendar className="mb-1 h-4 w-4 text-muted" strokeWidth={2} />} />
-              <MetaRow label="Temporadas" value={String(series.numberOfSeasons)} icon={<Tv className="mb-1 h-4 w-4 text-muted" strokeWidth={2} />} />
-              <MetaRow label="Episódios" value={String(series.numberOfEpisodes)} icon={<Clapperboard className="mb-1 h-4 w-4 text-muted" strokeWidth={2} />} />
-            </div>
+        {series.similar.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-text">Você também pode gostar</h2>
+            <SimilarSeriesCarousel items={series.similar} />
+          </section>
+        )}
 
-            {series.trailerKey && (
-              <section>
-                <h2 className="mb-2 text-sm font-medium text-text">Trailer</h2>
-                <TrailerCard videoKey={series.trailerKey} />
-              </section>
-            )}
-
-            {series.cast.length > 0 && (
-              <section>
-                <h2 className="mb-2 text-sm font-medium text-text">Elenco principal</h2>
-                <CastCarousel cast={series.cast} title={series.matchTitle} year={year ? Number(year) : null} />
-              </section>
-            )}
-
-            <TitleReviewsSection reviews={community.reviews} aggregate={community.aggregate} />
-          </div>
-        </PageContainer>
-      </div>
+        <TitleReviewsSection reviews={community.reviews} aggregate={community.aggregate} />
+      </TitlePageLayout>
     </>
   );
 }

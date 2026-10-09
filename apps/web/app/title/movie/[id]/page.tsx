@@ -5,14 +5,17 @@ import { getMovieDetails } from "@/lib/tmdb/client";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { fetchTitleCommunityContent, type TitleCommunityContent } from "@/lib/server/titlePublicContent";
 import { MobileAppPromoBanner } from "@/components/layout/MobileAppPromoBanner";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { TitleHeader } from "@/components/title/TitleHeader";
+import { TitlePageLayout } from "@/components/title/TitlePageLayout";
 import { TitlePagePromoCta } from "@/components/title/TitlePagePromoCta";
+import { TitleFactsCard, type TitleFactRow } from "@/components/title/TitleFactsCard";
 import { TitleReviewsSection } from "@/components/title/TitleReviewsSection";
 import { CastCarousel } from "@/components/media/CastCarousel";
-import { TrailerCard } from "@/components/media/TrailerCard";
-import { MovieInfo } from "@/components/movie/MovieInfo";
+import { BackdropGallery } from "@/components/media/BackdropGallery";
+import { SimilarMoviesCarousel } from "@/components/movie/SimilarMoviesCarousel";
 import { StreamingProviders } from "@/components/movie/StreamingProviders";
+
+const CURRENCY_FORMATTER = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 /**
  * A PEDIDO (2026-10-09 — SEO Fase 2, "páginas públicas independentes
@@ -102,6 +105,8 @@ export default async function PublicMovieTitlePage({ params }: { params: Promise
     datePublished: movie.releaseDate || undefined,
     genre: movie.genres.length > 0 ? movie.genres : undefined,
     director: movie.director ? { "@type": "Person", name: movie.director } : undefined,
+    // A PEDIDO (2026-10-09 — redesign das páginas públicas, item 1) — mesmo dado agora exibido no hero, de graça no JSON-LD também.
+    contentRating: movie.certification ?? undefined,
   };
   if (community.aggregate) {
     jsonLd.aggregateRating = {
@@ -123,6 +128,18 @@ export default async function PublicMovieTitlePage({ params }: { params: Promise
     }));
   }
 
+  // Item 9 — "ficha técnica... exibir apenas dados existentes". Direção
+  // já aparece com destaque perto da sinopse (item 3), por isso NÃO se
+  // repete aqui (evita a duplicação de informação apontada na revisão
+  // do mockup).
+  const factRows: TitleFactRow[] = [
+    movie.studios.length > 0 ? { label: "Estúdios", value: movie.studios.join(", ") } : null,
+    movie.country ? { label: "País de origem", value: movie.country } : null,
+    movie.language ? { label: "Idioma original", value: movie.language } : null,
+    movie.budget !== null ? { label: "Orçamento", value: CURRENCY_FORMATTER.format(movie.budget) } : null,
+    movie.revenue !== null ? { label: "Bilheteria", value: CURRENCY_FORMATTER.format(movie.revenue) } : null,
+  ].filter((row): row is TitleFactRow => row !== null);
+
   return (
     <>
       <script
@@ -131,44 +148,49 @@ export default async function PublicMovieTitlePage({ params }: { params: Promise
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <MobileAppPromoBanner />
-      <div className="relative w-full md:mx-auto md:max-w-[430px]">
-        <TitleHeader
-          title={movie.title}
-          originalTitle={movie.originalTitle}
-          backdropPath={movie.backdropPath}
-          posterPath={movie.posterPath}
-          year={year}
-          metaLine={movie.runtimeMinutes ? `${movie.runtimeMinutes} min` : null}
-          genres={movie.genres}
-          voteAverage={movie.voteAverage}
-        />
+      <TitleHeader
+        mediaTypeLabel="Filme"
+        title={movie.title}
+        originalTitle={movie.originalTitle}
+        backdropPath={movie.backdropPath}
+        posterPath={movie.posterPath}
+        year={year}
+        certification={movie.certification}
+        secondaryMetaLine={movie.runtimeMinutes ? `${movie.runtimeMinutes} min` : null}
+        genres={movie.genres}
+        voteAverage={movie.voteAverage}
+        communityAggregate={community.aggregate}
+        trailerKey={movie.trailerKey}
+        overview={movie.overview || "Sinopse não disponível."}
+        creditLabel={movie.director ? "Direção" : null}
+        creditNames={movie.director ? [movie.director] : []}
+        watchProviders={<StreamingProviders providers={movie.watchProviders} />}
+      />
 
-        <PageContainer>
-          <div className="space-y-6">
-            <TitlePagePromoCta href={`/movies/${numericId}`} />
+      <TitlePageLayout sidebar={<><TitlePagePromoCta href={`/movies/${numericId}`} /><TitleFactsCard rows={factRows} /></>}>
+        {movie.cast.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-text">Elenco principal</h2>
+            <CastCarousel cast={movie.cast} title={movie.title} year={year ? Number(year) : null} />
+          </section>
+        )}
 
-            <StreamingProviders providers={movie.watchProviders} />
+        {movie.gallery.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-text">Imagens</h2>
+            <BackdropGallery paths={movie.gallery} />
+          </section>
+        )}
 
-            <MovieInfo movie={movie} />
+        {movie.similar.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-text">Você também pode gostar</h2>
+            <SimilarMoviesCarousel items={movie.similar} />
+          </section>
+        )}
 
-            {movie.trailerKey && (
-              <section>
-                <h2 className="mb-2 text-sm font-medium text-text">Trailer</h2>
-                <TrailerCard videoKey={movie.trailerKey} />
-              </section>
-            )}
-
-            {movie.cast.length > 0 && (
-              <section>
-                <h2 className="mb-2 text-sm font-medium text-text">Elenco principal</h2>
-                <CastCarousel cast={movie.cast} title={movie.title} year={year ? Number(year) : null} />
-              </section>
-            )}
-
-            <TitleReviewsSection reviews={community.reviews} aggregate={community.aggregate} />
-          </div>
-        </PageContainer>
-      </div>
+        <TitleReviewsSection reviews={community.reviews} aggregate={community.aggregate} />
+      </TitlePageLayout>
     </>
   );
 }

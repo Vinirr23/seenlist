@@ -4,6 +4,7 @@ import type {
   MediaSearchResult,
   MediaType,
   MovieDetails,
+  SeasonSummary,
   SeriesDetails,
   WatchProvider,
 } from "@seenlist/types";
@@ -205,15 +206,29 @@ interface TmdbTvDetailsResponse {
   number_of_episodes: number;
   genres: { id: number; name: string }[];
   networks: { id: number; name: string }[];
+  /** A PEDIDO (2026-10-09 — redesign das páginas públicas, item 3: "Criador... conforme o tipo de mídia"). Já vem de graça no mesmo `/tv/{id}` — só não era lido antes. */
+  created_by: { id: number; name: string }[];
+  /** A PEDIDO (2026-10-09 — redesign das páginas públicas, item 9: "País de origem"/"Idioma original" na ficha técnica, antes só existia pro filme). Mesmo formato de `MovieDetails.country`/`language` — `production_countries`/`original_language` já vêm de graça no `/tv/{id}`, igual no `/movie/{id}`. */
+  production_countries: { iso_3166_1: string; name: string }[];
+  original_language: string | null;
   vote_average: number;
   vote_count: number;
-  seasons: { season_number: number; name: string; episode_count: number }[];
+  /**
+   * A PEDIDO (2026-10-09 — redesign das páginas públicas, item 5) —
+   * `poster_path`/`overview`/`air_date` já vinham de graça neste mesmo
+   * array (a TMDB sempre devolve os três por temporada aqui), só
+   * nunca tinham sido lidos antes desta mudança — nenhuma chamada
+   * nova, só mais campos extraídos da mesma resposta.
+   */
+  seasons: { season_number: number; name: string; episode_count: number; poster_path: string | null; overview: string; air_date: string | null }[];
   credits?: { cast: { id: number; name: string; character: string; profile_path: string | null }[] };
   similar?: { results: TmdbMultiSearchItem[] };
   recommendations?: { results: TmdbMultiSearchItem[] };
   alternative_titles?: { results: { iso_3166_1: string; title: string }[] };
   videos?: { results: { key: string; site: string; type: string; official?: boolean }[] };
   images?: { backdrops: { file_path: string }[] };
+  /** A PEDIDO (2026-10-09 — redesign das páginas públicas, item 1). Uma entrada por país, cada uma com UMA classificação só (diferente de `release_dates` do filme, que tem lista). */
+  content_ratings?: { results: { iso_3166_1: string; rating: string }[] };
 }
 
 /**
@@ -313,6 +328,12 @@ function pickTitleForExternalMatching(data: TmdbTvDetailsResponse): string {
   return data.name;
 }
 
+/** Ver `pickBrazilianMovieCertification` acima — mesma decisão, formato de resposta diferente (uma classificação só por país, não lista). */
+function pickBrazilianSeriesCertification(results: { iso_3166_1: string; rating: string }[] | undefined): string | null {
+  const rating = results?.find((entry) => entry.iso_3166_1 === "BR")?.rating;
+  return rating?.trim() || null;
+}
+
 export async function getSeriesDetails(
   seriesId: string,
   language = "pt-BR"
@@ -323,7 +344,7 @@ export async function getSeriesDetails(
   // o resto, mesmo padrão de `getMovieDetails`.
   const [data, englishData, watchProviders] = await Promise.all([
     tmdbGet<TmdbTvDetailsResponse>(`/tv/${seriesId}`, {
-      append_to_response: "credits,recommendations,similar,alternative_titles,videos,images",
+      append_to_response: "credits,recommendations,similar,alternative_titles,videos,images,content_ratings",
       language,
       /**
        * BUG REAL CORRIGIDO (a pedido, 2026-09-16 — "todos que
@@ -403,6 +424,21 @@ export async function getSeriesDetails(
     videos.find((v) => v.site === "YouTube");
   const gallery = (data.images?.backdrops ?? []).slice(0, 8).map((img) => img.file_path);
 
+  // A PEDIDO (2026-10-09 — redesign das páginas públicas, item 5) —
+  // "temporada 0" da TMDB é sempre "Especiais" (extras, não-canônico);
+  // filtrada de propósito do seletor de temporada público, mesmo
+  // critério já usado em `getSeriesSeasonList` (abaixo) pro app logado.
+  const seasonSummaries: SeasonSummary[] = data.seasons
+    .filter((season) => season.season_number >= 1)
+    .map((season) => ({
+      seasonNumber: season.season_number,
+      name: season.name,
+      episodeCount: season.episode_count,
+      airDate: season.air_date,
+      posterPath: season.poster_path,
+      overview: season.overview || null,
+    }));
+
   return {
     id: data.id,
     title: data.name,
@@ -421,6 +457,9 @@ export async function getSeriesDetails(
     // vazava aqui, na tela de detalhe da série.
     genres: data.genres.map((genre) => translateTvGenreName(genre.name, language)),
     networks: data.networks.map((network) => network.name),
+    creators: data.created_by.map((creator) => creator.name),
+    country: data.production_countries[0]?.name ?? null,
+    language: data.original_language,
     voteAverage: data.vote_average,
     voteCount: data.vote_count,
     trailerKey: trailer?.key ?? null,
@@ -428,6 +467,8 @@ export async function getSeriesDetails(
     cast,
     watchProviders,
     similar,
+    certification: pickBrazilianSeriesCertification(data.content_ratings?.results),
+    seasonSummaries,
   };
 }
 
@@ -495,6 +536,82 @@ export async function getSeasonEpisodesWithOverview(
     name: episode.name,
     overview: episode.overview ?? "",
   }));
+}
+
+interface TmdbPublicSeasonResponse {
+  name: string;
+  overview: string;
+  poster_path: string | null;
+  air_date: string | null;
+  episodes: {
+    id: number;
+    episode_number: number;
+    name: string;
+    overview: string;
+    still_path: string | null;
+    air_date: string | null;
+    runtime: number | null;
+  }[];
+}
+
+export interface PublicSeasonEpisode {
+  id: number;
+  episodeNumber: number;
+  name: string;
+  /** Sinopse curta do episódio — item 5 do redesign das páginas públicas ("sinopse curta dos episódios quando disponível"). Pode vir vazia (nem todo episódio tem sinopse cadastrada na TMDB). */
+  overview: string;
+  stillPath: string | null;
+  airDate: string | null;
+  runtimeMinutes: number | null;
+}
+
+export interface PublicSeasonDetails {
+  seasonNumber: number;
+  name: string;
+  overview: string;
+  posterPath: string | null;
+  airDate: string | null;
+  episodes: PublicSeasonEpisode[];
+}
+
+/**
+ * A PEDIDO (2026-10-09 — redesign das páginas públicas, item 5:
+ * "permitir selecionar outras temporadas sem exigir login" +
+ * "carregamento sob demanda"). Usada só por
+ * `app/api/tmdb/series/[id]/season/[season]/route.ts` — rota NOVA,
+ * pública (já cai na mesma exceção de `/api/tmdb/` que o resto desta
+ * API, sem precisar mexer no middleware), chamada pelo componente
+ * cliente de seleção de temporada só quando a pessoa troca de aba, uma
+ * temporada de cada vez — nunca todas de uma vez (diferente do que
+ * `/api/tmdb/series/[id]` faz pro app logado, de propósito, pra não
+ * pagar o custo de buscar episódio de toda temporada à toa). Mesmo
+ * endpoint TMDB de sempre (`/tv/{id}/season/{n}`), só que lendo também
+ * os campos de nível de TEMPORADA (nome, sinopse, pôster, data) que as
+ * outras duas funções acima descartam — sem chamada nova.
+ */
+export async function getPublicSeasonDetails(
+  seriesId: string,
+  seasonNumber: number,
+  language = "pt-BR"
+): Promise<PublicSeasonDetails> {
+  const data = await tmdbGet<TmdbPublicSeasonResponse>(`/tv/${seriesId}/season/${seasonNumber}`, { language });
+
+  return {
+    seasonNumber,
+    name: data.name,
+    overview: data.overview || "",
+    posterPath: data.poster_path,
+    airDate: data.air_date,
+    episodes: data.episodes.map((episode) => ({
+      id: episode.id,
+      episodeNumber: episode.episode_number,
+      name: episode.name,
+      overview: episode.overview || "",
+      stillPath: episode.still_path,
+      airDate: episode.air_date,
+      runtimeMinutes: episode.runtime,
+    })),
+  };
 }
 
 interface TmdbSeriesSeasonsResponse {
@@ -696,6 +813,17 @@ interface TmdbMovieDetailsResponse {
   recommendations?: { results: TmdbMultiSearchItem[] };
   "watch/providers"?: TmdbWatchProvidersResponse;
   videos?: { results: { key: string; site: string; type: string; official?: boolean }[] };
+  /** A PEDIDO (2026-10-09 — redesign das páginas públicas, item 4: galeria pro filme). */
+  images?: { backdrops: { file_path: string }[] };
+  /**
+   * A PEDIDO (2026-10-09 — redesign das páginas públicas, item 1:
+   * classificação indicativa). `release_dates.results` tem uma
+   * entrada por país; cada entrada tem uma LISTA de lançamentos
+   * (cinema, digital, físico...), cada um podendo trazer uma
+   * `certification` diferente (ou vazia) — por isso é array dentro de
+   * array, não um campo único.
+   */
+  release_dates?: { results: { iso_3166_1: string; release_dates: { certification: string }[] }[] };
 }
 
 /** Região usada pra "onde assistir" — projeto é pt-BR de ponta a ponta, então fixamos BR. */
@@ -778,10 +906,32 @@ export async function getSeriesWatchProviders(seriesId: string): Promise<WatchPr
  * Detalhes do filme + elenco/direção + filmes semelhantes + onde
  * assistir, tudo numa chamada só (via `append_to_response`).
  */
+/**
+ * Classificação indicativa brasileira, a partir de `release_dates`
+ * (filme) ou `content_ratings` (série) — mesmo formato de decisão nos
+ * dois: procura a entrada da região "BR"; se não existir, ou existir
+ * mas sem nenhuma certificação não-vazia dentro dela, devolve `null`
+ * (decisão do usuário, 2026-10-09: sem classificação BR cadastrada no
+ * TMDB, o selo simplesmente não aparece — nunca um texto tipo "Não
+ * informado").
+ */
+function pickBrazilianMovieCertification(
+  results: { iso_3166_1: string; release_dates: { certification: string }[] }[] | undefined
+): string | null {
+  const brEntry = results?.find((entry) => entry.iso_3166_1 === "BR");
+  const certification = brEntry?.release_dates.find((release) => release.certification.trim().length > 0)?.certification;
+  return certification?.trim() || null;
+}
+
 export async function getMovieDetails(movieId: string, language = "pt-BR"): Promise<MovieDetails> {
   const data = await tmdbGet<TmdbMovieDetailsResponse>(`/movie/${movieId}`, {
-    append_to_response: "credits,recommendations,similar,watch/providers,videos",
+    append_to_response: "credits,recommendations,similar,watch/providers,videos,images,release_dates",
     language,
+    // Mesma correção já aplicada em `getSeriesDetails` (ler o comentário
+    // completo lá) — sem isso, `images` quase sempre volta vazio porque o
+    // TMDB filtra pelo `language` da chamada (pt-BR), e a maioria das
+    // imagens de cena não tem idioma nenhum marcado.
+    include_image_language: "null,pt-BR,en",
   });
 
   const cast: CastMember[] = (data.credits?.cast ?? []).slice(0, 15).map((member) => ({
@@ -838,6 +988,8 @@ export async function getMovieDetails(movieId: string, language = "pt-BR"): Prom
     revenue: data.revenue > 0 ? data.revenue : null,
     watchProviders,
     similar,
+    certification: pickBrazilianMovieCertification(data.release_dates?.results),
+    gallery: (data.images?.backdrops ?? []).slice(0, 8).map((img) => img.file_path),
   };
 }
 

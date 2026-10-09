@@ -75,6 +75,43 @@ export interface MovieDetails {
   revenue: number | null;
   watchProviders: WatchProvider[];
   similar: MediaSearchResult[];
+  /**
+   * A PEDIDO (2026-10-09 — redesign das páginas públicas, item 1:
+   * classificação indicativa no hero). Classificação brasileira
+   * (`release_dates`, região "BR") — `null` quando o TMDB não tem
+   * nenhuma classificação cadastrada pra região BR (decisão do
+   * usuário: nesse caso o selo some, nunca mostra "Não informado").
+   * Campo novo e opcional só na prática (sempre populado por quem
+   * monta este objeto) — não quebra nada que já lia `MovieDetails`
+   * sem conhecer este campo.
+   */
+  certification: string | null;
+  /**
+   * A PEDIDO (2026-10-09 — redesign das páginas públicas, item 4:
+   * galeria de imagens pro filme, igual já existia só pra série). Até
+   * 8 imagens de cena (backdrops) — mesmo padrão de `SeriesDetails.gallery`.
+   */
+  gallery: string[];
+}
+
+/**
+ * A PEDIDO (2026-10-09 — redesign das páginas públicas, item 5:
+ * seletor de temporada sem exigir login). Resumo LEVE de cada
+ * temporada (sem episódios) — vem de graça do MESMO request que já
+ * busca `SeriesDetails` (o `/tv/{id}` da TMDB já devolve isso no
+ * array `seasons`, só não era lido até agora). Usado pra montar as
+ * abas de temporada na página pública sem precisar buscar episódio
+ * nenhum antecipadamente — os episódios de cada temporada só são
+ * buscados sob demanda (ver `getPublicSeasonDetails`,
+ * `app/api/tmdb/series/[id]/season/[season]/route.ts`).
+ */
+export interface SeasonSummary {
+  seasonNumber: number;
+  name: string;
+  episodeCount: number;
+  airDate: string | null;
+  posterPath: string | null;
+  overview: string | null;
 }
 
 export interface SeriesDetails {
@@ -106,6 +143,11 @@ export interface SeriesDetails {
   numberOfEpisodes: number;
   genres: string[];
   networks: string[];
+  /** A PEDIDO (2026-10-09 — redesign das páginas públicas, item 3). Nomes dos criadores — pode vir vazio (nem toda série tem `created_by` preenchido na TMDB, comum em documentários/produções sem criador único). */
+  creators: string[];
+  /** A PEDIDO (2026-10-09 — redesign das páginas públicas, item 9). Mesmo formato de `MovieDetails.country`/`language`. */
+  country: string | null;
+  language: string | null;
   voteAverage: number;
   /** A PEDIDO — refinamento da aba Sobre: "★ 4.8 • 183 mil avaliações" no hero. */
   voteCount: number;
@@ -118,6 +160,10 @@ export interface SeriesDetails {
   watchProviders: WatchProvider[];
   similar: MediaSearchResult[];
   seasons: SeasonWithEpisodes[];
+  /** A PEDIDO (2026-10-09 — redesign das páginas públicas, item 1). Ver comentário igual em `MovieDetails.certification`. */
+  certification: string | null;
+  /** A PEDIDO (2026-10-09 — redesign das páginas públicas, item 5). Ver `SeasonSummary`. */
+  seasonSummaries: SeasonSummary[];
 }
 
 // ---------------------------------------------------------------

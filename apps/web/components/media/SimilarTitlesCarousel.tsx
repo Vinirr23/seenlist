@@ -1,3 +1,18 @@
+"use client";
+
+/**
+ * BUG REAL CORRIGIDO (2026-10-09 — achado ao validar o redesign das
+ * páginas públicas de filme/série). Mesma causa raiz já documentada em
+ * `components/series/SeriesWatchProviders.tsx`: este arquivo usa
+ * `useTranslation()` mas nunca teve `"use client"`. Até agora ele só
+ * era renderizado a partir de árvores que já eram "use client" (abas de
+ * filme/série do app logado), então o problema nunca aparecia. As
+ * novas páginas públicas (`app/title/movie|series/[id]/page.tsx`) são
+ * Server Components de verdade e renderizam `SimilarMoviesCarousel`/
+ * `SimilarSeriesCarousel` (ambos reexportam este arquivo) incondicional
+ * quando há itens parecidos — isso quebrava a página inteira com 500
+ * ("Attempted to call useTranslation() from the server").
+ */
 import Link from "next/link";
 import Image from "next/image";
 import { Star } from "lucide-react";

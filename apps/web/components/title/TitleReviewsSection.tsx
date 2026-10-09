@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Star } from "lucide-react";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
@@ -73,11 +74,27 @@ export function TitleReviewsSection({
                   </div>
                 )}
               </div>
-              {review.reviewText && (
+              {review.reviewText ? (
                 <SpoilerGate hidden={review.containsSpoiler}>
                   <p className="text-sm text-text">{review.reviewText}</p>
                 </SpoilerGate>
+              ) : (
+                /*
+                 * A PEDIDO (2026-10-09 — redesign das páginas públicas,
+                 * item 6: "se uma avaliação possuir somente nota,
+                 * apresentar um card apropriado, sem criar texto
+                 * artificial"). Rótulo honesto, não um texto inventado no
+                 * lugar de um comentário que nunca existiu.
+                 */
+                review.rating !== null && <p className="text-xs italic text-muted">Avaliou sem comentário</p>
               )}
+              {/* A PEDIDO (item 6: "link para a avaliação pública completa, quando disponível") — `/r/[reviewId]` já existe (mesma rota do compartilhamento). */}
+              <Link
+                href={`/r/${review.id}`}
+                className="inline-block text-xs font-medium text-muted underline-offset-2 hover:text-primary hover:underline"
+              >
+                Ver avaliação completa
+              </Link>
             </div>
           );
         })}
