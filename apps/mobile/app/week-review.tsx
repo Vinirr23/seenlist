@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { captureRef } from "react-native-view-shot";
-import * as Sharing from "expo-sharing";
 import { Screen, GlassTargetProvider, AmbientGlow, Glass } from "@/components/ui";
 import { buildWeekReviewGlowBlobs } from "@/lib/glowBlobs";
 import { StarRating } from "@/components/ui/StarRating";
@@ -253,6 +252,19 @@ async function tryCachedWeekReviewData(userId: string, highlight: WeekHighlight)
         width: 1080,
         height: 1920,
       });
+      /**
+       * CAUSA RAIZ DE UM CRASH FATAL (2026-10-09) — mesmo problema
+       * documentado em `SharePreviewSheet.tsx` ("CAUSA RAIZ DE UM
+       * CRASH FATAL"): `import * as Sharing from "expo-sharing"`
+       * ESTÁTICO no topo do arquivo carregava o módulo nativo assim
+       * que esta tela entrava na árvore de dependências — como o
+       * módulo nativo `ExpoSharing` não existe no binário atual da
+       * App Store, isso derrubava o app inteiro sem nenhum aviso, só
+       * de abrir "Minha Semana". Trocado pra `import()` dinâmico,
+       * dentro deste `try/catch`, só quando a pessoa realmente toca
+       * em compartilhar.
+       */
+      const Sharing = await import("expo-sharing");
       const available = await Sharing.isAvailableAsync();
       if (!available) {
         console.warn("[week-review] Sharing não disponível nesta plataforma/simulador.");

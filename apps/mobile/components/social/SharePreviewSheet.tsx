@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { View, Modal, Pressable, Share, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Modal, Pressable, Share, ActivityIndicator, Alert, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
 import { Text, Button } from "@/components/ui";
 import { colors, radius, spacing, fontSize, scrim, elevation } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -59,6 +58,33 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  * (mesma razão prática por trás do uso de `expo-sharing`/`FileSystem`
  * em `week-review.tsx`, só que lá a imagem já nasce local via
  * `captureRef`; aqui ela vem do servidor, por isso o download).
+ *
+ * CAUSA RAIZ DE UM CRASH FATAL (2026-10-09, reportado — "Ver todas as
+ * avaliações" derrubando o app inteiro, sem nenhuma tela de erro,
+ * direto pra tela inicial do celular) — o `.ips` real (relatório de
+ * crash do iOS, enviado pelo usuário) mostrou a mensagem exata:
+ * "Cannot find native module 'ExpoSharing'". O `import * as Sharing
+ * from "expo-sharing"` ESTÁTICO (no topo do arquivo, como estava
+ * antes) faz o Metro carregar o módulo nativo assim que este
+ * componente entra na árvore de dependências — e isso acontece só de
+ * ABRIR a tela de avaliações (`ReviewCard` usa este componente), nem
+ * precisa tocar em nada. Como o binário instalado (App Store) não
+ * tinha o módulo nativo `ExpoSharing` compilado (precisa de build
+ * nativo novo — `eas update`/OTA só manda JS, nunca resolve isso),
+ * carregar o módulo lançava um erro FORA do ciclo de render do React
+ * (durante o carregamento do módulo em si) — por isso nenhum
+ * `ErrorBoundary` conseguia capturar, e o app fechava sem aviso.
+ *
+ * Corrigido trocando pro `import()` DINÂMICO, só dentro de
+ * `handleExportStory` (só roda quando a pessoa realmente toca em
+ * "Exportar pra Stories") — e, como agora está dentro do `try/catch`
+ * de uma função async, uma falha ao carregar o módulo vira uma
+ * promise rejeitada CAPTURÁVEL normalmente, em vez de travar o app
+ * inteiro. Simplesmente abrir a tela de avaliações não aciona mais
+ * esse carregamento. Isto é um remendo via OTA — o módulo nativo
+ * continua faltando no binário atual, então "Exportar pra Stories"
+ * mostra um aviso e não funciona até sair um build nativo novo (`eas
+ * build`) com o módulo de verdade incluído.
  */
 export function SharePreviewSheet({
   imageUrl,
@@ -88,9 +114,15 @@ export function SharePreviewSheet({
     if (exportingStory) return;
     try {
       setExportingStory(true);
+      // `import()` dinâmico proposital — ver comentário grande acima
+      // ("CAUSA RAIZ DE UM CRASH FATAL"). Só carrega (e só pode falhar)
+      // quando a pessoa realmente toca neste botão, dentro deste
+      // `try/catch` — nunca mais só de abrir a tela de avaliações.
+      const Sharing = await import("expo-sharing");
       const available = await Sharing.isAvailableAsync();
       if (!available) {
         console.warn("[SharePreviewSheet] Sharing não disponível nesta plataforma/simulador.");
+        Alert.alert(t("social.exportToStory"), t("social.exportStoryUnavailable"));
         return;
       }
       // Nome de arquivo com timestamp — evita servir um PNG antigo do
@@ -104,6 +136,7 @@ export function SharePreviewSheet({
       });
     } catch (error) {
       console.error("[SharePreviewSheet] Falha ao exportar imagem pra Stories", error);
+      Alert.alert(t("social.exportToStory"), t("social.exportStoryError"));
     } finally {
       setExportingStory(false);
     }
