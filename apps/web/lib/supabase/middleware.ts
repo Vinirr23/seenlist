@@ -120,6 +120,35 @@ export async function updateSession(request: NextRequest) {
      * decoração nenhuma.
      */
     pathname.startsWith("/api/tmdb/") ||
+    /**
+     * A PEDIDO (2026-10-09 — SEO Fase 2, achado validando `/title/movie|
+     * series/[id]` em produção) — `CastCarousel` (rodando como Client
+     * Component em QUALQUER página, incluindo as públicas novas) chama
+     * esta rota pra trocar foto de dublador por foto de personagem em
+     * animes; sem esta exceção, visitante sem sessão (incluindo o
+     * Googlebot) recebia 401 aqui. Não quebrava nada visualmente — o
+     * próprio `useAnimeCharacters` já trata falha de rede/autorização
+     * caindo pro elenco normal do TMDB (`searchFailed: true`) — mas
+     * fichas públicas de anime nunca mostravam a foto certa do
+     * personagem pra quem não tem conta.
+     *
+     * Auditoria antes de liberar (pedido explícito do usuário):
+     * `app/api/anime/characters/route.ts` só lê os parâmetros `title`/
+     * `year` da própria URL e repassa pro AniList/Jikan (bancos de
+     * dados públicos de anime) — nenhuma leitura de sessão, cookie,
+     * Supabase ou qualquer dado do usuário em nenhum dos três arquivos
+     * (`route.ts`, `lib/anime/jikan.ts`, `lib/anime/anilist.ts`).
+     * Controle de abuso: esta rota NÃO tem rate-limit próprio — mas
+     * nenhuma outra rota pública já existente tem (`/api/search`,
+     * `/api/tmdb/*`, ambas já expostas sem autenticação, mesmo
+     * repassando texto livre de busca pra fora) — abrir esta aqui
+     * mantém exatamente a mesma postura de risco já aceita pra elas,
+     * não introduz uma categoria nova. Mitigações que já existem:
+     * `useAnimeCharacters` cacheia por 30 dias por título+ano no
+     * navegador (não repete a mesma busca), e `fetchJikan` limita a
+     * no máximo 3 tentativas por requisição.
+     */
+    pathname.startsWith("/api/anime/characters") ||
     // TASK-094 (app nativo — Explorar) — mesma razão do /api/tmdb/*
     // acima: só repassa busca ao TMDB, nenhum dado de usuário.
     pathname.startsWith("/api/search") ||
