@@ -38,8 +38,9 @@ const REDIRECT_IF_AUTHENTICATED_ROUTES = ["/login", "/register"];
 /**
  * Roda a cada request: renova a sessão (refresh token) e decide se a
  * rota atual precisa de autenticação. Rotas públicas: /login,
- * /register, /forgot-password e /auth/callback (troca de código por
- * sessão). Tudo o mais é privado por padrão (/series, /movies,
+ * /register, /forgot-password, /auth/callback (troca de código por
+ * sessão), /u/* (perfil público) e /r/* (review compartilhada e suas
+ * imagens). Tudo o mais é privado por padrão (/series, /movies,
  * /library, /profile, /explore e as rotas de detalhe) — a regra vale
  * pra qualquer rota nova sem precisar tocar no middleware de novo.
  */
@@ -71,6 +72,26 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/auth/callback") ||
     pathname.startsWith("/auth/mobile-bridge") || // TASK-079: recebe os tokens vindos do app nativo, antes de qualquer sessão existir nesse contexto de navegação
     pathname.startsWith("/u/") || // TASK-028: perfil público, precisa funcionar sem login
+    /**
+     * BUG REAL CORRIGIDO (2026-10-09, causa raiz de "Não foi possível
+     * carregar a prévia" no compartilhamento de reviews) — `/r/` (a
+     * página de review compartilhada, `/r/[reviewId]/opengraph-image`
+     * e `/r/[reviewId]/story-image`) nunca entrou nesta lista, mesmo
+     * essas três rotas existindo justamente pra funcionar SEM login
+     * (compartilhamento público — mesmo motivo do `/u/` logo acima).
+     * Resultado: qualquer requisição sem cookie de sessão — o
+     * rastreador do WhatsApp/X, o Google, e principalmente o PRÓPRIO
+     * APP NATIVO (a sessão do app mobile vive em `AsyncStorage`, nunca
+     * em cookie de navegador — mesmo motivo já documentado abaixo pra
+     * `/api/tmdb/*` e `/api/season-recap/*`) — recebia um redirect 307
+     * pro HTML da tela de login em vez do PNG/página real. No app, o
+     * decodificador nativo de imagem tentava interpretar esse HTML
+     * como PNG e falhava ("Downloaded image decode failed") — o
+     * download "funcionava", só que o conteúdo nunca era uma imagem.
+     * Confirmado via inspeção direta da resposta HTTP (HTML de login,
+     * não PNG) antes da correção.
+     */
+    pathname.startsWith("/r/") ||
     /**
      * TASK-091 (app nativo) — nenhuma rota debaixo de /api/tmdb/*
      * usa dado de usuário nenhum (só repassa o TMDB: filme, série,
