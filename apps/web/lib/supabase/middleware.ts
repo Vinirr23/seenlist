@@ -39,10 +39,11 @@ const REDIRECT_IF_AUTHENTICATED_ROUTES = ["/login", "/register"];
  * Roda a cada request: renova a sessão (refresh token) e decide se a
  * rota atual precisa de autenticação. Rotas públicas: /login,
  * /register, /forgot-password, /auth/callback (troca de código por
- * sessão), /u/* (perfil público) e /r/* (review compartilhada e suas
- * imagens). Tudo o mais é privado por padrão (/series, /movies,
- * /library, /profile, /explore e as rotas de detalhe) — a regra vale
- * pra qualquer rota nova sem precisar tocar no middleware de novo.
+ * sessão), /u/* (perfil público), /r/* (review compartilhada e suas
+ * imagens) e /title/* (ficha pública de filme/série, SEO). Tudo o
+ * mais é privado por padrão (/series, /movies, /library, /profile,
+ * /explore e as rotas de detalhe) — a regra vale pra qualquer rota
+ * nova sem precisar tocar no middleware de novo.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -92,6 +93,16 @@ export async function updateSession(request: NextRequest) {
      * não PNG) antes da correção.
      */
     pathname.startsWith("/r/") ||
+    /**
+     * A PEDIDO (2026-10-09 — SEO Fase 2, "Opção A": páginas públicas
+     * de filme/série independentes de `/movies/[id]`/`/series/[id]`,
+     * que CONTINUAM exigindo login, sem nenhuma mudança). Mesmo motivo
+     * do `/u/`/`/r/` acima: sem esta exceção, o Googlebot (e qualquer
+     * visitante sem sessão) cairia em `/login` ao abrir
+     * `/title/movie/[id]`/`/title/series/[id]`, impedindo a indexação
+     * que é o objetivo inteiro dessas rotas existirem.
+     */
+    pathname.startsWith("/title/") ||
     /**
      * TASK-091 (app nativo) — nenhuma rota debaixo de /api/tmdb/*
      * usa dado de usuário nenhum (só repassa o TMDB: filme, série,
