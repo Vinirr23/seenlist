@@ -1,3 +1,14 @@
+"use client";
+
+/**
+ * BUG REAL CORRIGIDO (2026-10-09, mesma causa raiz documentada em
+ * `components/media/CastCarousel.tsx` — ler o comentário completo lá):
+ * este arquivo usa `useTranslation()` mas nunca teve `"use client"`.
+ * Em `app/title/series/[id]/page.tsx` (Server Component de verdade,
+ * SEM `{series.watchProviders.length > 0 &&}` nenhum — é renderizado
+ * incondicionalmente), isso quebrava TODA página de série pública com
+ * 500, não só as com elenco/providers vazios.
+ */
 import Image from "next/image";
 import type { WatchProvider } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";

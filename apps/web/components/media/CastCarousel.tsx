@@ -1,3 +1,23 @@
+"use client";
+
+/**
+ * BUG REAL CORRIGIDO (2026-10-09, achado validando `/title/movie/[id]`
+ * em produção — página carregava `<title>` certo mas o corpo caía no
+ * error boundary genérico "Algo deu errado", 500 no `GET` da própria
+ * rota) — este arquivo SEMPRE usou hooks do React (`useTranslation`,
+ * `useAnimeCharacters`), mas nunca teve a diretiva `"use client"`.
+ * Nunca deu problema antes porque todo uso existente (`MovieDetailsView.tsx`/
+ * `SeriesDetailsView.tsx`) já roda dentro de uma árvore Client Component
+ * — um arquivo sem a diretiva, importado DALI, ainda é empacotado como
+ * client. As páginas novas (`app/title/movie|series/[id]/page.tsx`) são
+ * Server Components de verdade — ao renderizar este componente
+ * DIRETAMENTE a partir delas, os hooks rodavam dentro de um Server
+ * Component (proibido pelo React) e lançavam exatamente o erro genérico
+ * de produção visto no console (`error-boundary`, sem mensagem detalhada,
+ * só o digest). Adicionar a diretiva aqui não muda nada nos usos
+ * existentes (já eram client na prática) — só torna isso explícito e
+ * corrige o uso novo.
+ */
 import Image from "next/image";
 import type { CastMember } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
