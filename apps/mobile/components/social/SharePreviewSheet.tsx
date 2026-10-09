@@ -100,6 +100,18 @@ export function SharePreviewSheet({
   const { t } = useTranslation();
   const [imageState, setImageState] = useState<"loading" | "loaded" | "error">("loading");
   const [exportingStory, setExportingStory] = useState(false);
+  /**
+   * DIAGNÓSTICO TEMPORÁRIO (2026-10-09, reportado — "continua não foi
+   * possivel carregar a previa" mesmo depois de confirmar, via Safari,
+   * que a MESMA URL carrega normalmente num navegador) — antes, o
+   * motivo real de `onError` (`event.error`) só ia pro `console.error`
+   * (invisível em build de produção, sem debugger). Guarda e MOSTRA
+   * esse texto na própria tela — mesmo princípio já usado no
+   * `FatalErrorOverlay` pro crash do ExpoSharing: não adianta ficar
+   * adivinhando a causa, melhor deixar o erro real visível pra
+   * printar e mandar.
+   */
+  const [imageErrorDetail, setImageErrorDetail] = useState<string | null>(null);
 
   async function handleShareLink() {
     try {
@@ -158,7 +170,9 @@ export function SharePreviewSheet({
               onLoadStart={() => setImageState("loading")}
               onLoad={() => setImageState("loaded")}
               onError={(event) => {
-                console.error("[SharePreviewSheet] Falha ao carregar prévia", imageUrl, event.error);
+                const detail = typeof event?.error === "string" ? event.error : JSON.stringify(event?.error ?? null);
+                console.error("[SharePreviewSheet] Falha ao carregar prévia", imageUrl, detail);
+                setImageErrorDetail(detail);
                 setImageState("error");
               }}
             />
@@ -172,6 +186,12 @@ export function SharePreviewSheet({
                 <Feather name="image" size={22} color={colors.muted} />
                 <Text variant="muted" style={styles.imageErrorText}>
                   {t("social.sharePreviewImageError")}
+                </Text>
+                {/* DIAGNÓSTICO TEMPORÁRIO — ver comentário grande acima, na declaração de `imageErrorDetail`. */}
+                <Text variant="muted" style={styles.imageErrorDebug} selectable numberOfLines={4}>
+                  {imageUrl}
+                  {"\n"}
+                  {imageErrorDetail ?? "(sem detalhe do erro)"}
                 </Text>
               </View>
             )}
@@ -246,6 +266,12 @@ const styles = StyleSheet.create({
   },
   imageErrorText: {
     fontSize: fontSize.xxs,
+  },
+  // DIAGNÓSTICO TEMPORÁRIO — ver comentário grande na declaração de `imageErrorDetail`.
+  imageErrorDebug: {
+    fontSize: fontSize.micro,
+    textAlign: "center",
+    paddingHorizontal: spacing.sm,
   },
   actions: {
     width: "100%",
