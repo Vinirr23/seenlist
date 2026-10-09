@@ -43,6 +43,20 @@ import { AppleMark } from "@/components/common/AppleMark";
  * `components/common/AppleMark.tsx`) — o PNG antigo (`Apple`, de
  * `landing/shared.tsx`) era baixa resolução/cinza chapado, ficava
  * borrado no tamanho maior pedido.
+ *
+ * INVESTIGADO (2026-10-09, reportado — "o popup não aparece dentro do
+ * navegador interno do Threads", mesmo depois da correção acima) —
+ * diagnóstico temporário (removido depois de confirmar) mostrou o
+ * componente funcionando perfeitamente: o efeito roda sem erro nenhum,
+ * só que acha `seenlist:app-promo-clicked-install = "1"` já gravado
+ * DENTRO do armazenamento daquele navegador interno específico — ou
+ * seja, não é bug: é o mesmo comportamento esperado de "pessoa que já
+ * clicou pra instalar não vê o popup de novo", só que a chave ficou
+ * gravada ali de algum teste anterior (bem provável: durante a
+ * validação da correção de 2026-10-08 citada acima). Nada a corrigir
+ * no código — quem quiser ver o popup de novo nesse mesmo navegador
+ * interno precisa limpar os dados do app (Threads/Instagram) pra
+ * apagar esse armazenamento.
  */
 const INSTALLED_KEY = "seenlist:app-promo-clicked-install";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.seenlist.app";
@@ -52,36 +66,15 @@ export function ProfileAppPromoModal() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { t } = useTranslation();
-  /**
-   * DIAGNÓSTICO TEMPORÁRIO (2026-10-09, reportado — "não aparece no
-   * navegador interno do Threads", mesmo depois da correção de
-   * 2026-10-08 já ter resolvido um caso parecido) — mesmo princípio já
-   * usado no app mobile pro crash do ExpoSharing: não adianta ficar
-   * adivinhando a causa (chave antiga salva × navegador bloqueando algo
-   * novo × efeito não rodando), melhor deixar o estado real visível, só
-   * nesta página, pra printar e mandar. REMOVER assim que a causa raiz
-   * for confirmada.
-   */
-  const [diag, setDiag] = useState("montando…");
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      setDiag("window undefined (SSR)");
-      return;
-    }
+    if (typeof window === "undefined") return;
     let clickedInstall = false;
-    let rawValue: string | null = "(não lido)";
-    let readError: string | null = null;
     try {
-      rawValue = localStorage.getItem(INSTALLED_KEY);
-      clickedInstall = rawValue === "1";
+      clickedInstall = localStorage.getItem(INSTALLED_KEY) === "1";
     } catch (error) {
-      readError = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
       console.error("[ProfileAppPromoModal] localStorage indisponível, mostrando popup por padrão", error);
     }
-    setDiag(
-      `efeito rodou · raw="${rawValue}" · erro=${readError ?? "nenhum"} · clickedInstall=${clickedInstall} · vai abrir=${!clickedInstall}`
-    );
     if (!clickedInstall) setOpen(true);
   }, []);
 
@@ -104,35 +97,10 @@ export function ProfileAppPromoModal() {
     }
   }
 
-  // DIAGNÓSTICO TEMPORÁRIO — ver comentário grande acima, na declaração
-  // de `diag`. Sempre visível (mesmo com o popup fechado), fixo no topo,
-  // texto pequeno e discreto — só pra capturar o estado real num print.
-  const diagBadge = (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-        padding: "4px 8px",
-        backgroundColor: "rgba(0,0,0,0.85)",
-        color: "#0f0",
-        fontSize: 9,
-        fontFamily: "monospace",
-        wordBreak: "break-all",
-      }}
-    >
-      [diag promo] {diag}
-    </div>
-  );
-
-  if (!open) return diagBadge;
+  if (!open) return null;
 
   return (
-    <>
-      {diagBadge}
-      <div
+    <div
       className={`fixed inset-0 z-50 flex items-end justify-center bg-black/60 px-4 pb-6 transition-opacity duration-200 sm:items-center ${mounted ? "opacity-100" : "opacity-0"}`}
       onClick={handleDismiss}
     >
@@ -184,7 +152,6 @@ export function ProfileAppPromoModal() {
           </a>
         </div>
       </div>
-      </div>
-    </>
+    </div>
   );
 }
