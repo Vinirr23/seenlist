@@ -189,8 +189,19 @@ const styles = StyleSheet.create({
     shadowOffset: elevation.high.shadowOffset,
     elevation: elevation.high.elevation,
   },
+  // CAUSA RAIZ (2026-10-15 — mesmo bug do "+" do `CreatePostButton.tsx`
+  // do Feed, código copiado dali: era `flex: 1`. O `Animated.View` real
+  // de dentro do `PressableScale` só usa `alignSelf: "stretch"` (ver
+  // `PressableScale.tsx`), que estica SÓ a largura — a altura nunca vem
+  // do pai, fica "automática", baseada no próprio conteúdo. Um filho
+  // com `flex: 1` dentro de um pai sem altura definida não tem o que
+  // distribuir: a Yoga colapsa essa altura pra ZERO. Correção: mesmo
+  // mecanismo já usado no Feed — `width: "100%"` + `aspectRatio: 1` (o
+  // círculo é quadrado por baixo do `borderRadius.full`) calcula a
+  // altura a partir da LARGURA, sem depender da altura do pai.
   fabIconWrap: {
-    flex: 1,
+    width: "100%",
+    aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
   },

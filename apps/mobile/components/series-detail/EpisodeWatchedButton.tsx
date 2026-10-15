@@ -93,6 +93,7 @@ const SIZES = {
 export function EpisodeWatchedButton({
   watched,
   onPress,
+  onLongPress,
   disabled,
   size = "md",
   color,
@@ -101,6 +102,20 @@ export function EpisodeWatchedButton({
 }: {
   watched: boolean;
   onPress: () => void;
+  /**
+   * NOVO (2026-10-14, a pedido — "não tem como desmarcar um episódio e
+   * nem conta como reassistido também", opção escolhida via
+   * `AskUserQuestion`, mockup aprovado:
+   * https://claude.ai/artifact/ThspcdLkpmnrQvVQd41MMp) — toque e segure,
+   * usado hoje só pelo cartão de progresso compartilhado
+   * (`SharedProgressRow`, `app/lists/[id].tsx`) pra voltar 1 episódio ou
+   * reiniciar uma série já concluída. Opcional — os outros usos deste
+   * botão (carrossel/temporada da tela de série) não ganham o gesto até
+   * serem pedidos; `PressableScale` já repassa `onLongPress` pro
+   * `Pressable` nativo por baixo (`{...props}`), então não precisa de
+   * nenhum wiring extra aqui além de encaminhar a prop.
+   */
+  onLongPress?: () => void;
   disabled?: boolean;
   size?: "sm" | "md" | "lg";
   /**
@@ -168,6 +183,7 @@ export function EpisodeWatchedButton({
   return (
     <PressableScale hitSlop={8}
       onPress={onPress}
+      onLongPress={onLongPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ disabled, selected: watched }}

@@ -4,8 +4,8 @@ import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { tmdbImageUrl } from "@/lib/library";
-import { PressableScale, Glass } from "@/components/ui";
-import { colors, radius, spacing, elevation, scrim } from "@/lib/theme";
+import { PressableScale, Glass, Text } from "@/components/ui";
+import { colors, radius, spacing, elevation, scrim, fontSize } from "@/lib/theme";
 
 const COLUMNS = 3;
 const GAP = spacing.sm;
@@ -90,11 +90,23 @@ export const PosterGridItem = memo(function PosterGridItem({
   onPress,
   barColor,
   cardWidth,
+  showRating,
 }: {
   item: LibraryItem;
   onPress?: (item: LibraryItem) => void;
   barColor?: string;
   cardWidth: number;
+  /**
+   * NOVO (a pedido, 2026-10-15 — "O que assistir?": notas visíveis
+   * nos pôsteres de "Assistir a seguir", Filmes → Minha Lista) — opt-
+   * in de PROPÓSITO (`undefined`/`false` por padrão): `PosterGridItem`
+   * é compartilhado por várias telas do app (Séries, Perfil, "Em
+   * breve" de Filmes, etc.), e o pedido foi só pra UMA tela — ligar
+   * por padrão acenderia o selo em todo lugar que usa este
+   * componente, fora do escopo pedido. Sem nota (`item.voteAverage`
+   * ausente) não desenha nada, mesmo com a prop ligada.
+   */
+  showRating?: boolean;
 }) {
   const posterUrl = tmdbImageUrl(item.posterPath, "w342");
   const progressPercent =
@@ -111,7 +123,7 @@ export const PosterGridItem = memo(function PosterGridItem({
         `rounded-lg border border-white/10 backdrop-blur-[14px] backdrop-saturate-[180%]`
         sobre `radial-gradient(70% 80% at 20% 15%, rgba(255,255,255,0.16),
         transparent 60%), rgba(255,255,255,0.09)`.
-      
+
         Isso é a receita `medium`, parada por parada — inclusive a
         geometria do brilho (raios 70/80, centro 20%/15%). Ela foi
         derivada exatamente daqui, então não precisou de receita nova.
@@ -130,6 +142,20 @@ export const PosterGridItem = memo(function PosterGridItem({
           </View>
         )}
         {!!barColor && <View style={[styles.progressTrack, { height: 5, backgroundColor: barColor }]} />}
+        {/*
+          NOVO (2026-10-15, ver `showRating` acima) — `position:
+          "absolute"` de propósito: não entra no fluxo normal do
+          `Glass`, então não muda o tamanho do card/grid em nenhuma
+          tela, ligada ou não. `toFixed(1)` pra bater com o formato
+          pedido ("★ 8.4") — a TMDB manda a nota com mais casas
+          decimais do que isso.
+        */}
+        {showRating && item.voteAverage != null && (
+          <View style={styles.ratingBadge}>
+            <Feather name="star" size={9} color={colors.primary} />
+            <Text style={styles.ratingBadgeText}>{item.voteAverage.toFixed(1)}</Text>
+          </View>
+        )}
       </Glass>
     </PressableScale>
   );
@@ -173,5 +199,33 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     backgroundColor: colors.primary,
+  },
+  /**
+   * NOVO (2026-10-15, ver `showRating` em `PosterGridItem` acima) —
+   * "fundo escuro, âmbar e bordas discretas" (pedido explícito):
+   * `scrim.overImage` (mesmo tom escuro translúcido já usado na
+   * `progressTrack`, acima) + borda sutil branca translúcida (mesma
+   * receita de contorno já usada no app pra selo sobre imagem, ver
+   * `shelfPoster`/`lists/[id].tsx`) + ícone/texto em `colors.primary`
+   * (âmbar).
+   */
+  ratingBadge: {
+    position: "absolute",
+    top: spacing.xs,
+    right: spacing.xs,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    backgroundColor: scrim.overImage,
+  },
+  ratingBadgeText: {
+    fontSize: fontSize.xxs,
+    fontWeight: "700",
+    color: colors.primary,
   },
 });

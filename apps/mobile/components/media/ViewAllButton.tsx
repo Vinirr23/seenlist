@@ -23,13 +23,29 @@ import { colors, fontFamily, fontSize, radius } from "@/lib/theme";
  * em vez de inventar um botão novo; por isso aqui ele nasce como
  * componente, não solto dentro da tela.
  */
-export function ViewAllButton({ label, onPress }: { label: string; onPress: () => void }) {
+export function ViewAllButton({
+  label,
+  onPress,
+  icon = "chevron-right",
+}: {
+  label: string;
+  onPress: () => void;
+  /**
+   * NOVO (2026-10-15, a pedido — toggle "Ver todos"/"Ver menos" da
+   * lista compartilhada, `app/lists/[id].tsx`) — padrão `"chevron-right"`
+   * preserva o visual original (navegação pra outra tela) nos outros 2
+   * usos deste componente (Home de Séries); o chamador novo passa
+   * `"chevron-down"`/`"chevron-up"` porque ali o botão expande/recolhe
+   * a MESMA tela, não navega.
+   */
+  icon?: keyof typeof Feather.glyphMap;
+}) {
   return (
     <Pressable onPress={onPress} style={styles.linha}>
       <Glass style={styles.botao} variant="light">
         <Text style={styles.texto}>{label}</Text>
         {/* `h-4 w-4` = 16. */}
-        <Feather name="chevron-right" size={16} color={colors.text} />
+        <Feather name={icon} size={16} color={colors.text} />
       </Glass>
     </Pressable>
   );

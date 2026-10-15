@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Pressable, StyleSheet, type LayoutChangeEvent } from "react-native";
+import { View, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -115,27 +115,38 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
   // sobram só 1-2 tiles pra dividir a linha INTEIRA entre si — cada um
   // vira ~50-100% da largura da tela, bem maior que o Hero.
   //
-  // Correção definitiva: todo tile (recolhido OU expandido, pôster,
-  // "+N" ou "Ver menos") usa o MESMO tamanho MEDIDO abaixo — a largura
-  // real da linha dividida sempre por `GRID_COLUMNS` (4), nunca pelo
-  // número de itens presentes. Um grupo de 2 fica com 2 tiles do
-  // tamanho "padrão" (igual ao de um grupo de 3+) e sobra espaço vazio
-  // na linha — exatamente o pedido ("padronizaria os pôsteres... pra
-  // algo próximo do tamanho usado nos grupos de 3, inclusive com 2").
-  // Também elimina de vez o próprio `flex: 1` do recolhido, raiz do
-  // bug — sem mais nenhuma troca fixo↔flexível entre os modos, então o
-  // hack de incluir o modo na `key` (ver abaixo) deixou de ser
-  // necessário, mas continua por segurança/zero custo.
-  const [rowWidth, setRowWidth] = useState(0);
-
-  function handleRowLayout(e: LayoutChangeEvent) {
-    setRowWidth(e.nativeEvent.layout.width);
-  }
-
-  const tileWidth = rowWidth > 0 ? (rowWidth - spacing.xs * (GRID_COLUMNS - 1)) / GRID_COLUMNS : null;
-  // Antes da 1ª medição (só no 1º frame): fallback conservador, nunca
-  // chega a aparecer na prática (`postersRow` sempre mede on-mount).
-  const tileSize = tileWidth ? { width: tileWidth, height: tileWidth / POSTER_ASPECT_RATIO } : { width: 76, height: 110 };
+  // Correção definitiva (na época): todo tile (recolhido OU expandido,
+  // pôster, "+N" ou "Ver menos") usa o MESMO tamanho — a largura real
+  // da linha dividida sempre por `GRID_COLUMNS` (4), nunca pelo número
+  // de itens presentes. Um grupo de 2 fica com 2 tiles do tamanho
+  // "padrão" (igual ao de um grupo de 3+) e sobra espaço vazio na
+  // linha — exatamente o pedido ("padronizaria os pôsteres... pra algo
+  // próximo do tamanho usado nos grupos de 3, inclusive com 2").
+  //
+  // 3º report, CAUSA RAIZ DIFERENTE (2026-10-15 — "as capas não
+  // carregam", só neste card, só no grid, sempre, mesmo com boa
+  // conexão) — a medição acima dependia de `onLayout`: a imagem nascia
+  // com um tamanho-chute (76×110) e TROCAVA de tamanho um instante
+  // depois, assim que a linha terminava de medir a si mesma. Esse era
+  // o ÚNICO lugar do Feed (ou do app) onde uma capa nasce com um
+  // tamanho e muda de tamanho logo depois de montada — todo outro
+  // card (`ActivityCard`, `MultiActionActivityCard` etc.) usa tamanho
+  // FIXO desde o primeiro frame. Não cheguei ao mecanismo exato da
+  // falha (produção, sem Metro/Sentry conectados pra confirmar o erro
+  // real), mas essa troca de tamanho pós-montagem era a única
+  // diferença estrutural real entre este card (quebrado) e os demais
+  // (funcionando) — eliminada calculando o tamanho final ANTES da
+  // imagem nascer, a partir da largura da janela (`useWindowDimensions`),
+  // em vez de medir depois com `onLayout`. A conta é a mesma de
+  // sempre (largura disponível ÷ `GRID_COLUMNS`), só que descontando
+  // também o padding horizontal do `FlatList` do Feed
+  // (`content.paddingHorizontal: spacing.md`, em `app/(tabs)/feed.tsx`
+  // — o card em si não tem padding horizontal próprio), que antes
+  // vinha de graça por `onLayout` medir a `postersRow` já dentro desse
+  // padding.
+  const { width: windowWidth } = useWindowDimensions();
+  const tileWidth = (windowWidth - spacing.md * 2 - spacing.xs * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
+  const tileSize = { width: tileWidth, height: tileWidth / POSTER_ASPECT_RATIO };
 
   function handlePressMore(e: { stopPropagation: () => void }) {
     e.stopPropagation();
@@ -262,7 +273,7 @@ export function ActivityGroupCard({ group }: { group: ActivityGroup }) {
         </View>
       )}
 
-      <View style={[styles.postersRow, expanded && styles.postersRowExpanded]} onLayout={handleRowLayout}>
+      <View style={[styles.postersRow, expanded && styles.postersRowExpanded]}>
         {visiblePosters.map((item) => {
           const posterUrl = item.mediaPosterPath ? tmdbImageUrl(item.mediaPosterPath, "w185") : null;
           return (
@@ -486,11 +497,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     overflow: "hidden",
   },
-  // Ver comentário de `PressableScale`/`posterInner`, acima — mesmo
-  // `alignItems`/`justifyContent` que `posterWrap` tinha antes, só
-  // movidos pra dentro do `Animated.View` real (via este `View`).
+  // CAUSA RAIZ REAL (2026-10-15, 4º report — "as capas não carregam",
+  // só neste card, só no grid, sempre) — era `flex: 1`. O
+  // `Animated.View` real de dentro do `PressableScale` só usa
+  // `alignSelf: "stretch"` (ver `PressableScale.tsx`), que estica
+  // SÓ a largura (eixo cruzado de um container coluna) — a altura
+  // dele nunca vem do pai, fica "automática", baseada no próprio
+  // conteúdo. Um filho com `flex: 1` dentro de um pai sem altura
+  // definida não tem o que distribuir: a Yoga colapsa essa altura
+  // pra ZERO. A `Image` (abaixo, `width/height: "100%"`) não tem
+  // tamanho próprio, então também vira 0px — carrega normalmente
+  // (por isso o diagnóstico anterior nunca via erro nenhum, só
+  // branco), só não tem onde aparecer. O ícone de fallback
+  // (`Feather`, quando não há pôster) tem tamanho intrínseco
+  // próprio e por isso "inflava" essa altura de volta — é por isso
+  // que SÓ o caso com imagem real quebrava, nunca o vazio.
+  //
+  // Correção: mesmo mecanismo do `PosterGrid.tsx` (que nunca teve
+  // esse bug) — `width: "100%"` + `aspectRatio` calcula a altura a
+  // partir da LARGURA (que o `alignSelf: "stretch"` do
+  // `PressableScale` garante de verdade), sem depender da altura do
+  // pai em nenhum momento.
   posterInner: {
-    flex: 1,
+    width: "100%",
+    aspectRatio: POSTER_ASPECT_RATIO,
     alignItems: "center",
     justifyContent: "center",
   },

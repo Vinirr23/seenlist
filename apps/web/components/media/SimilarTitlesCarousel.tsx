@@ -19,6 +19,7 @@ import { Star } from "lucide-react";
 import type { MediaSearchResult } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { ArrowCarousel } from "@/components/common/ArrowCarousel";
 
 function hrefFor(item: MediaSearchResult): string {
   return item.mediaType === "movie" ? `/movies/${item.id}` : `/series/${item.id}`;
@@ -36,7 +37,7 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
   if (items.length === 0) return null;
 
   return (
-    <div className="flex gap-3 overflow-x-auto overflow-y-hidden pb-1">
+    <ArrowCarousel gapClassName="gap-3">
       {items.map((item) => {
         const posterUrl = tmdbImage(item.posterPath, "w185");
         return (
@@ -68,6 +69,6 @@ export function SimilarTitlesCarousel({ items }: { items: MediaSearchResult[] })
           </Link>
         );
       })}
-    </div>
+    </ArrowCarousel>
   );
 }

@@ -6,6 +6,7 @@ import { useSeriesDetails, useWatchedEpisodes, useSeriesStatus, useIsFavorite } 
 import { dismissRecommendation } from "@/lib/recommendations";
 import { computeSeriesCaughtUpBadge, type SeriesCaughtUpBadge } from "@/lib/seriesCaughtUpBadge";
 import { episodeKey, isEpisodeWatchedSync } from "@/lib/seriesDetails";
+import { fetchWatchProgressForTitle, type ListWatchProgress } from "@/lib/listWatchProgress";
 import { tmdbImageUrl } from "@/lib/library";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { SERIES_DETAILS_GLOW_BLOBS } from "@/lib/glowBlobs";
@@ -106,6 +107,25 @@ export default function SeriesDetailScreen() {
    * anteriores?", já que aqui já é a série toda de uma vez.
    */
   const [seriesMarkAllOpen, setSeriesMarkAllOpen] = useState(false);
+  // PROGRESSO COMPARTILHADO (2026-10-14, mockup aprovado — ver
+  // `lib/listWatchProgress.ts`) — cartão secundário, abaixo do
+  // progresso INDIVIDUAL de `SeriesHeader` (watchedCount/totalEpisodes,
+  // não tocado por isto). Busca independente do histórico individual:
+  // nunca lê nem escreve `watched`/`watchedEpisodeIds` desta tela.
+  const [sharedProgress, setSharedProgress] = useState<{ listId: string; listName: string; progress: ListWatchProgress } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchWatchProgressForTitle("series", numericId)
+      .then((result) => {
+        if (!cancelled) setSharedProgress(result);
+      })
+      .catch((error) => {
+        console.error("[SeriesDetailScreen] Falha ao buscar progresso compartilhado", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [numericId]);
 
   const { series, isLoading, isError, refetch } = useSeriesDetails(seriesId);
   const {
@@ -314,6 +334,54 @@ export default function SeriesDetailScreen() {
           onMorePress={() => setShowActions(true)}
           categoryColor={categoryColor}
         />
+
+        {/*
+          PROGRESSO COMPARTILHADO (2026-10-14, mockup aprovado) —
+          cartão secundário, visível em QUALQUER aba (fica antes das
+          abas de propósito, igual ao mockup) — só quando este título
+          também está numa lista compartilhada com acompanhamento
+          conjunto ativo. Não substitui nem muda o progresso individual
+          logo acima (`SeriesHeader`); é um contexto A MAIS.
+        */}
+        {sharedProgress && (
+          <Pressable onPress={() => router.push(`/lists/${sharedProgress.listId}`)} style={styles.sharedProgressCardWrap}>
+            <Glass style={styles.sharedProgressCard} variant="light">
+              <View style={styles.sharedProgressIcon}>
+                <Feather name="users" size={14} color="#fff" />
+              </View>
+              <View style={styles.sharedProgressBody}>
+                <Text style={styles.sharedProgressTitle}>{t("series.sharedProgressTitle")}</Text>
+                <Text variant="muted" style={styles.sharedProgressSubtitle}>
+                  {t("series.sharedProgressSubtitle")}
+                </Text>
+                {sharedProgress.progress.seasonNumber !== null && sharedProgress.progress.episodeNumber !== null && (
+                  <Text variant="muted" style={styles.sharedProgressEpisode}>
+                    {t("series.sharedProgressEpisodeLabel", {
+                      season: sharedProgress.progress.seasonNumber,
+                      episode: sharedProgress.progress.episodeNumber,
+                    })}
+                  </Text>
+                )}
+              </View>
+              <View
+                style={[
+                  styles.sharedProgressPill,
+                  sharedProgress.progress.status === "completed" ? styles.sharedProgressPillCompleted : styles.sharedProgressPillInProgress,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sharedProgressPillText,
+                    sharedProgress.progress.status === "completed" ? styles.sharedProgressPillTextCompleted : styles.sharedProgressPillTextInProgress,
+                  ]}
+                >
+                  {sharedProgress.progress.status === "completed" ? t("series.sharedProgressPillCompleted") : t("series.sharedProgressPillInProgress")}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.muted} />
+            </Glass>
+          </Pressable>
+        )}
 
         {/*
           CORREÇÃO DE CAUSA RAIZ (2026-09-25, bug real reportado por
@@ -713,6 +781,60 @@ const styles = StyleSheet.create({
   glassFill: {
     flex: 1,
   },
+  // PROGRESSO COMPARTILHADO (2026-10-14) — cartão "vidro" (mesmo
+  // padrão de `Glass variant="light"` já usado nos chips de gênero
+  // desta tela), colado nas bordas igual às abas abaixo dele.
+  sharedProgressCardWrap: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  sharedProgressCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.sm + 2,
+    borderRadius: radius.card,
+  },
+  // CORREÇÃO (2026-10-15, a pedido — "mude o icone que está em ambar,
+  // pra o icone azul que estamos usando") — era preenchimento
+  // translúcido âmbar (`rgba(232,163,61,0.15)`) + ícone âmbar
+  // (`colors.primary`); o âmbar já significa "em andamento" na pílula
+  // ao lado (`sharedProgressPillInProgress`) — o selo em si (ESTE
+  // ícone) não é sobre o status, é sobre "isso é uma lista
+  // compartilhada", mesmo significado do selo azul já usado em
+  // `ListCollectionCard.tsx`/`app/lists/[id].tsx` (`colors.info`
+  // chapado, borda escura, sombra, ícone branco) — reaproveitado aqui
+  // ao pé da letra, só trocando o tamanho (30 em vez de 22) pra caber
+  // no cartão maior deste contexto.
+  sharedProgressIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.info,
+    borderWidth: 1.5,
+    borderColor: "rgba(5,7,11,0.55)",
+    shadowColor: "#000",
+    shadowOpacity: 0.45,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  sharedProgressBody: { flex: 1, gap: 2 },
+  sharedProgressTitle: { fontSize: fontSize.sm, fontWeight: "700" },
+  sharedProgressSubtitle: { fontSize: fontSize.xs },
+  sharedProgressEpisode: { fontSize: fontSize.xxs },
+  sharedProgressPill: {
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 3,
+  },
+  sharedProgressPillInProgress: { backgroundColor: "rgba(232,163,61,0.15)" },
+  sharedProgressPillCompleted: { backgroundColor: "rgba(52,199,123,0.15)" },
+  sharedProgressPillText: { fontSize: fontSize.xxs, fontWeight: "700" },
+  sharedProgressPillTextInProgress: { color: colors.primary },
+  sharedProgressPillTextCompleted: { color: colors.success },
   // CORREÇÃO (2026-09-03, decisão do usuário: padronizar borda de tela
   // em 16px app-wide) — `padding` (esquerda/direita) era `spacing.lg`
   // (24); web usa `px-4` (`spacing.md`=16) como borda de tela.

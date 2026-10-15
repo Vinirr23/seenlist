@@ -208,7 +208,23 @@ export function TitleHeader({
             </div>
           </div>
 
-          <div className="flex shrink-0 gap-6 sm:gap-5">
+          {/*
+            BUG REAL CORRIGIDO (2026-10-09, achado em produção com o
+            backdrop real de Scott Pilgrim — print do usuário mostrando
+            "/10" quase invisível). CAUSA RAIZ: o degradê horizontal
+            (abaixo, "Camada 2") escurece de propósito só o lado
+            ESQUERDO do backdrop (onde mora o texto) e preserva a
+            imagem visível à DIREITA ("to-transparent") — exatamente
+            onde este bloco de notas fica (ponta direita da linha,
+            `justify-between`). Com um backdrop que tem uma área clara
+            bem ali (como os rostos do quadrinho de Scott Pilgrim), o
+            texto pequeno e cinza da escala praticamente some. Fundo
+            "vidro" próprio (mesmo padrão de `TitleFactsCard.tsx`)
+            garante contraste nas notas em QUALQUER backdrop, sem
+            precisar escurecer a imagem inteira de novo (o que pioraria
+            backdrops que já estavam bons).
+          */}
+          <div className="flex shrink-0 gap-6 rounded-xl border border-white/10 bg-surface/40 px-4 py-2.5 backdrop-blur-[18px] backdrop-saturate-[180%] sm:gap-5">
             <RatingMini
               source="tmdb"
               label="TMDB"

@@ -21,6 +21,52 @@ import { colors, radius, elevation } from "@/lib/theme";
  * explícito — antes disso é só uma foto, nenhum custo de rede/nativo
  * a mais.
  */
+/**
+ * CAUSA RAIZ (2026-10-15, a pedido — print real, "Erro de configuração
+ * do player de vídeo" / "Erro 153" ao tocar o trailer, "assistir no
+ * YouTube" funcionava normal) — o `WebView` navegava DIRETO pra URL do
+ * embed (`source={{ uri: "https://www.youtube.com/embed/..." }}`),
+ * como se fosse abrir uma página externa. Nessa navegação direta não
+ * existe nenhum documento HTML "dono" da página, então o `WebView` não
+ * manda cabeçalho `Referer`/origem nenhum junto da requisição. O
+ * player do YouTube valida esse referenciador contra domínios
+ * autorizados pra vídeos com embed restrito (como o trailer que
+ * disparou o bug) — sem ele, erro 153. "Assistir no YouTube" não passa
+ * por essa checagem (é o app oficial), por isso sempre funcionava.
+ *
+ * Correção (mesma técnica usada por baixo dos panos em bibliotecas
+ * dedicadas tipo `react-native-youtube-iframe`): em vez do WebView
+ * navegar pro embed, ele carrega um documento HTML de verdade
+ * (`source={{ html }}`) com um `<iframe>` do YouTube DENTRO dele, e
+ * `baseUrl` com uma origem https (não precisa ser um domínio real,
+ * alcançável — só precisa existir) IGUAL ao `origin` passado na URL do
+ * iframe. Com isso o `WebView` passa a mandar um `Referer` consistente
+ * com essa origem, que é exatamente o que faltava — resolve o erro 153
+ * sem trocar de biblioteca nem precisar de build nativo novo (mesma
+ * dependência `react-native-webview` de sempre).
+ */
+const EMBED_ORIGIN = "https://seenlist.app";
+
+function buildEmbedHtml(videoKey: string) {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <style>
+      html, body { margin: 0; padding: 0; background: #000; height: 100%; overflow: hidden; }
+      iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+    </style>
+  </head>
+  <body>
+    <iframe
+      src="https://www.youtube.com/embed/${videoKey}?autoplay=1&playsinline=1&origin=${EMBED_ORIGIN}"
+      allow="autoplay; encrypted-media; picture-in-picture"
+      allowfullscreen
+    ></iframe>
+  </body>
+</html>`;
+}
+
 export function TrailerCard({ videoKey }: { videoKey: string }) {
   const [playing, setPlaying] = useState(false);
   const thumbnailUrl = `https://img.youtube.com/vi/${videoKey}/hqdefault.jpg`;
@@ -29,7 +75,7 @@ export function TrailerCard({ videoKey }: { videoKey: string }) {
     return (
       <View style={styles.videoWrapper}>
         <WebView
-          source={{ uri: `https://www.youtube.com/embed/${videoKey}?autoplay=1&playsinline=1` }}
+          source={{ html: buildEmbedHtml(videoKey), baseUrl: `${EMBED_ORIGIN}/` }}
           style={styles.webview}
           allowsFullscreenVideo
           mediaPlaybackRequiresUserAction={false}

@@ -252,4 +252,15 @@ export interface LibraryItem {
    * não voltou) ou pro placeholder cru sem resumo nenhum.
    */
   originalTitle?: string;
+  /**
+   * NOVO (a pedido, 2026-10-15 — "O que assistir?": selo de nota nos
+   * pôsteres de "Assistir a seguir" + sugestão única ponderada por
+   * nota e quantidade de votos, Filmes → Minha Lista) — nota média
+   * (0-10) e quantidade de votos da TMDB. Vem de graça na MESMA busca
+   * de resumo que já preenche `title`/`posterPath` (mesma razão de
+   * `originalTitle`, acima) — nenhuma chamada nova ao TMDB. Mesmo
+   * nome já usado em `MediaSearchResult.voteAverage`, acima.
+   */
+  voteAverage?: number;
+  voteCount?: number;
 }

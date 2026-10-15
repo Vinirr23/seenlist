@@ -15,12 +15,20 @@ import type { VerifiedTier } from "./publicProfile";
  * criou (`ownerId`). Isso é reforçado no banco (RLS + trigger), não só
  * escondido na UI.
  */
-export interface ListCoOwner {
+/**
+ * NOVO (2026-10-14 — "listas compartilhadas parecem individuais",
+ * mockup aprovado). Perfil básico de um participante, sem o `status`
+ * (que só faz sentido pro co-dono, nunca pro dono original).
+ */
+export interface ListParticipantProfile {
   userId: string;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
   verifiedTier: VerifiedTier;
+}
+
+export interface ListCoOwner extends ListParticipantProfile {
   status: "pending" | "accepted";
 }
 
@@ -30,6 +38,18 @@ export interface UserList {
   createdAt: string;
   ownerId: string;
   coOwner: ListCoOwner | null;
+  /**
+   * NOVO (2026-10-14) — perfil do DONO ORIGINAL, só preenchido quando
+   * `isCoOwnedByMe` é true (ou seja, só quando EU NÃO sou o dono).
+   * Antes disto, a única pessoa que `attachParticipantProfiles`
+   * buscava era o co-dono — do ponto de vista de quem É o co-dono,
+   * `coOwner` acaba sendo o PRÓPRIO perfil (a linha do banco não
+   * distingue quem está olhando), então não existia nenhum jeito de
+   * mostrar o avatar do dono original pra quem é convidado. Sem isso,
+   * o indicador "2 participantes" não teria como desenhar os dois
+   * avatares do lado de quem é co-dono.
+   */
+  ownerProfile: ListParticipantProfile | null;
   /** Lista onde EU sou o co-dono (não o dono original) — controla o que a UI deixa eu fazer (não posso renomear/apagar). */
   isCoOwnedByMe: boolean;
 }
@@ -92,7 +112,7 @@ export async function fetchMyLists(): Promise<UserList[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
 
-  const result = await attachCoOwnerProfiles(data ?? [], user?.id ?? null);
+  const result = await attachParticipantProfiles(data ?? [], user?.id ?? null);
 
   if (user) {
     myListsCache = { userId: user.id, data: result, expiresAt: Date.now() + MY_LISTS_CACHE_TTL_MS };
@@ -111,39 +131,53 @@ interface RawListRow {
 }
 
 /**
- * `lists.co_owner_id` referencia `auth.users`, não `public.profiles`
- * direto — não dá pra embutir num só `select` do PostgREST (mesmo
- * motivo pelo qual `fetchNotifications` busca `actor_id` separado).
- * Uma única consulta em lote busca o perfil de todos os co-donos
- * distintos de uma vez (nunca uma consulta por lista).
+ * `lists.co_owner_id`/`lists.user_id` referenciam `auth.users`, não
+ * `public.profiles` direto — não dá pra embutir num só `select` do
+ * PostgREST (mesmo motivo pelo qual `fetchNotifications` busca
+ * `actor_id` separado). Uma única consulta em lote busca o perfil de
+ * todos os co-donos E donos distintos de uma vez (nunca uma consulta
+ * por lista).
+ *
+ * NOVO (2026-10-14) — além do co-dono (como já era), agora também
+ * busca o perfil do DONO ORIGINAL, mas só das linhas onde `viewerId`
+ * NÃO é o dono (`row.user_id !== viewerId`) — ou seja, só quando EU
+ * sou o convidado. Quando EU sou o dono, "meu próprio avatar" já vem
+ * de `useCurrentUser()` na tela, então buscar meu próprio perfil de
+ * novo aqui seria uma consulta desperdiçada.
  */
-async function attachCoOwnerProfiles(rows: RawListRow[], viewerId: string | null): Promise<UserList[]> {
-  const coOwnerIds = [...new Set(rows.map((r) => r.co_owner_id).filter((id): id is string => Boolean(id)))];
+async function attachParticipantProfiles(rows: RawListRow[], viewerId: string | null): Promise<UserList[]> {
+  const coOwnerIds = rows.map((r) => r.co_owner_id).filter((id): id is string => Boolean(id));
+  const ownerIdsNeeded = rows.filter((r) => viewerId !== null && r.user_id !== viewerId).map((r) => r.user_id);
+  const allProfileIds = [...new Set([...coOwnerIds, ...ownerIdsNeeded])];
+
   const { data: profiles } =
-    coOwnerIds.length > 0
-      ? await supabase.from("profiles").select("user_id, username, display_name, avatar_url, verified_tier").in("user_id", coOwnerIds)
+    allProfileIds.length > 0
+      ? await supabase.from("profiles").select("user_id, username, display_name, avatar_url, verified_tier").in("user_id", allProfileIds)
       : { data: [] as { user_id: string; username: string; display_name: string | null; avatar_url: string | null; verified_tier: string | null }[] };
   const profileById = new Map((profiles ?? []).map((p) => [p.user_id, p]));
 
+  function toParticipantProfile(profile: NonNullable<ReturnType<typeof profileById.get>>): ListParticipantProfile {
+    return {
+      userId: profile.user_id,
+      username: profile.username,
+      displayName: profile.display_name,
+      avatarUrl: profile.avatar_url,
+      verifiedTier: (profile.verified_tier as VerifiedTier) ?? null,
+    };
+  }
+
   return rows.map((row) => {
-    const profile = row.co_owner_id ? profileById.get(row.co_owner_id) : null;
+    const coOwnerProfile = row.co_owner_id ? profileById.get(row.co_owner_id) : null;
+    const isCoOwnedByMe = viewerId !== null && row.co_owner_id === viewerId;
+    const ownerProfile = isCoOwnedByMe ? profileById.get(row.user_id) : null;
     return {
       id: row.id,
       name: row.name,
       createdAt: row.created_at,
       ownerId: row.user_id,
-      coOwner:
-        profile && row.co_owner_status
-          ? {
-              userId: profile.user_id,
-              username: profile.username,
-              displayName: profile.display_name,
-              avatarUrl: profile.avatar_url,
-              verifiedTier: (profile.verified_tier as VerifiedTier) ?? null,
-              status: row.co_owner_status,
-            }
-          : null,
-      isCoOwnedByMe: viewerId !== null && row.co_owner_id === viewerId,
+      coOwner: coOwnerProfile && row.co_owner_status ? { ...toParticipantProfile(coOwnerProfile), status: row.co_owner_status } : null,
+      ownerProfile: ownerProfile ? toParticipantProfile(ownerProfile) : null,
+      isCoOwnedByMe,
     };
   });
 }
@@ -228,7 +262,7 @@ export async function fetchMyListsWithPreview(language = "pt-BR"): Promise<ListW
   if (error) throw error;
   if (!rawLists || rawLists.length === 0) return [];
 
-  const lists = await attachCoOwnerProfiles(rawLists, user?.id ?? null);
+  const lists = await attachParticipantProfiles(rawLists, user?.id ?? null);
 
   const listIds = lists.map((l) => l.id);
   const { data: allItems, error: itemsError } = await supabase

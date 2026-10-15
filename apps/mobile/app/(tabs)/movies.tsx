@@ -1,15 +1,16 @@
 import { useCallback, useMemo, useState } from "react";
 import { View, FlatList, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
 import { useViewModePreference } from "@/lib/useViewModePreference";
 import { useDiscoverList } from "@/lib/useDiscoverList";
 import { todayLocalKey } from "@/lib/localDate";
-import { Screen, Text, GlassTargetProvider, AmbientGlow } from "@/components/ui";
+import { Screen, Text, GlassTargetProvider, AmbientGlow, PressableScale } from "@/components/ui";
 import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
 import { MediaListRow } from "@/components/media/MediaListRow";
+import { WhatToWatchSheet } from "@/components/media/WhatToWatchSheet";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
@@ -22,9 +23,12 @@ import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
 import { HOME_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
-import { colors, spacing } from "@/lib/theme";
+import { colors, spacing, radius, fontSize, elevation } from "@/lib/theme";
 
 type TFunction = (key: string, vars?: Record<string, string | number>) => string;
+
+/** NOVO (2026-10-15) — altura do botão flutuante "O que assistir?" + respiro, pra somar no `paddingBottom` da lista (mesma margem do `bottom` do próprio botão, ver `styles.whatToWatchButton`). */
+const WHAT_TO_WATCH_BUTTON_CLEARANCE = 56;
 
 function isReleased(releaseDate: string | null | undefined, todayKey: string): boolean {
   if (!releaseDate) return true; // sem data conhecida — trata como já lançado, mesmo padrão de "year: null" já usado no resto do app.
@@ -67,6 +71,8 @@ export default function MoviesScreen() {
   const router = useRouter();
   const tabBarClearance = useTabBarClearance();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
+  // NOVO (a pedido, 2026-10-15 — "O que assistir?"). Ver `components/media/WhatToWatchSheet.tsx` pro resto da feature.
+  const [whatToWatchOpen, setWhatToWatchOpen] = useState(false);
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("movies-library");
   const { t, locale } = useTranslation();
@@ -179,6 +185,12 @@ export default function MoviesScreen() {
    */
   const cardWidth = usePosterCardWidth();
 
+  // NOVO (a pedido, 2026-10-15 — "O que assistir?") — só faz sentido
+  // sugerir um filme da lista quando ela já carregou e tem pelo menos
+  // 1 item; "Em breve" fica de fora de propósito (filme com estreia
+  // futura ainda não dá pra assistir).
+  const showWhatToWatchButton = tab === "minha-lista" && viewModeReady && !isLoading && wantToWatch.length > 0;
+
   const handlePressItem = useCallback(
     (item: LibraryItem) => {
       router.push(`/movies/${item.id}`);
@@ -220,7 +232,11 @@ export default function MoviesScreen() {
             numColumns={viewMode === "grid" ? 3 : 1}
             columnWrapperStyle={viewMode === "grid" ? styles.gridRow : undefined}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
-            contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+            contentContainerStyle={[
+              styles.content,
+              // NOVO (2026-10-15) — respiro extra pro botão flutuante "O que assistir?" não cobrir a última fileira de pôsteres.
+              { paddingBottom: tabBarClearance + (showWhatToWatchButton ? WHAT_TO_WATCH_BUTTON_CLEARANCE : 0) },
+            ]}
             ListHeaderComponent={
               !isEmptyState ? (
                 <View style={styles.sectionHeader}>
@@ -270,7 +286,8 @@ export default function MoviesScreen() {
             ItemSeparatorComponent={viewMode === "list" ? ListRowSeparator : undefined}
             renderItem={({ item }) =>
               viewMode === "grid" ? (
-                <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} />
+                // NOVO (2026-10-15) — `showRating`: só esta FlatList (Filmes → Minha Lista → Assistir a seguir) liga o selo; "Em breve" (abaixo) e o resto do app ficam de fora, de propósito (ver comentário em `PosterGrid.tsx`).
+                <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} showRating />
               ) : (
                 <MediaListRow item={item} onPress={handlePressItem} secondaryText={item.year ? String(item.year) : ""} />
               )
@@ -323,7 +340,26 @@ export default function MoviesScreen() {
           }
         />
       )}
+
+      {/*
+        NOVO (a pedido, 2026-10-15 — "O que assistir?") — mesmo
+        esqueleto de posicionamento do "+" flutuante do Feed
+        (`CreatePostButton.tsx`: `position:"absolute"`, `bottom:
+        tabBarClearance`), só que centralizado (sem `right`) e em
+        formato pílula com texto, não círculo.
+      */}
+      {showWhatToWatchButton && (
+        <PressableScale
+          style={[styles.whatToWatchButton, { bottom: tabBarClearance + spacing.md }]}
+          onPress={() => setWhatToWatchOpen(true)}
+        >
+          <Feather name="help-circle" size={16} color={colors.background} />
+          <Text style={styles.whatToWatchButtonText}>{t("whatToWatch.button")}</Text>
+        </PressableScale>
+      )}
       </GlassTargetProvider>
+
+      {whatToWatchOpen && <WhatToWatchSheet items={wantToWatch} onClose={() => setWhatToWatchOpen(false)} />}
     </Screen>
   );
 }
@@ -388,5 +424,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+  },
+  /**
+   * NOVO (2026-10-15, "O que assistir?") — `position:"absolute"` +
+   * `alignSelf:"center"` (sem `left`/`right`) centraliza horizontal.
+   * `paddingHorizontal`/`paddingVertical` dão o tamanho da pílula a
+   * partir do CONTEÚDO (ícone+texto) — não é o mesmo bug de `flex:1`/
+   * `height:"100%"` já corrigido em outros botões do app esta sessão
+   * (ver `CreatePostButton.tsx`): aqui o `PressableScale` não depende
+   * de porcentagem de altura em lugar nenhum.
+   */
+  whatToWatchButton: {
+    position: "absolute",
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    ...elevation.medium,
+  },
+  whatToWatchButtonText: {
+    color: colors.background,
+    fontWeight: "700",
+    fontSize: fontSize.sm,
   },
 });

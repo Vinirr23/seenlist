@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import type { ListWithPreview } from "@/lib/lists";
 import { tmdbImageUrl } from "@/lib/library";
 import { PressableScale, Text, Glass } from "@/components/ui";
-import { colors, radius, spacing, fontSize, scrim } from "@/lib/theme";
+import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 /**
  * REDESIGN "MINHAS LISTAS" (2026-10-07, aprovado pelo usuário — ver
@@ -40,10 +40,17 @@ export const ListCollectionCard = memo(function ListCollectionCard({
 }) {
   // LISTA COMPARTILHADA (2026-10-06) — o sinal de "duas pessoas" que
   // antes era um ícone na linha horizontal agora é um selo discreto
-  // no canto do mosaico (mesma receita de controle flutuante sobre
-  // imagem — `scrim.control` — já usada no botão de voltar/"+" sobre
-  // capa em outras telas), em vez de competir com o espaço de texto
+  // no canto do mosaico, em vez de competir com o espaço de texto
   // abaixo.
+  //
+  // CORREÇÃO (2026-10-14, a pedido — "o ícone dentro do pôster não é
+  // pra ter fundo transparente, preciso que ele se destinga", mockup
+  // Opção A aprovado: https://claude.ai/artifact/7PT1L7ESRaBQpQGrHo637r)
+  // — era `scrim.control` (fundo escuro translúcido), que sumia em
+  // cima de pôsteres já escuros. Virou fundo AZUL CHAPADO (`colors.info`,
+  // #3A85CE — mesmo tom confirmado pro selo "compartilhada" em
+  // `ProfileListsPreview.tsx`) + um contorno fino na cor de fundo do
+  // app, garantindo contraste em qualquer pôster.
   const isShared = !!list.coOwner || list.isCoOwnedByMe;
 
   return (
@@ -179,7 +186,14 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: scrim.control,
+    backgroundColor: colors.info,
+    borderWidth: 1.5,
+    borderColor: "rgba(5,7,11,0.55)",
+    shadowColor: "#000",
+    shadowOpacity: 0.45,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   emptyFill: {
     flex: 1,

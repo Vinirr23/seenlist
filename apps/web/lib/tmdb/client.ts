@@ -1043,6 +1043,17 @@ export interface MediaSummary {
    * `/movie/{id}` e `/tv/{id}`) — nenhuma chamada nova ao TMDB.
    */
   genres?: string[];
+  /**
+   * NOVO (a pedido, 2026-10-15 — "O que assistir?": selo de nota nos
+   * pôsteres de "Assistir a seguir" + sugestão ponderada por nota e
+   * quantidade de votos) — nota média (0-10) e quantidade de votos da
+   * TMDB. Vem do MESMO request que já busca o resto do resumo (a TMDB
+   * já devolve os dois campos por padrão em `/movie/{id}` e
+   * `/tv/{id}`) — nenhuma chamada nova ao TMDB, mesma razão exata de
+   * `genres`/`originalTitle` acima.
+   */
+  voteAverage?: number;
+  voteCount?: number;
 }
 
 interface TmdbMovieSummaryResponse {
@@ -1054,6 +1065,9 @@ interface TmdbMovieSummaryResponse {
   poster_path: string | null;
   runtime: number | null;
   genres: { id: number; name: string }[];
+  /** NOVO (2026-10-15, ver `MediaSummary.voteAverage`/`voteCount` acima) — já vem de graça nesta mesma resposta. */
+  vote_average: number;
+  vote_count: number;
 }
 
 export async function getMovieSummary(movieId: number, language = "pt-BR"): Promise<MediaSummary> {
@@ -1067,6 +1081,8 @@ export async function getMovieSummary(movieId: number, language = "pt-BR"): Prom
     runtimeMinutes: data.runtime ?? undefined,
     releaseDate: data.release_date ?? null,
     genres: (data.genres ?? []).map((g) => g.name),
+    voteAverage: data.vote_average,
+    voteCount: data.vote_count,
   };
 }
 
@@ -1086,6 +1102,9 @@ interface TmdbSeriesSummaryResponse {
   episode_run_time: number[];
   seasons: { season_number: number; episode_count: number }[];
   genres: { id: number; name: string }[];
+  /** NOVO (2026-10-15, ver `MediaSummary.voteAverage`/`voteCount` em `getMovieSummary`) — já vem de graça nesta mesma resposta. */
+  vote_average: number;
+  vote_count: number;
 }
 
 const DEFAULT_EPISODE_RUNTIME_MINUTES = 45;
@@ -1128,6 +1147,8 @@ export async function getSeriesSummary(seriesId: number, language = "pt-BR"): Pr
     // `language=pt-BR` — o TMDB nunca traduziu esses 8 gêneros de
     // série pro português.
     genres: (data.genres ?? []).map((g) => translateTvGenreName(g.name, language)),
+    voteAverage: data.vote_average,
+    voteCount: data.vote_count,
   };
 }
 

@@ -23,6 +23,7 @@ import type { CastMember } from "@seenlist/types";
 import { tmdbImage } from "@/lib/tmdb/image";
 import { useAnimeCharacters } from "@/lib/queries/anime-characters";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { ArrowCarousel } from "@/components/common/ArrowCarousel";
 
 /** Minúsculas, sem acento, sem "(voice)"/pontuação — só pra COMPARAR, nunca pra exibir. */
 function normalizeCharacterName(name: string): string {
@@ -82,7 +83,7 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
   const imageByCharacterName = new Map((animeCharacters?.characters ?? []).map((c) => [normalizeCharacterName(c.name), c.imageUrl]));
 
   return (
-    <div className="flex gap-3 overflow-x-auto overflow-y-hidden pb-1">
+    <ArrowCarousel gapClassName="gap-3">
       {cast.map((member) => {
         const characterImage = findCharacterImage(imageByCharacterName, member.character);
         /*
@@ -114,6 +115,6 @@ export function CastCarousel({ cast, title, year }: { cast: CastMember[]; title?
           </div>
         );
       })}
-    </div>
+    </ArrowCarousel>
   );
 }

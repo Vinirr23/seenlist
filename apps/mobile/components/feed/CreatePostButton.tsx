@@ -387,9 +387,23 @@ const styles = StyleSheet.create({
     shadowOffset: elevation.high.shadowOffset,
     elevation: elevation.high.elevation,
   },
-  // Ver comentário de `PressableScale`, acima — mesmo `alignItems`/`justifyContent` que `fab` tinha antes, só movidos pra dentro do `Animated.View` real.
+  // CAUSA RAIZ REAL (2026-10-15 — "sumiu o + do botão de criar post,
+  // ficou só círculo âmbar liso") — era `flex: 1`. O `Animated.View`
+  // real de dentro do `PressableScale` só usa `alignSelf: "stretch"`
+  // (ver `PressableScale.tsx`), que estica SÓ a largura (eixo cruzado
+  // de um container coluna) — a altura dele nunca vem do pai, fica
+  // "automática", baseada no próprio conteúdo. Um filho com `flex: 1`
+  // dentro de um pai sem altura definida não tem o que distribuir: a
+  // Yoga colapsa essa altura pra ZERO (mesma causa raiz exata do bug
+  // das capas em branco do `ActivityGroupCard.tsx`, mesmo dia —
+  // confirmado aqui com o mesmo método, fundo verde/borda magenta de
+  // teste nunca apareceram, só uma lasca da borda). Correção: mesmo
+  // mecanismo — `width: "100%"` + `aspectRatio: 1` (o círculo é
+  // quadrado por baixo do `borderRadius.full`) calcula a altura a
+  // partir da LARGURA, sem depender da altura do pai.
   fabIconWrap: {
-    flex: 1,
+    width: "100%",
+    aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
   },

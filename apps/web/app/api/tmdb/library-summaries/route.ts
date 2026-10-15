@@ -93,6 +93,9 @@ interface CacheRow {
   runtime_minutes: number | null;
   release_date: string | null;
   genres: string[] | null;
+  /** NOVO (a pedido, 2026-10-15 — "O que assistir?", ver migração `20261015000000_media_summaries_cache_vote_average_count.sql`). */
+  vote_average: number | null;
+  vote_count: number | null;
 }
 
 /**
@@ -119,6 +122,8 @@ function rowToSummary(row: CacheRow, language: string): MediaSummary {
     runtimeMinutes: row.runtime_minutes ?? undefined,
     releaseDate: row.release_date,
     genres: row.media_type === "series" ? row.genres?.map((name) => translateTvGenreName(name, language)) : row.genres ?? undefined,
+    voteAverage: row.vote_average ?? undefined,
+    voteCount: row.vote_count ?? undefined,
   };
 }
 
@@ -172,7 +177,9 @@ async function readCacheCombined(
 
   const { data, error } = await admin
     .from("media_summaries_cache")
-    .select("tmdb_id, media_type, title, original_title, year, poster_path, total_episodes, ended, runtime_minutes, release_date, genres")
+    .select(
+      "tmdb_id, media_type, title, original_title, year, poster_path, total_episodes, ended, runtime_minutes, release_date, genres, vote_average, vote_count"
+    )
     .eq("language", language)
     .gte("fetched_at", cutoff)
     .or(orParts.join(","));
@@ -223,6 +230,8 @@ async function writeCache(
     runtime_minutes: summary.runtimeMinutes ?? null,
     release_date: summary.releaseDate ?? null,
     genres: summary.genres ?? null,
+    vote_average: summary.voteAverage ?? null,
+    vote_count: summary.voteCount ?? null,
     fetched_at: new Date().toISOString(),
   }));
 

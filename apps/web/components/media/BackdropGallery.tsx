@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { tmdbImage } from "@/lib/tmdb/image";
+import { ArrowCarousel } from "@/components/common/ArrowCarousel";
 
 /**
  * A PEDIDO — refinamento da aba Sobre (série), item 6: "adicionar
@@ -12,7 +13,7 @@ export function BackdropGallery({ paths }: { paths: string[] }) {
   if (paths.length === 0) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-1">
+    <ArrowCarousel gapClassName="gap-2">
       {paths.map((path) => {
         const url = tmdbImage(path, "w780");
         if (!url) return null;
@@ -29,6 +30,6 @@ export function BackdropGallery({ paths }: { paths: string[] }) {
           </div>
         );
       })}
-    </div>
+    </ArrowCarousel>
   );
 }

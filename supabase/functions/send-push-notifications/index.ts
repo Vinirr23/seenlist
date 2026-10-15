@@ -110,13 +110,26 @@ function buildMessage(
      * nunca virou linha em `notifications` (ver migration
      * `20260929000002_post_like_notifications.sql`). `n.target_id`
      * aqui é o id do post curtido.
+     *
+     * CORREÇÃO DE CAUSA RAIZ (2026-10-14, bug real reportado — toque na
+     * notificação push de curtida em post levava pra "Unmatched
+     * Route"/`seenlist:///`) — o `deepLink` apontava pra
+     * `/explore/posts/{id}`, mas a tela de detalhe do post no app
+     * mobile vive em `app/posts/[id].tsx` (rota `/posts/{id}`, SEM
+     * `/explore`). A lista de notificações dentro do app
+     * (`getNotificationRoute` em `app/notifications.tsx`) já usava o
+     * caminho certo pro mesmo tipo — só o link embutido no push, feito
+     * aqui, estava errado. Precisa de um novo deploy desta function
+     * (`supabase functions deploy send-push-notifications`) pra valer
+     * — não é algo que um `eas update` do app resolve, o link é montado
+     * no servidor.
      */
     case "post_like": {
       const title =
         n.group_count > 1
           ? `❤️ ${n.group_count} pessoas curtiram seu post`
           : `❤️ ${actorName ?? "Alguém"} curtiu seu post`;
-      return { title, body: "Toque para ver.", deepLink: `/explore/posts/${n.target_id}` };
+      return { title, body: "Toque para ver.", deepLink: `/posts/${n.target_id}` };
     }
     case "recommendation": {
       const mediaType = n.target_media_type; // "movie" | "series"

@@ -47,6 +47,16 @@ export interface MediaSummary {
   runtimeMinutes?: number;
   /** Só filme (TASK-148). A API já devolve isso — só não estava sendo lido do lado nativo. */
   releaseDate?: string | null;
+  /**
+   * NOVO (a pedido, 2026-10-15 — "O que assistir?", ver
+   * `LibraryItem.voteAverage`/`voteCount` em `@seenlist/types`). Vem
+   * de graça na MESMA busca de resumo (`/api/tmdb/library-summaries`,
+   * que já lê/grava isso em `media_summaries_cache` — ver migração
+   * `20261015000000_media_summaries_cache_vote_average_count.sql`) —
+   * nenhuma chamada nova.
+   */
+  voteAverage?: number;
+  voteCount?: number;
 }
 
 interface LibrarySummariesResponse {
@@ -306,6 +316,8 @@ function buildLibraryItemsFromRows(
       posterPath: summary?.posterPath ?? null,
       runtimeMinutes: summary?.runtimeMinutes,
       releaseDate: summary?.releaseDate ?? null,
+      voteAverage: summary?.voteAverage,
+      voteCount: summary?.voteCount,
     };
   });
 
@@ -332,6 +344,8 @@ function buildLibraryItemsFromRows(
         totalWatchEvents: entry.totalWatchEvents ?? undefined,
       },
       runtimeMinutes: summary?.runtimeMinutes,
+      voteAverage: summary?.voteAverage,
+      voteCount: summary?.voteCount,
     };
   });
 

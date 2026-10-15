@@ -248,8 +248,23 @@ function ChromeDeNavegacao({ alvoDaTela }: { alvoDaTela: React.RefObject<View | 
    * segmentos literais do caminho do arquivo, então o nome fica no
    * meio do array, não na posição 0 (onde fica `week-review`, uma
    * rota no topo).
+   *
+   * QUARTA EXCEÇÃO (2026-10-15, piloto de Conquistas — mockup
+   * aprovado) — a tela de DETALHE de um emblema
+   * (`profile/achievements/[id].tsx`) é hero/fullscreen, com seta de
+   * voltar própria, igual ao `season-recap`; a GRADE
+   * (`profile/achievements.tsx`) continua mostrando a barra
+   * normalmente, por isso o check exige `length > 2` (grade =
+   * ["profile","achievements"], detalhe =
+   * ["profile","achievements","<id>"]).
    */
-  if (primeiro === undefined || primeiro === "(auth)" || primeiro === "week-review" || segmentos.includes("season-recap"))
+  if (
+    primeiro === undefined ||
+    primeiro === "(auth)" ||
+    primeiro === "week-review" ||
+    segmentos.includes("season-recap") ||
+    (segmentos.includes("achievements") && segmentos.length > 2)
+  )
     return null;
   return <DockNavegacao alvoDaTela={alvoDaTela} />;
 }

@@ -120,6 +120,23 @@ export const ProfileListsPreview = memo(function ProfileListsPreview() {
                     );
                   })
                 )}
+                {/*
+                  REDESENHADO (2026-10-14 — "ícone+'Compartilhada' em
+                  âmbar embaixo do pôster" trocado por um selo redondo
+                  DENTRO do baralho, mockup Opção A aprovado:
+                  https://claude.ai/artifact/7PT1L7ESRaBQpQGrHo637r).
+                  Mesma regra de `isShared` do selo da grade dedicada
+                  (`ListCollectionCard.tsx`) — convite pendente já conta
+                  como "compartilhada" pra consistência entre as duas
+                  telas. Cor azul (`colors.info`, #3A85CE) em vez de
+                  âmbar — a pedido, pra não competir com o âmbar de
+                  prioridade/destaque usado noutros cards.
+                */}
+                {(!!list.coOwner || list.isCoOwnedByMe) && (
+                  <View style={styles.sharedBadge}>
+                    <Feather name="users" size={11} color="#fff" />
+                  </View>
+                )}
               </View>
               <Text numberOfLines={1} style={styles.listName}>
                 {list.name}
@@ -201,6 +218,8 @@ const styles = StyleSheet.create({
   deck: {
     width: CARD_SIZE,
     height: CARD_SIZE,
+    // NOVO (2026-10-14) — ancora `sharedBadge` (absolute), abaixo.
+    position: "relative",
   },
   deckEmpty: {
     height: "100%",
@@ -238,5 +257,32 @@ const styles = StyleSheet.create({
   // FASE 2 (consistência visual sistêmica, 2026-09-26) — token formalizado `fontSize.xxs` (era literal 11, mesmo valor).
   listCount: {
     fontSize: fontSize.xxs,
+  },
+  /**
+   * REDESENHADO (2026-10-14, mockup Opção A aprovado — ver comentário
+   * no JSX acima) — era uma linha de texto abaixo do pôster
+   * (`sharedRow`/`sharedText`, em âmbar); virou selo redondo DENTRO do
+   * baralho, mesma receita visual de `ListCollectionCard.tsx` (fundo
+   * azul chapado + contorno fino, pra garantir contraste em qualquer
+   * pôster — nunca mais fundo translúcido).
+   */
+  sharedBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.info,
+    borderWidth: 1.5,
+    borderColor: "rgba(5,7,11,0.55)",
+    shadowColor: "#000",
+    shadowOpacity: 0.45,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+    zIndex: 10,
   },
 });

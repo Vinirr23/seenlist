@@ -549,6 +549,19 @@ export default function ProfileScreen() {
           <StatisticsCard />
         </View>
 
+        {/*
+          PAUSADO (2026-10-15, a pedido — "vamos dá uma pausa na
+          implementação") — entrada de CONQUISTAS removida do perfil.
+          Era um piloto adicionado no mesmo dia (ver histórico), ainda
+          sem critérios de desbloqueio definidos pros 24 emblemas novos
+          (ver `claude/SEENLIST-SESSAO-2026-10-15-emblemas-conquistas-
+          56-salvos.md`). Telas (`app/profile/achievements.tsx`,
+          `app/profile/achievements/[id].tsx`) e estilos
+          (`achievementsEntry*`, abaixo) continuam no projeto intactos
+          — só o ponto de entrada no perfil saiu, pra não expor o
+          recurso enquanto a decisão de voltar não for tomada.
+        */}
+
         <View style={styles.sectionsWrapper}>
           {/*
             * CORREÇÃO (2026-09-04, auditoria mobile × web) — no web
@@ -1213,6 +1226,27 @@ const styles = StyleSheet.create({
   section: {
     marginTop: spacing.lg,
     paddingHorizontal: spacing.md,
+  },
+  achievementsEntry: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+  },
+  achievementsEntryIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    backgroundColor: "rgba(232,163,61,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  achievementsEntryLabel: {
+    flex: 1,
+    fontSize: fontSize.md,
+    fontWeight: "600",
+    color: colors.text,
   },
   /**
    * `text-lg font-bold` do web (`ProfileHeader.tsx`, nome) = 18/700;
