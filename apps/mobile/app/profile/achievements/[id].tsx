@@ -261,11 +261,30 @@ export default function AchievementDetailScreen() {
 
   return (
     <Screen padded={false}>
-      <View style={styles.topBar}>
-        <BackButton onPress={() => router.back()} />
-      </View>
-
+      {/*
+       * CORREÇÃO (2026-10-16, a pedido — "aquele linha que resolvemos
+       * antes está nas telas dos emblemas, logo abaixo do botão de
+       * voltar") — MESMA causa raiz já documentada em
+       * `app/lists/[id].tsx` (ver comentário grande lá, "essa linha
+       * fica apenas depois de 'minhas listas'"): o `AmbientGlow` tem
+       * posição FIXA (`top: -60`, ver `ACHIEVEMENT_THEMES`) relativa
+       * ao PRÓPRIO `GlassTargetProvider`, não à tela inteira. Aqui o
+       * `topBar`/`BackButton` estava FORA do `GlassTargetProvider`
+       * (antes dele), então o anel de banding da mancha (ver
+       * "DITHER — CAUSA RAIZ" em `Glass.tsx`) nascia bem na costura
+       * entre o fundo chapado de `Screen` (atrás do botão de voltar)
+       * e o fundo com dither do `GlassTargetProvider` logo abaixo —
+       * exatamente a linha visível reportada. Fix idêntico ao das
+       * outras 5+1 telas que usam este padrão: o cabeçalho/botão de
+       * voltar entra DENTRO do `GlassTargetProvider`, que passa a
+       * envolver a tela inteira — sem costura, mancha sempre no
+       * mesmo lugar relativo.
+       */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={theme.blobs} />}>
+        <View style={styles.topBar}>
+          <BackButton onPress={() => router.back()} />
+        </View>
+
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
           <View style={styles.heroWrap}>
             <Animated.Image
