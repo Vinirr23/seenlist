@@ -366,8 +366,16 @@ export interface GlassProps extends ViewProps {
  * `AmbientGlow` — ver o comentário longo em `AmbientGlow`, mais
  * abaixo, pra causa raiz de por que não dá pra usar `LinearGradient`.
  * Declarada aqui em cima porque o `Glass` (logo abaixo) já a usa.
+ *
+ * EXPORTADA (2026-10-16, a pedido — brilho âmbar respirando atrás do
+ * emblema na tela de detalhe de conquista) — mesmo PNG genérico
+ * pré-desfocado de sempre, sem asset novo; quem importa escolhe a
+ * própria cor via `tintColor`, igual o `AmbientGlow` já faz com os
+ * `blobs`. Único uso fora deste arquivo até agora:
+ * `app/profile/achievements/[id].tsx` (halo local no próprio emblema,
+ * diferente das manchas de fundo da tela inteira).
  */
-const GLOW_IMAGE = require("../../assets/images/glow-soft.png");
+export const GLOW_IMAGE = require("../../assets/images/glow-soft.png");
 
 /*
  * A COR do véu de vidro (o `base` de cada receita) foi calibrada por
@@ -1404,7 +1412,15 @@ function boostAlphaOnIOS(rgba: string): string {
  * calibrado no aparelho pras manchas grandes do fundo, e aplicá-lo ao
  * brilho dos cards deixaria o vidro mais claro que o web.
  */
-function parseGlowColor(rgba: string): { tint: string; opacity: number } {
+/**
+ * EXPORTADA (2026-10-16, mesmo motivo do `GLOW_IMAGE` acima — halo
+ * local no emblema da tela de detalhe de conquista) — `tintColor` do
+ * RN não respeita o canal alpha de forma confiável (é por isso que
+ * todo uso de `GLOW_IMAGE` no resto deste arquivo separa cor sólida
+ * de opacidade em vez de passar o `rgba(...)` direto); quem importa
+ * fora daqui precisa do MESMO split, não só da cor.
+ */
+export function parseGlowColor(rgba: string): { tint: string; opacity: number } {
   const { rgb, alpha } = parseRgba(rgba);
   /*
    * A SATURAÇÃO EXTRA SAIU (2026-09-04, a pedido — "deixe igual ao web").

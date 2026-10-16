@@ -1,0 +1,43 @@
+-- SeenList — revogação do Madrugada sob a janela antiga (0h–4h)
+--
+-- CONSEQUÊNCIA DA MUDANÇA DE CRITÉRIO (2026-10-16, decisão explícita
+-- do usuário: "Revogar os que não batem no novo critério") — a
+-- migration anterior (`20261016000001`) trocou a janela do Madrugada
+-- de 0h–4h pra 2h–5h, mas só na FUNÇÃO — não tocou em nenhuma linha já
+-- gravada em `user_achievements`. Esta migration é a limpeza dessa
+-- consequência.
+--
+-- POR QUE ISTO NÃO FAZ A CONTA DE HORA AQUI DENTRO (decisão técnica,
+-- não suposição) — pra saber se um episódio foi assistido "entre 2h e
+-- 5h" de verdade, é preciso o fuso horário de quem assistiu. O
+-- Postgres NÃO guarda isso (ver comentário grande na migration da
+-- função): o app manda `p_utc_offset_minutes` a cada chamada, lido de
+-- `new Date().getTimezoneOffset()` NO MOMENTO da chamada. Não existe
+-- em lugar nenhum do banco um fuso salvo por usuário pra eu reusar
+-- aqui num `delete` com `where extract(hour from ...)`. Forçar um
+-- fuso fixo (ex.: UTC, ou "-3" assumindo todo mundo no Brasil) seria
+-- exatamente o tipo de suposição que não deveria ser feita sem
+-- perguntar — e ainda ficaria errado pra qualquer usuário fora desse
+-- fuso.
+--
+-- O QUE ESTA MIGRATION FAZ EM VEZ DISSO — apaga TODAS as linhas de
+-- `user_achievements` com `achievement_id = 'madrugada'`. Isso não é
+-- "revogar só os que não qualificam mais": é zerar o emblema pra
+-- todo mundo que o tinha. A reavaliação de verdade — com o fuso
+-- CORRETO de cada usuário, igual já acontecia antes — volta a
+-- acontecer automaticamente na próxima vez que cada um abrir a tela
+-- de Conquistas (`evaluate_and_unlock_achievements`, chamada já
+-- existente em `app/profile/achievements.tsx` e
+-- `app/profile/achievements/[id].tsx`): quem de fato tem algum
+-- episódio entre 2h–5h locais recebe o emblema de volta na hora;
+-- quem só tinha entre 0h–2h fica sem, que é o resultado pedido.
+--
+-- Efeito colateral aceito: entre a aplicação desta migration e a
+-- próxima abertura da tela de Conquistas, qualquer usuário afetado vê
+-- o emblema como bloqueado por um tempo (até reabrir a tela). Não tem
+-- como evitar isso sem adivinhar o fuso de cada um.
+--
+-- Idempotente — pode rodar de novo sem efeito adicional (a segunda
+-- execução não encontra mais nenhuma linha 'madrugada' pra apagar).
+delete from public.user_achievements
+where achievement_id = 'madrugada';

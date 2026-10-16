@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import type { GlowBlob } from "@/components/ui";
 
 /**
  * REAL (2026-10-15, a pedido — "Implementar o desbloqueio real dos 4
@@ -75,6 +76,63 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     target: 1,
   },
 ];
+
+/**
+ * NOVO (2026-10-16, a pedido — "fundo temático por emblema" na tela de
+ * detalhe) — uma paleta por conquista, puxando a cor que já existe na
+ * própria PNG aprovada de cada uma (não é uma cor nova inventada):
+ * Maratonista (pipoca vermelho/dourado) → quente âmbar-avermelhado;
+ * Madrugada (lua azul/dourado) → azul-noite, com estrelas piscando
+ * (`showStars`); Amante de Filmes (rolo vermelho/dourado) → rosa-
+ * vermelho; Clássicos (câmera marrom/dourado) → sépia/bronze.
+ *
+ * Reaproveita o `AmbientGlow`/`GlowBlob` que o app já tem em todo
+ * lugar (`components/ui/Glass.tsx`) — mesma receita (PNG pré-
+ * desfocado tingido por `tintColor`), só com um array de cor diferente
+ * por emblema em vez do âmbar/teal genérico padrão. Nenhum asset novo.
+ *
+ * `haloColor` — cor (mais saturada que os `blobs` de fundo) do brilho
+ * que respira bem perto do emblema (pedido: "brilho âmbar e emblema
+ * flutuando"), separado do fundo amplo — o fundo é a atmosfera da
+ * tela inteira, o halo é o destaque local no próprio emblema.
+ */
+export interface AchievementTheme {
+  blobs: GlowBlob[];
+  haloColor: string;
+  showStars?: boolean;
+}
+
+export const ACHIEVEMENT_THEMES: Record<AchievementId, AchievementTheme> = {
+  maratonista: {
+    blobs: [
+      { color: "rgba(232,90,61,0.48)", top: -60, left: -120, size: 260 },
+      { color: "rgba(232,163,61,0.32)", bottom: -40, right: -110, size: 240 },
+    ],
+    haloColor: "rgba(232,90,61,0.55)",
+  },
+  madrugada: {
+    blobs: [
+      { color: "rgba(58,91,186,0.5)", top: -60, left: -120, size: 260 },
+      { color: "rgba(30,50,110,0.4)", bottom: -40, right: -110, size: 240 },
+    ],
+    haloColor: "rgba(90,130,230,0.55)",
+    showStars: true,
+  },
+  "amante-de-filmes": {
+    blobs: [
+      { color: "rgba(214,66,90,0.46)", top: -60, left: -120, size: 260 },
+      { color: "rgba(232,90,61,0.3)", bottom: -40, right: -110, size: 240 },
+    ],
+    haloColor: "rgba(214,66,90,0.55)",
+  },
+  classicos: {
+    blobs: [
+      { color: "rgba(168,122,61,0.46)", top: -60, left: -120, size: 260 },
+      { color: "rgba(120,86,46,0.32)", bottom: -40, right: -110, size: 240 },
+    ],
+    haloColor: "rgba(196,150,80,0.55)",
+  },
+};
 
 export interface AchievementsState {
   unlocked: Record<AchievementId, boolean>;
@@ -180,4 +238,34 @@ export function progressFor(achievement: AchievementDefinition, state: Achieveme
     return Math.min(state.moviesWatchedCount, achievement.target);
   }
   return 0;
+}
+
+/**
+ * NOVO (2026-10-16, a pedido — "raridade social" na tela de detalhe:
+ * "só X% dos usuários têm isso") — chama `get_achievement_rarity`
+ * (migration `20261016000000`), que calcula a % de usuários que já
+ * desbloquearam cada um dos 4 emblemas. SECURITY DEFINER do lado do
+ * banco: um usuário normal nunca conseguiria calcular isso sozinho
+ * (RLS de `user_achievements` só deixa ler a própria linha) — ver
+ * comentário grande na migration pra causa raiz completa.
+ *
+ * Mostrada tanto desbloqueado quanto bloqueado (decisão do usuário) —
+ * bloqueado funciona como incentivo ("só 14% já conseguiram isso").
+ * Falha vira mapa vazio (tela simplesmente não mostra o selo de
+ * raridade pra nenhum emblema, em vez de quebrar a tela toda por causa
+ * de um dado decorativo).
+ */
+export async function fetchAchievementRarity(): Promise<Partial<Record<AchievementId, number>>> {
+  const { data, error } = await supabase.rpc("get_achievement_rarity");
+
+  if (error) {
+    console.error("[achievements] Falha ao buscar raridade dos emblemas (decorativo — tela segue sem o selo)", error);
+    return {};
+  }
+
+  const rarity: Partial<Record<AchievementId, number>> = {};
+  for (const row of (data ?? []) as { achievement_id: AchievementId; unlock_percentage: number }[]) {
+    rarity[row.achievement_id] = row.unlock_percentage;
+  }
+  return rarity;
 }
