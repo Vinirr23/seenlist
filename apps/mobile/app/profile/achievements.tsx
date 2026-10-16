@@ -147,11 +147,17 @@ export default function AchievementsScreen() {
 
   useEffect(() => {
     if (!userId) return;
+    // Capturado aqui fora — dentro de `load()` (função aninhada,
+    // assíncrona) o TypeScript não carrega a checagem acima, mesmo
+    // sendo o mesmo valor (limitação conhecida do controle de fluxo
+    // do TS através de closures assíncronas, achado real ao rodar
+    // `tsc --noEmit` — mesmo idioma já usado em `useCurrentUser.ts`).
+    const currentUserId = userId;
     let cancelled = false;
 
     async function load() {
-      await evaluateAndUnlockAchievements(userId);
-      const fresh = await fetchAchievementsState(userId);
+      await evaluateAndUnlockAchievements(currentUserId);
+      const fresh = await fetchAchievementsState(currentUserId);
       if (!cancelled) setState(fresh);
     }
 

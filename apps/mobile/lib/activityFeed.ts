@@ -63,8 +63,27 @@ interface ActivityProfileRow {
 export const ACTIVITY_WINDOW_DAYS = 7;
 export const SERIES_ACTIVITY_STATUSES = ["completed", "want_to_watch"] as const;
 export const MOVIE_ACTIVITY_STATUSES = ["watched", "want_to_watch"] as const;
-const LIMIT_PER_SOURCE_FOLLOWING = 15;
-const LIMIT_PER_SOURCE_GLOBAL = 25;
+/**
+ * CORREÇÃO (2026-10-16, reportado com vídeo — "gap no feed, atividades
+ * até 6 dias atrás não aparecem, embora tenham existido") — CAUSA
+ * RAIZ: estes limites (por fonte) + o corte final combinado
+ * (`.slice(0, 40)`, logo abaixo em `buildActivityItems`) não eram um
+ * bug de janela de data (`ACTIVITY_WINDOW_DAYS` continua correto, 7
+ * dias) — era volume. Com o crescimento de atividade diária do app,
+ * os "slots" do corte final passaram a ser consumidos inteiros só
+ * pelas últimas 24-48h, descartando tudo de 2-6 dias atrás ANTES de
+ * chegar na tela, mesmo estando dentro da janela de 7 dias.
+ *
+ * Ajuste imediato: números maiores (decisão explícita do usuário —
+ * "só aumentar os limites agora", opção escolhida entre 3
+ * apresentadas; a alternativa de paginação de verdade, sem limite
+ * fixo, ficou registrada como próximo passo real, não implementada
+ * agora). Isto NÃO é uma correção definitiva — conforme o app crescer
+ * mais, o mesmo tipo de corte pode voltar a aparecer em algum ponto,
+ * só que com um volume de atividade diária maior do que o de hoje.
+ */
+const LIMIT_PER_SOURCE_FOLLOWING = 30;
+const LIMIT_PER_SOURCE_GLOBAL = 50;
 
 /**
  * ACTIVITY CARDS NO FEED (2026-10-01, a pedido, documento de UX — "o
@@ -315,7 +334,10 @@ export function buildActivityItems(
     });
   }
 
-  return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 40);
+  // CORREÇÃO (2026-10-16) — era 40; ver comentário grande de
+  // `LIMIT_PER_SOURCE_GLOBAL`/`LIMIT_PER_SOURCE_FOLLOWING`, acima, pra
+  // causa raiz completa do gap que este corte causava.
+  return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 80);
 }
 
 /**
