@@ -79,12 +79,23 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
 
 /**
  * NOVO (2026-10-16, a pedido — "fundo temático por emblema" na tela de
- * detalhe) — uma paleta por conquista, puxando a cor que já existe na
- * própria PNG aprovada de cada uma (não é uma cor nova inventada):
- * Maratonista (pipoca vermelho/dourado) → quente âmbar-avermelhado;
- * Madrugada (lua azul/dourado) → azul-noite, com estrelas piscando
- * (`showStars`); Amante de Filmes (rolo vermelho/dourado) → rosa-
- * vermelho; Clássicos (câmera marrom/dourado) → sépia/bronze.
+ * detalhe) — uma paleta por conquista. Madrugada (lua azul/dourado) →
+ * azul-noite, com estrelas piscando (`showStars`); Clássicos (câmera
+ * marrom/dourado) → sépia/bronze — essas duas foram aprovadas de
+ * primeira ("ficou perfeito"/"ficou legal").
+ *
+ * Maratonista e Amante de Filmes originalmente puxavam o VERMELHO da
+ * própria PNG de cada um — rejeitado ("os outros 2 não gostei"): o
+ * brilho de fundo ficava quase a mesma cor do emblema (vermelho sobre
+ * vermelho), tudo achatado, emblema sem destacar. Mandei mockup com 4
+ * direções diferentes pra cada um (`achievement-bg-options.html`,
+ * SendUserFile, não publicado — mesmo sinal de escolha única de
+ * sempre) e o usuário escolheu, por emblema, uma cor FORA da família
+ * do vermelho puro do próprio emblema:
+ * - Maratonista → "Vinho profundo" (mesma família do vermelho, mas
+ *   bem mais escura/rica — sai do achatado sem trocar de família).
+ * - Amante de Filmes → "Rosa romântico" (puxa o coraçãozinho do
+ *   emblema em vez do rolo de filme vermelho).
  *
  * Reaproveita o `AmbientGlow`/`GlowBlob` que o app já tem em todo
  * lugar (`components/ui/Glass.tsx`) — mesma receita (PNG pré-
@@ -94,7 +105,11 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
  * `haloColor` — cor (mais saturada que os `blobs` de fundo) do brilho
  * que respira bem perto do emblema (pedido: "brilho âmbar e emblema
  * flutuando"), separado do fundo amplo — o fundo é a atmosfera da
- * tela inteira, o halo é o destaque local no próprio emblema.
+ * tela inteira, o halo é o destaque local no próprio emblema. Pra
+ * Maratonista/Amante de Filmes, o halo usa a MESMA família de cor
+ * escolhida acima (não voltou a ser vermelho puro), só mais clara —
+ * mesmo padrão já usado nos outros 2 temas (halo = tom mais vívido do
+ * próprio `blobs` primário, não uma cor nova).
  */
 export interface AchievementTheme {
   blobs: GlowBlob[];
@@ -105,10 +120,10 @@ export interface AchievementTheme {
 export const ACHIEVEMENT_THEMES: Record<AchievementId, AchievementTheme> = {
   maratonista: {
     blobs: [
-      { color: "rgba(232,90,61,0.48)", top: -60, left: -120, size: 260 },
-      { color: "rgba(232,163,61,0.32)", bottom: -40, right: -110, size: 240 },
+      { color: "rgba(120,30,50,0.55)", top: -60, left: -120, size: 260 },
+      { color: "rgba(80,20,40,0.35)", bottom: -40, right: -110, size: 240 },
     ],
-    haloColor: "rgba(232,90,61,0.55)",
+    haloColor: "rgba(170,45,75,0.55)",
   },
   madrugada: {
     blobs: [
@@ -120,10 +135,10 @@ export const ACHIEVEMENT_THEMES: Record<AchievementId, AchievementTheme> = {
   },
   "amante-de-filmes": {
     blobs: [
-      { color: "rgba(214,66,90,0.46)", top: -60, left: -120, size: 260 },
-      { color: "rgba(232,90,61,0.3)", bottom: -40, right: -110, size: 240 },
+      { color: "rgba(214,80,130,0.48)", top: -60, left: -120, size: 260 },
+      { color: "rgba(232,90,61,0.26)", bottom: -40, right: -110, size: 240 },
     ],
-    haloColor: "rgba(214,66,90,0.55)",
+    haloColor: "rgba(224,100,150,0.55)",
   },
   classicos: {
     blobs: [

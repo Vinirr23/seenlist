@@ -12,6 +12,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Screen, Text, Glass, GlassTargetProvider, AmbientGlow, GLOW_IMAGE, parseGlowColor } from "@/components/ui";
+import { ActivityTypeChip } from "@/components/feed/ActivityCard";
 import { colors, spacing, radius, fontSize, elevation } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
@@ -286,12 +287,6 @@ export default function AchievementDetailScreen() {
             {t(achievement.titleKey)}
           </Text>
 
-          {typeof rarityPercent === "number" && (
-            <Text variant="muted" style={styles.rarityText}>
-              {t("achievements.rarity", { percent: rarityPercent })}
-            </Text>
-          )}
-
           {unlocked ? (
             <>
               <Text variant="muted" style={styles.description}>
@@ -299,7 +294,18 @@ export default function AchievementDetailScreen() {
               </Text>
 
               <View style={styles.unlockedBlock}>
-                <Feather name="check-circle" size={18} color={colors.success} />
+                {/*
+                 * CORREÇÃO (2026-10-16, a pedido — "muda o icone pra o
+                 * icone que usamos no feed") — era um `Feather
+                 * check-circle` avulso (só o traço, sem fundo). O selo
+                 * padrão de "concluído" no resto do app é
+                 * `ActivityTypeChip type="completed"`
+                 * (`components/feed/ActivityCard.tsx`) — círculo
+                 * preenchido na cor de sucesso com o ícone `check` por
+                 * cima, não o contorno. Mesmo componente reaproveitado
+                 * aqui, não uma cópia.
+                 */}
+                <ActivityTypeChip type="completed" size={20} iconSize={11} />
                 <View style={styles.unlockedTextCol}>
                   <Text style={styles.unlockedText}>{t("achievements.unlockedBadge")}</Text>
                   {unlockedAtLabel && (
@@ -309,6 +315,13 @@ export default function AchievementDetailScreen() {
                   )}
                 </View>
               </View>
+
+              {typeof rarityPercent === "number" && (
+                <View style={styles.rarityChip}>
+                  <Feather name="star" size={11} color={colors.primary} />
+                  <Text style={styles.rarityChipText}>{t("achievements.rarity", { percent: rarityPercent })}</Text>
+                </View>
+              )}
 
               <Pressable style={styles.shareButton} disabled accessibilityState={{ disabled: true }}>
                 <Feather name="share" size={16} color={colors.muted} />
@@ -332,6 +345,20 @@ export default function AchievementDetailScreen() {
                   <View style={[styles.progressFill, { width: `${ratio * 100}%` }]} />
                 </View>
               </View>
+
+              {/*
+               * Mostrado tanto bloqueado quanto desbloqueado (decisão
+               * do usuário) — aqui funciona como incentivo ("só 14%
+               * já conseguiram isso"), embaixo do card de progresso,
+               * mesma posição relativa do card "Conquista
+               * desbloqueada" no outro estado.
+               */}
+              {typeof rarityPercent === "number" && (
+                <View style={styles.rarityChip}>
+                  <Feather name="star" size={11} color={colors.primary} />
+                  <Text style={styles.rarityChipText}>{t("achievements.rarity", { percent: rarityPercent })}</Text>
+                </View>
+              )}
             </>
           )}
         </ScrollView>
@@ -462,10 +489,31 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     textAlign: "center",
   },
-  rarityText: {
-    marginTop: spacing.xs / 2,
-    textAlign: "center",
+  // CORREÇÃO (2026-10-16, a pedido — "ficou escondido... no mockup
+  // fica abaixo do card de conquista desbloqueada") — era um `Text`
+  // `muted` discreto logo abaixo do nome (mesma cor/tamanho da
+  // descrição ao lado, por isso sumia). Virou chip — mesmo estilo
+  // (`.rarity-chip`) do mockup aprovado (10 opções, "Raridade
+  // social"): fundo/borda âmbar translúcidos, texto âmbar, pílula —
+  // e saiu de perto do nome pra ficar DEPOIS do card de status
+  // (`unlockedBlock`/`progressBlock`), não antes.
+  rarityChip: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "center",
+    backgroundColor: "rgba(232,163,61,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(232,163,61,0.3)",
+    borderRadius: radius.full,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm + 4,
+  },
+  rarityChipText: {
+    color: colors.primary,
     fontSize: fontSize.xs,
+    fontWeight: "600",
   },
   description: {
     marginTop: spacing.xs,
