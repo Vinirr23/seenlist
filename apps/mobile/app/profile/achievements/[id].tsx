@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { View, Image, Pressable, ScrollView, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -6,7 +7,14 @@ import { colors, spacing, radius, fontSize, elevation } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
-import { ACHIEVEMENTS, DEMO_UNLOCKED, DEMO_PROGRESS, DEMO_UNLOCKED_AT } from "@/lib/achievements";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import {
+  ACHIEVEMENTS,
+  evaluateAndUnlockAchievements,
+  fetchAchievementsState,
+  progressFor,
+  type AchievementsState,
+} from "@/lib/achievements";
 
 /**
  * PILOTO — tela DEDICADA de detalhe de uma conquista
@@ -23,14 +31,14 @@ import { ACHIEVEMENTS, DEMO_UNLOCKED, DEMO_PROGRESS, DEMO_UNLOCKED_AT } from "@/
  * Conquistado: emblema grande, nome, descrição, bloco "conquista
  * desbloqueada" com ícone de confirmação, e botão de compartilhar.
  *
- * DATA DE DESBLOQUEIO (2026-10-15, 2º ajuste — "preparar a exibição da
- * data real... quando esse dado estiver disponível. Não inventar
- * datas") — lê de `DEMO_UNLOCKED_AT` (novo, em `lib/achievements.ts`),
- * que está VAZIO de propósito pros 4 emblemas atuais: a tela já sabe
- * formatar e mostrar a data (mesmo `Intl.DateTimeFormat` já usado em
- * `MovieHeader.tsx` pra "assistido em") quando o campo vier preenchido
- * (do banco, futuramente) — como está vazio agora, nada aparece, sem
- * inventar timestamp nenhum.
+ * REAL (2026-10-15, a pedido — "Implementar o desbloqueio real dos 4
+ * primeiros") — `unlocked`/`progress`/`unlockedAt` vinham de
+ * `DEMO_UNLOCKED`/`DEMO_PROGRESS`/`DEMO_UNLOCKED_AT` (sem banco). Ao
+ * abrir esta tela, chama `evaluateAndUnlockAchievements` (confere os
+ * critérios de verdade no Postgres e grava o que for novo) e depois
+ * `fetchAchievementsState` (lê o estado real). A data de desbloqueio
+ * agora é a de verdade (`unlocked_at` da tabela `user_achievements`),
+ * não mais um campo vazio de propósito.
  *
  * O BOTÃO DE COMPARTILHAR ESTÁ VISÍVEL MAS DESABILITADO DE PROPÓSITO
  * — o app já tem uma infra de compartilhamento (`ShareCardExport.tsx`,
@@ -47,11 +55,39 @@ import { ACHIEVEMENTS, DEMO_UNLOCKED, DEMO_PROGRESS, DEMO_UNLOCKED_AT } from "@/
  * texto diferente só pra bater 100% com a referência visual (ela tinha
  * duas frases parecidas; nosso modelo de dados só tem uma por estado).
  */
+
+const EMPTY_STATE: AchievementsState = {
+  unlocked: { maratonista: false, madrugada: false, "amante-de-filmes": false, classicos: false },
+  unlockedAt: {},
+  moviesWatchedCount: 0,
+};
+
 export default function AchievementDetailScreen() {
   const espacoDoDock = useTabBarClearance();
   const { t, locale } = useTranslation();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+
+  const [state, setState] = useState<AchievementsState>(EMPTY_STATE);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+
+    async function load() {
+      await evaluateAndUnlockAchievements(userId);
+      const fresh = await fetchAchievementsState(userId);
+      if (!cancelled) setState(fresh);
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const achievement = ACHIEVEMENTS.find((item) => item.id === id);
 
@@ -66,10 +102,10 @@ export default function AchievementDetailScreen() {
     );
   }
 
-  const unlocked = DEMO_UNLOCKED[achievement.id];
-  const progress = DEMO_PROGRESS[achievement.id];
-  const ratio = Math.max(0, Math.min(1, progress / achievement.demoTarget));
-  const unlockedAtRaw = DEMO_UNLOCKED_AT[achievement.id];
+  const unlocked = state.unlocked[achievement.id];
+  const progress = progressFor(achievement, state);
+  const ratio = Math.max(0, Math.min(1, progress / achievement.target));
+  const unlockedAtRaw = state.unlockedAt[achievement.id];
   const unlockedAtLabel = unlockedAtRaw
     ? new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short", year: "numeric" }).format(
         new Date(unlockedAtRaw)
@@ -126,7 +162,7 @@ export default function AchievementDetailScreen() {
               <View style={styles.progressHeaderRow}>
                 <Text style={styles.progressHeaderLabel}>{t("achievements.progressLabel")}</Text>
                 <Text style={styles.progressHeaderValue}>
-                  {t("achievements.progress", { current: progress, total: achievement.demoTarget })}
+                  {t("achievements.progress", { current: progress, total: achievement.target })}
                 </Text>
               </View>
               <View style={styles.progressTrack}>

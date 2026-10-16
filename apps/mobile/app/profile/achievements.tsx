@@ -1,10 +1,18 @@
+import { useEffect, useState } from "react";
 import { Image, Pressable, FlatList, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { Screen, ScreenHeader, Text } from "@/components/ui";
 import { colors, spacing, fontSize } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { ACHIEVEMENTS, DEMO_UNLOCKED, DEMO_PROGRESS } from "@/lib/achievements";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import {
+  ACHIEVEMENTS,
+  evaluateAndUnlockAchievements,
+  fetchAchievementsState,
+  progressFor,
+  type AchievementsState,
+} from "@/lib/achievements";
 
 /**
  * PILOTO — tela de Conquistas (2026-10-15, 3º ajuste no mesmo dia, a
@@ -37,9 +45,22 @@ import { ACHIEVEMENTS, DEMO_UNLOCKED, DEMO_PROGRESS } from "@/lib/achievements";
  * progresso abaixo do nome.
  *
  * SEM ANIMAÇÃO ainda (a pedido) — isso entra só depois, no Maratonista,
- * com Reanimated. Progresso e desbloqueio usam dado de demonstração
- * (`DEMO_UNLOCKED`/`DEMO_PROGRESS`) — a lógica real e o banco não foram
- * tocados.
+ * com Reanimated.
+ *
+ * REAL (2026-10-15, a pedido — "Implementar o desbloqueio real dos 4
+ * primeiros") — antes, progresso e desbloqueio vinham de
+ * `DEMO_UNLOCKED`/`DEMO_PROGRESS` (sem banco nenhum). Agora: ao abrir
+ * esta tela, chama `evaluateAndUnlockAchievements` (função no
+ * Postgres que confere os 4 critérios de verdade e grava o que for
+ * novo em `user_achievements`) e, em seguida, `fetchAchievementsState`
+ * (lê o estado real já atualizado). Decisão do usuário: a checagem só
+ * roda AQUI, ao abrir a tela — não a cada episódio/filme marcado —
+ * mais barato, um único ponto no código (um desbloqueio recente só
+ * aparece a partir da próxima vez que a tela for aberta, não na hora).
+ * Enquanto a busca real não volta, a grade começa com tudo bloqueado/
+ * 0 (sem skeleton dedicado — mesmo "pisca rápido e assenta" aceitável
+ * aqui, tela secundária, sem dado sensível à primeira impressão como
+ * o Perfil tem).
  *
  * CAUSA RAIZ DO ESPAÇO VERTICAL ENTRE LINHAS (histórico, 2026-10-15) —
  * o `columnWrapperStyle` de cada linha do `FlatList` não definia
@@ -108,11 +129,38 @@ const GRID_GAP_VERTICAL = 18;
  */
 const IMAGE_SCALE = 1.2;
 
+const EMPTY_STATE: AchievementsState = {
+  unlocked: { maratonista: false, madrugada: false, "amante-de-filmes": false, classicos: false },
+  unlockedAt: {},
+  moviesWatchedCount: 0,
+};
+
 export default function AchievementsScreen() {
   const espacoDoDock = useTabBarClearance();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const router = useRouter();
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+
+  const [state, setState] = useState<AchievementsState>(EMPTY_STATE);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+
+    async function load() {
+      await evaluateAndUnlockAchievements(userId);
+      const fresh = await fetchAchievementsState(userId);
+      if (!cancelled) setState(fresh);
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const cardWidth = Math.floor((width - spacing.md * 2 - GRID_GAP_HORIZONTAL * (GRID_COLUMNS - 1)) / GRID_COLUMNS);
   const imageSize = Math.round(cardWidth * IMAGE_SCALE);
@@ -128,8 +176,8 @@ export default function AchievementsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
         columnWrapperStyle={styles.row}
         renderItem={({ item }) => {
-          const unlocked = DEMO_UNLOCKED[item.id];
-          const progress = DEMO_PROGRESS[item.id];
+          const unlocked = state.unlocked[item.id];
+          const progress = progressFor(item, state);
           return (
             <Pressable
               style={[styles.tile, { width: cardWidth }]}
@@ -160,7 +208,7 @@ export default function AchievementsScreen() {
                 </Text>
                 {/* SEMPRE renderizado (mesmo desbloqueado) — só fica invisível (`opacity: 0`), pra reservar a MESMA altura em todo card da grade. Sem isso, um card desbloqueado na mesma linha de um bloqueado ficaria mais baixo, desalinhado. */}
                 <Text style={[styles.tileProgress, unlocked && styles.tileProgressHidden]}>
-                  {t("achievements.progress", { current: progress, total: item.demoTarget })}
+                  {t("achievements.progress", { current: progress, total: item.target })}
                 </Text>
               </View>
             </Pressable>

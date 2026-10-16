@@ -550,16 +550,18 @@ export default function ProfileScreen() {
         </View>
 
         {/*
-          PAUSADO (2026-10-15, a pedido — "vamos dá uma pausa na
-          implementação") — entrada de CONQUISTAS removida do perfil.
-          Era um piloto adicionado no mesmo dia (ver histórico), ainda
-          sem critérios de desbloqueio definidos pros 24 emblemas novos
-          (ver `claude/SEENLIST-SESSAO-2026-10-15-emblemas-conquistas-
-          56-salvos.md`). Telas (`app/profile/achievements.tsx`,
-          `app/profile/achievements/[id].tsx`) e estilos
-          (`achievementsEntry*`, abaixo) continuam no projeto intactos
-          — só o ponto de entrada no perfil saiu, pra não expor o
-          recurso enquanto a decisão de voltar não for tomada.
+          DECISÃO (2026-10-16, a pedido — backend real dos 4 emblemas
+          já pronto) — a entrada de CONQUISTAS NÃO volta pro Perfil.
+          Pausada em 2026-10-15 (ver histórico — ainda sem critérios
+          definidos pros 24 emblemas novos), e quando o piloto ficou
+          pronto o usuário pediu explicitamente pra entrada morar em
+          Configurações (`app/settings/index.tsx`, chave
+          `settings.achievements`) em vez de voltar aqui — não é mais
+          "pausado esperando decisão", é a decisão final de onde o
+          acesso vive. Estilos (`achievementsEntry*`, abaixo) ficaram
+          sem uso — não removidos agora pra não misturar limpeza de
+          código morto com esta mudança, mas podem sair numa auditoria
+          futura.
         */}
 
         <View style={styles.sectionsWrapper}>

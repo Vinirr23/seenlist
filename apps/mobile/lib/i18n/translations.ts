@@ -263,6 +263,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.notifReviewLike": "Curtidas em reviews",
     "settings.importFromTrakt": "Importar do Trakt",
     "settings.migrateFromTvTime": "Migrar do TV Time",
+    // NOVO (2026-10-16, a pedido — entrada de Conquistas reativada
+    // dentro de Configurações, não no Perfil) — leva pra
+    // `/profile/achievements`, mesma tela da grade de emblemas.
+    "settings.achievements": "Conquistas",
     "settings.sendFeedback": "Enviar feedback",
     // CORREÇÃO (auditoria consistência web/mobile) — era "Sobre", o web
     // usa "Sobre o aplicativo" pra esta linha (chave `settings.about`).
@@ -1153,6 +1157,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.notifReviewLike": "Likes on reviews",
     "settings.importFromTrakt": "Import from Trakt",
     "settings.migrateFromTvTime": "Migrate from TV Time",
+    "settings.achievements": "Achievements",
     "settings.sendFeedback": "Send feedback",
     "settings.about": "About the app",
     "settings.privacyPolicy": "Privacy policy",
@@ -1893,6 +1898,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.notifReviewLike": "Me gusta en reseñas",
     "settings.importFromTrakt": "Importar de Trakt",
     "settings.migrateFromTvTime": "Migrar de TV Time",
+    "settings.achievements": "Logros",
     "settings.sendFeedback": "Enviar comentario",
     "settings.about": "Acerca de la app",
     "settings.privacyPolicy": "Política de privacidad",

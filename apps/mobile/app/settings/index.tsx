@@ -279,6 +279,15 @@ export default function SettingsScreen() {
 
         <SectionLabel label={t("settings.section.app")} />
         <Glass style={styles.card}>
+          {/*
+            * NOVO (2026-10-16, a pedido — backend real dos 4 emblemas
+            * pronto, "não adiciona o card no perfil, coloca dentro de
+            * configurações um botão pra acessar emblemas") — mesma
+            * tela de sempre (`/profile/achievements`), só o ponto de
+            * entrada que mudou de lugar (Perfil → Configurações,
+            * decisão explícita do usuário, não uma escolha minha).
+            */}
+          <SettingsRow label={t("settings.achievements")} onPress={() => router.push("/profile/achievements")} />
           <SettingsRow label={t("settings.sendFeedback")} onPress={() => router.push("/settings/feedback")} />
           <SettingsRow label={t("settings.about")} onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/profile/settings/about`)} />
           <SettingsRow label={t("settings.privacyPolicy")} onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/profile/settings/privacy`)} />
