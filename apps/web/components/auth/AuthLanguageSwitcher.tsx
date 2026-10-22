@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Globe } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { LOCALE_LABELS, type Locale } from "@/lib/i18n/translations";
-import { ConfirmDialog } from "../series/ConfirmDialog";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 const LOCALES: Locale[] = ["pt-BR", "en", "es"];
 

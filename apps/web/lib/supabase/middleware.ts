@@ -26,7 +26,24 @@ import { env } from "@/lib/env";
 // avaliar o app pra publicação; apontando pra uma URL que redireciona
 // pro login, a submissão na App Store podia ser rejeitada por causa
 // disso.
-const PUBLIC_ROUTES = ["/", "/about", "/privacy", "/terms", "/login", "/register", "/forgot-password", "/beta"];
+// FASE 2 (2026-10-21, Lote 3) — "/download" e "/delete-account" nunca
+// estiveram nesta lista, mesmo fazendo parte do que foi explicitamente
+// decidido MANTER público nesta fase (download do app e exclusão de
+// conta). Mesmo bug de categoria já documentado acima pra "/privacy"/
+// "/terms": qualquer visitante sem sessão caía em "/login" antes de
+// "/download"/"/delete-account" sequer renderizar.
+const PUBLIC_ROUTES = [
+  "/",
+  "/about",
+  "/privacy",
+  "/terms",
+  "/download",
+  "/delete-account",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/beta",
+];
 // /login e /register não fazem sentido pra quem já está logado — mandamos
 // pra "/". /forgot-password fica de fora dessa lista de propósito: depois
 // de clicar no link do e-mail de recuperação, o usuário chega aqui com uma
@@ -45,7 +62,78 @@ const REDIRECT_IF_AUTHENTICATED_ROUTES = ["/login", "/register"];
  * /explore e as rotas de detalhe) — a regra vale pra qualquer rota
  * nova sem precisar tocar no middleware de novo.
  */
+/**
+ * FASE 2 (2026-10-21, Lote 3) — rotas que NUNCA precisam que este
+ * middleware chame `supabase.auth.getUser()` (nem, portanto, tente
+ * renovar cookie de sessão), porque confirmei, lendo o código de cada
+ * uma, que nenhuma lê sessão do lado servidor nem depende dessa
+ * renovação:
+ *
+ * - Páginas institucionais ("/", "/about", "/privacy", "/terms",
+ *   "/download", "/delete-account"): nenhuma faz `createClient()` do
+ *   lado servidor.
+ * - "/beta" (`app/beta/page.tsx`): o único acesso a dado é um
+ *   `insert` anônimo em `beta_signups`, feito com o cliente do
+ *   NAVEGADOR (`lib/supabase/client.ts`), nunca do servidor.
+ * - "/auth/callback" (`app/auth/callback/route.ts`): Route Handler
+ *   que faz sua PRÓPRIA troca de código por sessão e grava seus
+ *   próprios cookies — ao contrário de um Server Component, um Route
+ *   Handler consegue persistir cookie sozinho (ver o `try/catch` em
+ *   `lib/supabase/server.ts`), não depende de nada que este
+ *   middleware tenha feito antes.
+ * - "/auth/mobile-bridge" (`app/auth/mobile-bridge/page.tsx`): Client
+ *   Component que usa o cliente do NAVEGADOR e chama `setSession()`
+ *   direto no armazenamento da WebView — nunca toca no cookie do lado
+ *   servidor que este middleware gerencia.
+ * - As 4 famílias de API antiga (`/api/tmdb/*`, `/api/anime/
+ *   characters`, `/api/search`, `/api/season-recap/*`): já
+ *   documentado abaixo, em `isPublicRoute` — puro repasse pro TMDB/
+ *   AniList/Jikan, nenhuma leitura de sessão.
+ * - "/monitoring": túnel do Sentry, só repassa telemetria do SDK.
+ *
+ * DELIBERADAMENTE DE FORA desta lista (continuam chamando
+ * `getUser()` normalmente, sem nenhuma mudança de comportamento):
+ *
+ * - "/forgot-password": é pública, mas `ForgotPasswordPage`
+ *   (`app/(auth)/forgot-password/page.tsx`) é um Server Component que
+ *   faz sua PRÓPRIA leitura de sessão (`getUser()`) pra decidir entre
+ *   mostrar o formulário de pedir recuperação ou o de definir senha
+ *   nova — e o próprio comentário em `lib/supabase/server.ts` admite
+ *   que um Server Component NÃO consegue persistir um cookie renovado
+ *   sozinho ("pode ignorar aqui porque o middleware já cuida de
+ *   renovar a sessão a cada request"). Pular a renovação aqui
+ *   quebraria exatamente a premissa que hoje torna isso seguro — uma
+ *   sessão de recuperação parada tempo suficiente nesta tela correria
+ *   o risco de usar um token expirado na hora de `updatePassword`
+ *   (Server Action). Continua verificando sessão nesta rota.
+ * - "/u/*", "/r/*", "/title/*": são públicas, mas eu NÃO abri o
+ *   código de cada uma nesta auditoria pra confirmar que nenhuma lê
+ *   sessão do lado servidor (ex. pra mostrar algo diferente pro dono
+ *   do perfil) — por precaução, ficam fora do pulo, continuam
+ *   chamando `getUser()` exatamente como já faziam.
+ */
+const SKIP_SESSION_CHECK_ROUTES = new Set(["/", "/about", "/privacy", "/terms", "/download", "/delete-account", "/beta"]);
+
+function skipsSessionCheck(pathname: string): boolean {
+  return (
+    SKIP_SESSION_CHECK_ROUTES.has(pathname) ||
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/auth/mobile-bridge") ||
+    pathname.startsWith("/api/tmdb/") ||
+    pathname.startsWith("/api/anime/characters") ||
+    pathname.startsWith("/api/search") ||
+    pathname.startsWith("/api/season-recap/") ||
+    pathname.startsWith("/monitoring")
+  );
+}
+
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (skipsSessionCheck(pathname)) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(env.supabaseUrl(), env.supabaseAnonKey(), {
@@ -67,7 +155,6 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
   const isPublicRoute =
     PUBLIC_ROUTES.some((route) => pathname === route) ||
     pathname.startsWith("/auth/callback") ||
@@ -197,7 +284,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && REDIRECT_IF_AUTHENTICATED_ROUTES.some((route) => pathname === route)) {
-    return NextResponse.redirect(new URL("/series", request.url));
+    // FASE 2 (2026-10-21) — "/series" está sendo descontinuado; quem já
+    // está logado e tenta abrir /login ou /register agora cai em
+    // /download em vez de numa página que vai deixar de existir.
+    return NextResponse.redirect(new URL("/download", request.url));
   }
 
   return response;

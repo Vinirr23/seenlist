@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import LandingPage from "@/components/landing/LandingPage";
 
 /**
@@ -96,22 +94,21 @@ const IOS_APP_JSON_LD = {
  * verdade, porque o `middleware.ts` já intercept(av)ava "/" antes
  * (não estava em `PUBLIC_ROUTES`) e mandava direto pra "/login" — daí
  * o sintoma "vai direto pra login". Duas partes da correção: "/" virou
- * rota pública no middleware, e aqui o redirect só acontece quando HÁ
+ * rota pública no middleware, e aqui o redirect só acontecia quando HÁ
  * sessão de verdade (mesmo cliente Supabase de server usado no resto
  * do app, `lib/supabase/server.ts`) — sem sessão, renderiza a landing
  * page (`components/landing/LandingPage.tsx`) em vez de redirecionar
  * às cegas.
+ *
+ * FASE 2 (2026-10-21, decisão explícita do usuário — "a landing atual
+ * deve aparecer normalmente para todos, independentemente de sessão.
+ * Não redirecione usuários logados para /series") — o app web logado
+ * (incluindo `/series`) está sendo descontinuado nesta fase. O redirect
+ * condicional por sessão foi removido: "/" agora sempre renderiza a
+ * landing page, com ou sem sessão ativa, sem nenhuma consulta ao
+ * Supabase no servidor.
  */
-export default async function RootPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    redirect("/series");
-  }
-
+export default function RootPage() {
   return (
     <>
       <script

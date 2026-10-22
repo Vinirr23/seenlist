@@ -37,7 +37,15 @@ function MobileBridgeContent() {
         setError(true);
         return;
       }
-      router.replace("/series");
+      // FASE 2 (2026-10-21) — "/series" está sendo descontinuado. O fluxo
+      // ATUAL de login Google do app (AuthProvider.tsx, signInWithGoogle)
+      // não passa mais por esta ponte — usa WebBrowser.openAuthSessionAsync
+      // direto pro deep link nativo seenlist://auth-callback. Esta página
+      // só é mantida por segurança, caso algum build antigo ainda dependa
+      // dela; o destino final, se isso acontecer, agora é /download em vez
+      // de uma página que deixa de existir. Nenhuma troca de token/sessão
+      // (setSession acima) foi alterada.
+      router.replace("/download");
     });
   }, [searchParams, router]);
 

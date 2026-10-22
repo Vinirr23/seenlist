@@ -4,7 +4,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ToastProvider } from "@/lib/toast/ToastProvider";
-import { BottomNavVisibilityProvider } from "@/lib/layout/bottomNavVisibility";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { WebVitalsReporter } from "@/components/diagnostics/WebVitalsReporter";
 import { mark } from "@/lib/perfMarks";
@@ -63,11 +62,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <LocaleProvider>
         <ToastProvider>
-          <BottomNavVisibilityProvider>
-            <WebVitalsReporter />
-            <OfflineBanner />
-            {children}
-          </BottomNavVisibilityProvider>
+          <WebVitalsReporter />
+          <OfflineBanner />
+          {children}
         </ToastProvider>
       </LocaleProvider>
     </QueryClientProvider>

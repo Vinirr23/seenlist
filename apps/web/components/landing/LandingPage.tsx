@@ -46,9 +46,13 @@ import {
  * ícones é só o que o app realmente tem hoje, confirmado no código
  * antes de escrever qualquer frase (nota de 1 a 5 por episódio —
  * `EpisodeStarRatingRow.tsx` —, resenha com spoiler/humor/onde
- * assistiu — `lib/queries/social/reviews.ts` —, importação de TV Time
- * e Trakt — `TvTimeImportWizard.tsx`/`TraktImportWizard.tsx` —, link
- * real da Play Store — `AndroidAppPromoBanner.tsx`).
+ * assistiu — `lib/queries/social/reviews.ts` —, link real da Play
+ * Store — `AndroidAppPromoBanner.tsx`).
+ *
+ * FASE 2 (2026-10-21) — a pergunta do FAQ sobre importar de outro app
+ * respondia "sim, do TV Time e do Trakt"; essa importação foi
+ * descontinuada (Sublotes 4.6/4.7), então a resposta foi reescrita
+ * pra não anunciar mais essa funcionalidade.
  *
  * Visual: reaproveita o MESMO vocabulário de design que o resto do
  * app web já usa de verdade — "vidro" (borda translúcida + blur +
@@ -809,9 +813,9 @@ function MobileBadges() {
 /**
  * Perguntas frequentes — mesma ideia do FAQ do Serializd (referência
  * visual), mas com respostas verdadeiras sobre o SeenList, conferidas
- * no código antes de escrever (nada inventado): importação de TV Time
- * e Trakt, dado do TMDB (mesma frase de `app/terms/page.tsx`), telas
- * de Feedback reais em Configurações.
+ * no código antes de escrever (nada inventado): dado do TMDB (mesma
+ * frase de `app/terms/page.tsx`), telas de Feedback reais em
+ * Configurações.
  */
 function Faq() {
   const items = [
@@ -825,7 +829,7 @@ function Faq() {
     },
     {
       q: "Posso importar meus dados de outro app?",
-      a: "Sim — o SeenList importa seu histórico direto do TV Time e do Trakt, direto de dentro do app.",
+      a: "Hoje não oferecemos mais importação automática de outros apps. Você pode registrar seu histórico diretamente no SeenList, marcando os filmes e séries que já assistiu.",
     },
     {
       // REVISÃO (2026-09-24, a pedido) — resposta desatualizada desde

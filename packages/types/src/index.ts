@@ -6,6 +6,18 @@
  * onde são usados em apps/web/lib/queries, não aqui, porque são
  * detalhes de persistência, não domínio compartilhado entre apps.
  */
+/**
+ * FASE B (correção de tipagem do cliente Supabase mobile, auditoria
+ * de 2026-10-20) — re-exporta o `Database` gerado pelo Supabase CLI
+ * (`./database.ts`). Isto é diferente do aviso acima sobre "tipos de
+ * linha ficarem perto de onde são usados": aqui não é um tipo de
+ * linha ad-hoc de uma query específica, é o esquema COMPLETO do
+ * banco, usado só pelo generic `createClient<Database>(...)` — por
+ * isso faz sentido centralizado aqui, reutilizável entre apps/mobile
+ * e (se/quando decidido) apps/web, em vez de duplicado em cada app.
+ */
+export * from "./database";
+
 export type MediaType = "movie" | "series";
 
 export interface MediaSearchResult {

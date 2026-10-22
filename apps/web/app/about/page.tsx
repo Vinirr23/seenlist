@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Tv, Star, MessageSquare, CalendarClock, ListChecks, Users, Download, Bug, Mail } from "lucide-react";
+import { Tv, Star, MessageSquare, CalendarClock, ListChecks, Users, Trophy, Bug, Mail } from "lucide-react";
 import {
   GLASS_CARD,
   GLASS_CARD_BG,
@@ -94,12 +94,16 @@ export const metadata: Metadata = {
  * código antes de escrever (mesma checagem já feita pra `LandingPage`):
  * nota de episódio (`EpisodeStarRatingRow.tsx`), resenha com spoiler/
  * humor/personagem favorito/onde assistiu (`lib/queries/social/
- * reviews.ts`), importação de TV Time e Trakt (`TvTimeImportWizard.tsx`
- * /`TraktImportWizard.tsx`), tela de Feedback real em Configurações
- * (`SettingsPage.tsx`), atribuição do TMDB com a MESMA frase de
+ * reviews.ts`), atribuição do TMDB com a MESMA frase de
  * `app/terms/page.tsx`, link real da Play Store
  * (`AndroidAppPromoBanner.tsx`), e-mail de contato o mesmo já usado em
  * `/privacy`/`/terms` (contato@seenlist.app).
+ *
+ * FASE 2 (2026-10-21) — o card "Importe seu histórico" (TV Time/
+ * Trakt) foi substituído por "Desbloqueie conquistas" depois que essa
+ * importação foi descontinuada (Sublotes 4.6/4.7); confirmado antes de
+ * escrever que o emblema/conquistas é funcionalidade real e ativa hoje
+ * (`AchievementsCard` na tela de Perfil do app mobile).
  */
 export default function AboutPage() {
   const features = [
@@ -109,7 +113,7 @@ export default function AboutPage() {
     { icon: CalendarClock, title: "Agenda de estreias", text: "Veja os próximos episódios das suas séries organizados por data, sem se perder." },
     { icon: ListChecks, title: "Monte listas", text: "Crie e compartilhe listas de filmes e séries sobre qualquer assunto." },
     { icon: Users, title: "Comunidade", text: "Siga outras pessoas, veja o que elas estão assistindo e troque recomendações." },
-    { icon: Download, title: "Importe seu histórico", text: "Já usava TV Time ou Trakt? Importe tudo pro SeenList direto de dentro do app." },
+    { icon: Trophy, title: "Desbloqueie conquistas", text: "Ganhe emblemas conforme assiste mais filmes e séries, completa temporadas e mantém suas séries em dia." },
   ];
 
   return (

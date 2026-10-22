@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMovieSummary, getSeriesSummary, translateTvGenreName, type MediaSummary } from "@/lib/tmdb/client";
+import { getMovieSummary, getSeriesSummary, getGenreMaps, type MediaSummary } from "@/lib/tmdb/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 interface RequestBody {
@@ -92,25 +92,40 @@ interface CacheRow {
   ended: boolean | null;
   runtime_minutes: number | null;
   release_date: string | null;
-  genres: string[] | null;
+  /**
+   * MUDOU (2026-10-17, item 8 do plano dos 24 emblemas — ver migration
+   * `20261017000002_media_summaries_cache_genres_as_ids.sql`) — era
+   * `string[]` (nomes, já traduzidos por idioma — problema que
+   * motivou a mudança: "Comédia" em pt-BR e "Comedy" em en são
+   * strings diferentes pro MESMO gênero). Agora guarda ids TMDB
+   * (estáveis entre idiomas). Resolvido pra nome na LEITURA, em
+   * `rowToSummary`, via `getGenreMaps` — o contrato da API
+   * (`MediaSummary.genres: string[]`) não muda pra quem já consome
+   * esta rota.
+   */
+  genres: number[] | null;
+  /** NOVO (2026-10-17, emblemas Nômade/Pelo Mundo — ver migration `20261017000001_media_summaries_cache_countries.sql`). Só filme. */
+  production_countries: string[] | null;
+  /** NOVO (2026-10-17, emblemas Nômade/Pelo Mundo). Só série. */
+  origin_countries: string[] | null;
   /** NOVO (a pedido, 2026-10-15 — "O que assistir?", ver migração `20261015000000_media_summaries_cache_vote_average_count.sql`). */
   vote_average: number | null;
   vote_count: number | null;
 }
 
 /**
- * CORREÇÃO (a pedido, investigado até a causa raiz — chips de gênero
- * de SÉRIE em inglês, 2026-08-22) — ver `translateTvGenreName` em
- * `lib/tmdb/client.ts` pro histórico completo: o TMDB nunca traduziu 8
- * gêneros de série pro português, então linhas já gravadas em
- * `media_summaries_cache` ANTES desta correção guardam esses nomes em
- * inglês. `getSeriesSummary` (ver `client.ts`) já corrige toda busca
- * NOVA — mas sem reaplicar a tradução aqui também, quem já tem uma
- * linha em cache (válida por até 24h) continuaria vendo inglês até o
- * cache expirar sozinho. Aplicar de novo aqui, na LEITURA, corrige na
- * hora, sem esperar.
+ * Resolve os ids de gênero gravados em cache pro NOME no idioma
+ * pedido — `genreMaps` vem de `getGenreMaps(language)`, buscado UMA
+ * vez por chamada de `readCacheCombined` (não por linha), mesmo mapa
+ * id→nome já usado em outros lugares do app (`explore/route.ts`,
+ * `useFavoriteGenres`), já com a correção de tradução de gênero de
+ * série aplicada dentro de `getGenreMaps`/`translateTvGenreName`.
+ * `.filter(Boolean)` descarta silenciosamente um id que não exista
+ * mais no vocabulário atual da TMDB (nunca visto na prática, mas mais
+ * seguro que mostrar `undefined` como nome de chip).
  */
-function rowToSummary(row: CacheRow, language: string): MediaSummary {
+function rowToSummary(row: CacheRow, genreMaps: { movie: Record<number, string>; tv: Record<number, string> }): MediaSummary {
+  const genreMap = row.media_type === "series" ? genreMaps.tv : genreMaps.movie;
   return {
     id: row.tmdb_id,
     title: row.title,
@@ -121,7 +136,10 @@ function rowToSummary(row: CacheRow, language: string): MediaSummary {
     ended: row.ended ?? undefined,
     runtimeMinutes: row.runtime_minutes ?? undefined,
     releaseDate: row.release_date,
-    genres: row.media_type === "series" ? row.genres?.map((name) => translateTvGenreName(name, language)) : row.genres ?? undefined,
+    genres: row.genres?.map((id) => genreMap[id]).filter((name): name is string => Boolean(name)),
+    genreIds: row.genres ?? undefined,
+    productionCountries: row.production_countries ?? undefined,
+    originCountries: row.origin_countries ?? undefined,
     voteAverage: row.vote_average ?? undefined,
     voteCount: row.vote_count ?? undefined,
   };
@@ -178,7 +196,7 @@ async function readCacheCombined(
   const { data, error } = await admin
     .from("media_summaries_cache")
     .select(
-      "tmdb_id, media_type, title, original_title, year, poster_path, total_episodes, ended, runtime_minutes, release_date, genres, vote_average, vote_count"
+      "tmdb_id, media_type, title, original_title, year, poster_path, total_episodes, ended, runtime_minutes, release_date, genres, production_countries, origin_countries, vote_average, vote_count"
     )
     .eq("language", language)
     .gte("fetched_at", cutoff)
@@ -198,9 +216,14 @@ async function readCacheCombined(
     };
   }
 
+  // Um `getGenreMaps` só pra TODA a página (não um por linha) — já é
+  // uma chamada com cache de 24h (`ONE_DAY_SECONDS`, dentro de
+  // `tmdbGet`), então isto não bate no TMDB de novo a cada requisição.
+  const genreMaps = await getGenreMaps(language);
+
   for (const row of (data ?? []) as CacheRow[]) {
-    if (row.media_type === "movie") movieHits.set(row.tmdb_id, rowToSummary(row, language));
-    else seriesHits.set(row.tmdb_id, rowToSummary(row, language));
+    if (row.media_type === "movie") movieHits.set(row.tmdb_id, rowToSummary(row, genreMaps));
+    else seriesHits.set(row.tmdb_id, rowToSummary(row, genreMaps));
   }
 
   return {
@@ -229,7 +252,11 @@ async function writeCache(
     ended: summary.ended ?? null,
     runtime_minutes: summary.runtimeMinutes ?? null,
     release_date: summary.releaseDate ?? null,
-    genres: summary.genres ?? null,
+    // MUDOU (2026-10-17, ver comentário grande em `CacheRow.genres`
+    // acima) — grava ids (`genreIds`), não mais nomes.
+    genres: summary.genreIds ?? null,
+    production_countries: mediaType === "movie" ? summary.productionCountries ?? null : null,
+    origin_countries: mediaType === "series" ? summary.originCountries ?? null : null,
     vote_average: summary.voteAverage ?? null,
     vote_count: summary.voteCount ?? null,
     fetched_at: new Date().toISOString(),

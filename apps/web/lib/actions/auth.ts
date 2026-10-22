@@ -20,12 +20,40 @@ function siteUrl() {
  * (`/algo`) — nunca uma URL absoluta ou `//`, que seria um
  * open-redirect (mandar o usuário autenticado pra um site de
  * terceiros usando o próprio SeenList como isca).
+ *
+ * FASE 2 (2026-10-21, ajuste pedido pelo usuário no Lote 2 — "verifique
+ * se parâmetros next ou redirectTo podem apontar para rotas do webapp
+ * que serão removidas") — a validação antiga só checava o FORMATO do
+ * caminho (começa com "/", não é "//"), então qualquer rota interna
+ * passava, inclusive `/movies/123`, `/library`, `/profile/...` etc. —
+ * todas rotas do app web logado que estão sendo descontinuadas nesta
+ * fase. Depois da limpeza, essas rotas deixam de existir; um
+ * `redirectTo`/`next` antigo (ou forjado) apontando pra qualquer uma
+ * delas levaria a pessoa pra uma página quebrada. Troca pra uma
+ * ALLOWLIST explícita — só os destinos que continuam existindo depois
+ * da limpeza (mais `/login`/`/register`/`/forgot-password`, usados
+ * pelo próprio fluxo de autenticação) são aceitos; qualquer outro
+ * caminho cai no fallback seguro. Isso NÃO muda nenhuma troca de
+ * token/sessão/OAuth — é só a validação do destino final de navegação
+ * pós-login.
  */
+const ALLOWED_REDIRECT_PATHS = new Set([
+  "/",
+  "/about",
+  "/privacy",
+  "/terms",
+  "/download",
+  "/delete-account",
+  "/login",
+  "/register",
+  "/forgot-password",
+]);
+
 function safeRedirectPath(value: FormDataEntryValue | null): string {
-  if (typeof value === "string" && value.startsWith("/") && !value.startsWith("//")) {
+  if (typeof value === "string" && ALLOWED_REDIRECT_PATHS.has(value)) {
     return value;
   }
-  return "/series";
+  return "/download";
 }
 
 /** Login por e-mail/senha. */
@@ -94,7 +122,7 @@ export async function signUpWithEmail(
     };
   }
 
-  redirect("/series");
+  redirect("/download");
 }
 
 /**
@@ -175,7 +203,7 @@ export async function updatePassword(
     return { error: "Não foi possível atualizar a senha. Peça um novo link de recuperação." };
   }
 
-  redirect("/series");
+  redirect("/download");
 }
 
 /** Logout. */

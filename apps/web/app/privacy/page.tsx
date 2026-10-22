@@ -17,7 +17,15 @@ export default function PrivacyPage() {
     <main className="mx-auto max-w-4xl px-6 py-12 prose">
       <h1>Política de Privacidade</h1>
 
-      <p>Última atualização: 5 de agosto de 2026</p>
+      {/*
+        FASE 2 (2026-10-21) — seção de importações (TV Time/Trakt.tv)
+        atualizada: a funcionalidade foi descontinuada (Sublotes
+        4.6/4.7), então a redação deixou de apresentá-la como ativa.
+        Base legal de consentimento (seção 3) ajustada pelo mesmo
+        motivo — a cláusula de "importação de dados de terceiros" foi
+        removida por não se aplicar mais a nenhuma coleta em curso.
+      */}
+      <p>Última atualização: 21 de outubro de 2026</p>
 
       <p>
         O SeenList (&quot;nós&quot;, &quot;aplicativo&quot;, &quot;serviço&quot;) é um aplicativo de
@@ -80,17 +88,27 @@ export default function PrivacyPage() {
         </li>
       </ul>
 
-      <p><strong>Dados processados temporariamente, de fontes externas que você escolhe conectar:</strong></p>
+      <p><strong>Importações descontinuadas (TV Time e Trakt.tv):</strong></p>
+      <p>
+        O SeenList já ofereceu importação de histórico do TV Time e do Trakt.tv. Essa
+        funcionalidade foi descontinuada e não está mais disponível para novos usuários.
+      </p>
       <ul>
         <li>
-          <strong>Importação do Trakt.tv:</strong> ao autorizar, usamos um token de acesso de
-          curta duração (15 minutos) só pra buscar seu histórico uma vez e importar pra sua
-          biblioteca — não fazemos sincronização contínua, e o token não é guardado depois disso.
+          Enquanto esteve ativa, a importação do Trakt.tv usava um token de acesso guardado
+          temporariamente — por até 15 minutos — num cookie HTTP-only (inacessível a qualquer
+          script do navegador), só o tempo de terminar o assistente de importação. Passado esse
+          prazo, o cookie expirava automaticamente no navegador; essa expiração encerrava o acesso
+          do navegador ao token, mas não é o mesmo que revogar o token junto ao Trakt.tv. Nosso
+          código nunca guardou esse token de forma persistente, nem fora desse cookie temporário.
         </li>
         <li>
-          <strong>Importação do TV Time:</strong> você mesmo envia um arquivo de exportação de
-          dados (gerado pelo próprio TV Time); usamos esse arquivo só pra importar sua
-          biblioteca, uma vez, e não o armazenamos depois de processado.
+          A importação do TV Time usava um arquivo de exportação que você mesmo enviava (gerado
+          pelo próprio TV Time), processado uma única vez e não armazenado depois disso.
+        </li>
+        <li>
+          Em ambos os casos, os títulos, avaliações e demais dados já importados continuam
+          normalmente na sua biblioteca, como qualquer outro registro feito no SeenList.
         </li>
       </ul>
 
@@ -113,8 +131,7 @@ export default function PrivacyPage() {
           prevenir abuso e melhorar o aplicativo.
         </li>
         <li>
-          <strong>Consentimento</strong> (art. 7º, I) — pra notificação push e pra importação de
-          dados de terceiros (Trakt, TV Time).
+          <strong>Consentimento</strong> (art. 7º, I) — pra notificação push.
         </li>
       </ul>
 

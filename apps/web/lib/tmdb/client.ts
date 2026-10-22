@@ -484,9 +484,58 @@ interface TmdbSeasonResponse {
   }[];
 }
 
+/**
+ * NOVO (2026-10-17, emblema Temporada Concluída — ver migration
+ * `20261017000003_series_season_episode_counts.sql`) — efeito
+ * colateral das 3 funções abaixo que já buscam `/tv/{id}/season/{n}`:
+ * grava quantos episódios essa temporada tem (`episodes.length`) num
+ * cache COMPARTILHADO entre todos os usuários, pra
+ * `evaluate_and_unlock_achievements` (Postgres, sem acesso ao TMDB)
+ * saber se uma temporada está 100% assistida.
+ *
+ * `import()` dinâmico pra `createAdminClient` DE PROPÓSITO — este
+ * arquivo (`lib/tmdb/client.ts`) é só sobre chamar a API da TMDB, sem
+ * nenhuma dependência de Supabase no topo do módulo; manter essa
+ * separação evita acoplar toda a superfície de `client.ts` (usada em
+ * rotas públicas e no app inteiro) a uma importação de servidor que só
+ * ESTA função usa.
+ *
+ * Fire-and-forget: nunca espera a escrita terminar antes de devolver
+ * os episódios pra quem chamou, e nunca deixa uma falha de banco
+ * quebrar a resposta da TMDB (mesmo princípio de `writeCache` em
+ * `api/tmdb/library-summaries/route.ts` — cache é só otimização, erro
+ * aqui nunca pode derrubar a tela do usuário).
+ */
+async function cacheSeasonEpisodeCount(seriesId: string, seasonNumber: number, episodeCount: number): Promise<void> {
+  if (episodeCount <= 0) return;
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const { error } = await createAdminClient()
+      .from("series_season_episode_counts")
+      .upsert(
+        {
+          series_id: Number(seriesId),
+          season_number: seasonNumber,
+          episode_count: episodeCount,
+          fetched_at: new Date().toISOString(),
+        },
+        { onConflict: "series_id,season_number" }
+      );
+    if (error) {
+      console.warn(
+        `[tmdb/client] Falha ao gravar series_season_episode_counts (série ${seriesId}, temporada ${seasonNumber}).`,
+        error.message
+      );
+    }
+  } catch (err) {
+    console.warn(`[tmdb/client] Falha ao gravar series_season_episode_counts (série ${seriesId}, temporada ${seasonNumber}).`, err);
+  }
+}
+
 /** Lista de episódios de UMA temporada. Chamada uma vez por temporada, em paralelo, pela rota `/api/tmdb/series/[id]`. */
 export async function getSeasonEpisodes(seriesId: string, seasonNumber: number, language = "pt-BR"): Promise<Episode[]> {
   const data = await tmdbGet<TmdbSeasonResponse>(`/tv/${seriesId}/season/${seasonNumber}`, { language });
+  void cacheSeasonEpisodeCount(seriesId, seasonNumber, data.episodes.length);
 
   return data.episodes.map((episode) => ({
     id: episode.id,
@@ -530,6 +579,7 @@ export async function getSeasonEpisodesWithOverview(
   language = "pt-BR"
 ): Promise<SeasonEpisodeOverview[]> {
   const data = await tmdbGet<TmdbSeasonWithOverviewResponse>(`/tv/${seriesId}/season/${seasonNumber}`, { language });
+  void cacheSeasonEpisodeCount(seriesId, seasonNumber, data.episodes.length);
 
   return data.episodes.map((episode) => ({
     episodeNumber: episode.episode_number,
@@ -595,6 +645,7 @@ export async function getPublicSeasonDetails(
   language = "pt-BR"
 ): Promise<PublicSeasonDetails> {
   const data = await tmdbGet<TmdbPublicSeasonResponse>(`/tv/${seriesId}/season/${seasonNumber}`, { language });
+  void cacheSeasonEpisodeCount(seriesId, seasonNumber, data.episodes.length);
 
   return {
     seasonNumber,
@@ -1054,6 +1105,32 @@ export interface MediaSummary {
    */
   voteAverage?: number;
   voteCount?: number;
+  /**
+   * NOVO (2026-10-17, emblemas Nômade/Pelo Mundo — ver migration
+   * `20261017000001_media_summaries_cache_countries.sql`) — ids de
+   * gênero TMDB (não nomes — `genres` acima continua sendo o nome
+   * traduzido, pra não quebrar quem já consome isso; isto aqui é o
+   * dado NOVO, cru, usado só pra gravar em
+   * `media_summaries_cache.genres`, que passou a guardar id em vez de
+   * nome — ver a mesma migration pro motivo completo: nome traduzido
+   * por idioma quebrava qualquer comparação entre contas em idiomas
+   * diferentes). Vem da MESMA resposta que já busca o resto do
+   * resumo — nenhuma chamada nova ao TMDB.
+   */
+  genreIds?: number[];
+  /**
+   * NOVO (2026-10-17, emblemas Nômade/Pelo Mundo) — só preenchido pra
+   * FILME, países de PRODUÇÃO (ISO 3166-1 alpha-2). Vem da mesma
+   * resposta de sempre.
+   */
+  productionCountries?: string[];
+  /**
+   * NOVO (2026-10-17, emblemas Nômade/Pelo Mundo) — só preenchido pra
+   * SÉRIE, país(es) de ORIGEM (`origin_country`, campo DIFERENTE de
+   * `production_countries` — decisão explícita do usuário: "para
+   * séries, usar países de origem"). Vem da mesma resposta de sempre.
+   */
+  originCountries?: string[];
 }
 
 interface TmdbMovieSummaryResponse {
@@ -1068,6 +1145,8 @@ interface TmdbMovieSummaryResponse {
   /** NOVO (2026-10-15, ver `MediaSummary.voteAverage`/`voteCount` acima) — já vem de graça nesta mesma resposta. */
   vote_average: number;
   vote_count: number;
+  /** NOVO (2026-10-17, ver `MediaSummary.productionCountries`) — já vem de graça nesta mesma resposta, igual `genres`. */
+  production_countries: { iso_3166_1: string; name: string }[];
 }
 
 export async function getMovieSummary(movieId: number, language = "pt-BR"): Promise<MediaSummary> {
@@ -1081,6 +1160,8 @@ export async function getMovieSummary(movieId: number, language = "pt-BR"): Prom
     runtimeMinutes: data.runtime ?? undefined,
     releaseDate: data.release_date ?? null,
     genres: (data.genres ?? []).map((g) => g.name),
+    genreIds: (data.genres ?? []).map((g) => g.id),
+    productionCountries: (data.production_countries ?? []).map((c) => c.iso_3166_1),
     voteAverage: data.vote_average,
     voteCount: data.vote_count,
   };
@@ -1105,6 +1186,8 @@ interface TmdbSeriesSummaryResponse {
   /** NOVO (2026-10-15, ver `MediaSummary.voteAverage`/`voteCount` em `getMovieSummary`) — já vem de graça nesta mesma resposta. */
   vote_average: number;
   vote_count: number;
+  /** NOVO (2026-10-17, ver `MediaSummary.originCountries`) — campo PRÓPRIO de série, diferente de `production_countries` (que também existe no `/tv/{id}`, mas não é o usado aqui — decisão explícita do usuário). Já vem de graça nesta mesma resposta. */
+  origin_country: string[];
 }
 
 const DEFAULT_EPISODE_RUNTIME_MINUTES = 45;
@@ -1147,6 +1230,8 @@ export async function getSeriesSummary(seriesId: number, language = "pt-BR"): Pr
     // `language=pt-BR` — o TMDB nunca traduziu esses 8 gêneros de
     // série pro português.
     genres: (data.genres ?? []).map((g) => translateTvGenreName(g.name, language)),
+    genreIds: (data.genres ?? []).map((g) => g.id),
+    originCountries: data.origin_country ?? [],
     voteAverage: data.vote_average,
     voteCount: data.vote_count,
   };
