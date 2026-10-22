@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLibraryItems } from "./useLibraryItems";
 import { useTranslation } from "./i18n/LocaleProvider";
+import { supabase } from "@/lib/supabase";
 
-const SITE_URL = "https://seenlist.app";
 const TOP_GENRES_COUNT = 5;
 
 interface SummaryGenres {
@@ -26,21 +26,36 @@ export interface FavoriteGenre {
   count: number;
 }
 
+/**
+ * CONTINUAÇÃO DA FASE 1 (migração mobile sem Vercel, 2026-10-20) —
+ * achado real na varredura: esta era a ÚNICA chamada de
+ * `library-summaries` que ainda não tinha migrado pra Edge Function
+ * (as outras 4 — `library.ts`, `seriesDetails.ts` x3 — já tinham
+ * migrado na primeira etapa desta fase). Mesma Edge Function
+ * `library-summaries` já existente, zero código novo no servidor —
+ * só trocou o endereço de quem chama. MESMO contrato de saída.
+ */
 async function fetchGenresByIds(movieIds: number[], seriesIds: number[], language: string): Promise<LibrarySummariesGenresResponse> {
-  const response = await fetch(`${SITE_URL}/api/tmdb/library-summaries`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ movieIds, seriesIds, language }),
+  const { data, error } = await supabase.functions.invoke("library-summaries", {
+    body: { movieIds, seriesIds, language },
   });
-  if (!response.ok) throw new Error("library-summaries fetch failed");
-  return response.json();
+  if (error) throw new Error("library-summaries fetch failed");
+  return data as LibrarySummariesGenresResponse;
 }
 
+/**
+ * CONTINUAÇÃO DA FASE 1 (migração mobile sem Vercel, 2026-10-20) —
+ * passou a chamar a operação "genres" da Supabase Edge Function
+ * `tmdb-catalog` em vez da rota Vercel `/api/tmdb/genres`. MESMO
+ * contrato de saída (`{ movieGenreMap, tvGenreMap }`).
+ */
 async function fetchGenreMaps(language: string): Promise<GenreMaps> {
-  const response = await fetch(`${SITE_URL}/api/tmdb/genres?language=${language}`);
-  if (!response.ok) throw new Error("genre map fetch failed");
-  const data = (await response.json()) as { movieGenreMap: Record<number, string>; tvGenreMap: Record<number, string> };
-  return { movie: data.movieGenreMap, tv: data.tvGenreMap };
+  const { data, error } = await supabase.functions.invoke("tmdb-catalog", {
+    body: { operation: "genres", language },
+  });
+  if (error) throw new Error("genre map fetch failed");
+  const body = data as { movieGenreMap: Record<number, string>; tvGenreMap: Record<number, string> };
+  return { movie: body.movieGenreMap, tv: body.tvGenreMap };
 }
 
 function rankGenres(summaries: SummaryGenres[], nameToId: Map<string, number>): FavoriteGenre[] {

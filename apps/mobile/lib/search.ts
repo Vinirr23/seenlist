@@ -1,16 +1,23 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { MediaSearchResult } from "@seenlist/types";
+import { supabase } from "@/lib/supabase";
 
-const SITE_URL = "https://seenlist.app";
 const HISTORY_KEY = "seenlist:search-history";
 const HISTORY_LIMIT = 8;
 
-/** Idêntico ao lib/queries/search.ts do web — mesma rota, mesmo formato de resposta. */
+/**
+ * CONTINUAÇÃO DA FASE 1 (migração mobile sem Vercel, 2026-10-20) —
+ * passou a chamar a operação "search" da Supabase Edge Function
+ * `tmdb-catalog` em vez da rota Vercel `/api/search`. MESMO contrato
+ * de saída (`{ results }`) — ver `supabase/functions/tmdb-catalog/index.ts`.
+ */
 export async function fetchSearchResults(query: string, language = "pt-BR"): Promise<MediaSearchResult[]> {
-  const response = await fetch(`${SITE_URL}/api/search?q=${encodeURIComponent(query)}&language=${language}`);
-  if (!response.ok) throw new Error("search failed");
-  const data = (await response.json()) as { results: MediaSearchResult[] };
-  return data.results;
+  const { data, error } = await supabase.functions.invoke("tmdb-catalog", {
+    body: { operation: "search", query, language },
+  });
+  if (error) throw new Error("search failed");
+  const body = data as { results: MediaSearchResult[] };
+  return body.results;
 }
 
 /**

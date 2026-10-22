@@ -1,8 +1,6 @@
 import type { LibraryItem, LibraryStatus } from "@seenlist/types";
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
-const SITE_URL = "https://seenlist.app";
-
 interface MovieStatusRow {
   movie_id: number;
   status: "watched" | "want_to_watch" | "watching";
@@ -112,15 +110,16 @@ function toLibraryStatus(movieStatus: MovieStatusRow["status"]): LibraryStatus {
 }
 
 /**
- * TASK-093 (correção) — a rota `/api/tmdb/library-summaries` tem um
- * teto de 100 ids por chamada (`MAX_IDS_PER_REQUEST`, no arquivo
- * route.ts do web). A primeira versão desta função mandava tudo de
- * uma vez só — funcionava bem pra bibliotecas pequenas, mas qualquer
- * id além do 100º (na ordem que fosse) nunca era sequer pedido, e
- * silenciosamente caía no fallback `Filme #123`/`Série #123`. Uma
- * biblioteca grande (ex.: importada do TV Time) estoura isso fácil.
- * Mesma correção que o web já tinha (`library-state.ts`): quebra em
- * páginas de 100, busca todas em paralelo, junta o resultado.
+ * TASK-093 (correção) — a rota `/api/tmdb/library-summaries` (web) tem
+ * um teto de 100 ids por chamada (`MAX_IDS_PER_REQUEST`, no arquivo
+ * route.ts do web, igual na Edge Function que a substitui — ver
+ * abaixo). A primeira versão desta função mandava tudo de uma vez só
+ * — funcionava bem pra bibliotecas pequenas, mas qualquer id além do
+ * 100º (na ordem que fosse) nunca era sequer pedido, e silenciosamente
+ * caía no fallback `Filme #123`/`Série #123`. Uma biblioteca grande
+ * (ex.: importada do TV Time) estoura isso fácil. Mesma correção que
+ * o web já tinha (`library-state.ts`): quebra em páginas de 100,
+ * busca todas em paralelo, junta o resultado.
  */
 const LIBRARY_SUMMARIES_PAGE_SIZE = 100;
 
@@ -132,6 +131,16 @@ function chunkIds(ids: number[], size: number): number[][] {
   return chunks;
 }
 
+/**
+ * FASE 1 (migração mobile sem Vercel, 2026-10-20) — passou a chamar a
+ * Supabase Edge Function `library-summaries` em vez da rota Vercel
+ * `/api/tmdb/library-summaries`. MESMO contrato de entrada/saída
+ * (POST { movieIds, seriesIds, language } → { movies, series, timing }
+ * — ver `supabase/functions/library-summaries/index.ts`), mesmo cache
+ * compartilhado (`media_summaries_cache`). `supabase.functions.invoke`
+ * já manda o token da sessão atual (ou a anon key) automaticamente —
+ * nenhuma chamada precisa de autenticação extra aqui.
+ */
 async function fetchOneLibrarySummariesPage(
   movieIds: number[],
   seriesIds: number[],
@@ -141,16 +150,14 @@ async function fetchOneLibrarySummariesPage(
     return { movies: [], series: [] };
   }
   try {
-    const response = await fetch(`${SITE_URL}/api/tmdb/library-summaries`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ movieIds, seriesIds, language }),
+    const { data, error } = await supabase.functions.invoke("library-summaries", {
+      body: { movieIds, seriesIds, language },
     });
-    if (!response.ok) {
-      console.warn(`[library] /api/tmdb/library-summaries respondeu ${response.status} numa página — itens desta página ficam sem poster/título.`);
+    if (error) {
+      console.warn(`[library] library-summaries respondeu com erro numa página — itens desta página ficam sem poster/título.`, error);
       return { movies: [], series: [] };
     }
-    return (await response.json()) as LibrarySummariesResponse;
+    return data as LibrarySummariesResponse;
   } catch (error) {
     console.warn("[library] Falha ao buscar uma página de resumos do TMDB — itens desta página ficam sem poster/título.", error);
     return { movies: [], series: [] };

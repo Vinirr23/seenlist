@@ -28,6 +28,7 @@ import { markFontsReady } from "@/lib/appReady";
 import { useInAppUpdateCheck } from "@/lib/inAppUpdate";
 import { useOtaUpdateCheck } from "@/lib/otaUpdate";
 import { installGlobalErrorHandler } from "@/lib/globalErrorHandler";
+import { useSupabaseAutoRefresh } from "@/lib/supabase";
 
 /**
  * DIAGNÓSTICO TEMPORÁRIO (2026-10-09) — ver comentário completo em
@@ -288,6 +289,16 @@ export default function RootLayout() {
    * mesmo motivo de morar no layout raiz — precisa rodar em toda tela.
    */
   useOtaUpdateCheck();
+  /**
+   * RENOVAÇÃO DE SESSÃO EM SEGUNDO PLANO (2026-10-20, achado na
+   * validação da Fase 1 — ver comentário completo em
+   * `lib/supabase.ts`, `useSupabaseAutoRefresh`) — liga/desliga o
+   * timer interno de renovação do token Supabase ao sair/voltar de
+   * segundo plano. Mesmo motivo de morar no layout raiz que os dois
+   * hooks acima: precisa existir em toda tela, registrado uma única
+   * vez pra vida inteira do app.
+   */
+  useSupabaseAutoRefresh();
   /**
    * O ALVO DE DESFOQUE DA BARRA subiu junto com ela (estava em
    * `app/(tabs)/_layout.tsx`). Os dois precisam andar juntos: o

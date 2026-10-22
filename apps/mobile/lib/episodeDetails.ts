@@ -1,6 +1,5 @@
 import type { WatchProvider } from "@seenlist/types";
-
-const SITE_URL = "https://seenlist.app";
+import { supabase } from "@/lib/supabase";
 
 export interface EpisodeDetails {
   id: number;
@@ -19,9 +18,21 @@ export interface EpisodePageData {
   watchProviders: WatchProvider[];
 }
 
-/** Idêntico a useEpisodeDetails do web — mesma rota (/api/tmdb/episode/..., já liberada no middleware pro app nativo). */
+/**
+ * FASE 1 (migração mobile sem Vercel, 2026-10-20) — passou a chamar a
+ * operação "episode" da Supabase Edge Function `series-data` em vez
+ * da rota Vercel `/api/tmdb/episode/[seriesId]/[season]/[episode]`.
+ * MESMO contrato de saída (`{ episode, watchProviders }` — ver
+ * `supabase/functions/series-data/index.ts`). Esta rota, sozinha, não
+ * tinha nenhum efeito colateral no Supabase e seria segura pra
+ * chamada direta à TMDB do mobile — entrou na Edge Function por
+ * decisão explícita do usuário, pra não expor `TMDB_API_KEY` no
+ * bundle do app (ver comentário grande no topo de `series-data/index.ts`).
+ */
 export async function fetchEpisodePage(seriesId: string, season: number, episode: number, language = "pt-BR"): Promise<EpisodePageData> {
-  const response = await fetch(`${SITE_URL}/api/tmdb/episode/${seriesId}/${season}/${episode}?language=${language}`);
-  if (!response.ok) throw new Error("episode fetch failed");
-  return response.json() as Promise<EpisodePageData>;
+  const { data, error } = await supabase.functions.invoke("series-data", {
+    body: { operation: "episode", seriesId, season, episode, language },
+  });
+  if (error) throw new Error("episode fetch failed");
+  return data as EpisodePageData;
 }

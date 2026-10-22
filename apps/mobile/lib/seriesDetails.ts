@@ -4,7 +4,14 @@ import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { todayLocalKey } from "@/lib/localDate";
 import { notifyWatchedAction } from "@/lib/reviewPrompt";
 
-const SITE_URL = "https://seenlist.app";
+/**
+ * CONTINUAÇÃO DA FASE 1 (migração mobile sem Vercel, 2026-10-20) — as
+ * 2 últimas chamadas deste arquivo que ainda dependiam da Vercel
+ * (`fetchSeriesEpisodesAtExportWithRetry` → `series-data` operação
+ * "episodes-at-export"; a checagem extra via `next_episode_to_air` →
+ * `tmdb-catalog` operação "upcoming") migraram nesta etapa — o
+ * `SITE_URL` que existia aqui pra elas foi removido.
+ */
 
 /** Idêntico a lib/queries/series.ts do web. */
 /**
@@ -38,16 +45,27 @@ export function peekCachedSeriesDetails(seriesId: string, language: string): Ser
   return cached && cached.expiresAt > Date.now() ? cached.data : null;
 }
 
+/**
+ * FASE 1 (migração mobile sem Vercel, 2026-10-20) — passou a chamar a
+ * operação "details" da Supabase Edge Function `series-data` em vez
+ * da rota Vercel `/api/tmdb/series/[id]`. MESMO contrato de saída
+ * (`SeriesDetails` completo, com `seasons`) — a gravação em
+ * `series_season_episode_counts` (emblema "Temporada Concluída") é
+ * preservada do lado do servidor, não do mobile (ver
+ * `supabase/functions/series-data/index.ts`).
+ */
 export async function fetchSeriesDetails(seriesId: string, language = "pt-BR"): Promise<SeriesDetails> {
   const cacheKey = `${seriesId}:${language}`;
   const cached = seriesDetailsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
 
-  const response = await fetch(`${SITE_URL}/api/tmdb/series/${seriesId}?language=${language}`);
-  if (!response.ok) throw new Error("series details fetch failed");
-  const data = (await response.json()) as SeriesDetails;
-  seriesDetailsCache.set(cacheKey, { data, expiresAt: Date.now() + SERIES_DETAILS_TTL_MS });
-  return data;
+  const { data, error } = await supabase.functions.invoke("series-data", {
+    body: { operation: "details", seriesId, language },
+  });
+  if (error) throw new Error("series details fetch failed");
+  const typed = data as SeriesDetails;
+  seriesDetailsCache.set(cacheKey, { data: typed, expiresAt: Date.now() + SERIES_DETAILS_TTL_MS });
+  return typed;
 }
 
 export function prefetchSeriesDetails(seriesId: string, language = "pt-BR"): void {
@@ -96,14 +114,22 @@ export interface EpisodeSeriesContext {
 const EPISODE_CONTEXT_TTL_MS = 5 * 60 * 1000;
 const episodeContextCache = new Map<string, { data: EpisodeSeriesContext; expiresAt: number }>();
 
+/**
+ * FASE 1 (migração mobile sem Vercel, 2026-10-20) — passou a chamar a
+ * operação "episode-context" da Supabase Edge Function `series-data`
+ * em vez da rota Vercel `/api/tmdb/series/[id]/season/[season]/episode-context`.
+ * MESMO contrato de saída — ver `supabase/functions/series-data/index.ts`.
+ */
 export async function fetchEpisodeSeriesContext(seriesId: string, season: number, language = "pt-BR"): Promise<EpisodeSeriesContext> {
   const key = `${seriesId}:${season}:${language}`;
   const cached = episodeContextCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
 
-  const response = await fetch(`${SITE_URL}/api/tmdb/series/${seriesId}/season/${season}/episode-context?language=${language}`);
-  if (!response.ok) throw new Error("episode series context fetch failed");
-  const data = (await response.json()) as EpisodeSeriesContext;
+  const { data: result, error } = await supabase.functions.invoke("series-data", {
+    body: { operation: "episode-context", seriesId, season, language },
+  });
+  if (error) throw new Error("episode series context fetch failed");
+  const data = result as EpisodeSeriesContext;
   episodeContextCache.set(key, { data, expiresAt: Date.now() + EPISODE_CONTEXT_TTL_MS });
   return data;
 }
@@ -633,6 +659,31 @@ const EPISODES_EXPORT_RETRY_DELAYS_MS = [800, 2000]; // até 2 tentativas extras
  * `failedIds` (não refaz a rajada inteira, só o que realmente
  * falhou), com uma pausa curta entre elas.
  */
+// CORREÇÃO (2026-10-20, erro real de `npx tsc --noEmit` — "Property
+// 'series' does not exist on type 'never'") — causa raiz: a variável
+// `data` abaixo era tipada com `as typeof data` (auto-referência ao
+// tipo DA PRÓPRIA VARIÁVEL). `typeof` sobre uma variável local pega o
+// tipo já NARROWED pela análise de fluxo no ponto exato da consulta —
+// e, naquele ponto (linha seguinte à declaração `let data: {...} |
+// null = null`, sem nenhuma atribuição no meio), o fluxo ainda vê
+// `data` como literalmente `null`. Resultado: o cast virava `as null`
+// (não a união completa), `!data` passava a ser sempre verdadeiro pro
+// type-checker, e o que sobrava depois do `if (...) continue;` era o
+// tipo `never` — daí os dois erros reais. Corrigido nomeando o
+// formato da resposta como uma interface própria
+// (`EpisodesAtExportInvokeResponse`), independente de qualquer
+// narrowing de fluxo sobre a variável que a recebe. Comportamento em
+// runtime não muda — era só o tipo declarado que estava errado, nunca
+// chegou a rodar (o bug só aparece em `tsc --noEmit`, que não tínhamos
+// executado até agora).
+interface EpisodesAtExportInvokeResponse {
+  series: {
+    id: number;
+    episodes: { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[];
+  }[];
+  failedIds?: number[];
+}
+
 async function fetchSeriesEpisodesAtExportWithRetry(
   seriesIds: number[],
   language: string
@@ -644,26 +695,27 @@ async function fetchSeriesEpisodesAtExportWithRetry(
     if (attempt > 0) {
       await new Promise((resolve) => setTimeout(resolve, EPISODES_EXPORT_RETRY_DELAYS_MS[attempt - 1]));
     }
-    let response: Response;
+    // CONTINUAÇÃO DA FASE 1 (2026-10-20) — passou a chamar a operação
+    // "episodes-at-export" da Supabase Edge Function `series-data` em
+    // vez da rota Vercel `/api/tmdb/series-episodes-at-export`. MESMA
+    // função reaproveitada (não uma nova) por já atender o domínio
+    // série/episódio e já ter a mesma gravação de cache de contagem
+    // (`series_season_episode_counts`) que esta rota também precisa.
+    let invokeError: unknown = null;
+    let data: EpisodesAtExportInvokeResponse | null = null;
     try {
-      response = await fetch(`${SITE_URL}/api/tmdb/series-episodes-at-export`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seriesIds: pending, language }),
+      const result = await supabase.functions.invoke("series-data", {
+        body: { operation: "episodes-at-export", seriesIds: pending, language },
       });
+      invokeError = result.error;
+      data = result.data as EpisodesAtExportInvokeResponse | null;
     } catch (error) {
-      console.error(`[fetchSeriesEpisodesAtExportWithRetry] Falha de rede na tentativa ${attempt + 1}.`, error);
+      invokeError = error;
+    }
+    if (invokeError || !data) {
+      console.error(`[fetchSeriesEpisodesAtExportWithRetry] Falha na tentativa ${attempt + 1}.`, invokeError);
       continue;
     }
-    if (!response.ok) continue;
-    // `episodeId` (2026-08-26, "motor resistente") — a rota já devolve, ver route.ts.
-    const data = (await response.json()) as {
-      series: {
-        id: number;
-        episodes: { seasonNumber: number; episodeNumber: number; name: string; airDate: string | null; episodeId: number }[];
-      }[];
-      failedIds?: number[];
-    };
     for (const s of data.series) result.set(s.id, s.episodes);
     pending = data.failedIds ?? [];
   }
@@ -762,24 +814,27 @@ async function fetchSpecialEpisodeKeysBySeriesId(userId: string, seriesIds: numb
   return result;
 }
 
+/**
+ * FASE 1 (migração mobile sem Vercel, 2026-10-20) — passou a chamar a
+ * Edge Function `library-summaries` (mesma usada por `lib/library.ts`)
+ * em vez da rota Vercel. MESMO contrato de saída.
+ */
 async function fetchEndedBySeriesId(seriesIds: number[]): Promise<Map<number, boolean>> {
   const result = new Map<number, boolean>();
   const chunks = chunkArray(seriesIds, TMDB_EPISODES_CHUNK_SIZE);
 
   const responses = await Promise.all(
     chunks.map((idsChunk) =>
-      fetch(`${SITE_URL}/api/tmdb/library-summaries`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ movieIds: [], seriesIds: idsChunk }),
+      supabase.functions.invoke("library-summaries", {
+        body: { movieIds: [], seriesIds: idsChunk },
       })
     )
   );
 
-  for (const response of responses) {
-    if (!response.ok) continue;
-    const data = (await response.json()) as { series: { id: number; ended: boolean }[] };
-    for (const s of data.series) result.set(s.id, s.ended);
+  for (const { data, error } of responses) {
+    if (error) continue;
+    const typed = data as { series: { id: number; ended: boolean }[] };
+    for (const s of typed.series) result.set(s.id, s.ended);
   }
   return result;
 }
@@ -1009,14 +1064,15 @@ export async function recalculateUpToDateSeriesCategories(): Promise<void> {
   const forcedNewEpisodeSeriesIds = new Set<number>();
   if (upToDateSeriesIds.length > 0) {
     try {
-      const response = await fetch(`${SITE_URL}/api/tmdb/upcoming`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seriesIds: upToDateSeriesIds }),
+      // CONTINUAÇÃO DA FASE 1 (2026-10-20) — passou a chamar a
+      // operação "upcoming" da Supabase Edge Function `tmdb-catalog`
+      // em vez da rota Vercel `/api/tmdb/upcoming`.
+      const { data: invokeData, error: invokeError } = await supabase.functions.invoke("tmdb-catalog", {
+        body: { operation: "upcoming", seriesIds: upToDateSeriesIds },
       });
-      if (response.ok) {
+      if (!invokeError) {
         const today = todayLocalKey();
-        const data = (await response.json()) as {
+        const data = invokeData as {
           episodes: { seriesId: number; seasonNumber: number; episodeNumber: number; airDate: string | null }[];
         };
         for (const ep of data.episodes) {
@@ -1156,18 +1212,19 @@ export async function recalculateSeriesCategoryAfterEpisodeChange(seriesId: numb
       // nenhum" como a MESMA coisa. Agora tenta de novo sozinho quando
       // a rota sinaliza falha de verdade (`failedIds`).
       fetchSeriesEpisodesAtExportWithRetry([seriesId], "pt-BR"),
-      fetch(`${SITE_URL}/api/tmdb/library-summaries`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ movieIds: [], seriesIds: [seriesId] }),
+      // FASE 1 (migração mobile sem Vercel, 2026-10-20) — Edge
+      // Function `library-summaries` em vez da rota Vercel, mesmo
+      // contrato de saída.
+      supabase.functions.invoke("library-summaries", {
+        body: { movieIds: [], seriesIds: [seriesId] },
       }),
     ]);
     watchedEpisodeKeys = watchedLookup.keysBySeriesId.get(seriesId) ?? new Set<string>();
     watchedEpisodeIds = watchedLookup.idsBySeriesId.get(seriesId) ?? new Set<number>();
     specialKeys = specialKeysBySeriesId.get(seriesId) ?? new Set<string>();
     liveEpisodes = episodesBySeriesId.get(seriesId) ?? [];
-    if (summaryResponse.ok) {
-      const data = (await summaryResponse.json()) as { series: { id: number; ended: boolean }[] };
+    if (!summaryResponse.error) {
+      const data = summaryResponse.data as { series: { id: number; ended: boolean }[] };
       ended = data.series.find((s) => s.id === seriesId)?.ended ?? false;
     }
   } catch (error) {

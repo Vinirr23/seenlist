@@ -1,6 +1,23 @@
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 
-const SITE_URL = "https://seenlist.app";
+/**
+ * CONTINUAÇÃO DA FASE 1 (migração mobile sem Vercel, 2026-10-20) —
+ * as 6 funções de busca deste arquivo passaram a chamar a operação
+ * "explore" da Supabase Edge Function `tmdb-catalog` em vez da rota
+ * Vercel `/api/tmdb/explore`. Único ajuste de formato: os parâmetros
+ * (list/genreId/anchorId/source/page/language) agora vão no BODY da
+ * chamada (JSON), não na query string — `supabase.functions.invoke`
+ * só manda corpo, não facilita montar query string como `fetch` fazia.
+ * MESMO contrato de saída (`{ items, genreMap, page?, totalPages?,
+ * source? }`) — ver `supabase/functions/tmdb-catalog/index.ts`.
+ */
+async function invokeExplore(params: Record<string, unknown>): Promise<DiscoverListResponse> {
+  const { data, error } = await supabase.functions.invoke("tmdb-catalog", {
+    body: { operation: "explore", ...params },
+  });
+  if (error) throw new Error("discover fetch failed");
+  return data as DiscoverListResponse;
+}
 
 export type DiscoverListKey =
   | "trending_series"
@@ -26,12 +43,8 @@ interface DiscoverListResponse {
   genreMap: Record<number, string> | null;
 }
 
-/** Idêntico a lib/queries/discover.ts do web — mesma rota (/api/tmdb/explore, já liberada no middleware pro app nativo). */
 export async function fetchDiscoverList(list: DiscoverListKey, language?: string): Promise<DiscoverItem[]> {
-  const languageParam = language ? `&language=${encodeURIComponent(language)}` : "";
-  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${list}${languageParam}`);
-  if (!response.ok) throw new Error("discover fetch failed");
-  const data = (await response.json()) as DiscoverListResponse;
+  const data = await invokeExplore({ list, language });
   return data.items;
 }
 
@@ -49,20 +62,14 @@ export async function fetchDiscoverList(list: DiscoverListKey, language?: string
 export type GenreDiscoverKey = "genre_movies" | "genre_series";
 
 export async function fetchGenreDiscoverList(kind: GenreDiscoverKey, genreId: number, language?: string): Promise<DiscoverItem[]> {
-  const languageParam = language ? `&language=${encodeURIComponent(language)}` : "";
-  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${kind}&genreId=${genreId}${languageParam}`);
-  if (!response.ok) throw new Error("genre discover fetch failed");
-  const data = (await response.json()) as DiscoverListResponse;
+  const data = await invokeExplore({ list: kind, genreId, language });
   return data.items;
 }
 
 export type SimilarDiscoverKey = "similar_movies" | "similar_series";
 
 export async function fetchSimilarDiscoverList(kind: SimilarDiscoverKey, anchorId: number, language?: string): Promise<DiscoverItem[]> {
-  const languageParam = language ? `&language=${encodeURIComponent(language)}` : "";
-  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${kind}&anchorId=${anchorId}${languageParam}`);
-  if (!response.ok) throw new Error("similar discover fetch failed");
-  const data = (await response.json()) as DiscoverListResponse;
+  const data = await invokeExplore({ list: kind, anchorId, language });
   return data.items;
 }
 
@@ -89,10 +96,7 @@ export interface PaginatedDiscoverResponse extends DiscoverListResponse {
 }
 
 export async function fetchDiscoverListPage(list: DiscoverListKey, page: number, language?: string): Promise<PaginatedDiscoverResponse> {
-  const languageParam = language ? `&language=${encodeURIComponent(language)}` : "";
-  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${list}&page=${page}${languageParam}`);
-  if (!response.ok) throw new Error("discover page fetch failed");
-  return response.json();
+  return (await invokeExplore({ list, page, language })) as PaginatedDiscoverResponse;
 }
 
 export async function fetchGenreDiscoverListPage(
@@ -101,10 +105,7 @@ export async function fetchGenreDiscoverListPage(
   page: number,
   language?: string
 ): Promise<PaginatedDiscoverResponse> {
-  const languageParam = language ? `&language=${encodeURIComponent(language)}` : "";
-  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${kind}&genreId=${genreId}&page=${page}${languageParam}`);
-  if (!response.ok) throw new Error("genre discover page fetch failed");
-  return response.json();
+  return (await invokeExplore({ list: kind, genreId, page, language })) as PaginatedDiscoverResponse;
 }
 
 /**
@@ -131,11 +132,7 @@ export async function fetchSimilarDiscoverListPage(
   source: SimilarSource | undefined,
   language?: string
 ): Promise<PaginatedSimilarResponse> {
-  const languageParam = language ? `&language=${encodeURIComponent(language)}` : "";
-  const sourceParam = source ? `&source=${source}` : "";
-  const response = await fetch(`${SITE_URL}/api/tmdb/explore?list=${kind}&anchorId=${anchorId}&page=${page}${languageParam}${sourceParam}`);
-  if (!response.ok) throw new Error("similar discover page fetch failed");
-  return response.json();
+  return (await invokeExplore({ list: kind, anchorId, page, source, language })) as PaginatedSimilarResponse;
 }
 
 /**

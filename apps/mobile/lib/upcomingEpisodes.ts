@@ -2,7 +2,6 @@ import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { fetchLibraryItems } from "@/lib/library";
 import { todayLocalKey } from "@/lib/localDate";
 
-const SITE_URL = "https://seenlist.app";
 const RECENTLY_AIRED_DAYS = 7;
 
 export interface NextEpisodeToAir {
@@ -30,16 +29,21 @@ export interface UpcomingGroup {
   episodes: UpcomingEpisodeWithBadge[];
 }
 
+/**
+ * CONTINUAÇÃO DA FASE 1 (migração mobile sem Vercel, 2026-10-20) —
+ * passou a chamar a operação "upcoming" da Supabase Edge Function
+ * `tmdb-catalog` em vez da rota Vercel `/api/tmdb/upcoming`. MESMO
+ * contrato de saída (`{ episodes }`) — ver
+ * `supabase/functions/tmdb-catalog/index.ts`.
+ */
 async function fetchUpcoming(seriesIds: number[], language = "pt-BR"): Promise<NextEpisodeToAir[]> {
   if (seriesIds.length === 0) return [];
-  const response = await fetch(`${SITE_URL}/api/tmdb/upcoming`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ seriesIds, language }),
+  const { data, error } = await supabase.functions.invoke("tmdb-catalog", {
+    body: { operation: "upcoming", seriesIds, language },
   });
-  if (!response.ok) throw new Error("upcoming fetch failed");
-  const data = (await response.json()) as { episodes: NextEpisodeToAir[] };
-  return data.episodes;
+  if (error) throw new Error("upcoming fetch failed");
+  const body = data as { episodes: NextEpisodeToAir[] };
+  return body.episodes;
 }
 
 async function fetchWatchedStatus(episodes: NextEpisodeToAir[]): Promise<Set<string>> {

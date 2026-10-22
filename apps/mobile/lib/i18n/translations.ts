@@ -220,7 +220,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     // conteúdo visível diferente): era "Importar dados"/"Aplicativo",
     // virou "Dados e Ferramentas"/"Sobre" (chaves `settings.section.
     // dataTools`/`settings.section.about` no web).
-    "settings.section.importData": "Dados e Ferramentas",
     "settings.section.app": "Sobre",
     "settings.section.dangerZone": "Zona de risco",
     "settings.accountId": "ID da conta",
@@ -263,8 +262,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.notifCommentReply": "Respostas aos meus comentários",
     "settings.notifCommentLike": "Curtidas em comentários",
     "settings.notifReviewLike": "Curtidas em reviews",
-    "settings.importFromTrakt": "Importar do Trakt",
-    "settings.migrateFromTvTime": "Migrar do TV Time",
     // NOVO (2026-10-16, a pedido — entrada de Conquistas reativada
     // dentro de Configurações, não no Perfil) — leva pra
     // `/profile/achievements`, mesma tela da grade de emblemas.
@@ -1115,7 +1112,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.section.account": "Account",
     "settings.section.privacy": "Privacy",
     "settings.section.preferences": "Preferences",
-    "settings.section.importData": "Data & Tools",
     "settings.section.app": "About",
     "settings.section.dangerZone": "Danger zone",
     "settings.accountId": "Account ID",
@@ -1158,8 +1154,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.notifCommentReply": "Replies to my comments",
     "settings.notifCommentLike": "Likes on comments",
     "settings.notifReviewLike": "Likes on reviews",
-    "settings.importFromTrakt": "Import from Trakt",
-    "settings.migrateFromTvTime": "Migrate from TV Time",
     "settings.achievements": "Achievements",
     "settings.sendFeedback": "Send feedback",
     "settings.about": "About the app",
@@ -1857,7 +1851,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.section.account": "Cuenta",
     "settings.section.privacy": "Privacidad",
     "settings.section.preferences": "Preferencias",
-    "settings.section.importData": "Datos y Herramientas",
     "settings.section.app": "Acerca de",
     "settings.section.dangerZone": "Zona de riesgo",
     "settings.accountId": "ID de la cuenta",
@@ -1900,8 +1893,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "settings.notifCommentReply": "Respuestas a mis comentarios",
     "settings.notifCommentLike": "Me gusta en comentarios",
     "settings.notifReviewLike": "Me gusta en reseñas",
-    "settings.importFromTrakt": "Importar de Trakt",
-    "settings.migrateFromTvTime": "Migrar de TV Time",
     "settings.achievements": "Logros",
     "settings.sendFeedback": "Enviar comentario",
     "settings.about": "Acerca de la app",

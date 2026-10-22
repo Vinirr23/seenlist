@@ -2,8 +2,6 @@ import type { MovieDetails, MovieWatchStatus } from "@seenlist/types";
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { notifyWatchedAction } from "@/lib/reviewPrompt";
 
-const SITE_URL = "https://seenlist.app";
-
 /**
  * CORREÇÃO DE DESEMPENHO (2026-09-27, auditoria de performance — item
  * 9.3: "Movie Details — cache igual ao Series Details") — `fetchSeriesDetails`
@@ -37,20 +35,25 @@ export function peekCachedMovieDetails(movieId: string, language: string): Movie
   return cached && cached.expiresAt > Date.now() ? cached.data : null;
 }
 
-/** Idêntico a lib/queries/movie.ts do web. */
+/**
+ * CONTINUAÇÃO DA FASE 1 (migração mobile sem Vercel, 2026-10-20) —
+ * passou a chamar a operação "movie-details" da Supabase Edge Function
+ * `tmdb-catalog` em vez da rota Vercel `/api/tmdb/movie/[id]`. MESMO
+ * contrato de saída (o objeto `MovieDetails` direto, sem wrapper) —
+ * ver `supabase/functions/tmdb-catalog/index.ts`.
+ */
 export async function fetchMovieDetails(movieId: string, language = "pt-BR"): Promise<MovieDetails> {
   const cacheKey = `${movieId}:${language}`;
   const cached = movieDetailsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
 
-  const response = await fetch(`${SITE_URL}/api/tmdb/movie/${movieId}?language=${language}`);
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.error ?? "movie details fetch failed");
-  }
-  const data = (await response.json()) as MovieDetails;
-  movieDetailsCache.set(cacheKey, { data, expiresAt: Date.now() + MOVIE_DETAILS_TTL_MS });
-  return data;
+  const { data, error } = await supabase.functions.invoke("tmdb-catalog", {
+    body: { operation: "movie-details", movieId, language },
+  });
+  if (error) throw new Error("movie details fetch failed");
+  const details = data as MovieDetails;
+  movieDetailsCache.set(cacheKey, { data: details, expiresAt: Date.now() + MOVIE_DETAILS_TTL_MS });
+  return details;
 }
 
 /**

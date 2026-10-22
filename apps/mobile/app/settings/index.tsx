@@ -263,20 +263,6 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {/* TASK-171/172 — abre a versão web numa aba dentro do app (mesmo `WebBrowser` já usado pra Sobre/Privacidade/Termos), em vez de reconstruir OAuth e parser de .zip nativo no mobile — os dois já escrevem no mesmo Supabase que o mobile lê, então o resultado aparece aqui na volta, sem duplicar nada. */}
-        {/* CORREÇÃO — ordem interna invertida: web mostra "Migrar do TV
-            Time" ANTES de "Importar do Trakt" (`SettingsPage.tsx`); aqui
-            estava o contrário. As outras 3 linhas desta seção no web
-            (importações pendentes do TV Time, corrigir status de
-            séries, preencher IDs de episódio) continuam de fora — decisão
-            já registrada no comentário do topo deste arquivo (ferramentas
-            avulsas de admin/upload, fazem sentido só no site). */}
-        <SectionLabel label={t("settings.section.importData")} />
-        <Glass style={styles.card}>
-          <SettingsRow label={t("settings.migrateFromTvTime")} onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/import/tvtime`)} />
-          <SettingsRow label={t("settings.importFromTrakt")} onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/import/trakt`)} last />
-        </Glass>
-
         <SectionLabel label={t("settings.section.app")} />
         <Glass style={styles.card}>
           {/*
