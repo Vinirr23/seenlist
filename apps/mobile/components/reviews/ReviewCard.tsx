@@ -5,11 +5,9 @@ import { Feather } from "@expo/vector-icons";
 import type { Review } from "@/lib/social/reviews";
 import { Text } from "@/components/ui";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
-import { reviewShareUrl, reviewShareImageUrl, reviewStoryImageUrl } from "@/lib/shareLinks";
 import { StarRating } from "./StarRating";
 import { SpoilerGate } from "./SpoilerGate";
 import { LikeButton } from "@/components/feed/LikeButton";
-import { SharePreviewSheet } from "@/components/social/SharePreviewSheet";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -31,13 +29,11 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: 
  * `opengraph-image.tsx` (mesma imagem que aparece na prévia do
  * Threads/WhatsApp), com botão de compartilhar ali dentro.
  *
- * REDESIGN (2026-10-08, "estilo Unwind" — mockup aprovado, decisão
- * explícita do usuário: "Compartilhar link" e "Exportar pra Stories"
- * são DUAS ações distintas, nunca uma substitui a outra) — passa
- * também `reviewStoryImageUrl(review.id)` pro `SharePreviewSheet`,
- * que agora decide internamente qual ação cada botão dispara. Ver
- * `story-image/route.ts` (web) pro porquê do formato vertical ser uma
- * rota separada da prévia OG, nunca a mesma imagem.
+ * FASE 6 (sublote 6C-2, descontinuação do compartilhamento externo) —
+ * o botão de compartilhar e a integração com `SharePreviewSheet`
+ * (prévia + "Compartilhar link"/"Exportar pra Stories", descritos nos
+ * dois comentários acima) foram removidos daqui. Avaliação, curtida,
+ * edição e exclusão continuam intactas.
  */
 export function ReviewCard({
   review,
@@ -50,7 +46,6 @@ export function ReviewCard({
   onEdit?: () => void;
 }) {
   const router = useRouter();
-  const [showSharePreview, setShowSharePreview] = useState(false);
 
   return (
     <View style={styles.card}>
@@ -69,9 +64,6 @@ export function ReviewCard({
               <Feather name="edit-2" size={14} color={colors.muted} />
             </Pressable>
           )}
-          <Pressable onPress={() => setShowSharePreview(true)} accessibilityLabel="Compartilhar avaliação" hitSlop={8}>
-            <Feather name="share-2" size={15} color={colors.muted} />
-          </Pressable>
         </View>
       </View>
 
@@ -82,15 +74,6 @@ export function ReviewCard({
       )}
 
       <LikeButton targetType="review" targetId={review.id} initial={initial} />
-
-      {showSharePreview && (
-        <SharePreviewSheet
-          imageUrl={reviewShareImageUrl(review.id)}
-          storyImageUrl={reviewStoryImageUrl(review.id)}
-          shareUrl={reviewShareUrl(review.id)}
-          onDismiss={() => setShowSharePreview(false)}
-        />
-      )}
     </View>
   );
 }

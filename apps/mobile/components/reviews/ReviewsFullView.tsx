@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Alert, Pressable, Share, ActivityIndicator, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { View, Alert, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import type { ReviewTarget } from "@/lib/social/reviews";
 import { useReviews } from "@/lib/social/useReviews";
 import { createReviewPost, syncReviewPostRating } from "@/lib/posts";
-import { reviewShareUrl } from "@/lib/shareLinks";
 import {
   shouldShowRecommendPrompt,
   markRecommendPromptShown,
@@ -46,8 +44,6 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
   const [postError, setPostError] = useState<string | null>(null);
   const [promptRating, setPromptRating] = useState<number | null>(null);
   const [showRecommendSheet, setShowRecommendSheet] = useState(false);
-  /** A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1) — sugestão discreta pós-publicação, sem modal novo; aparece só depois de salvar com sucesso, some ao tocar em compartilhar/fechar ou ao editar de novo. */
-  const [showShareSuggestion, setShowShareSuggestion] = useState(false);
 
   /**
    * BUG REAL CORRIGIDO (2026-10-08, reportado — "minha avaliação já
@@ -123,10 +119,8 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
    */
   async function handleSubmit(rating: number | null, reviewText: string | null, shareToFeed: boolean) {
     setPostError(null);
-    setShowShareSuggestion(false);
     const ok = await submit(rating, reviewText, false);
     if (!ok) return;
-    setShowShareSuggestion(true);
     setIsEditing(false);
 
     const effectiveRating = rating ?? myReview?.rating ?? null;
@@ -201,22 +195,11 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
         style: "destructive",
         onPress: async () => {
           setPostError(null);
-          setShowShareSuggestion(false);
           const ok = await remove();
           if (!ok) setPostError(t("review.errorDeleteReview"));
         },
       },
     ]);
-  }
-
-  async function handleShareMyReview() {
-    if (!myReview) return;
-    setShowShareSuggestion(false);
-    try {
-      await Share.share({ message: reviewShareUrl(myReview.id) });
-    } catch (error) {
-      console.error("[ReviewsFullView] Falha ao compartilhar avaliação", error);
-    }
   }
 
   function handleDismissPrompt() {
@@ -272,21 +255,6 @@ export function ReviewsFullView({ target, media, showRating = true }: ReviewsFul
         <Text variant="error" style={styles.postError}>
           {postError}
         </Text>
-      )}
-
-      {showShareSuggestion && !!myReview && (
-        <View style={styles.shareSuggestion}>
-          <Text variant="muted" style={styles.shareSuggestionText}>
-            {t("review.shareSuggestion")}
-          </Text>
-          <Pressable onPress={handleShareMyReview} style={styles.shareSuggestionAction} hitSlop={8}>
-            <Feather name="share-2" size={13} color={colors.primary} />
-            <Text style={styles.shareSuggestionActionText}>{t("social.share")}</Text>
-          </Pressable>
-          <Pressable onPress={() => setShowShareSuggestion(false)} hitSlop={8}>
-            <Feather name="x" size={14} color={colors.muted} />
-          </Pressable>
-        </View>
       )}
 
       {isLoading ? (
@@ -350,27 +318,6 @@ const styles = StyleSheet.create({
   },
   postError: {
     marginTop: -spacing.xs,
-  },
-  /** A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1) — linha discreta, sem card/vidro, sem modal. */
-  shareSuggestion: {
-    marginTop: -spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  shareSuggestionText: {
-    flex: 1,
-    fontSize: fontSize.sm,
-  },
-  shareSuggestionAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  shareSuggestionActionText: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: colors.primary,
   },
   /** `space-y-3` = 12 entre as avaliações no web (era `spacing.sm` = 8). */
   list: {

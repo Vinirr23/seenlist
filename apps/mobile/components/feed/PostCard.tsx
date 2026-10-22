@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { View, TextInput, Pressable, Share, Alert, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, Alert, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -24,8 +24,6 @@ import { useNow } from "@/lib/useNow";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { hapticTick, hapticWarning } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
-
-const SITE_URL = "https://seenlist.app";
 
 /**
  * TASK-112 (editar/apagar post) — porta do que faltava do
@@ -61,6 +59,11 @@ const SITE_URL = "https://seenlist.app";
  * revertido por pedido direto do usuário, de volta ao
  * `Share.share` nativo direto de sempre. O trabalho de compartilhar
  * passou a focar só na review (`ReviewCard.tsx`).
+ *
+ * FASE 6 (sublote 6C-2, descontinuação do compartilhamento externo)
+ * — a ação "Compartilhar" (e o `handleShare` acima descrito) foi
+ * removida do menu "...". Curtidas, comentários, navegação, editar,
+ * apagar e denunciar continuam intactos.
  */
 interface PostCardProps {
   post: Post;
@@ -108,16 +111,6 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
    * montado durante toda a apresentação — a folha nativa cobre o menu
    * visualmente de qualquer forma, então não há piscar perceptível.
    */
-  async function handleShare() {
-    try {
-      await Share.share({ url: `${SITE_URL}/explore/posts/${post.id}`, message: `${SITE_URL}/explore/posts/${post.id}` });
-    } catch (error) {
-      console.error("[PostCard] Falha ao compartilhar", error);
-    } finally {
-      setMenuOpen(false);
-    }
-  }
-
   function handleStartEdit() {
     setEditBody(currentBody);
     setEditing(true);
@@ -328,7 +321,6 @@ function PostCardComponent({ post, detail = false, onDeleted, likeInfo, commentC
           title={post.authorName}
           onDismiss={() => setMenuOpen(false)}
           actions={[
-            { label: t("social.share"), onPress: handleShare },
             ...(isOwner
               ? [
                   { label: t("common.edit"), onPress: handleStartEdit },

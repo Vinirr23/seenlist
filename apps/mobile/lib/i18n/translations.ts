@@ -826,14 +826,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.confirmDeletePostMessage": "Não dá pra desfazer.",
     "feed.errorDeletePost": "Não foi possível apagar agora",
     "social.share": "Compartilhar",
-    /* A PEDIDO (2026-10-08, "Compartilhamento social" — tela de prévia antes de compartilhar). */
-    "social.sharePreviewTitle": "Prévia do compartilhamento",
-    "social.sharePreviewImageError": "Não foi possível carregar a prévia",
-    /* A PEDIDO (2026-10-08, redesign "estilo Unwind" — duas ações distintas: link (prévia OG) e imagem (exportação pra Stories), nunca uma substituindo a outra automaticamente. */
-    "social.shareAsLink": "Compartilhar link",
-    "social.exportToStory": "Exportar pra Stories",
-    "social.exportStoryError": "Não foi possível exportar a imagem",
-    "social.exportStoryUnavailable": "Compartilhamento de imagem não disponível neste dispositivo",
     "feed.reported": "Denunciado",
     "feed.report": "Denunciar",
 
@@ -994,8 +986,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.personSingular": "pessoa",
     "profile.personPlural": "pessoas",
     "review.savedButFeedPublishFailed": "Avaliação salva, mas não foi possível publicar no Feed agora.",
-    /* A PEDIDO (2026-10-08, "Compartilhamento social", Fase 1) — sugestão discreta pós-publicação, sem modal novo. */
-    "review.shareSuggestion": "Avaliação publicada.",
     /* PORTE DO WEB (2026-09-09) — o `ReviewComposer` escrevia estes dois à mão, em português. Mesmos textos do web (`social.reviewPlaceholder`/`social.saveReview`). */
     "review.seeAll": "Ver todas as avaliações",
     /* A PEDIDO (2026-10-06, mockup Opção B das estrelas, "escreve uma review tira o opcional") — a pílula com a nota ao lado das estrelas já deixa claro que avaliar é separado de escrever; o "(opcional)" no placeholder ficou redundante. */
@@ -1707,12 +1697,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.confirmDeletePostMessage": "This can't be undone.",
     "feed.errorDeletePost": "Couldn't delete right now",
     "social.share": "Share",
-    "social.sharePreviewTitle": "Share preview",
-    "social.sharePreviewImageError": "Couldn't load the preview",
-    "social.shareAsLink": "Share link",
-    "social.exportToStory": "Export to Stories",
-    "social.exportStoryError": "Couldn't export the image",
-    "social.exportStoryUnavailable": "Image sharing isn't available on this device",
     "feed.reported": "Reported",
     "feed.report": "Report",
 
@@ -1862,7 +1846,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.personSingular": "person",
     "profile.personPlural": "people",
     "review.savedButFeedPublishFailed": "Review saved, but couldn't post it to the Feed right now.",
-    "review.shareSuggestion": "Review published.",
     "review.seeAll": "See all reviews",
     "review.reviewPlaceholder": "Write a review...",
     "review.saveReview": "Save rating",
@@ -2545,12 +2528,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "feed.confirmDeletePostMessage": "No se puede deshacer.",
     "feed.errorDeletePost": "No se pudo eliminar ahora",
     "social.share": "Compartir",
-    "social.sharePreviewTitle": "Vista previa para compartir",
-    "social.sharePreviewImageError": "No se pudo cargar la vista previa",
-    "social.shareAsLink": "Compartir enlace",
-    "social.exportToStory": "Exportar a Stories",
-    "social.exportStoryError": "No se pudo exportar la imagen",
-    "social.exportStoryUnavailable": "Compartir imagen no está disponible en este dispositivo",
     "feed.reported": "Denunciado",
     "feed.report": "Denunciar",
 
@@ -2700,7 +2677,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.personSingular": "persona",
     "profile.personPlural": "personas",
     "review.savedButFeedPublishFailed": "Reseña guardada, pero no se pudo publicar en el Feed ahora.",
-    "review.shareSuggestion": "Reseña publicada.",
     "review.seeAll": "Ver todas las reseñas",
     "review.reviewPlaceholder": "Escribe una reseña...",
     "review.saveReview": "Guardar calificación",

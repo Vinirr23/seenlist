@@ -1,4 +1,4 @@
-import { Modal, Pressable, Share, StyleSheet } from "react-native";
+import { Modal, Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -31,19 +31,6 @@ export function ProfileMoreSheet({ username, onClose }: { username?: string | nu
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
-  async function handleShare() {
-    if (!username) {
-      onClose();
-      return;
-    }
-    try {
-      await Share.share({ message: `https://seenlist.app/u/${username}` });
-    } catch (error) {
-      console.error("[ProfileMoreSheet] Falha ao compartilhar", error);
-    }
-    onClose();
-  }
-
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
@@ -65,7 +52,6 @@ export function ProfileMoreSheet({ username, onClose }: { username?: string | nu
               * cron) continuam existindo no código, só sem nenhum ponto
               * de entrada na UI por enquanto.
               */}
-            <ActionRow icon="share-2" label={t("social.share")} onPress={handleShare} />
             <ActionRow
               icon="settings"
               label={t("settings.title")}
