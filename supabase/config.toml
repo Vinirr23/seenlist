@@ -16,3 +16,36 @@ port = 54323
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
+
+# FASE 1 (migração mobile sem Vercel, 2026-10-20) — as 3 functions
+# abaixo são chamadas DIRETO pelo app mobile (`supabase.functions.invoke`),
+# diferente das 6 já existentes (só chamadas por `pg_cron`/`pg_net`,
+# servidor-a-servidor). `verify_jwt = true` é o padrão do Supabase
+# quando omitido — declarado aqui EXPLICITAMENTE (a pedido, "garanta
+# que as permissões de acesso estejam corretas") pra não depender de
+# ninguém lembrar o padrão: sem um JWT válido (token de sessão do
+# usuário, ou a anon key quando deslogado — o que o cliente Supabase
+# do mobile já manda em toda chamada), o Supabase rejeita a requisição
+# com 401 ANTES de a function sequer rodar. NUNCA mudar pra `false`
+# nestas 3 — duas delas tocam segredo de verdade (TMDB_API_KEY,
+# GEMINI_API_KEY) e todas gravam em tabela só acessível por chave de
+# serviço.
+[functions.library-summaries]
+verify_jwt = true
+
+[functions.season-recap]
+verify_jwt = true
+
+[functions.series-data]
+verify_jwt = true
+
+# CONTINUAÇÃO DA FASE 1 (2026-10-20, varredura das rotas pendentes) —
+# mesmo motivo/garantia das 3 acima. `tmdb-catalog` não grava em
+# tabela nenhuma (passthrough puro de TMDB), mas `verify_jwt = true`
+# continua obrigatório mesmo assim: é o que garante que só o app
+# (sessão válida ou anon key) chama a function, não qualquer um que
+# descubra a URL — sem isso, a chave de serviço do Supabase (usada só
+# internamente, nunca exposta) não entra em jogo, mas a function
+# ficaria publicamente invocável por qualquer cliente.
+[functions.tmdb-catalog]
+verify_jwt = true
