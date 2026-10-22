@@ -172,7 +172,14 @@ function PosterBlock({
   if (poster?.posterPath) {
     return (
       <div className={`relative shrink-0 overflow-hidden bg-surface ${radius} ${className}`}>
-        <Image src={tmdbImage(poster.posterPath, "w185")!} alt={poster.title} fill sizes={sizes} className="object-cover" />
+        <Image
+          src={tmdbImage(poster.posterPath, "w185")!}
+          alt={poster.title}
+          fill
+          sizes={sizes}
+          className="object-cover"
+          unoptimized
+        />
       </div>
     );
   }
@@ -227,7 +234,14 @@ function Hero({ posters }: { posters: LandingItem[] }) {
           {tiles.map((item, i) => (
             <div key={i} className="relative overflow-hidden bg-surface">
               {item.posterPath && (
-                <Image src={tmdbImage(item.posterPath, "w342")!} alt="" fill sizes="200px" className="object-cover" />
+                <Image
+                  src={tmdbImage(item.posterPath, "w342")!}
+                  alt=""
+                  fill
+                  sizes="200px"
+                  className="object-cover"
+                  unoptimized
+                />
               )}
             </div>
           ))}
@@ -648,7 +662,14 @@ function SocialMockup({ poster }: { poster?: LandingItem }) {
       </div>
       {poster?.posterPath && (
         <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-background">
-          <Image src={tmdbImage(poster.posterPath, "w185")!} alt={poster.title} fill sizes="40px" className="object-cover" />
+          <Image
+            src={tmdbImage(poster.posterPath, "w185")!}
+            alt={poster.title}
+            fill
+            sizes="40px"
+            className="object-cover"
+            unoptimized
+          />
         </div>
       )}
     </div>
