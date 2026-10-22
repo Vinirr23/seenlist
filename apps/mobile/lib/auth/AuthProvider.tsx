@@ -13,6 +13,22 @@ export type AuthResult = { error: string | null; message?: string };
 type AuthContextValue = {
   session: Session | null;
   loading: boolean;
+  /**
+   * FASE A (recuperação de senha) — `true` assim que o Supabase emite o
+   * evento `PASSWORD_RECOVERY` (ver `onAuthStateChange` abaixo), que
+   * acontece sempre que uma sessão é estabelecida a partir de um link
+   * de recuperação — independente de como a sessão chegou até aqui
+   * (`setSession`/`exchangeCodeForSession`, chamados por
+   * `app/auth-callback.tsx`). Enquanto `true`, a sessão existe (então
+   * `session` fica truthy) mas NÃO deve ser tratada como "usuário
+   * logado normalmente" em nenhum lugar que decida navegação a partir
+   * de `session` (ver `app/index.tsx`, `IndexGate`) — sem essa
+   * distinção, a navegação automática mandaria o usuário direto pras
+   * abas antes de ele definir a senha nova.
+   */
+  isPasswordRecovery: boolean;
+  /** Chamado por `app/update-password.tsx` depois que `updateUser({ password })` tiver sucesso — libera a navegação normal de novo. */
+  completePasswordRecovery: () => void;
   signInWithEmail: (email: string, password: string) => Promise<AuthResult>;
   signUpWithEmail: (email: string, password: string, confirmPassword: string) => Promise<AuthResult>;
   signInWithGoogle: () => Promise<AuthResult>;
@@ -80,6 +96,8 @@ function extractTokensFromUrl(url: string): {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // FASE A — ver comentário completo em `AuthContextValue.isPasswordRecovery`.
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   /**
    * BUG REAL CORRIGIDO (a pedido, "verifica se ainda tem alguma
    * pendência de design", 2026-09-16) — todas as mensagens de
@@ -108,7 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // FASE A — o Supabase emite este evento especificamente quando a
+      // sessão vem de um link de recuperação de senha (documentado:
+      // https://supabase.com/docs/reference/javascript/auth-onauthstatechange),
+      // tanto faz se ela chegou via `setSession` manual (nosso caso,
+      // `app/auth-callback.tsx`) ou via detecção automática de URL —
+      // é uma propriedade do próprio token, não de como foi aplicado.
+      if (event === "PASSWORD_RECOVERY") setIsPasswordRecovery(true);
       setSession(newSession);
     });
 
@@ -135,6 +160,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       loading,
+      isPasswordRecovery,
+      completePasswordRecovery() {
+        setIsPasswordRecovery(false);
+      },
 
       async signInWithEmail(email, password) {
         const trimmedEmail = email.trim();
@@ -261,9 +290,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signOut() {
         await removePushToken(supabase);
         await supabase.auth.signOut();
+        // FASE A — se o usuário sair no meio de uma recuperação de
+        // senha pendente (ex.: cancelou na tela de update-password),
+        // não deixa a flag "vazar" pra uma próxima sessão normal.
+        setIsPasswordRecovery(false);
       },
     }),
-    [session, loading, t]
+    [session, loading, isPasswordRecovery, t]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

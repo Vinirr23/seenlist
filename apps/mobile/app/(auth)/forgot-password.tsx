@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, KeyboardAvoidingView, ScrollView, Platform, StyleSheet } from "react-native";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { Screen, Text, Input, Button } from "@/components/ui";
 import { AuthBrand } from "@/components/auth/AuthBrand";
@@ -26,6 +26,7 @@ export default function ForgotPasswordScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { t } = useTranslation();
+  const router = useRouter();
 
   async function handleRequestReset() {
     const trimmedEmail = email.trim();
@@ -48,6 +49,16 @@ export default function ForgotPasswordScreen() {
       return;
     }
     setMessage(t("auth.resetEmailSuccess"));
+
+    // CORREÇÃO (2026-10-21, "se o codigo de 6 digitos resolver, implanta
+    // ele" — ver comentário completo em `verify-recovery-code.tsx`) —
+    // além do link clicável (que continua sendo enviado e continua
+    // funcionando quando chega intacto), leva a pessoa direto pra tela
+    // de digitar o código de 6 dígitos, que é a alternativa que não
+    // depende do link sobreviver a uma pré-varredura automática do
+    // provedor de e-mail. Não substitui `auth-callback.tsx` — é só uma
+    // segunda porta de entrada pro mesmo destino (`/update-password`).
+    router.push({ pathname: "/(auth)/verify-recovery-code", params: { email: trimmedEmail } });
   }
 
   return (

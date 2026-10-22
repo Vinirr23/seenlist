@@ -30,7 +30,7 @@ import { ONBOARDING_SEEN_KEY } from "@/app/(auth)/onboarding";
  * instantânea (leitura local), mas ainda assim é assíncrona.
  */
 export default function IndexGate() {
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, isPasswordRecovery } = useAuth();
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -47,6 +47,16 @@ export default function IndexGate() {
     );
   }
 
+  /**
+   * FASE A (recuperação de senha) — se a sessão atual veio de um link
+   * de recuperação (`isPasswordRecovery`, ver AuthProvider.tsx), NUNCA
+   * manda direto pras abas, mesmo com `session` truthy — isso evitaria
+   * o usuário acessar o app "autenticado" sem ter definido a senha
+   * nova ainda. Cobre o caso de `index.tsx` ser reavaliado no meio do
+   * fluxo (ex.: app voltou de segundo plano entre abrir o link e
+   * terminar de trocar a senha).
+   */
+  if (session && isPasswordRecovery) return <Redirect href="/update-password" />;
   if (session) return <Redirect href="/(tabs)/series" />;
   return <Redirect href={onboardingSeen ? "/(auth)/login" : "/(auth)/onboarding"} />;
 }
