@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { View, Pressable, FlatList, StyleSheet, Alert } from "react-native";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
@@ -238,31 +237,32 @@ export default function NotificationsScreen() {
         <View style={styles.whatsNewCardWrapper}>
           <Pressable onPress={() => router.push("/whats-new" as never)}>
             {/*
-              * A PEDIDO (2026-10-07 — "preciso que a aparência do card
-              * permanente de novidades seja diferente das outras
-              * notificações") — opção B do mockup aprovado
-              * (`https://claude.ai/artifact/DYekYu36FMw5mXCr2sKbyc`):
-              * `View` sólida (não `Glass` translúcido, o que as
-              * notificações normais usam) + faixa âmbar na borda
-              * esquerda + ícone num chip com gradiente preenchido
-              * (quadrado, não círculo — os avatares/ícones de
-              * notificação normal são sempre círculo) + seta no final,
-              * convidando a tocar. Três sinais diferentes ao mesmo
-              * tempo (fundo, formato do ícone, borda lateral) de
-              * propósito — não é só uma cor diferente.
+              * REDESENHADO (2026-10-16, a pedido — mockup com 10 direções,
+              * `https://claude.ai/artifact/UTAdwjXC2bAByeG2Nz1CDC`, opção
+              * escolhida: "7 — Minimalista") — a versão anterior (opção B
+              * do mockup de 2026-10-07, ver link antigo no histórico deste
+              * arquivo) era um card sólido com chip de ícone em gradiente +
+              * faixa âmbar na borda esquerda. Trocado por algo bem mais
+              * sóbrio: sem fundo, sem borda, sem card nenhum — só o título
+              * em âmbar/negrito (é a cor, não a decoração, que destaca),
+              * subtítulo discreto do lado, seta no final, e um fio de
+              * divisor embaixo (`borderBottomColor`) separando da lista de
+              * notificações de verdade logo abaixo.
+              *
+              * O ícone "creation" não some de vez — mantido pequeno e sem
+              * chip (só a cor âmbar, inline antes do título): sem ELE, esta
+              * linha fica sem nenhum indicador visual à esquerda (as
+              * notificações normais sempre têm avatar/pôster ali), o que
+              * no aparelho de verdade lê como "avatar que não carregou" em
+              * vez de "design minimalista de propósito" — pequeno ajuste
+              * sobre o mockup, que usava um "✦" solto só pra ilustrar a
+              * ideia.
               */}
             <View style={styles.whatsNewCard}>
-              <LinearGradient
-                colors={["#E8A33D", "#c8822a"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.whatsNewIconChip}
-              >
-                <MaterialCommunityIcons name="creation" size={16} color={colors.background} />
-              </LinearGradient>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.message}>{t("notifications.whatsNewCardTitle")}</Text>
-                <Text variant="muted" style={styles.date}>
+              <MaterialCommunityIcons name="creation" size={14} color={colors.primary} />
+              <View style={styles.whatsNewTexts}>
+                <Text style={styles.whatsNewTitle}>{t("notifications.whatsNewCardTitle")}</Text>
+                <Text variant="muted" style={styles.date} numberOfLines={1}>
                   {t("notifications.whatsNewCardSubtitle")}
                 </Text>
               </View>
@@ -417,31 +417,32 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   /**
-   * A PEDIDO (2026-10-07, opção B escolhida do mockup) — fundo escuro
-   * e QUENTE, literal (sem token na escala — é um desvio deliberado só
-   * pra este card, pra não se confundir com `colors.surface`/`tint.*`,
-   * usados em fundo/destaque normal de resto do app). `borderLeftWidth`
-   * maior que o resto da borda é o que cria a "faixa" — não dá pra
-   * fazer com uma borda uniforme.
+   * REDESENHADO (2026-10-16, opção "7 — Minimalista" do mockup — ver
+   * comentário grande no JSX). Era um card sólido com fundo próprio,
+   * borda e faixa lateral (`backgroundColor: "#19140c"` + `tint.border`
+   * + `borderLeftWidth: 4`); agora é só uma LINHA (sem fundo, sem
+   * borda em volta) com um fio de divisor embaixo — mesma técnica de
+   * separador que uma lista de configurações usa entre seções, não um
+   * card.
    */
   whatsNewCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    backgroundColor: "#19140c",
-    borderWidth: 1,
-    borderColor: tint.border,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    borderRadius: radius.md,
-    padding: spacing.sm + 2,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  whatsNewIconChip: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
+  whatsNewTexts: {
+    flex: 1,
+    gap: 1,
+  },
+  /** Título em âmbar/negrito — é a COR que destaca esta linha das notificações normais (`styles.message`, cor `colors.text`), não mais um card em volta. */
+  whatsNewTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    color: colors.primary,
   },
   /*
    * CORREÇÃO (a pedido, 2026-09-15 — "a tela de notificações não tem

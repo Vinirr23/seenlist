@@ -149,10 +149,19 @@ export const PosterGridItem = memo(function PosterGridItem({
           tela, ligada ou não. `toFixed(1)` pra bater com o formato
           pedido ("★ 8.4") — a TMDB manda a nota com mais casas
           decimais do que isso.
+
+          REDESENHADO (2026-10-17, feedback — "mal dá pra ver a
+          estrela e as notas", mockup de 10 opções aprovado: Opção 7
+          "nota grande, canto inferior") — era 11px com ícone de
+          estrela, canto SUPERIOR direito, fundo translúcido com
+          borda. Agora: só o número (sem ícone — menos poluição visual
+          num selo já pequeno), 14px/peso 800 (bem maior), canto
+          INFERIOR direito (onde o olho pousa por último ao ler o
+          pôster), fundo mais opaco pra garantir contraste em
+          qualquer capa clara ou escura.
         */}
         {showRating && item.voteAverage != null && (
           <View style={styles.ratingBadge}>
-            <Feather name="star" size={9} color={colors.primary} />
             <Text style={styles.ratingBadgeText}>{item.voteAverage.toFixed(1)}</Text>
           </View>
         )}
@@ -202,30 +211,29 @@ const styles = StyleSheet.create({
   },
   /**
    * NOVO (2026-10-15, ver `showRating` em `PosterGridItem` acima) —
-   * "fundo escuro, âmbar e bordas discretas" (pedido explícito):
-   * `scrim.overImage` (mesmo tom escuro translúcido já usado na
-   * `progressTrack`, acima) + borda sutil branca translúcida (mesma
-   * receita de contorno já usada no app pra selo sobre imagem, ver
-   * `shelfPoster`/`lists/[id].tsx`) + ícone/texto em `colors.primary`
-   * (âmbar).
+   * "fundo escuro, âmbar e bordas discretas" (pedido explícito).
+   *
+   * REDESENHADO (2026-10-17, Opção 7 do mockup de 10 opções, ver
+   * comentário grande acima de `ratingBadgeText`) — canto inferior
+   * direito em vez de superior (`bottom: spacing.xs` em vez de `0`,
+   * pra não encostar na `progressTrack`, que ocupa a largura inteira
+   * da base do pôster); fundo mais opaco (`rgba(10,12,18,0.9)` em vez
+   * de `scrim.overImage`, que é só 70% opaco) pra garantir contraste
+   * mesmo sobre um pôster bem claro; sem borda (o fundo já opaco não
+   * precisa mais do contorno sutil pra se destacar).
    */
   ratingBadge: {
     position: "absolute",
-    top: spacing.xs,
+    bottom: spacing.xs,
     right: spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
-    backgroundColor: scrim.overImage,
+    backgroundColor: "rgba(10,12,18,0.9)",
   },
   ratingBadgeText: {
-    fontSize: fontSize.xxs,
-    fontWeight: "700",
+    fontSize: fontSize.sm,
+    fontWeight: "800",
     color: colors.primary,
   },
 });

@@ -15,18 +15,14 @@ import { useRouter } from "expo-router";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import type { LibraryItem } from "@seenlist/types";
 import { useLibraryItems } from "@/lib/useLibraryItems";
-import { useViewModePreference } from "@/lib/useViewModePreference";
 import { useDiscoverList } from "@/lib/useDiscoverList";
 import { todayLocalKey } from "@/lib/localDate";
 import { Screen, Text, GlassTargetProvider, AmbientGlow, PressableScale } from "@/components/ui";
 import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/components/media/PosterGrid";
-import { MediaListRow } from "@/components/media/MediaListRow";
 import { WhatToWatchSheet } from "@/components/media/WhatToWatchSheet";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
 import { useDockVisibility } from "@/lib/useDockVisibility";
-import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
-import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { EmptyShelf } from "@/components/media/EmptyShelf";
 import { EmptyLibraryHero } from "@/components/media/EmptyLibraryHero";
 import { DiscoverCarousel } from "@/components/explore/DiscoverCarousel";
@@ -34,10 +30,7 @@ import { PageError } from "@/components/media/PageError";
 import { HomeTabs, type HomeTab } from "@/components/media/HomeTabs";
 import { HOME_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
-import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { colors, spacing, radius, fontSize, elevation, gelBlue } from "@/lib/theme";
-
-type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 /**
  * REDUZIDO (2026-10-17, feedback de revisão — "botão grande e cobrindo
@@ -74,21 +67,6 @@ function isReleased(releaseDate: string | null | undefined, todayKey: string): b
   return releaseDate <= todayKey;
 }
 
-/** Ver `styles.listRowSeparator`, abaixo — componente fora do corpo de `MoviesScreen` pra não ser recriado a cada render (mesma identidade sempre, embora aqui isso não afete memoização nenhuma — é só o jeito correto de declarar um `ItemSeparatorComponent` fixo). */
-function ListRowSeparator() {
-  return <View style={styles.listRowSeparator} />;
-}
-
-function upcomingLabel(releaseDate: string, todayKey: string, t: TFunction, dateFormatter: Intl.DateTimeFormat): string {
-  const today = new Date(`${todayKey}T00:00:00`);
-  const target = new Date(`${releaseDate}T00:00:00`);
-  const daysUntil = Math.round((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-  if (daysUntil === 0) return t("moviesHome.releasesToday");
-  if (daysUntil === 1) return t("moviesHome.releasesTomorrow");
-  if (daysUntil <= 30) return t("moviesHome.releasesInDays", { days: daysUntil });
-  return t("moviesHome.releasesOn", { date: dateFormatter.format(target) });
-}
-
 /**
  * TASK-099 (correção — pedido do usuário) — tirei a categoria
  * "Assistindo" daqui. Diferente do web (que mantém as 3 categorias
@@ -115,8 +93,7 @@ export default function MoviesScreen() {
   // NOVO (a pedido, 2026-10-15 — "O que assistir?"). Ver `components/media/WhatToWatchSheet.tsx` pro resto da feature.
   const [whatToWatchOpen, setWhatToWatchOpen] = useState(false);
   const { items, isLoading, isError, refreshing, refetch } = useLibraryItems();
-  const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("movies-library");
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   /**
    * NOVO (a pedido, 2026-10-17 — "mesmo design das pílulas 'Minha
    * Lista' [a cápsula 'gel'], porém com uma cor nova e uma animação
@@ -203,11 +180,6 @@ export default function MoviesScreen() {
     ),
     [t]
   );
-  const dateFormatter = useMemo(
-    () => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "long", year: "numeric" }),
-    [locale]
-  );
-
   const todayKey = useMemo(() => todayLocalKey(), []);
 
   const allWantToWatch = useMemo(
@@ -258,7 +230,7 @@ export default function MoviesScreen() {
    * fica dentro de `{!isEmptyState && (...)}`, some quando a lista
    * está vazia porque o `EmptyLibraryHero` já tem título próprio.
    */
-  const isEmptyState = viewModeReady && !isLoading && wantToWatch.length === 0;
+  const isEmptyState = !isLoading && wantToWatch.length === 0;
 
   /**
    * CORREÇÃO DE DESEMPENHO (2026-09-17, a pedido — mesmo achado já
@@ -274,11 +246,16 @@ export default function MoviesScreen() {
    * correção. Os dois `ScrollView` viraram `FlatList` virtualizada
    * (só desenha o que está perto da área visível), usando os mesmos
    * `PosterGridItem`/`usePosterCardWidth` que a versão de Séries já
-   * usa. `key` no `FlatList` muda com `viewMode` de propósito: o React
-   * Native não permite trocar `numColumns` numa lista já montada (dá
-   * erro em runtime) — mudar a `key` força remontar a lista quando o
-   * usuário alterna grade/lista, o mesmo padrão de qualquer lista que
-   * alterna colunas dinamicamente.
+   * usa.
+   *
+   * REMOVIDO (a pedido, 2026-10-17 — "tira o botão de grid/lista,
+   * deixa por padrão grid") — o `FlatList` tinha `key` dependente de
+   * `viewMode` só porque o React Native não deixa trocar `numColumns`
+   * numa lista já montada; sem alternância nenhuma, `numColumns` nunca
+   * muda em runtime, então a `key` fixa (`"minha-lista"`/`"em-breve"`)
+   * já basta. `ViewModeToggle`/`useViewModePreference` saíram desta
+   * tela por completo (o hook continua existindo — outras telas, como
+   * Perfil, ainda alternam grade/lista; só Filmes deixou de usar).
    */
   const cardWidth = usePosterCardWidth();
 
@@ -286,7 +263,7 @@ export default function MoviesScreen() {
   // sugerir um filme da lista quando ela já carregou e tem pelo menos
   // 1 item; "Em breve" fica de fora de propósito (filme com estreia
   // futura ainda não dá pra assistir).
-  const showWhatToWatchButton = tab === "minha-lista" && viewModeReady && !isLoading && wantToWatch.length > 0;
+  const showWhatToWatchButton = tab === "minha-lista" && !isLoading && wantToWatch.length > 0;
   /**
    * CORREÇÃO (2026-10-16, a pedido — vídeo mostrando "ao troca de aba
    * interna a animação para") — CAUSA RAIZ: a `View` do botão+anel de
@@ -423,19 +400,16 @@ export default function MoviesScreen() {
           <View style={styles.content}>
             <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
           </View>
-        ) : !viewModeReady ? (
-          // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
-          // instante" — ver `useViewModePreference.ts`).
-          null
         ) : isLoading ? (
-          <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
+          <View style={styles.content}>
+            <LibraryGridSkeleton />
+          </View>
         ) : (
           <FlatList
-            key={`minha-lista-${viewMode}`}
             data={wantToWatch}
             keyExtractor={(item) => `${item.mediaType}-${item.id}`}
-            numColumns={viewMode === "grid" ? 3 : 1}
-            columnWrapperStyle={viewMode === "grid" ? styles.gridRow : undefined}
+            numColumns={3}
+            columnWrapperStyle={styles.gridRow}
             // NOVO (a pedido, 2026-10-16 — "esconder o botão rolando pra cima, reaparecer rolando de volta pra baixo") — ver `handleMinhaListaScroll` acima.
             onScroll={handleMinhaListaScroll}
             scrollEventThrottle={16}
@@ -457,9 +431,13 @@ export default function MoviesScreen() {
                     * já usado nas telas-irmãs "Ver tudo"
                     * (`continue-assistindo.tsx`/
                     * `continue-de-onde-parou.tsx`).
+                    *
+                    * REMOVIDO (a pedido, 2026-10-17 — "tira o botão de
+                    * grid/lista, deixa por padrão grid") — era
+                    * `sectionHeader` com título + `ViewModeToggle`; o
+                    * alternador saiu, sobrou só o título.
                     */}
                   <Text variant="subtitle">{t("moviesHome.watchlist")}</Text>
-                  <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
                 </View>
               ) : null
             }
@@ -491,34 +469,30 @@ export default function MoviesScreen() {
                 </View>
               </>
             }
-            ItemSeparatorComponent={viewMode === "list" ? ListRowSeparator : undefined}
-            renderItem={({ item }) =>
-              viewMode === "grid" ? (
-                // NOVO (2026-10-15) — `showRating`: só esta FlatList (Filmes → Minha Lista → Assistir a seguir) liga o selo; "Em breve" (abaixo) e o resto do app ficam de fora, de propósito (ver comentário em `PosterGrid.tsx`).
-                <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} showRating />
-              ) : (
-                <MediaListRow item={item} onPress={handlePressItem} secondaryText={item.year ? String(item.year) : ""} />
-              )
-            }
+            renderItem={({ item }) => (
+              // CORREÇÃO (2026-10-16, a pedido — "as avaliações continuam nos
+              // posters e eu disse pra tirar") — o selo de nota (`showRating`)
+              // tinha sido ligado de propósito só nesta FlatList (ver histórico
+              // em `PosterGrid.tsx`), mas o usuário pediu pra remover de volta.
+              // Sem a prop, `PosterGridItem` não renderiza o selo (opt-in).
+              <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} />
+            )}
           />
         )
       ) : isError ? (
         <View style={styles.content}>
           <PageError message={t("seriesHome.errorLoadLibrary")} onRetry={() => refetch()} />
         </View>
-      ) : !viewModeReady ? (
-        // CORREÇÃO (2026-09-04, "esqueleto no formato errado por um
-        // instante" — ver `useViewModePreference.ts`).
-        null
       ) : isLoading ? (
-        <View style={styles.content}>{viewMode === "grid" ? <LibraryGridSkeleton /> : <LibraryListSkeleton />}</View>
+        <View style={styles.content}>
+          <LibraryGridSkeleton />
+        </View>
       ) : (
         <FlatList
-          key={`em-breve-${viewMode}`}
           data={upcoming}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
-          numColumns={viewMode === "grid" ? 3 : 1}
-          columnWrapperStyle={viewMode === "grid" ? styles.gridRow : undefined}
+          numColumns={3}
+          columnWrapperStyle={styles.gridRow}
           // NOVO (a pedido, 2026-10-16) — "Em breve" não tem o botão
           // "Escolhe pra mim" (só aparece em "Minha Lista"), mas agora
           // precisa esconder/mostrar a barra de navegação ao rolar — ver
@@ -527,40 +501,50 @@ export default function MoviesScreen() {
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
           contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
-          ListHeaderComponent={
-            /*
-              CORREÇÃO (2026-09-10, auditoria web — `EmBreveSection.tsx`)
-              — o web NÃO mostra título nenhum nesta aba, só o alternador
-              grade/lista alinhado à direita (`mb-2 flex items-center
-              justify-end`). Tinha um `SectionTitle` aqui que o web não
-              tem.
-            */
-            <View style={styles.upcomingHeader}>
-              <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-            </View>
-          }
           ListEmptyComponent={<EmptyShelf message={t("moviesHome.emptyUpcoming")} />}
-          ItemSeparatorComponent={viewMode === "list" ? ListRowSeparator : undefined}
-          renderItem={({ item }) =>
-            viewMode === "grid" ? (
-              <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} />
-            ) : (
-              <MediaListRow
-                item={item}
-                onPress={handlePressItem}
-                secondaryText={item.releaseDate ? upcomingLabel(item.releaseDate, todayKey, t, dateFormatter) : ""}
-              />
-            )
-          }
+          renderItem={({ item }) => <PosterGridItem item={item} onPress={handlePressItem} cardWidth={cardWidth} />}
         />
       )}
 
       {/*
-        NOVO (a pedido, 2026-10-15 — "O que assistir?") — mesmo
-        esqueleto de posicionamento do "+" flutuante do Feed
-        (`CreatePostButton.tsx`: `position:"absolute"`, `bottom:
-        tabBarClearance`), só que centralizado (sem `right`) e em
-        formato pílula com texto, não círculo.
+        REDESENHADO (2026-10-17, feedback de revisão — "reduzir a
+        altura e usar um único ícone discreto" + "imediatamente acima
+        da barra inferior, com espaçamento consistente") — era uma
+        pílula com ícone+texto, maior e mais chamativa que os próprios
+        pôsteres. Tinha virado um círculo de 48px, só ícone (mesmo
+        `styles.fab` do "+" do Feed), depois voltou a ser pílula ícone+
+        texto chapada em âmbar ("o botão você tirou a frase... corrija").
+
+        REDESENHADO DE NOVO (2026-10-17, "mesmo design das pílulas
+        'Minha Lista' [cápsula gel] porém com uma cor nova e uma
+        animação que indique que o usuário deve pressionar") — mockups
+        aprovados em rodadas — cor: AZUL, a mesma já usada em
+        `gelBlue`/"Em breve" (decisão explícita: "vou ficar com o azul
+        do 'em breve'", depois de comparar contra um ciano novo e
+        confirmar que os dois nunca aparecem juntos na tela); ícone:
+        embaralhar (antes era um "?" solto, ambíguo); frase: "Escolhe
+        pra mim" (mais alinhada ao ícone/tom de "deixa que eu decido"
+        do que "O que assistir?"); animação: só o anel de pulso (a
+        opção de "respirar"/escala foi testada e descartada, "tira a
+        animação flutuando, deixa só a outra") — ver `pulseAnim`/
+        `pulseScale`/`pulseOpacity` acima.
+
+        A pílula em si reusa a MESMA receita de borda/sombra interna do
+        `GelSurface`/`SlidingTabs` (`gelBlue.border` + `gelBlue.
+        insetBottom`), construída aqui em vez de importar `GelSurface`
+        porque aquele componente está hard-coded pro gel ÂMBAR (`gel`,
+        não recebe cor como prop) — duplicar as 3
+        camadas (degradê + brilho de 1px no topo + sombra de baixo) é
+        mais simples do que generalizar um componente usado em vários
+        outros lugares só pra este caso novo.
+
+        CORREÇÃO (2026-10-16) — o PREENCHIMENTO (degradê principal) não
+        usa mais `gelBlue.gradientCalibrated` (tem alfa <1, pensado pro
+        efeito "vidro" das abas) — usa `WHAT_TO_WATCH_GRADIENT` (acima
+        no arquivo), a mesma paleta azul em alfa 1/opaco, a pedido
+        explícito de "não quero transparência, quero chamativo". Só o
+        preenchimento mudou; borda e sombra de baixo continuam usando
+        `gelBlue.border`/`gelBlue.insetBottom` (já opacos/compostos).
       */}
       {canRenderWhatToWatchButton && (
         <Animated.View
@@ -691,21 +675,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  /** `mb-2 flex items-center justify-end` do `EmBreveSection.tsx` — sem título, só o alternador à direita. */
-  upcomingHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    marginBottom: spacing.sm,
-  },
   /** Espaçamento entre pôsteres de fileiras diferentes no grid — mesmo valor de `FilteredSeriesListScreen.tsx`. */
   gridRow: {
     gap: POSTER_GRID_GAP,
     marginBottom: POSTER_GRID_GAP,
-  },
-  /** `ItemSeparatorComponent` do modo lista — reproduz o `gap: spacing.sm` que o `View` antigo (`listRows`) tinha ENTRE os itens, sem sobrar espaço depois do último (o que `marginBottom` por item deixaria). */
-  listRowSeparator: {
-    height: spacing.sm,
   },
   // Mesma margem negativa de `series/index.tsx` (ver comentário lá) —
   // `DiscoverCarousel` já tem seu próprio `paddingHorizontal`, e esta

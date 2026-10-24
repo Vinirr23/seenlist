@@ -32,6 +32,7 @@ import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
 import { AvatarRowSkeleton } from "@/components/media/AvatarRowSkeleton";
 import { StatisticsCard } from "@/components/profile/StatisticsCard";
+import { AchievementsCard } from "@/components/profile/AchievementsCard";
 import { ProfileRecommendationsPreview } from "@/components/profile/ProfileRecommendationsPreview";
 import { ProfileListsPreview } from "@/components/profile/ProfileListsPreview";
 import { ProfileMediaCarousel } from "@/components/profile/ProfileMediaCarousel";
@@ -557,19 +558,29 @@ export default function ProfileScreen() {
         </View>
 
         {/*
-          DECISÃO (2026-10-16, a pedido — backend real dos 4 emblemas
-          já pronto) — a entrada de CONQUISTAS NÃO volta pro Perfil.
-          Pausada em 2026-10-15 (ver histórico — ainda sem critérios
-          definidos pros 24 emblemas novos), e quando o piloto ficou
-          pronto o usuário pediu explicitamente pra entrada morar em
-          Configurações (`app/settings/index.tsx`, chave
-          `settings.achievements`) em vez de voltar aqui — não é mais
-          "pausado esperando decisão", é a decisão final de onde o
-          acesso vive. Estilos (`achievementsEntry*`, abaixo) ficaram
-          sem uso — não removidos agora pra não misturar limpeza de
-          código morto com esta mudança, mas podem sair numa auditoria
-          futura.
+          REVERTIDO (2026-10-17, a pedido — mockup aprovado do card
+          "Conquistas" com 3 cenários, pergunta explícita respondida
+          "Volta pro Perfil") — a decisão de 2026-10-16 (ver histórico
+          abaixo) foi substituída: o card volta pro Perfil, entre
+          "Minha Jornada" e "Recomendações", igual ao mockup. A entrada
+          em Configurações (`settings.achievements`) continua existindo
+          também — não foi pedido removê-la, as duas levam pra mesma
+          tela (`/profile/achievements`).
+
+          DECISÃO ANTERIOR (2026-10-16, a pedido — backend real dos 4
+          emblemas já pronto, preservada como histórico): a entrada de
+          Conquistas não voltava pro Perfil, só vivia em Configurações.
+          Pausada em 2026-10-15 (ainda sem critérios definidos pros 24
+          emblemas novos), depois virou decisão final até esta reversão.
+          Estilos (`achievementsEntry*`, no fim deste arquivo) ficaram
+          sem uso desde 2026-10-16 — continuam sem uso agora também (o
+          card novo é outro componente, `AchievementsCard`), não
+          removidos ainda pra não misturar limpeza de código morto com
+          esta mudança.
         */}
+        <View style={styles.section}>
+          <AchievementsCard />
+        </View>
 
         <View style={styles.sectionsWrapper}>
           {/*
