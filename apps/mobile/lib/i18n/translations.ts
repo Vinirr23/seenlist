@@ -734,10 +734,17 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.emptyUpcoming": "Nenhum filme da sua lista 'Assistir depois' tem estreia futura conhecida.",
 
     // NOVO (a pedido, 2026-10-15 — "O que assistir?": botão + sheet de sugestão única, Filmes → Minha Lista → Assistir a seguir).
-    "whatToWatch.button": "O que assistir?",
-    "whatToWatch.sheetTitle": "Minha sugestão para hoje",
+    // CORREÇÃO (2026-10-17, feedback de revisão — "devolve a frase, mas preciso de ideias", mockup aprovado com ícone de embaralhar) — era "O que assistir?"; "Escolhe pra mim" casa melhor com o ícone de embaralhar e com o tom de "deixa que eu decido" do botão.
+    "whatToWatch.button": "Escolhe pra mim",
+    // CORREÇÃO (2026-10-17, feedback de revisão — "mais curto, transmite escolha rápida") — era "Minha sugestão para hoje".
+    "whatToWatch.sheetTitle": "Que tal este?",
     "whatToWatch.watchNow": "Ver filme",
     "whatToWatch.anotherSuggestion": "Outra sugestão",
+    // NOVO (2026-10-17, feedback de revisão — justificativa da sugestão, "por que esse filme foi escolhido pra mim"). Só aparece quando há dado real (ver `classifySuggestionReason` em `WhatToWatchSheet.tsx`) — nunca as duas juntas, nunca inventada sem dado.
+    "whatToWatch.reasonTopRated": "Uma das melhores notas da sua lista",
+    "whatToWatch.reasonWellRated": "Bem avaliado pelo público",
+    // NOVO (2026-10-16, a pedido — sugestão limitada aos 3 melhores da lista; depois disso vem de populares do TMDB ainda não assistidos) — motivo pra essa 2ª fase, já que não é mais sobre a nota da PRÓPRIA lista.
+    "whatToWatch.reasonPopular": "Em alta no momento",
 
     "feed.errorLoadFeed": "Não foi possível carregar o Feed agora. Tente de novo em instantes.",
     "feed.emptyFeed": "Ninguém publicou nada ainda. Seja o primeiro — toque no botão + aqui embaixo.",
@@ -1608,10 +1615,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.exploreMovies": "Explore movies",
     "moviesHome.emptyUpcoming": "No movies in your 'Watch later' list have a known future release.",
 
-    "whatToWatch.button": "What should I watch?",
-    "whatToWatch.sheetTitle": "My suggestion for today",
+    "whatToWatch.button": "Pick for me",
+    "whatToWatch.sheetTitle": "How about this?",
     "whatToWatch.watchNow": "View movie",
     "whatToWatch.anotherSuggestion": "Another suggestion",
+    "whatToWatch.reasonTopRated": "One of the top ratings on your list",
+    "whatToWatch.reasonWellRated": "Well rated by audiences",
+    "whatToWatch.reasonPopular": "Trending right now",
 
     "feed.errorLoadFeed": "Couldn't load the Feed right now. Try again shortly.",
     "feed.emptyFeed": "No one has posted anything yet. Be the first — tap the + button below.",
@@ -2433,10 +2443,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     "moviesHome.exploreMovies": "Explorar películas",
     "moviesHome.emptyUpcoming": "Ninguna película de tu lista 'Ver más tarde' tiene un estreno futuro conocido.",
 
-    "whatToWatch.button": "¿Qué debería ver?",
-    "whatToWatch.sheetTitle": "Mi sugerencia de hoy",
+    "whatToWatch.button": "Elige por mí",
+    "whatToWatch.sheetTitle": "¿Qué tal esta?",
     "whatToWatch.watchNow": "Ver película",
     "whatToWatch.anotherSuggestion": "Otra sugerencia",
+    "whatToWatch.reasonTopRated": "Una de las mejores notas de tu lista",
+    "whatToWatch.reasonWellRated": "Bien valorada por el público",
+    "whatToWatch.reasonPopular": "Tendencia en este momento",
 
     "feed.errorLoadFeed": "No se pudo cargar el Feed ahora. Inténtalo de nuevo en un momento.",
     "feed.emptyFeed": "Todavía nadie publicó nada. Sé el primero — toca el botón + aquí abajo.",
