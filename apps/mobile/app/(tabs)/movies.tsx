@@ -12,6 +12,7 @@ import { PosterGridItem, usePosterCardWidth, POSTER_GRID_GAP } from "@/component
 import { MediaListRow } from "@/components/media/MediaListRow";
 import { WhatToWatchSheet } from "@/components/media/WhatToWatchSheet";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 import { ViewModeToggle } from "@/components/media/ViewModeToggle";
 import { LibraryGridSkeleton } from "@/components/media/LibraryGridSkeleton";
 import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
@@ -70,6 +71,8 @@ function upcomingLabel(releaseDate: string, todayKey: string, t: TFunction, date
 export default function MoviesScreen() {
   const router = useRouter();
   const tabBarClearance = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll, resetDockVisible } = useDockVisibility();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
   // NOVO (a pedido, 2026-10-15 — "O que assistir?"). Ver `components/media/WhatToWatchSheet.tsx` pro resto da feature.
   const [whatToWatchOpen, setWhatToWatchOpen] = useState(false);
@@ -311,6 +314,12 @@ export default function MoviesScreen() {
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
           numColumns={viewMode === "grid" ? 3 : 1}
           columnWrapperStyle={viewMode === "grid" ? styles.gridRow : undefined}
+          // NOVO (a pedido, 2026-10-16) — "Em breve" não tem o botão
+          // "Escolhe pra mim" (só aparece em "Minha Lista"), mas agora
+          // precisa esconder/mostrar a barra de navegação ao rolar — ver
+          // `lib/useDockVisibility.tsx`.
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
           contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           ListHeaderComponent={

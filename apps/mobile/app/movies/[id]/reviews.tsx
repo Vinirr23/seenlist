@@ -5,6 +5,7 @@ import { Screen, ScreenHeader } from "@/components/ui";
 import { spacing, colors } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /** A PEDIDO (implementar tudo igual ao web) — mesma tela de `app/series/[id]/reviews.tsx`, pro filme. */
 export default function MovieReviewsScreen() {
@@ -16,6 +17,8 @@ export default function MovieReviewsScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const { t } = useTranslation();
   const { id, title, posterPath } = useLocalSearchParams<{ id: string; title: string; posterPath: string }>();
   const numericId = Number(id);
@@ -39,7 +42,12 @@ export default function MovieReviewsScreen() {
         * `app/series/[id]/reviews.tsx` — tela gêmea, mesmos componentes
         * compartilhados `ReviewComposer`/`ReviewCard`, agora planos).
         */}
-      <ScrollView style={styles.flex} contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
+      <ScrollView
+        style={styles.flex}
+        onScroll={reportDockScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
+      >
         {/* A PEDIDO (2026-09-25, "a avaliação na tab 'sobre' e a tab 'mais' estão ficando duplicadas") — filme avalia (nota) pela aba "Mais" agora; esta tela vira só comentário. */}
         <ReviewsFullView
           target={{ mediaType: "movie", mediaId: numericId }}

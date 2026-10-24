@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { View, StyleSheet, FlatList } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -16,6 +16,7 @@ import { spacing } from "@/lib/theme";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * TASK-116 (correção — Perfil) — porta de FavoriteSeriesPageView.tsx, reaproveitando usePublicFavorites (já existia, perfil público) com o próprio userId.
@@ -43,6 +44,12 @@ export default function FavoriteSeriesScreen() {
   // quando o id chega.
   const { items, isLoading, isError, refetch } = usePublicFavorites(session?.user.id);
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("profile-favorite-series");
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de
+  // navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll, resetDockVisible } = useDockVisibility();
+  useEffect(() => {
+    resetDockVisible();
+  }, [viewMode, resetDockVisible]);
   const cardWidth = usePosterCardWidth();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -95,6 +102,8 @@ export default function FavoriteSeriesScreen() {
           data={series}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
           numColumns={3}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           columnWrapperStyle={styles.gridRow}
           renderItem={({ item }) => <PosterGridItem item={item} onPress={handlePress} cardWidth={cardWidth} />}
@@ -104,6 +113,8 @@ export default function FavoriteSeriesScreen() {
           key="list"
           data={series}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, styles.listRows, { paddingBottom: espacoDoDock }]}
           renderItem={({ item }) => (
             <MediaListRow item={item} onPress={handlePress} secondaryText={item.year ? String(item.year) : ""} />

@@ -21,6 +21,7 @@ import { fetchPollDataFor, type PollData } from "@/lib/social/polls";
 import { supabase, getCurrentAuthUser } from "@/lib/supabase";
 import { colors, spacing, radius, elevation, fontSize } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 
 /**
@@ -69,6 +70,14 @@ import { useTranslation } from "@/lib/i18n/LocaleProvider";
  */
 export default function FeedScreen() {
   const tabBarClearance = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de
+  // navegações o esconder ao rolar") — `lib/useDockVisibility.tsx`.
+  // NÃO confundir com o comentário em `listRef` (abaixo) sobre
+  // "deliberadamente sem onScroll/tracking de posição": aquela decisão
+  // era específica do recurso do banner "↑ Novidades" (2026-10-01, não
+  // precisava saber a posição de scroll pra nada); este `onScroll` é
+  // novo, independente, e serve só a barra de navegação.
+  const { reportDockScroll, resetDockVisible } = useDockVisibility();
   /**
    * A PEDIDO (2026-10-01, header do Feed — "Para você / Seguindo") —
    * `scope` decide qual aba está ativa; muda a identidade de `load`
@@ -76,6 +85,12 @@ export default function FeedScreen() {
    * aba já dispara a recarga sozinho, sem nenhum efeito extra aqui.
    */
   const [scope, setScope] = useState<FeedScope>("forYou");
+  // Trocar de aba ("Para você"/"Seguindo") troca pra uma lista nova,
+  // do topo — zera a barra de navegação junto (mesmo raciocínio do
+  // `useEffect` em `movies.tsx` keyed em `tab`).
+  useEffect(() => {
+    resetDockVisible();
+  }, [scope, resetDockVisible]);
   const { entries, isLoading, isError, refreshing, refetch } = useFeedEntries(scope);
   const { t } = useTranslation();
 
@@ -518,6 +533,8 @@ export default function FeedScreen() {
 
         {isError ? (
           <ScrollView
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[styles.content, reservedTopStyle, { paddingBottom: tabBarClearance }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />}
           >
@@ -525,6 +542,8 @@ export default function FeedScreen() {
           </ScrollView>
         ) : isLoading ? (
           <ScrollView
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[styles.content, reservedTopStyle, { paddingBottom: tabBarClearance }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />}
           >
@@ -547,6 +566,8 @@ export default function FeedScreen() {
           // no cabeçalho do módulo "Seus amigos estão assistindo", ver
           // `FeedFriendsWatchingModule.tsx`).
           <ScrollView
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[styles.content, reservedTopStyle, { paddingBottom: tabBarClearance }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />}
           >
@@ -561,6 +582,8 @@ export default function FeedScreen() {
             ref={listRef}
             data={entries}
             keyExtractor={(entry) => entry.id}
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[styles.content, styles.list, reservedTopStyle, { paddingBottom: tabBarClearance }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />}
             initialNumToRender={6}

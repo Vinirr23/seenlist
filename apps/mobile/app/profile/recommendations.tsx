@@ -19,6 +19,7 @@ import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * TASK-169 — porta de `RecommendationsPageView.tsx` do web. Marca
@@ -44,6 +45,8 @@ export default function RecommendationsScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" }), [locale]);
@@ -145,6 +148,8 @@ export default function RecommendationsScreen() {
         <FlatList
           data={recommendations}
           keyExtractor={(rec) => rec.id}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           ListEmptyComponent={<EmptyState message={t("profile.noRecommendationsYet")} />}
           renderItem={({ item: rec }) => (

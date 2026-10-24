@@ -17,6 +17,7 @@ import {
 } from "@expo-google-fonts/plus-jakarta-sans";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
+import { DockVisibilityProvider } from "@/lib/useDockVisibility";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { DockNavegacao } from "@/components/layout/DockNavegacao";
@@ -316,10 +317,22 @@ export default function RootLayout() {
               <StatusBar style="light" />
               <OfflineBanner />
               <ErrorBoundary>
-                <BlurTargetView ref={alvoDaTela} style={styles.conteudo}>
-                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
-                </BlurTargetView>
-                <ChromeDeNavegacao alvoDaTela={alvoDaTela} />
+                {/*
+                  * NOVO (2026-10-16, a pedido — "em todas as telas
+                  * adiciona a barra de navegações o esconder ao rolar")
+                  * — `DockVisibilityProvider` precisa envolver tanto a
+                  * `Stack` (onde as TELAS vivem e relatam rolagem) quanto
+                  * `ChromeDeNavegacao` (onde a barra LÊ esse estado pra se
+                  * esconder/reaparecer) — os dois são irmãos, nenhum é
+                  * filho do outro, daí o Context em vez de prop direta.
+                  * Ver `lib/useDockVisibility.tsx` pro resto.
+                  */}
+                <DockVisibilityProvider>
+                  <BlurTargetView ref={alvoDaTela} style={styles.conteudo}>
+                    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+                  </BlurTargetView>
+                  <ChromeDeNavegacao alvoDaTela={alvoDaTela} />
+                </DockVisibilityProvider>
                 {/*
                   * NOVO (2026-10-07) — "Novidades" (modal comemorativo,
                   * opção A do mockup aprovado). Mesmo nível de

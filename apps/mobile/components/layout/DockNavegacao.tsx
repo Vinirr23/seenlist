@@ -11,6 +11,7 @@ import { fetchUnreadRecommendationsCount } from "@/lib/recommendations";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * A MESMA imagem de brilho já desfocada que o `AmbientGlow`
@@ -274,6 +275,8 @@ export function DockNavegacao({ alvoDaTela }: { alvoDaTela: RefObject<View | nul
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user?.id;
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { dockOpacity, dockTranslateY, dockHidden } = useDockVisibility();
   /*
    * CORREÇÃO DE CAUSA RAIZ (2026-09-17, typecheck real — "Tuple type
    * '[string]' of length '1' has no element at index '1'" em
@@ -407,7 +410,26 @@ export function DockNavegacao({ alvoDaTela }: { alvoDaTela: RefObject<View | nul
 
   return (
     <View style={[styles.dockWrap, { bottom: insets.bottom + DOCK_FLOATING_GAP }]} pointerEvents="box-none">
-      <View style={styles.dockGlassTarget}>
+      {/*
+        NOVO (2026-10-16, a pedido — "em todas as telas adiciona a
+        barra de navegações o esconder ao rolar") — `dockOpacity`/
+        `dockTranslateY` vêm do `DockVisibilityProvider`
+        (`lib/useDockVisibility.tsx`, montado em `app/_layout.tsx`,
+        envolvendo tanto a `Stack` de telas quanto este componente).
+        Cada tela aprovada reporta sua rolagem pro Provider
+        (`onScroll={reportDockScroll}`); o Provider decide show/hide e
+        anima os dois valores aqui — este componente só CONSOME,
+        nunca decide sozinho. `pointerEvents="none"` enquanto escondida
+        evita toque num dock fora da tela (mesma técnica já usada no
+        botão "Escolhe pra mim" de `movies.tsx`).
+      */}
+      <Animated.View
+        style={[
+          styles.dockGlassTarget,
+          { opacity: dockOpacity, transform: [{ translateY: dockTranslateY }] },
+        ]}
+        pointerEvents={dockHidden ? "none" : "box-none"}
+      >
         {/*
           O alvo de desfoque da barra é a `BlurTargetView` que envolve o
           CONTEÚDO DE TELA (ver `RootLayout`, em `app/_layout.tsx`), não um alvo próprio — é
@@ -524,7 +546,7 @@ export function DockNavegacao({ alvoDaTela }: { alvoDaTela: RefObject<View | nul
             );
           })}
         </Glass>
-      </View>
+      </Animated.View>
     </View>
   );
 }

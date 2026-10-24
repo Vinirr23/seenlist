@@ -23,6 +23,7 @@ import { colors, radius, spacing, tint, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * A PEDIDO (2026-09-15 — sino de notificações no Perfil, web +
@@ -124,6 +125,8 @@ function getNotificationRoute(n: AppNotification): string | null {
 
 export default function NotificationsScreen() {
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: "2-digit", month: "short" }), [locale]);
@@ -284,6 +287,8 @@ export default function NotificationsScreen() {
           <FlatList
             data={notifications}
             keyExtractor={(n) => n.id}
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
             ListEmptyComponent={<EmptyState message={t("notifications.empty")} />}
             renderItem={({ item: n }) => {

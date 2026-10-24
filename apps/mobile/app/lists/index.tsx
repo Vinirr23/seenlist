@@ -9,6 +9,7 @@ import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * REDESIGN "MINHAS LISTAS" (2026-10-07, aprovado pelo usuário — ver
@@ -39,6 +40,8 @@ const GRID_GAP = spacing.sm;
 
 export default function ListsScreen() {
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { width } = useWindowDimensions();
@@ -90,7 +93,11 @@ export default function ListsScreen() {
         <ScreenHeader title={t("profile.myLists")} />
 
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
-          <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
+          <ScrollView
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
+            contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
+          >
             {showForm && (
               <View style={styles.form}>
                 <TextInput

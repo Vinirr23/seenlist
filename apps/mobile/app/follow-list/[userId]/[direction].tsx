@@ -12,6 +12,7 @@ import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * TASK-107 — porta de `UserListPageView.tsx`: uma tela só serve as
@@ -29,6 +30,8 @@ export default function FollowListScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const router = useRouter();
   const { t } = useTranslation();
   const { userId: rawUserId, direction: rawDirection } = useLocalSearchParams<{ userId: string; direction: string }>();
@@ -92,6 +95,8 @@ export default function FollowListScreen() {
             data={users}
             keyExtractor={(item) => item.userId}
             renderItem={({ item }) => <FollowListRow user={item} />}
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[styles.listContent, { paddingBottom: espacoDoDock }]}
           />
         )}

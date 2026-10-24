@@ -32,6 +32,7 @@ import { hapticTick } from "@/lib/haptics";
 import { colors, radius, spacing, fontSize, fontFamily, elevation, scrim, tint } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 import { useCurrentUser } from "@/lib/useCurrentUser";
 
 /**
@@ -735,6 +736,8 @@ export default function ListDetailScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -1371,7 +1374,11 @@ export default function ListDetailScreen() {
           pequenas aqui (poucos títulos por lista compartilhada) — sem
           virtualização não é um problema real de performance.
         */
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
+        <ScrollView
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
+        >
           {movieItems.length === 0 && seriesItems.length === 0 ? (
             <EmptyShelf icon="film" message={t("profile.emptyListMessage")} />
           ) : (
@@ -1468,6 +1475,8 @@ export default function ListDetailScreen() {
           data={items}
           keyExtractor={(item) => item.id}
           numColumns={3}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           columnWrapperStyle={styles.gridRow}
           ListEmptyComponent={<EmptyShelf icon="film" message={t("profile.emptyListMessage")} />}

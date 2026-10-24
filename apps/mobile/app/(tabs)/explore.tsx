@@ -8,6 +8,7 @@ import { ExploreMoviesTab } from "@/components/explore/ExploreMoviesTab";
 import { ExploreSeriesTab } from "@/components/explore/ExploreSeriesTab";
 import { spacing } from "@/lib/theme";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * PORTE DO WEB (2026-09-02 — "vamos implementar as mudanças que
@@ -68,6 +69,14 @@ const EXPLORE_GLOW_BLOBS: GlowBlob[] = [
 export default function ExploreScreen() {
   const tabBarClearance = useTabBarClearance();
   const [query, setQuery] = useState("");
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll, resetDockVisible } = useDockVisibility();
+  // A busca e as abas (Filmes/Séries) usam duas `ScrollView` DIFERENTES
+  // (mutuamente exclusivas — ver JSX abaixo); trocar entre elas monta
+  // uma `ScrollView` nova do offset 0, então zera a barra junto.
+  useEffect(() => {
+    resetDockVisible();
+  }, [query === "" ? "tabs" : "search", resetDockVisible]);
   const [tab, setTab] = useState<ExploreTab>("movies");
   /**
    * CORREÇÃO DE CAUSA RAIZ (2026-09-27, Etapa 3 — bug real reportado:
@@ -112,7 +121,11 @@ export default function ExploreScreen() {
         </View>
 
         {query ? (
-          <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
+          <ScrollView
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
+            contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+          >
             <SearchResults query={query} />
           </ScrollView>
         ) : (
@@ -137,6 +150,8 @@ export default function ExploreScreen() {
               * própria implementação, em `app/(tabs)/feed.tsx`.
               */}
             <ScrollView
+              onScroll={reportDockScroll}
+              scrollEventThrottle={16}
               contentContainerStyle={[styles.discoverContent, { paddingBottom: tabBarClearance }]}
             >
               {subAbasVisitadas.has("movies") && (

@@ -18,6 +18,7 @@ import { PublicMediaSectionsList } from "@/components/profile/PublicMediaSection
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 const joinDateFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 
@@ -103,6 +104,8 @@ export default function PublicProfileScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const router = useRouter();
   const { t } = useTranslation();
   const { username: rawUsername } = useLocalSearchParams<{ username: string }>();
@@ -183,7 +186,7 @@ export default function PublicProfileScreen() {
         * completo em `app/(tabs)/profile.tsx`.
         */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={PUBLIC_PROFILE_GLOW_BLOBS} />}>
-        <ScrollView contentContainerStyle={{ paddingBottom: espacoDoDock }}>
+        <ScrollView onScroll={reportDockScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: espacoDoDock }}>
           {profile.bannerUrl ? (
             /*
              * REDESENHO "CAPA CURTA E MINIMALISTA" (2026-09-16, a

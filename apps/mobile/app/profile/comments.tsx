@@ -14,6 +14,7 @@ import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { INTL_LOCALES } from "@/lib/i18n/translations";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * TASK-116 (correção — Perfil) — porta de `MyCommentsPageView.tsx` +
@@ -38,6 +39,8 @@ export default function MyCommentsScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const dateFormatter = useMemo(
@@ -171,6 +174,8 @@ export default function MyCommentsScreen() {
             data={comments}
             keyExtractor={(comment) => comment.id}
             renderItem={renderItem}
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[styles.content, styles.list, { paddingBottom: espacoDoDock }]}
           />
         )}

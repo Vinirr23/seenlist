@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { View, StyleSheet, FlatList } from "react-native";
 import { useRouter } from "expo-router";
 import { useLibraryItems } from "@/lib/useLibraryItems";
@@ -15,6 +15,7 @@ import { spacing } from "@/lib/theme";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * TASK-116 (correção — Perfil) — porta de ProfileMoviesSection.tsx: só filmes "Assistido", sem categorias, sem barra de cor.
@@ -42,6 +43,12 @@ export default function ProfileMoviesScreen() {
   const { t } = useTranslation();
   const { items, isLoading, isError, refetch } = useLibraryItems();
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("profile-movies");
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de
+  // navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll, resetDockVisible } = useDockVisibility();
+  useEffect(() => {
+    resetDockVisible();
+  }, [viewMode, resetDockVisible]);
   const cardWidth = usePosterCardWidth();
 
   const watchedMovies = useMemo(
@@ -101,6 +108,8 @@ export default function ProfileMoviesScreen() {
           data={watchedMovies}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
           numColumns={3}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           columnWrapperStyle={styles.gridRow}
           renderItem={({ item }) => <PosterGridItem item={item} onPress={handlePress} cardWidth={cardWidth} />}
@@ -110,6 +119,8 @@ export default function ProfileMoviesScreen() {
           key="list"
           data={watchedMovies}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, styles.listRows, { paddingBottom: espacoDoDock }]}
           renderItem={({ item }) => (
             <MediaListRow item={item} onPress={handlePress} secondaryText={item.year ? String(item.year) : ""} />

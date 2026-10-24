@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { View, StyleSheet, FlatList } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { usePublicProfile, usePublicFavorites } from "@/lib/usePublicProfile";
@@ -14,6 +14,7 @@ import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * PORTE DO WEB (2026-09-03, mesma auditoria — ver comentário completo
@@ -39,6 +40,12 @@ export default function PublicFavoriteSeriesScreen() {
   const { profile, isLoading: isLoadingProfile, isError: isProfileError, refetch: refetchProfile } = usePublicProfile(username);
   const { items, isLoading: isLoadingItems, isError, refetch } = usePublicFavorites(profile?.userId);
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("public-favorite-series");
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de
+  // navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll, resetDockVisible } = useDockVisibility();
+  useEffect(() => {
+    resetDockVisible();
+  }, [viewMode, resetDockVisible]);
   const cardWidth = usePosterCardWidth();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -90,6 +97,8 @@ export default function PublicFavoriteSeriesScreen() {
           data={series}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
           numColumns={3}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           columnWrapperStyle={styles.gridRow}
           renderItem={({ item }) => <PosterGridItem item={item} onPress={handlePress} cardWidth={cardWidth} />}
@@ -99,6 +108,8 @@ export default function PublicFavoriteSeriesScreen() {
           key="list"
           data={series}
           keyExtractor={(item) => `${item.mediaType}-${item.id}`}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, styles.listRows, { paddingBottom: espacoDoDock }]}
           renderItem={({ item }) => (
             <MediaListRow item={item} onPress={handlePress} secondaryText={item.year ? String(item.year) : ""} />

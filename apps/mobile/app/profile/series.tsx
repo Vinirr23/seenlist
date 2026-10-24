@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { View, StyleSheet, SectionList } from "react-native";
 import { useRouter } from "expo-router";
 import { useLibraryItems } from "@/lib/useLibraryItems";
@@ -17,6 +17,7 @@ import { spacing } from "@/lib/theme";
 import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 function chunk<T>(items: T[], size: number): T[][] {
   const rows: T[][] = [];
@@ -55,6 +56,12 @@ export default function ProfileSeriesScreen() {
   const { t } = useTranslation();
   const { items, isLoading, isError, refetch } = useLibraryItems();
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("profile-series");
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de
+  // navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll, resetDockVisible } = useDockVisibility();
+  useEffect(() => {
+    resetDockVisible();
+  }, [viewMode, resetDockVisible]);
   const cardWidth = usePosterCardWidth();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -131,6 +138,8 @@ export default function ProfileSeriesScreen() {
           key={viewMode}
           sections={sections}
           keyExtractor={(row, index) => row.map((i) => i.id).join("-") + index}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           stickySectionHeadersEnabled={false}
           renderSectionHeader={({ section }) => (

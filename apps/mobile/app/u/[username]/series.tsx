@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { View, StyleSheet, SectionList } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { usePublicProfile, usePublicLibraryItems } from "@/lib/usePublicProfile";
@@ -16,6 +16,7 @@ import { LibraryListSkeleton } from "@/components/media/LibraryListSkeleton";
 import { spacing } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 function chunk<T>(items: T[], size: number): T[][] {
   const rows: T[][] = [];
@@ -50,6 +51,12 @@ export default function PublicSeriesScreen() {
   const { profile, isLoading: isLoadingProfile, isError: isProfileError, refetch: refetchProfile } = usePublicProfile(username);
   const { items, isLoading: isLoadingItems, isError, refetch } = usePublicLibraryItems(profile?.userId);
   const { viewMode, setViewMode, isReady: viewModeReady } = useViewModePreference("public-series");
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de
+  // navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll, resetDockVisible } = useDockVisibility();
+  useEffect(() => {
+    resetDockVisible();
+  }, [viewMode, resetDockVisible]);
   const cardWidth = usePosterCardWidth();
 
   const series = useMemo(() => (items ?? []).filter((item) => item.mediaType === "series"), [items]);
@@ -118,6 +125,8 @@ export default function PublicSeriesScreen() {
           key={viewMode}
           sections={sections}
           keyExtractor={(row, index) => row.map((i) => i.id).join("-") + index}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
           stickySectionHeadersEnabled={false}
           renderSectionHeader={({ section }) => (

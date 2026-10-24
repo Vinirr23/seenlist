@@ -10,6 +10,7 @@ import { useDiscoverList } from "@/lib/useDiscoverList";
 import { recalculateUpToDateSeriesCategoriesThrottled, prefetchSeriesDetails } from "@/lib/seriesDetails";
 import { fetchNextEpisodesToWatch, type NextEpisodeToWatch } from "@/lib/nextEpisodeToWatch";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 import { Screen, Text, GlassTargetProvider, AmbientGlow } from "@/components/ui";
 import { PosterGrid } from "@/components/media/PosterGrid";
 import { SectionTitle } from "@/components/media/SectionTitle";
@@ -82,6 +83,14 @@ const STALE_AFTER_DAYS = 14;
 export default function SeriesHomeScreen() {
   const router = useRouter();
   const tabBarClearance = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de
+  // navegações o esconder ao rolar") — as duas `ScrollView` desta tela
+  // ("Minha Lista"/"Em breve") ficam SEMPRE montadas (ver comentário de
+  // `jaMontouMinhaLista`/`jaMontouEmBreve` — só trocam de `style.hidden`,
+  // nunca desmontam), então cada uma já preserva sua própria posição de
+  // rolagem ao trocar de aba — por isso NÃO zera a barra na troca de aba
+  // aqui (diferente de `movies.tsx`, que desmonta/remonta a lista).
+  const { reportDockScroll } = useDockVisibility();
   const [tab, setTab] = useState<HomeTab>("minha-lista");
   /**
    * CORREÇÃO DE RAIZ (2026-09-17, reportado — "mudar de tabs ainda
@@ -718,6 +727,8 @@ export default function SeriesHomeScreen() {
       {jaMontouMinhaLista && (
         <ScrollView
           style={tab === "minha-lista" ? undefined : styles.hidden}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.primary} />}
         >
@@ -1014,6 +1025,8 @@ export default function SeriesHomeScreen() {
       {jaMontouEmBreve && (
         <ScrollView
           style={tab === "minha-lista" ? styles.hidden : undefined}
+          onScroll={reportDockScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
         >
           {upcoming.isLoading ? (

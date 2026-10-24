@@ -10,6 +10,7 @@ import { SUBPAGE_GLOW_BLOBS } from "@/lib/glowBlobs";
 import { colors, radius, spacing, fontSize } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * TASK-110 — porta de `DiscoverUsersView.tsx`. Reaproveita
@@ -25,6 +26,8 @@ export default function DiscoverPeopleScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const { users, isLoading, isError, refetch } = useUserSearch(search);
@@ -77,6 +80,8 @@ export default function DiscoverPeopleScreen() {
             data={users}
             keyExtractor={(item) => item.userId}
             renderItem={({ item }) => <FollowListRow user={item} />}
+            onScroll={reportDockScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[styles.listContent, { paddingBottom: espacoDoDock }]}
           />
         )}

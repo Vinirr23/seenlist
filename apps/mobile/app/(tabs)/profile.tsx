@@ -26,6 +26,7 @@ import { useFollowCounts } from "@/lib/usePublicProfile";
 import { fetchEditableProfile } from "@/lib/editProfile";
 import { useSeriesActivityIds, useMovieActivityIds, useFavoriteIds } from "@/lib/profileMediaCarousel";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 import { Screen, Text, GlassTargetProvider, Glass, PressableScale, AmbientGlow, type GlowBlob } from "@/components/ui";
 import { Avatar } from "@/components/common/Avatar";
 import { VerifiedBadge } from "@/components/common/VerifiedBadge";
@@ -120,6 +121,8 @@ export default function ProfileScreen() {
   const [username, setUsername] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
   const tabBarClearance = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
 
   /**
    * CACHE LOCAL (a pedido — "Perfil abrir instantâneo") — banner/bio/
@@ -236,7 +239,11 @@ export default function ProfileScreen() {
         * tocar mais nesta tela — fundo de volta ao de sempre.
         */}
       <GlassTargetProvider style={styles.glassFill} background={<AmbientGlow blobs={PROFILE_GLOW_BLOBS} />}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
+      <ScrollView
+        onScroll={reportDockScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+      >
         {bannerUrl ? (
           /*
             * REDESENHO "CAPA CURTA E MINIMALISTA" (a pedido — "não

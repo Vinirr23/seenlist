@@ -5,6 +5,7 @@ import { Screen, ScreenHeader } from "@/components/ui";
 import { spacing, colors } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n/LocaleProvider";
 import { useTabBarClearance } from "@/lib/useTabBarClearance";
+import { useDockVisibility } from "@/lib/useDockVisibility";
 
 /**
  * A PEDIDO (implementar tudo igual ao web) — tela própria
@@ -23,6 +24,8 @@ export default function SeriesReviewsScreen() {
    * atrás dela. Mesma conta que as telas de aba já usavam.
    */
   const espacoDoDock = useTabBarClearance();
+  // NOVO (a pedido, 2026-10-16 — "em todas as telas adiciona a barra de navegações o esconder ao rolar") — ver `lib/useDockVisibility.tsx`.
+  const { reportDockScroll } = useDockVisibility();
   const { t } = useTranslation();
   const { id, title, posterPath } = useLocalSearchParams<{ id: string; title: string; posterPath: string }>();
   const numericId = Number(id);
@@ -49,7 +52,12 @@ export default function SeriesReviewsScreen() {
         * mesma receita de superfície do Feed). `styles.glassFill` saiu
         * junto — era só o container do provider.
         */}
-      <ScrollView style={styles.flex} contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}>
+      <ScrollView
+        style={styles.flex}
+        onScroll={reportDockScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.content, { paddingBottom: espacoDoDock }]}
+      >
         <ReviewsFullView
           target={{ mediaType: "series", mediaId: numericId }}
           media={{ title: title ?? "", posterPath: posterPath || null }}
