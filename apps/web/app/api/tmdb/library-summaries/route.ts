@@ -240,27 +240,60 @@ async function writeCache(
 ): Promise<void> {
   if (summaries.length === 0) return;
 
-  const rows = summaries.map((summary) => ({
-    media_type: mediaType,
-    tmdb_id: summary.id,
-    language,
-    title: summary.title,
-    original_title: summary.originalTitle ?? null,
-    year: summary.year,
-    poster_path: summary.posterPath,
-    total_episodes: summary.totalEpisodes ?? null,
-    ended: summary.ended ?? null,
-    runtime_minutes: summary.runtimeMinutes ?? null,
-    release_date: summary.releaseDate ?? null,
-    // MUDOU (2026-10-17, ver comentário grande em `CacheRow.genres`
-    // acima) — grava ids (`genreIds`), não mais nomes.
-    genres: summary.genreIds ?? null,
-    production_countries: mediaType === "movie" ? summary.productionCountries ?? null : null,
-    origin_countries: mediaType === "series" ? summary.originCountries ?? null : null,
-    vote_average: summary.voteAverage ?? null,
-    vote_count: summary.voteCount ?? null,
-    fetched_at: new Date().toISOString(),
-  }));
+  /**
+   * CORREÇÃO (2026-10-29 — investigação dos erros reais de produção
+   * "deadlock detected" em `media_summaries_cache", 29/10, 11:07:03 —
+   * ver doc do projeto
+   * `SEENLIST-INVESTIGACAO-2026-10-29-latencia-intermitente-deadlock-series-season-counts.md`
+   * pro achado completo). Causa raiz: este upsert é MULTI-LINHA, e a
+   * ordem de `rows` antes desta correção seguia a ordem de
+   * `summaries` — que por sua vez vem da ordem em que o CLIENTE mandou
+   * os ids (`body.movieIds`/`body.seriesIds`, ordem da biblioteca de
+   * cada usuário) e ainda podia ser reordenada por `settleSummaries`
+   * (um id que só funciona na retentativa entra no FINAL da lista,
+   * fora da ordem original) — ou seja, SEM nenhuma ordem estável entre
+   * requisições diferentes.
+   *
+   * O Postgres, num upsert multi-linha, trava as linhas na ordem em
+   * que chegam na instrução. Duas requisições concorrentes com
+   * filmes/séries sobrepostos (ex.: duas pessoas acompanhando a mesma
+   * série popular) em ordens diferentes podiam formar um ciclo de
+   * espera — o Postgres mata uma das duas com "deadlock detected".
+   *
+   * Fix: ordenar `rows` por `tmdb_id` (chave estável) ANTES do
+   * upsert — dentro de uma chamada de `writeCache`, `media_type` e
+   * `language` já são constantes pra todas as linhas (só um valor de
+   * cada por chamada), então `tmdb_id` é a única parte que varia da
+   * chave de conflito (`onConflict: "media_type,tmdb_id,language"`) —
+   * ordenar só por ele já garante que toda requisição concorrente do
+   * MESMO tipo de mídia trave as linhas sempre na mesma ordem,
+   * eliminando o ciclo. Não muda NENHUM dado gravado, nenhuma resposta
+   * ao app, nenhuma lógica de cache — só a ordem em que as linhas
+   * chegam ao Postgres.
+   */
+  const rows = summaries
+    .map((summary) => ({
+      media_type: mediaType,
+      tmdb_id: summary.id,
+      language,
+      title: summary.title,
+      original_title: summary.originalTitle ?? null,
+      year: summary.year,
+      poster_path: summary.posterPath,
+      total_episodes: summary.totalEpisodes ?? null,
+      ended: summary.ended ?? null,
+      runtime_minutes: summary.runtimeMinutes ?? null,
+      release_date: summary.releaseDate ?? null,
+      // MUDOU (2026-10-17, ver comentário grande em `CacheRow.genres`
+      // acima) — grava ids (`genreIds`), não mais nomes.
+      genres: summary.genreIds ?? null,
+      production_countries: mediaType === "movie" ? summary.productionCountries ?? null : null,
+      origin_countries: mediaType === "series" ? summary.originCountries ?? null : null,
+      vote_average: summary.voteAverage ?? null,
+      vote_count: summary.voteCount ?? null,
+      fetched_at: new Date().toISOString(),
+    }))
+    .sort((a, b) => a.tmdb_id - b.tmdb_id);
 
   // Gravar o cache nunca pode derrubar a resposta ao usuário — só
   // registra o aviso e segue (a próxima requisição tenta de novo).
