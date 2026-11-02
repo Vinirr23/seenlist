@@ -1,0 +1,22 @@
+-- Retrospectiva do Ano ("Seu ano") descontinuada — decisão de
+-- 2026-11-02. Nenhuma plataforma tinha rota própria pra essa
+-- funcionalidade (mobile nunca teve tela alguma; no web era só um
+-- modal montado em apps/web/app/(main)/layout.tsx, sem URL
+-- dedicada) — os dois arquivos que a implementavam no web
+-- (components/profile/YearInReviewModal.tsx e
+-- lib/queries/yearInReview.ts) foram removidos no mesmo lote desta
+-- mudança, junto com as chaves de tradução "yearInReview.*".
+--
+-- Confirmado antes desta migration, via consulta ao catálogo:
+--   - nenhuma outra função, view ou RLS policy referencia
+--     get_year_activity_percentile (busca em pg_proc.prosrc,
+--     pg_views.definition, pg_policies.qual/with_check);
+--   - a função não tem tabela, índice ou trigger próprios — a
+--     migration original (20260821000000_year_in_review_percentile)
+--     criou só a função + um grant, nada mais;
+--   - nenhum cron job (cron.job) a chama.
+--
+-- Não toca em watched_episodes nem movie_status — a função só LIA
+-- dessas tabelas (nunca escreveu), então nenhum dado histórico de
+-- usuário é afetado por esta remoção.
+drop function if exists public.get_year_activity_percentile(integer);

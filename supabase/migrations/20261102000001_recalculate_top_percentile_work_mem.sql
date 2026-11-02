@@ -1,0 +1,22 @@
+-- Ajuste de memória pra recalculate_top_percentile_achievements(),
+-- evidenciado por EXPLAIN (ANALYZE, BUFFERS) real em 2026-11-02 (ver
+-- documento de investigação da lentidão intermitente): a CTE
+-- `episodes` dessa função ordena ~1,26 milhão de linhas de
+-- watched_episodes pra contar episódios distintos por usuário. Com
+-- work_mem padrão da instância (2.1MB), parte dos grupos ordenados
+-- cai em "external merge" e derrama pra disco (medido: até 1.552KB
+-- de temp por execução). Repetindo o mesmo EXPLAIN com
+-- `set local work_mem = '8MB'` (sem alterar nada de verdade, só
+-- testando), o derramamento em disco desaparece por completo — pico
+-- real de memória medido: 3.438KB, então 8MB dá margem confortável
+-- sem exagerar.
+--
+-- Escopado só a esta função, via `alter function ... set` — não
+-- altera a configuração global da instância nem afeta as outras
+-- conexões; coexiste com o `set search_path to 'public'` que a
+-- função já tem (pode ter várias cláusulas SET, uma por parâmetro).
+-- Ela só roda 1x por hora via pg_cron
+-- (job recalculate-top-percentile-achievements-hourly), então o
+-- custo extra de memória é de uma conexão por vez, não multiplicado
+-- pelas outras conexões da instância.
+alter function public.recalculate_top_percentile_achievements() set work_mem = '8MB';
